@@ -37,6 +37,8 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
   const [editPaymentMode, setEditPaymentMode] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [combinedSitePurposeOptions, setCombinedSitePurposeOptions] = useState([]);
+  const [laboursList, setLaboursList] = useState([]);
+  const [employeeOptions, setEmployeeOptions] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [overallLoan, setOverallLoan] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -144,11 +146,11 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
   ], []);
 
   const finalPaymentModeOptions = paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
-  
+
   // Get unique Associate names from loanData for filter dropdown (only show what exists in table)
   const uniqueAssociateOptions = useMemo(() => {
     const associateSet = new Set();
-    
+
     // Helper function to get client name by project ID
     const getClientNameByProjectId = (projectId) => {
       if (projectId === null || projectId === undefined) return "";
@@ -159,23 +161,23 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       if (!projectName) return "";
       return projectClientNamesByName[projectName.trim().toLowerCase()] || "";
     };
-    
+
     loanData.forEach(entry => {
       // Get associate name using the same logic as getAssociateName
       const clientName = getClientNameByProjectId(entry.project_id);
-      const vendorName = entry.vendor_id 
+      const vendorName = entry.vendor_id
         ? vendorOptions.find(v => v.id === entry.vendor_id)?.value || ""
         : "";
       const contractorName = entry.contractor_id
         ? contractorOptions.find(c => c.id === entry.contractor_id)?.value || ""
         : "";
-      
+
       const associateName = clientName || vendorName || contractorName || "";
       if (associateName) {
         associateSet.add(associateName);
       }
     });
-    
+
     // Convert to array and format for Select component
     return Array.from(associateSet)
       .sort()
@@ -184,27 +186,27 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         label: name
       }));
   }, [loanData, vendorOptions, contractorOptions, projectClientNamesById, projectClientNamesByName, siteOptions]);
-  
+
   const associateFilterOptions = useMemo(() => (
     uniqueAssociateOptions.length > 0 ? uniqueAssociateOptions : (clientOptions.length ? clientOptions : combinedOptions)
   ), [uniqueAssociateOptions, clientOptions, combinedOptions]);
-  
+
   // Get unique Type values from loanData for filter dropdown
   const uniqueTypes = useMemo(() => {
     const types = [...new Set(loanData.map(entry => entry.type).filter(Boolean))];
     return types.sort();
   }, [loanData]);
-  
+
   // Get unique Payment Mode values from loanData for filter dropdown
   const uniquePaymentModes = useMemo(() => {
     const modes = [...new Set(loanData.map(entry => entry.loan_payment_mode).filter(Boolean))];
     return modes.sort();
   }, [loanData]);
-  
+
   // Get unique Project/Purpose names from loanData for filter dropdown (only show what exists in table)
   const uniqueProjectPurposeOptions = useMemo(() => {
     const projectPurposeSet = new Set();
-    
+
     loanData.forEach(entry => {
       // Get project name if project_id exists
       if (entry.project_id) {
@@ -214,7 +216,7 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
           projectPurposeSet.add(projectName);
         }
       }
-      
+
       // Get purpose name if from_purpose_id exists
       if (entry.from_purpose_id) {
         const purposeOption = purposeOptions.find(p => p.id === entry.from_purpose_id);
@@ -223,7 +225,7 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         }
       }
     });
-    
+
     // Convert to array and format for Select component
     return Array.from(projectPurposeSet)
       .sort()
@@ -232,7 +234,7 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         label: name
       }));
   }, [loanData, siteOptions, purposeOptions]);
-  
+
   const customStyles = useMemo(() => ({
     control: (provided, state) => ({
       ...provided,
@@ -249,6 +251,10 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     vendorOptions.find(v => v.id === id)?.value || "";
   const getContractorName = (id) =>
     contractorOptions.find(c => c.id === id)?.value || "";
+  const getEmployeeName = (id) =>
+    employeeOptions.find(c => c.id === id)?.value || "";
+  const getLabourName = (id) =>
+    laboursList.find(l => l.id === id)?.value || "";
   const getSiteName = (id) =>
     siteOptions.find(s => String(s.id) === String(id))?.value || "";
   const getClientNameByProjectId = (projectId) => {
@@ -264,6 +270,9 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       (entry.vendor_id
         ? getVendorName(entry.vendor_id)
         : getContractorName(entry.contractor_id)) ||
+      (entry.employee_id
+        ? getEmployeeName(entry.employee_id)
+        : getLabourName(entry.labour_id)) ||
       "";
   };
   const totalLoanAmount = loanData
@@ -334,6 +343,58 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       }
     };
     fetchContractorNames();
+  }, []);
+  useEffect(() => {
+    fetchLaboursList();
+  }, []);
+  const fetchLaboursList = async () => {
+    try {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
+      if (response.ok) {
+        const data = await response.json();
+        const formattedData = data.map(item => ({
+          value: item.labour_name,
+          label: item.labour_name,
+          id: item.id,
+          type: "Labour",
+          salary: item.labour_salary,
+          extra: item.extra_amount
+        }));
+        setLaboursList(formattedData);
+      } else {
+        console.log('Error fetching Labour names.');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      console.log('Error fetching Labour names.');
+    }
+  };
+  useEffect(() => {
+    const fetchEmployeeDetails = async () => {
+      try {
+        const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        if (!response.ok) {
+          throw new Error("Network response was not ok: " + response.statusText);
+        }
+        const data = await response.json();
+        const formattedData = data.map(item => ({
+          value: item.employee_name,
+          label: item.employee_name,
+          id: item.id,
+          type: "Employee",
+        }));
+        setEmployeeOptions(formattedData);
+      } catch (error) {
+        console.error("Fetch error: ", error);
+      }
+    };
+    fetchEmployeeDetails();
   }, []);
   useEffect(() => {
     setCombinedOptions([...vendorOptions, ...contractorOptions]);
@@ -539,19 +600,19 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       sortableData.sort((a, b) => {
         const entryNoA = parseInt(a.entry_no) || 0;
         const entryNoB = parseInt(b.entry_no) || 0;
-        
+
         // Primary sort: entry_no descending (higher entry_no = newer)
         if (entryNoB !== entryNoA) {
           return entryNoB - entryNoA;
         }
-        
+
         // Secondary sort: If entry_no is same, use timestamp if available
         if (a.timestamp && b.timestamp) {
           const timestampA = new Date(a.timestamp);
           const timestampB = new Date(b.timestamp);
           return timestampB - timestampA;
         }
-        
+
         // Tertiary sort: If no timestamp, use date (newest first)
         const dateA = new Date(a.date);
         const dateB = new Date(b.date);
@@ -604,31 +665,31 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     ];
     const rows = sortedData.map((entry, index) => {
       // Get purpose (project_id or from_purpose_id)
-      const purposeValue = getSiteName(entry.project_id) || 
-        purposeOptions.find(p => p.id === entry.from_purpose_id)?.value || 
+      const purposeValue = getSiteName(entry.project_id) ||
+        purposeOptions.find(p => p.id === entry.from_purpose_id)?.value ||
         entry.from_purpose_id || "";
-      
+
       // Get transfer to destination
-      const transferTo = entry.type === "Transfer" 
+      const transferTo = entry.type === "Transfer"
         ? (entry.to_purpose_id
-            ? purposeOptions.find(purpose => purpose.id === entry.to_purpose_id)?.value || ""
-            : siteOptions.find(site => site.id === entry.transfer_Project_id)?.value || "")
+          ? purposeOptions.find(purpose => purpose.id === entry.to_purpose_id)?.value || ""
+          : siteOptions.find(site => site.id === entry.transfer_Project_id)?.value || "")
         : "";
-      
+
       // Get loan amount (only for Loan/Transfer type)
       const loanAmount = (entry.type === "Loan" || entry.type === "Transfer") && entry.amount
         ? Number(entry.amount).toLocaleString("en-US", { maximumFractionDigits: 0 })
         : "";
-      
+
       // Get refund amount (only for Refund type)
       const refundAmount = entry.type === "Refund" && entry.loan_refund_amount
         ? Number(entry.loan_refund_amount).toLocaleString("en-US", { maximumFractionDigits: 0 })
         : "";
-      
+
       // Get payment mode
-      const paymentMode = finalPaymentModeOptions.find(opt => opt.value === entry.loan_payment_mode)?.label || 
+      const paymentMode = finalPaymentModeOptions.find(opt => opt.value === entry.loan_payment_mode)?.label ||
         entry.loan_payment_mode || '';
-      
+
       return [
         index + 1,
         formatDateOnly(entry.date),
@@ -643,7 +704,7 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         entry.entry_no || ""
       ];
     });
-    
+
     doc.setFontSize(12);
     doc.text("Loan Data Table", 40, 30);
     doc.autoTable({
@@ -691,31 +752,31 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     ];
     const csvRows = sortedData.map((entry, index) => {
       // Get purpose (project_id or from_purpose_id)
-      const purposeValue = getSiteName(entry.project_id) || 
-        purposeOptions.find(p => p.id === entry.from_purpose_id)?.value || 
+      const purposeValue = getSiteName(entry.project_id) ||
+        purposeOptions.find(p => p.id === entry.from_purpose_id)?.value ||
         entry.from_purpose_id || "";
-      
+
       // Get transfer to destination
-      const transferTo = entry.type === "Transfer" 
+      const transferTo = entry.type === "Transfer"
         ? (entry.to_purpose_id
-            ? purposeOptions.find(purpose => purpose.id === entry.to_purpose_id)?.value || ""
-            : siteOptions.find(site => site.id === entry.transfer_Project_id)?.value || "")
+          ? purposeOptions.find(purpose => purpose.id === entry.to_purpose_id)?.value || ""
+          : siteOptions.find(site => site.id === entry.transfer_Project_id)?.value || "")
         : "";
-      
+
       // Get loan amount (only for Loan/Transfer type)
       const loanAmount = (entry.type === "Loan" || entry.type === "Transfer") && entry.amount
         ? Number(entry.amount).toLocaleString("en-US", { maximumFractionDigits: 0 })
         : "";
-      
+
       // Get refund amount (only for Refund type)
       const refundAmount = entry.type === "Refund" && entry.loan_refund_amount
         ? Number(entry.loan_refund_amount).toLocaleString("en-US", { maximumFractionDigits: 0 })
         : "";
-      
+
       // Get payment mode
-      const paymentMode = finalPaymentModeOptions.find(opt => opt.value === entry.loan_payment_mode)?.label || 
+      const paymentMode = finalPaymentModeOptions.find(opt => opt.value === entry.loan_payment_mode)?.label ||
         entry.loan_payment_mode || '';
-      
+
       return [
         index + 1,
         formatDateOnly(entry.date),
@@ -730,7 +791,7 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         entry.entry_no || ""
       ];
     });
-    
+
     const csvString = [
       csvHeaders.join(","),
       ...csvRows.map(row =>
@@ -899,9 +960,9 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         </div>
         <div className='border-l-8 border-l-[#BF9853] rounded-lg mx-5'>
           <div ref={scrollRef} className='overflow-auto max-h-[500px] thin-scrollbar'
-            onMouseDown={handleMouseDown} 
-            onMouseMove={handleMouseMove} 
-            onMouseUp={handleMouseUp} 
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
             <table className="w-full min-w-[1400px] border-collapse">
@@ -1243,127 +1304,127 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
             <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-[700px] overflow-y-auto items-center">
               <h2 className="text-lg font-bold mb-4">Edit Loan Entry</h2>
               <div className='grid grid-cols-2 gap-4 text-left ml-5'>
-                  <div className='space-y-2'>
-                    <label className='font-semibold text-[#E4572E] text-sm sm:text-base mr-3'>Select Type</label>
-                    <select value={editSelectedType} onChange={(e) => setEditSelectedType(e.target.value)}
-                      className='w-[163px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
-                    >
-                      <option value='Loan'>Loan</option>
-                      <option value='Refund'>Refund</option>
-                      <option value='Transfer'>Transfer</option>
-                    </select>
-                  </div>
-                  <div className='space-y-2'>
-                    <label className='font-semibold text-[#E4572E] text-sm sm:text-base mr-3'>Date</label>
-                    <input
-                      type='date'
-                      value={editFormData.date}
-                      onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
-                      className='w-[144px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
-                    />
-                  </div>
-                  <div className='space-y-2'>
-                    <label className='font-semibold block text-sm sm:text-base'>Associate</label>
+                <div className='space-y-2'>
+                  <label className='font-semibold text-[#E4572E] text-sm sm:text-base mr-3'>Select Type</label>
+                  <select value={editSelectedType} onChange={(e) => setEditSelectedType(e.target.value)}
+                    className='w-[163px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
+                  >
+                    <option value='Loan'>Loan</option>
+                    <option value='Refund'>Refund</option>
+                    <option value='Transfer'>Transfer</option>
+                  </select>
+                </div>
+                <div className='space-y-2'>
+                  <label className='font-semibold text-[#E4572E] text-sm sm:text-base mr-3'>Date</label>
+                  <input
+                    type='date'
+                    value={editFormData.date}
+                    onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                    className='w-[144px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <label className='font-semibold block text-sm sm:text-base'>Associate</label>
+                  <Select
+                    options={combinedOptions}
+                    value={editSelectedOption}
+                    onChange={setEditSelectedOption}
+                    className='w-[263px] rounded-lg focus:outline-none'
+                    isClearable
+                    styles={customStyles}
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <label className='font-semibold block text-sm sm:text-base'>Purpose</label>
+                  <select
+                    value={editPurpose}
+                    onChange={(e) => setEditPurpose(e.target.value)}
+                    className='w-[263px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
+                  >
+                    <option value=''>Select Purpose</option>
+                    {purposeOptions.map(option => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className='space-y-2'>
+                  <label className='font-semibold block text-sm sm:text-base'>
+                    {editSelectedType === 'Transfer' ? 'Transfer To' :
+                      editSelectedType === 'Refund' ? 'Amount' : 'Amount Given'}
+                  </label>
+                  {editSelectedType === 'Transfer' ? (
                     <Select
-                      options={combinedOptions}
-                      value={editSelectedOption}
-                      onChange={setEditSelectedOption}
-                      className='w-[263px] rounded-lg focus:outline-none'
+                      options={combinedSitePurposeOptions}
+                      value={editTransferSelection}
+                      onChange={(selected) => setEditTransferSelection(selected || null)}
+                      className='w-[263px] h-[45px] rounded-lg focus:outline-none'
                       isClearable
                       styles={customStyles}
+                      placeholder="Select Transfer To"
                     />
-                  </div>
-                  <div className='space-y-2'>
-                    <label className='font-semibold block text-sm sm:text-base'>Purpose</label>
+                  ) : editSelectedType === 'Refund' ? (
+                    <input
+                      value={formatWithCommas(editFormData.loan_refund_amount || '')}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/,/g, '');
+                        if (!isNaN(rawValue)) {
+                          setEditFormData(prev => ({ ...prev, loan_refund_amount: rawValue }));
+                        }
+                      }}
+                      placeholder="Enter Refund Amount"
+                      className='w-[263px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
+                    />
+                  ) : (
+                    <input
+                      value={formatWithCommas(editFormData.loan_amount || '')}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/,/g, '');
+                        if (!isNaN(rawValue) && rawValue !== "") {
+                          setEditFormData(prev => ({ ...prev, loan_amount: Number(rawValue) }));
+                        } else {
+                          setEditFormData(prev => ({ ...prev, loan_amount: "" }));
+                        }
+                      }}
+                      className='w-[263px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
+                    />
+                  )}
+                </div>
+                <div className='space-y-2'>
+                  <label className='font-semibold block text-sm sm:text-base'>
+                    {editSelectedType === 'Transfer' ? 'Transfer Amount' : 'Payment Mode'}
+                  </label>
+                  {editSelectedType === 'Transfer' ? (
+                    <input
+                      value={formatWithCommas(editTransferAmount)}
+                      onChange={handleEditTransferAmountChange}
+                      placeholder="Enter Amount"
+                      className='w-[263px] h-[45px] no-spinner border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
+                    />
+                  ) : (
                     <select
-                      value={editPurpose}
-                      onChange={(e) => setEditPurpose(e.target.value)}
+                      value={editPaymentMode}
+                      onChange={(e) => setEditPaymentMode(e.target.value)}
                       className='w-[263px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
                     >
-                      <option value=''>Select Purpose</option>
-                      {purposeOptions.map(option => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
+                      <option value=''>Select</option>
+                      {finalPaymentModeOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select>
-                  </div>
-                  <div className='space-y-2'>
-                    <label className='font-semibold block text-sm sm:text-base'>
-                      {editSelectedType === 'Transfer' ? 'Transfer To' :
-                        editSelectedType === 'Refund' ? 'Amount' : 'Amount Given'}
-                    </label>
-                    {editSelectedType === 'Transfer' ? (
-                      <Select
-                        options={combinedSitePurposeOptions}
-                        value={editTransferSelection}
-                        onChange={(selected) => setEditTransferSelection(selected || null)}
-                        className='w-[263px] h-[45px] rounded-lg focus:outline-none'
-                        isClearable
-                        styles={customStyles}
-                        placeholder="Select Transfer To"
-                      />
-                    ) : editSelectedType === 'Refund' ? (
-                      <input
-                        value={formatWithCommas(editFormData.loan_refund_amount || '')}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          if (!isNaN(rawValue)) {
-                            setEditFormData(prev => ({ ...prev, loan_refund_amount: rawValue }));
-                          }
-                        }}
-                        placeholder="Enter Refund Amount"
-                        className='w-[263px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
-                      />
-                    ) : (
-                      <input
-                        value={formatWithCommas(editFormData.loan_amount || '')}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          if (!isNaN(rawValue) && rawValue !== "") {
-                            setEditFormData(prev => ({ ...prev, loan_amount: Number(rawValue) }));
-                          } else {
-                            setEditFormData(prev => ({ ...prev, loan_amount: "" }));
-                          }
-                        }}
-                        className='w-[263px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
-                      />
-                    )}
-                  </div>
-                  <div className='space-y-2'>
-                    <label className='font-semibold block text-sm sm:text-base'>
-                      {editSelectedType === 'Transfer' ? 'Transfer Amount' : 'Payment Mode'}
-                    </label>
-                    {editSelectedType === 'Transfer' ? (
-                      <input
-                        value={formatWithCommas(editTransferAmount)}
-                        onChange={handleEditTransferAmountChange}
-                        placeholder="Enter Amount"
-                        className='w-[263px] h-[45px] no-spinner border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
-                      />
-                    ) : (
-                      <select
-                        value={editPaymentMode}
-                        onChange={(e) => setEditPaymentMode(e.target.value)}
-                        className='w-[263px] h-[45px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
-                      >
-                        <option value=''>Select</option>
-                        {finalPaymentModeOptions.map(option => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                  <div className='space-y-2'>
-                    <label className='font-semibold block text-sm sm:text-base'>Description</label>
-                    <textarea
-                      rows={2}
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      placeholder="Type your text here..."
-                      className='w-[585px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
-                    />
-                  </div>
+                  )}
+                </div>
+                <div className='space-y-2'>
+                  <label className='font-semibold block text-sm sm:text-base'>Description</label>
+                  <textarea
+                    rows={2}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Type your text here..."
+                    className='w-[585px] border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
+                  />
+                </div>
               </div>
               <div className="flex justify-center sm:justify-end gap-3 mt-4">
                 <button onClick={() => setIsEditModalOpen(false)} className="w-[100px] h-[45px] border border-[#BF9853] rounded text-sm">

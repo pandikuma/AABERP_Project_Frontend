@@ -809,6 +809,63 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
 
   // Function to actually submit the loan data
   const submitLoanData = async () => {
+    let advancePortalId = null;
+
+    // Check if transferring to a project (Site) for Vendor or Contractor
+    if (selectedLoanType === "Transfer" &&
+      transferSelection?.type === "Site" &&
+      (selectedOption?.type === "Vendor" || selectedOption?.type === "Contractor")) {
+
+      // First, create advance portal entry with positive amount
+      try {
+        // Get entry number for advance portal
+        const res = await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/getAll');
+        if (!res.ok) throw new Error('Failed to fetch advance portal entry numbers');
+        const allData = await res.json();
+        const maxEntryNo = allData.length > 0 ? Math.max(...allData.map(item => item.entry_no || 0)) : 0;
+        const nextEntryNo = maxEntryNo + 1;
+
+        const advancePayload = {
+          type: "Transfer",
+          date: dateValue,
+          vendor_id: selectedOption?.type === "Vendor" ? selectedOption.id : 0,
+          contractor_id: selectedOption?.type === "Contractor" ? selectedOption.id : 0,
+          project_id: transferSelection.id, // Transfer to this project
+          transfer_site_id: 11, // Transfer from Loan Portal (id = 11)
+          payment_mode: "",
+          amount: Math.abs(parseFloat(transferAmount) || 0), // Positive amount
+          bill_amount: 0,
+          refund_amount: 0,
+          entry_no: nextEntryNo,
+          week_no: getWeekNumber(),
+          description: "Transfer from Loan Portal",
+          file_url: ""
+        };
+
+        const advanceResponse = await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(advancePayload)
+        });
+
+        if (!advanceResponse.ok) {
+          throw new Error('Failed to save advance portal data');
+        }
+
+        const advanceResult = await advanceResponse.json();
+        console.log('✅ Advance portal entry created:', advanceResult);
+        advancePortalId = advanceResult.id || advanceResult.advancePortalId;
+        console.log('Advance Portal ID to link:', advancePortalId);
+      } catch (error) {
+        console.error('Error creating advance portal entry:', error);
+        toast.error('Failed to create advance portal entry!', {
+          position: "top-center",
+          autoClose: 3000,
+          theme: "colored"
+        });
+        return; // Stop execution if advance portal entry fails
+      }
+    }
     const payload = {
       type: selectedLoanType,
       date: dateValue,
@@ -816,8 +873,10 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         selectedLoanType === "Loan"
           ? parseFloat(amountGiven) || 0
           : selectedLoanType === "Transfer"
-            ? parseFloat(transferAmount) || 0
-            : 0,
+            ? transferSelection?.type === "Site" && (selectedOption?.type === "Vendor" || selectedOption?.type === "Contractor")
+              ? -Math.abs(parseFloat(transferAmount) || 0) // Negative amount for transfer to project
+              : parseFloat(transferAmount) || 0
+              : 0,
       loan_payment_mode: paymentMode,
       loan_refund_amount: selectedLoanType === "Refund" ? parseFloat(amountGiven) || 0 : 0,
       from_purpose_id: purpose || 0,
@@ -829,8 +888,10 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       labour_id: selectedOption?.type === "Labour" ? selectedOption.id : 0,
       project_id: 0,
       description,
-      file_url: ""
+      file_url: "",
+      advance_portal_id: advancePortalId || null
     };
+    console.log("Submitting loan data with payload:", payload);
     try {
       const response = await fetch("https://backendaab.in/aabuildersDash/api/loans/save", {
         method: "POST",
@@ -843,7 +904,7 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         throw new Error(`Failed to save loan: ${response.status}`);
       }
       const loanResult = await response.json();
-
+      console.log("✅ Loan saved successfully:", loanResult);
       // If payment mode is GPay, PhonePe, Net Banking, or Cheque, also save to weekly-payment-bills
       if (selectedLoanType === "Loan" && ["GPay", "PhonePe", "Net Banking", "Cheque"].includes(paymentMode)) {
         const weeklyPaymentBillPayload = {
@@ -888,7 +949,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
           theme: "colored"
         });
       }
-
       // Reset payment popup data and close modals
       setPaymentPopupData({
         chequeNo: "",
@@ -898,7 +958,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       });
       setShowPaymentModal(false);
       setShowReviewModal(false);
-
       // Reset form fields
       setAmountGiven('');
       setTransferAmount('');
@@ -907,7 +966,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-
       // Refresh loan data to show the new entry
       setTimeout(async () => {
         try {
@@ -930,7 +988,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       });
     }
   };
-
   // Function to handle payment modal submission
   const handlePaymentModalSubmit = async () => {
     // Validate payment details
@@ -950,7 +1007,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       });
       return;
     }
-
     await submitLoanData();
   };
   // Function to get the current week number
@@ -993,7 +1049,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
     }
     return "";
   }, [purpose, purposeOptions, siteOptions]);
-
   const filteredLoanData = useMemo(() => {
     if (!selectedOption || !purpose) return [];
     const purposeId = parseInt(purpose, 10);
@@ -1081,7 +1136,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
     }
     e.target.value = '';
   }, []);
-
   // File preview URL effect
   useEffect(() => {
     if (!selectedLoanFile) {
@@ -1092,13 +1146,11 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
     setFilePreviewUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedLoanFile]);
-
   // Review modal handlers
   const handleReviewConfirm = () => {
     if (isReviewEditMode) {
       return;
     }
-
     // Re-validate before proceeding
     if (!selectedLoanType || !dateValue || !selectedOption || !purpose) {
       toast.error("Please fill all required fields!", {
@@ -1108,7 +1160,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       });
       return;
     }
-
     // Validation based on loan type
     if (selectedLoanType === "Loan") {
       if (!amountGiven || parseFloat(amountGiven) <= 0) {
@@ -1128,7 +1179,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         return;
       }
     }
-
     if (selectedLoanType === "Refund") {
       if (!amountGiven || parseFloat(amountGiven) <= 0) {
         toast.error("Please enter a valid refund amount!", {
@@ -1139,7 +1189,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         return;
       }
     }
-
     if (selectedLoanType === "Transfer") {
       if (!transferSelection) {
         toast.error("Please select transfer destination!", {
@@ -1158,23 +1207,19 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         return;
       }
     }
-
     // Check if we need to show payment details popup
     if (selectedLoanType === "Loan" && ["GPay", "PhonePe", "Net Banking", "Cheque"].includes(paymentMode)) {
       setShowReviewModal(false);
       setShowPaymentModal(true);
       return;
     }
-
     // Otherwise, proceed with direct submission
     submitLoanData();
   };
-
   const handleReviewClose = () => {
     setShowReviewModal(false);
     setIsReviewEditMode(false);
   };
-
   const handleReviewSave = () => {
     setIsReviewEditMode(false);
   };
@@ -1217,9 +1262,7 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       });
       return;
     }
-
     const doc = new jsPDF();
-
     const entityType = selectedOption?.type === "Contractor" ? "Contractor"
       : selectedOption?.type === "Vendor" ? "Vendor"
         : selectedOption?.type === "Employee" ? "Employee"
@@ -1227,15 +1270,12 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
             : "Associate";
     const entityName = selectedOption?.label || "";
     const purposeName = purposeOptions.find(p => p.id === parseInt(purpose))?.label || "";
-
     doc.setFontSize(12);
     doc.text(`${entityType} - ${entityName}`, 14, 20);
-
     const pageWidth = doc.internal.pageSize.getWidth();
     const purposeText = `Purpose: ${purposeName}`;
     const textWidth = doc.getTextWidth(purposeText);
     doc.text(purposeText, pageWidth - textWidth - 14, 20);
-
     // Filter and sort data
     const filteredData = filteredLoanData
       .sort((a, b) => {
@@ -1243,15 +1283,12 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         const typeOrder = ["Loan", "Refund", "Transfer"];
         const typeIndexA = typeOrder.indexOf((a.type || "").trim());
         const typeIndexB = typeOrder.indexOf((b.type || "").trim());
-
         if (typeIndexA !== typeIndexB) return typeIndexA - typeIndexB;
-
         // Then sort by date (newest first)
         const dateA = new Date(a.date);
         const dateB = new Date(b.date);
         return dateB - dateA;
       });
-
     // Table columns
     const tableColumn = [
       "S.No",
@@ -1262,7 +1299,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       "Mode",
       "Description"
     ];
-
     // Table rows
     const tableRows = filteredData.map((entry, index) => {
       const {
@@ -1273,7 +1309,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         type,
         description
       } = entry;
-
       // Format loan amount (positive for Loan, negative for Refund shown in Loan column)
       let loanAmount = '';
       if (type === 'Refund') {
@@ -1285,14 +1320,12 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
           ? parseFloat(amount).toLocaleString('en-IN')
           : '';
       }
-
       let transferRefundText = '';
       if (type === 'Refund') {
         transferRefundText = 'Refund';
       } else if (type === 'Transfer') {
         transferRefundText = getTransferDestination(entry) || '';
       }
-
       return [
         index + 1,
         new Date(date).toLocaleDateString('en-GB'),
@@ -1303,7 +1336,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         description || ''
       ];
     });
-
     // Generate PDF table
     doc.autoTable({
       startY: 28,
@@ -1321,11 +1353,9 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         2: { halign: 'right' } // Loan
       }
     });
-
     const fileName = `LoanPortal_${selectedOption?.label || 'Report'}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
   }, [filteredLoanData, selectedOption, purpose, purposeOptions, getTransferDestination, toast]);
-
   // Export CSV function
   const handleExportCSV = useCallback(() => {
     if (!filteredLoanData || filteredLoanData.length === 0) {
@@ -1336,7 +1366,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       });
       return;
     }
-
     const csvHeaders = [
       "S.No",
       "Date",
@@ -1346,7 +1375,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       "Mode",
       "Description"
     ];
-
     // Filter and sort data
     const filteredData = filteredLoanData
       .sort((a, b) => {
@@ -1360,10 +1388,8 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         const dateB = new Date(b.date);
         return dateB - dateA;
       });
-
     const csvRows = filteredData.map((entry, index) => {
       const { date, amount, loan_refund_amount, loan_payment_mode, type, description } = entry;
-
       // Format loan amount
       let loanAmount = '';
       if (type === 'Refund') {
@@ -1375,7 +1401,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
           ? parseFloat(amount).toLocaleString('en-IN')
           : '';
       }
-
       // Get transfer/refund info
       let transferRefund = '';
       if (type === 'Refund') {
@@ -1383,7 +1408,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       } else if (type === 'Transfer') {
         transferRefund = getTransferDestination(entry) || '';
       }
-
       return [
         index + 1,
         formatDateOnly(date),
@@ -1394,7 +1418,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         description || ''
       ];
     });
-
     const csvString = [
       csvHeaders.join(","),
       ...csvRows.map(row =>
@@ -1403,7 +1426,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
           .join(",")
       )
     ].join("\n");
-
     const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -1413,7 +1435,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
     link.click();
     document.body.removeChild(link);
   }, [filteredLoanData, selectedOption, getTransferDestination, formatDateOnly, toast]);
-
   // Build review details array
   const reviewDetails = [
     { label: 'Type', value: selectedLoanType || '-' },
@@ -1423,7 +1444,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
     { label: 'Purpose', value: purposeOptions.find(p => p.id === parseInt(purpose))?.label || '-' },
     { label: 'Purpose ID', value: purpose || '-' },
   ];
-
   if (selectedLoanType === 'Loan') {
     reviewDetails.push(
       { label: 'Amount Given', value: formatWithCommas(amountGiven) || '-' },
@@ -1439,12 +1459,10 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       { label: 'Transfer Amount', value: formatWithCommas(transferAmount) || '-' }
     );
   }
-
   reviewDetails.push(
     { label: 'Description', value: description || '-' },
     { label: 'File Attached', value: selectedLoanFile ? selectedLoanFile.name : 'No file attached' }
   );
-
   const handleEditClick = useCallback((entry) => {
     setEditingId(entry.id);
     setEditFormData({
@@ -1775,7 +1793,6 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
                           filteredLoanData.map((entry) => {
                             const { loanPortalId, date, amount, loan_refund_amount, loan_payment_mode, type } = entry;
                             const formattedDate = date ? new Date(date).toLocaleDateString('en-GB') : '';
-
                             // Show refund amount as negative value in Loan column for Refund type, otherwise normal amount
                             const displayAmount =
                               type === 'Refund'
