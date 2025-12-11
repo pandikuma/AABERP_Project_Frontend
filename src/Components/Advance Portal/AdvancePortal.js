@@ -463,10 +463,10 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     option: (provided, state) => ({
       ...provided,
       fontWeight: '500',
-      backgroundColor: state.isSelected 
-        ? 'rgba(191, 152, 83, 0.3)' 
-        : state.isFocused 
-          ? 'rgba(191, 152, 83, 0.1)' 
+      backgroundColor: state.isSelected
+        ? 'rgba(191, 152, 83, 0.3)'
+        : state.isFocused
+          ? 'rgba(191, 152, 83, 0.1)'
           : 'white',
       color: 'black',
       textAlign: 'left',
@@ -655,7 +655,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       if (selectedType === 'Transfer') {
         const amountValue = parseFloat(advanceAmount) || 0;
         const transferSiteIdInt = parseInt(transferSiteId);
-        
+
         // Check if transferring to Loan Portal (id = 11)
         if (transferSiteIdInt === 11) {
           // First, create loan entry in LoanPortal
@@ -692,7 +692,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
           const loanPortalId = loanResult.id || loanResult.loanPortalId;
 
           // Now save advance portal entry with negative amount and loan_portal_id
-          const advancePayload = createPayload({ 
+          const advancePayload = createPayload({
             amount: -Math.abs(amountValue),
             loan_portal_id: loanPortalId
           });
@@ -1526,7 +1526,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
               <div className='xl:flex w-full xl:w-[1100px]'>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-left'>
                   <div className='space-y-1 flex items-center max-w-[300px]'>
-                    <label className='font-semibold text-[#E4572E] text-sm sm:text-base xl:w-40 w-20'>Select Type</label>
+                    <label className='font-semibold text-[#E4572E] text-sm sm:text-base w-40'>Select Type</label>
                     <Select
                       options={[
                         { value: 'Advance', label: 'Advance' },
