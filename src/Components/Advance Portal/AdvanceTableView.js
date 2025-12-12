@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import Select from 'react-select';
@@ -859,72 +859,69 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
   const sortedSiteOptions = siteOptions.sort((a, b) =>
     a.label.localeCompare(b.label)
   );
-  const customStyles = {
+  const customStyles = useMemo(() => ({
     control: (provided, state) => ({
-      ...provided,
-      borderWidth: '2px',
-      height: '45px',
-      borderRadius: '8px',
-      borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'rgba(191, 152, 83, 0.2)',
-      boxShadow: state.isFocused ? '0 0 0 1px rgba(101, 102, 53, 0.1)' : 'none',
-      '&:hover': {
-        borderColor: 'rgba(191, 152, 83, 0.2)',
-      }
-    }),
-    indicatorSeparator: () => ({
-      display: 'none',
-    }),
-    dropdownIndicator: () => ({
-      display: 'none',
+        ...provided,
+        borderWidth: '2px',
+        lineHeight: '20px',
+        fontSize: '12px',
+        height: '45px',
+        borderRadius: '8px',
+        borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.3)' : 'rgba(191, 152, 83, 0.3)',
+        boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.3)' : 'none',
     }),
     clearIndicator: (provided) => ({
-      ...provided,
-      cursor: 'pointer',
+        ...provided,
+        cursor: 'pointer',
     }),
     menu: (provided) => ({
-      ...provided,
-      zIndex: 9999,
-      maxHeight: '300px',
+        ...provided,
+        zIndex: 9999,
+        maxHeight: '300px',
     }),
     menuPortal: (provided) => ({
-      ...provided,
-      zIndex: 9999,
+        ...provided,
+        zIndex: 9999,
     }),
     menuList: (provided) => ({
-      ...provided,
-      maxHeight: '250px',
-      overflowY: 'auto',
+        ...provided,
+        maxHeight: '250px',
+        overflowY: 'auto',
     }),
     singleValue: (provided) => ({
-      ...provided,
-      fontWeight: '500',
-      color: 'black',
-      textAlign: 'left',
+        ...provided,
+        fontWeight: '500',
+        color: 'black',
+        textAlign: 'left',
     }),
     option: (provided, state) => ({
-      ...provided,
-      fontWeight: '500',
-      backgroundColor: state.isSelected 
-        ? 'rgba(191, 152, 83, 0.3)' 
-        : state.isFocused 
-          ? 'rgba(191, 152, 83, 0.1)' 
-          : 'white',
-      color: 'black',
-      textAlign: 'left',
+        ...provided,
+        fontWeight: '500',
+        backgroundColor: state.isSelected
+            ? 'rgba(191, 152, 83, 0.3)'
+            : state.isFocused
+                ? 'rgba(191, 152, 83, 0.1)'
+                : 'white',
+        color: 'black',
+        textAlign: 'left',
     }),
     input: (provided) => ({
-      ...provided,
-      fontWeight: '500',
-      color: 'black',
-      textAlign: 'left',
+        ...provided,
+        fontWeight: '500',
+        color: 'black',
+        textAlign: 'left',
     }),
     placeholder: (provided) => ({
-      ...provided,
-      fontWeight: '500',
-      color: '#999',
-      textAlign: 'left',
+        ...provided,
+        fontWeight: '500',
+        color: '#999',
+        textAlign: 'left',
     }),
-  };
+    indicatorSeparator: (provided) => ({
+        ...provided,
+        display: 'none',
+    }),
+}), []);
   const handleUpdate = async () => {
     try {
       const currentEntry = advanceData.find(entry => entry.advancePortalId === editingId);
@@ -1398,12 +1395,12 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                               backgroundColor: 'transparent',
                               borderWidth: '3px',
                               borderColor: state.isFocused
-                                ? 'rgba(191, 152, 83, 0.2)'
-                                : 'rgba(191, 152, 83, 0.2)',
+                                ? 'rgba(191, 152, 83, 0.3)'
+                                : 'rgba(191, 152, 83, 0.3)',
                               borderRadius: '6px',
-                              boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
+                              boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.3)' : 'none',
                               '&:hover': {
-                                borderColor: 'rgba(191, 152, 83, 0.2)',
+                                borderColor: 'rgba(191, 152, 83, 0.3)',
                               },
                             }),
                             placeholder: (provided) => ({
@@ -1420,10 +1417,10 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                               textAlign: 'left',
                               fontWeight: '600',
                               fontSize: '15px',
-                              backgroundColor: state.isSelected 
-                                ? 'rgba(191, 152, 83, 0.3)' 
-                                : state.isFocused 
-                                  ? 'rgba(191, 152, 83, 0.1)' 
+                              backgroundColor: state.isSelected
+                                ? 'rgba(191, 152, 83, 0.3)'
+                                : state.isFocused
+                                  ? 'rgba(191, 152, 83, 0.1)'
                                   : 'white',
                               color: 'black',
                             }),
@@ -1443,6 +1440,10 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                               ...provided,
                               fontWeight: '600',
                               color: '#999',
+                            }),
+                            indicatorSeparator: (provided) => ({
+                              ...provided,
+                              display: 'none',
                             }),
                           }}
                         />
@@ -1485,10 +1486,10 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                               textAlign: 'left',
                               fontWeight: '600',
                               fontSize: '15px',
-                              backgroundColor: state.isSelected 
-                                ? 'rgba(191, 152, 83, 0.3)' 
-                                : state.isFocused 
-                                  ? 'rgba(191, 152, 83, 0.1)' 
+                              backgroundColor: state.isSelected
+                                ? 'rgba(191, 152, 83, 0.3)'
+                                : state.isFocused
+                                  ? 'rgba(191, 152, 83, 0.1)'
                                   : 'white',
                               color: 'black',
                             }),
@@ -1550,10 +1551,10 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                               textAlign: 'left',
                               fontWeight: '600',
                               fontSize: '15px',
-                              backgroundColor: state.isSelected 
-                                ? 'rgba(191, 152, 83, 0.3)' 
-                                : state.isFocused 
-                                  ? 'rgba(191, 152, 83, 0.1)' 
+                              backgroundColor: state.isSelected
+                                ? 'rgba(191, 152, 83, 0.3)'
+                                : state.isFocused
+                                  ? 'rgba(191, 152, 83, 0.1)'
                                   : 'white',
                               color: 'black',
                             }),

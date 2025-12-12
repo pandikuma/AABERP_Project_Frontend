@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import Modal from 'react-modal';
 import edit from '../Images/Edit.svg';
@@ -241,6 +241,70 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         vendorId: '',
         contractorId: ''
     });
+    const customStyles = useMemo(() => ({
+        control: (provided, state) => ({
+            ...provided,
+            borderWidth: '2px',
+            lineHeight: '20px',
+            fontSize: '14px',
+            height: '45px',
+            borderRadius: '8px',
+            borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.3)' : 'rgba(191, 152, 83, 0.3)',
+            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.3)' : 'none',
+        }),
+        clearIndicator: (provided) => ({
+            ...provided,
+            cursor: 'pointer',
+        }),
+        menu: (provided) => ({
+            ...provided,
+            zIndex: 9999,
+            maxHeight: '300px',
+        }),
+        menuPortal: (provided) => ({
+            ...provided,
+            zIndex: 9999,
+        }),
+        menuList: (provided) => ({
+            ...provided,
+            maxHeight: '250px',
+            overflowY: 'auto',
+        }),
+        singleValue: (provided) => ({
+            ...provided,
+            fontWeight: '400',
+            color: 'black',
+            textAlign: 'left',
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            fontWeight: '300',
+            fontSize: '14px',
+            backgroundColor: state.isSelected
+                ? 'rgba(191, 152, 83, 0.3)'
+                : state.isFocused
+                    ? 'rgba(191, 152, 83, 0.1)'
+                    : 'white',
+            color: 'black',
+            textAlign: 'left',
+        }),
+        input: (provided) => ({
+            ...provided,
+            fontWeight: '300',
+            color: 'black',
+            textAlign: 'left',
+        }),
+        placeholder: (provided) => ({
+            ...provided,
+            fontWeight: '500',
+            color: '#999',
+            textAlign: 'left',
+        }),
+        indicatorSeparator: (provided) => ({
+            ...provided,
+            display: 'none',
+        }),
+    }), []);
     const [modalIsOpen, setModalIsOpen] = useState(false);
     useEffect(() => {
         axios
@@ -265,7 +329,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 const categoryOption = uniqueCategoryOptions.map(name => ({ value: name, label: name }));
                 // Set the unique dropdown options in state
                 setAccountTypeOptions(uniqueAccountTypes);
-                setMachineToolsOptions(uniqueMachineTools);
+                setMachineToolsOptions(uniqueMachineTools.map(tool => ({ value: tool, label: tool })));
                 setSiteOptions(siteOptions);
                 setVendorOptions(vendorOptions);
                 setContractorOptions(contractorOption);
@@ -1071,7 +1135,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                             onMouseUp={handleMouseUp}
                             onMouseLeave={handleMouseUp}>
                             <table className="table-fixed  min-w-[1765px] w-screen border-collapse">
-                                <thead>
+                                <thead className="sticky top-0 z-9 bg-white ">
                                     <tr className="bg-[#FAF6ED]">
                                         <th className="px-3 w-44 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('timestamp')}>
                                             Time stamp {sortField === 'timestamp' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -1112,12 +1176,12 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     {showFilters && (
                                         <tr className="bg-[#FAF6ED]">
                                             <th></th>
-                                            <th className="px-2 py-3">
+                                            <th className=" py-3">
                                                 <input
                                                     type="date"
                                                     value={selectedDate}
                                                     onChange={(e) => setSelectedDate(e.target.value)}
-                                                    className="w-full px-3 py-2 text-sm rounded-lg border-2 border-[#BF9853] bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200"
+                                                    className="w-full px-2 py-2 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200"
                                                     placeholder="Search Date..."
                                                 />
                                             </th>
@@ -1129,59 +1193,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     onChange={(selectedOption) => setSelectedSiteName(selectedOption ? selectedOption.value : '')}
                                                     placeholder="Site..."
                                                     menuPlacement="bottom"
-                                                    menuPosition="fixed"
-                                                    isClearable
-                                                    styles={{
-                                                        control: (provided, state) => ({
-                                                            ...provided,
-                                                            backgroundColor: 'white',
-                                                            borderWidth: '2px',
-                                                            borderColor: state.isFocused
-                                                                ? '#BF9853'
-                                                                : '#BF9853',
-                                                            borderRadius: '8px',
-                                                            minHeight: '36px',
-                                                            boxShadow: state.isFocused ? '0 0 0 3px rgba(191, 152, 83, 0.1)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
-                                                            '&:hover': {
-                                                                borderColor: '#BF9853',
-                                                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                                                            },
-                                                        }),
-                                                        placeholder: (provided) => ({
-                                                            ...provided,
-                                                            color: '#6B7280',
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                        }),
-                                                        menu: (provided) => ({
-                                                            ...provided,
-                                                            zIndex: 9999,
-                                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                                        }),
-                                                        option: (provided, state) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                            color: state.isFocused ? '#BF9853' : '#374151',
-                                                            '&:active': {
-                                                                backgroundColor: 'rgba(191, 152, 83, 0.2)',
-                                                            },
-                                                        }),
-                                                        singleValue: (provided) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '500',
-                                                            color: '#374151',
-                                                        }),
-                                                        indicatorSeparator: () => ({
-                                                            display: 'none',
-                                                        }),
-                                                        dropdownIndicator: (provided) => ({
-                                                            ...provided,
-                                                            color: '#BF9853',
-                                                        }),
-                                                    }}
+                                                    styles={customStyles}
                                                 />
                                             </th>
                                             <th className="px-2 py-3">
@@ -1192,59 +1204,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     onChange={(selectedOption) => setSelectedVendor(selectedOption ? selectedOption.value : '')}
                                                     placeholder="Vendor"
                                                     menuPlacement="bottom"
-                                                    menuPosition="fixed"
-                                                    isClearable
-                                                    styles={{
-                                                        control: (provided, state) => ({
-                                                            ...provided,
-                                                            backgroundColor: 'white',
-                                                            borderWidth: '2px',
-                                                            borderColor: state.isFocused
-                                                                ? '#BF9853'
-                                                                : '#BF9853',
-                                                            borderRadius: '8px',
-                                                            minHeight: '36px',
-                                                            boxShadow: state.isFocused ? '0 0 0 3px rgba(191, 152, 83, 0.1)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
-                                                            '&:hover': {
-                                                                borderColor: '#BF9853',
-                                                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                                                            },
-                                                        }),
-                                                        placeholder: (provided) => ({
-                                                            ...provided,
-                                                            color: '#6B7280',
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                        }),
-                                                        menu: (provided) => ({
-                                                            ...provided,
-                                                            zIndex: 9999,
-                                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                                        }),
-                                                        option: (provided, state) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                            color: state.isFocused ? '#BF9853' : '#374151',
-                                                            '&:active': {
-                                                                backgroundColor: 'rgba(191, 152, 83, 0.2)',
-                                                            },
-                                                        }),
-                                                        singleValue: (provided) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '500',
-                                                            color: '#374151',
-                                                        }),
-                                                        indicatorSeparator: () => ({
-                                                            display: 'none',
-                                                        }),
-                                                        dropdownIndicator: (provided) => ({
-                                                            ...provided,
-                                                            color: '#BF9853',
-                                                        }),
-                                                    }}
+                                                    styles={customStyles}
                                                 />
                                             </th>
                                             <th className="px-2 py-3">
@@ -1255,59 +1215,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     onChange={(selectedOption) => setSelectedContractor(selectedOption ? selectedOption.value : '')}
                                                     placeholder="Contractor"
                                                     menuPlacement="bottom"
-                                                    menuPosition="fixed"
-                                                    isClearable
-                                                    styles={{
-                                                        control: (provided, state) => ({
-                                                            ...provided,
-                                                            backgroundColor: 'white',
-                                                            borderWidth: '2px',
-                                                            borderColor: state.isFocused
-                                                                ? '#BF9853'
-                                                                : '#BF9853',
-                                                            borderRadius: '8px',
-                                                            minHeight: '36px',
-                                                            boxShadow: state.isFocused ? '0 0 0 3px rgba(191, 152, 83, 0.1)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
-                                                            '&:hover': {
-                                                                borderColor: '#BF9853',
-                                                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                                                            },
-                                                        }),
-                                                        placeholder: (provided) => ({
-                                                            ...provided,
-                                                            color: '#6B7280',
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                        }),
-                                                        menu: (provided) => ({
-                                                            ...provided,
-                                                            zIndex: 9999,
-                                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                                        }),
-                                                        option: (provided, state) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                            color: state.isFocused ? '#BF9853' : '#374151',
-                                                            '&:active': {
-                                                                backgroundColor: 'rgba(191, 152, 83, 0.2)',
-                                                            },
-                                                        }),
-                                                        singleValue: (provided) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '500',
-                                                            color: '#374151',
-                                                        }),
-                                                        indicatorSeparator: () => ({
-                                                            display: 'none',
-                                                        }),
-                                                        dropdownIndicator: (provided) => ({
-                                                            ...provided,
-                                                            color: '#BF9853',
-                                                        }),
-                                                    }}
+                                                    styles={customStyles}
                                                 />
                                             </th>
                                             <th></th>
@@ -1323,59 +1231,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     onChange={(selectedOption) => setSelectedCategory(selectedOption ? selectedOption.value : '')}
                                                     placeholder="Category..."
                                                     menuPlacement="bottom"
-                                                    menuPosition="fixed"
-                                                    isClearable
-                                                    styles={{
-                                                        control: (provided, state) => ({
-                                                            ...provided,
-                                                            backgroundColor: 'white',
-                                                            borderWidth: '2px',
-                                                            borderColor: state.isFocused
-                                                                ? '#BF9853'
-                                                                : '#BF9853',
-                                                            borderRadius: '8px',
-                                                            minHeight: '36px',
-                                                            boxShadow: state.isFocused ? '0 0 0 3px rgba(191, 152, 83, 0.1)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
-                                                            '&:hover': {
-                                                                borderColor: '#BF9853',
-                                                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                                                            },
-                                                        }),
-                                                        placeholder: (provided) => ({
-                                                            ...provided,
-                                                            color: '#6B7280',
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                        }),
-                                                        menu: (provided) => ({
-                                                            ...provided,
-                                                            zIndex: 9999,
-                                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                                        }),
-                                                        option: (provided, state) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                            color: state.isFocused ? '#BF9853' : '#374151',
-                                                            '&:active': {
-                                                                backgroundColor: 'rgba(191, 152, 83, 0.2)',
-                                                            },
-                                                        }),
-                                                        singleValue: (provided) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '500',
-                                                            color: '#374151',
-                                                        }),
-                                                        indicatorSeparator: () => ({
-                                                            display: 'none',
-                                                        }),
-                                                        dropdownIndicator: (provided) => ({
-                                                            ...provided,
-                                                            color: '#BF9853',
-                                                        }),
-                                                    }}
+                                                    styles={customStyles}
                                                 />
                                             </th>
                                             <th className="px-2 py-3">
@@ -1386,124 +1242,22 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     onChange={(selectedOption) => setSelectedAccountType(selectedOption ? selectedOption.value : '')}
                                                     placeholder="A/CType"
                                                     menuPlacement="bottom"
-                                                    menuPosition="fixed"
-                                                    isClearable
-                                                    styles={{
-                                                        control: (provided, state) => ({
-                                                            ...provided,
-                                                            backgroundColor: 'white',
-                                                            borderWidth: '2px',
-                                                            borderColor: state.isFocused
-                                                                ? '#BF9853'
-                                                                : '#BF9853',
-                                                            borderRadius: '8px',
-                                                            minHeight: '36px',
-                                                            boxShadow: state.isFocused ? '0 0 0 3px rgba(191, 152, 83, 0.1)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
-                                                            '&:hover': {
-                                                                borderColor: '#BF9853',
-                                                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                                                            },
-                                                        }),
-                                                        placeholder: (provided) => ({
-                                                            ...provided,
-                                                            color: '#6B7280',
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                        }),
-                                                        menu: (provided) => ({
-                                                            ...provided,
-                                                            zIndex: 9999,
-                                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                                        }),
-                                                        option: (provided, state) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                            color: state.isFocused ? '#BF9853' : '#374151',
-                                                            '&:active': {
-                                                                backgroundColor: 'rgba(191, 152, 83, 0.2)',
-                                                            },
-                                                        }),
-                                                        singleValue: (provided) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '500',
-                                                            color: '#374151',
-                                                        }),
-                                                        indicatorSeparator: () => ({
-                                                            display: 'none',
-                                                        }),
-                                                        dropdownIndicator: (provided) => ({
-                                                            ...provided,
-                                                            color: '#BF9853',
-                                                        }),
-                                                    }}
+                                                    styles={customStyles}
                                                 />
                                             </th>
                                             <th className="px-2 py-3">
                                                 <Select
                                                     className="w-full"
-                                                    options={machineToolsOptions.map(tool => ({ value: tool, label: tool }))}
-                                                    value={selectedMachineTools ? { value: selectedMachineTools, label: selectedMachineTools } : null}
+                                                    options={machineToolsOptions}
+                                                    value={selectedMachineTools ? machineToolsOptions.find(opt => opt.value === selectedMachineTools) : null}
                                                     onChange={(selectedOption) => setSelectedMachineTools(selectedOption ? selectedOption.value : '')}
                                                     placeholder="Machine..."
                                                     menuPlacement="bottom"
-                                                    menuPosition="fixed"
-                                                    isClearable
-                                                    styles={{
-                                                        control: (provided, state) => ({
-                                                            ...provided,
-                                                            backgroundColor: 'white',
-                                                            borderWidth: '2px',
-                                                            borderColor: state.isFocused
-                                                                ? '#BF9853'
-                                                                : '#BF9853',
-                                                            borderRadius: '8px',
-                                                            minHeight: '36px',
-                                                            boxShadow: state.isFocused ? '0 0 0 3px rgba(191, 152, 83, 0.1)' : '0 1px 3px rgba(0, 0, 0, 0.1)',
-                                                            '&:hover': {
-                                                                borderColor: '#BF9853',
-                                                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                                                            },
-                                                        }),
-                                                        placeholder: (provided) => ({
-                                                            ...provided,
-                                                            color: '#6B7280',
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                        }),
-                                                        menu: (provided) => ({
-                                                            ...provided,
-                                                            zIndex: 9999,
-                                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                                        }),
-                                                        option: (provided, state) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '400',
-                                                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                            color: state.isFocused ? '#BF9853' : '#374151',
-                                                            '&:active': {
-                                                                backgroundColor: 'rgba(191, 152, 83, 0.2)',
-                                                            },
-                                                        }),
-                                                        singleValue: (provided) => ({
-                                                            ...provided,
-                                                            fontSize: '14px',
-                                                            fontWeight: '500',
-                                                            color: '#374151',
-                                                        }),
-                                                        indicatorSeparator: () => ({
-                                                            display: 'none',
-                                                        }),
-                                                        dropdownIndicator: (provided) => ({
-                                                            ...provided,
-                                                            color: '#BF9853',
-                                                        }),
-                                                    }}
+                                                    styles={customStyles}
                                                 />
                                             </th>
+                                            <th></th>
+                                            <th></th>
                                             <th></th>
                                             <th></th>
                                         </tr>
