@@ -42,7 +42,7 @@ const Heading = ({ username, userRoles = [] }) => {
         }
     };
     return (
-        <div className="bg-[#FAF6ED]">
+        <div className="bg-[#FAF6ED] w-full h-auto min-h-screen">
             {/* Top Navigation Tabs */}
             <div className="topbar-title gap-4 w-[350px] sm:w-[580px] lg:w-[850px] overflow-x-auto no-scrollbar px-2 py-3">
                 <h2 className={`link whitespace-nowrap ${activeTab === 'expense-entry' ? 'active' : ''}`}
