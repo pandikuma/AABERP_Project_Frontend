@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useImperativeHandle } from 'react';
 import axios from 'axios';
 import Modal from 'react-modal';
 import edit from '../Images/Edit.svg';
@@ -279,7 +279,7 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
     );
 };
 
-const TableViewExpense = ({ username, userRoles = [] }) => {
+const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [totalAmount, setTotalAmount] = useState(0);
     const [expenses, setExpenses] = useState([]);
@@ -1120,12 +1120,20 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         link.click();
         document.body.removeChild(link);
     };
+
+    // Expose export functions to parent component via ref
+    useImperativeHandle(ref, () => ({
+        generateFilteredPDF,
+        exportToCSV,
+        print: () => window.print()
+    }));
     return (
         <body className=' bg-[#FAF6ED]'>
             <div>
                 <div className='md:mt-[-35px] mb-3 text-left md:text-right md:items-center items-start cursor-default flex justify-between max-w-screen-2xl table-auto min-w-full overflow-auto w-screen'>
                     <div></div>
-                    <div>
+                    {/* Desktop Export Buttons */}
+                    <div className='hidden md:flex'>
                         <span className='text-[#E4572E] mr-9 font-semibold hover:underline cursor-pointer' onClick={generateFilteredPDF}>Export pdf</span>
                         <span className='text-[#007233] mr-9 font-semibold hover:underline cursor-pointer' onClick={exportToCSV}>Export XL</span>
                         <span className=' text-[#BF9853] mr-9 font-semibold hover:underline'>Print</span>
@@ -1388,7 +1396,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                 </tbody>
                             </table>
                         </div>
-                        <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
+                        <div className="xl:flex items-center xl:justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
                             <div className="flex items-center space-x-2">
                                 <span className="text-sm text-gray-700">Items per page:</span>
                                 <select
@@ -1813,7 +1821,8 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
             </div>
         </body>
     );
-};
+});
+TableViewExpense.displayName = 'TableViewExpense';
 export default TableViewExpense;
 const formatDate = (dateString) => {
     const date = new Date(dateString);
