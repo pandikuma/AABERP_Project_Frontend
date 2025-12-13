@@ -292,6 +292,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
           throw new Error("Network response was not ok: " + response.statusText);
         }
         const data = await response.json();
+        console.log("Fetched account details:", data);
         setAccountDetails(data);
       } catch (error) {
         console.error("Error fetching account details:", error);
@@ -463,10 +464,10 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     option: (provided, state) => ({
       ...provided,
       fontWeight: '500',
-      backgroundColor: state.isSelected
-        ? 'rgba(191, 152, 83, 0.3)'
-        : state.isFocused
-          ? 'rgba(191, 152, 83, 0.1)'
+      backgroundColor: state.isSelected 
+        ? 'rgba(191, 152, 83, 0.3)' 
+        : state.isFocused 
+          ? 'rgba(191, 152, 83, 0.1)' 
           : 'white',
       color: 'black',
       textAlign: 'left',
@@ -655,7 +656,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       if (selectedType === 'Transfer') {
         const amountValue = parseFloat(advanceAmount) || 0;
         const transferSiteIdInt = parseInt(transferSiteId);
-
+        
         // Check if transferring to Loan Portal (id = 11)
         if (transferSiteIdInt === 11) {
           // First, create loan entry in LoanPortal
@@ -692,7 +693,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
           const loanPortalId = loanResult.id || loanResult.loanPortalId;
 
           // Now save advance portal entry with negative amount and loan_portal_id
-          const advancePayload = createPayload({
+          const advancePayload = createPayload({ 
             amount: -Math.abs(amountValue),
             loan_portal_id: loanPortalId
           });
@@ -1452,7 +1453,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     }
   };
   return (
-    <div className='bg-[#FAF6ED]'>
+    <div className='bg-[#FAF6ED] pb-10'>
       <div className='overflow-hidden bg-[#FAF6ED] w-full'>
         <div className='px-4 sm:px-6 lg:px-10 overflow-hidden'>
           <div className='flex flex-col xl:flex-row gap-4 xl:gap-10 text-left '>
@@ -1463,7 +1464,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                   type='date'
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className='border-2 border-[#BF9853] border-opacity-30 rounded-lg px-2 py-1 w-full h-[45px] focus:outline-none text-sm'
+                  className='border-2 border-[#BF9853] border-opacity-30 rounded-lg px-1 py-1 w-full h-[45px] focus:outline-none text-sm'
                 />
               </div>
               <div className='space-y-2 flex-1'>
@@ -1472,7 +1473,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                   type='date'
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className='border-2 border-[#BF9853] border-opacity-30 rounded-lg px-2 py-1 w-full h-[45px] focus:outline-none text-sm'
+                  className='border-2 border-[#BF9853] border-opacity-30 rounded-lg px-1 py-1 w-full h-[45px] focus:outline-none text-sm'
                 />
               </div>
               <div className='space-y-2 flex-1'>
@@ -1480,7 +1481,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                 <input
                   readOnly
                   value={filteredAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  className='bg-[#F2F2F2] rounded-lg p-2 w-full h-[45px] focus:outline-none text-sm'
+                  className='bg-[#F2F2F2] rounded-lg px-1 w-full h-[45px] focus:outline-none text-sm'
                 />
               </div>
               <div className='space-y-2 flex-1'>
@@ -1494,18 +1495,18 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                   isClearable
                   menuPortalTarget={document.body}
                   styles={customStyles}
-                  className='w-full rounded-lg focus:outline-none'
+                  className='w-full rounded-lg px-1 focus:outline-none'
                 />
               </div>
             </div>
-            <div className='flex flex-col sm:flex-row bg-white w-full h-auto xl:h-[128px] rounded-md p-4 gap-[16px] px-10 '>
+            <div className='xl:flex flex-col sm:flex-row bg-white w-full h-auto xl:h-[128px] rounded-md p-4 gap-[16px] px-10 '>
               <div className='space-y-2'>
                 <h2 className='font-semibold text-sm sm:text-base'>Today Amount</h2>
                 <input
                   readOnly
                   type='text'
                   value={todayAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  className='bg-[#F2F2F2] rounded-lg p-2 w-full xl:w-[144px] h-[45px] focus:outline-none text-sm'
+                  className='bg-[#F2F2F2] rounded-lg p-2 xl:w-[144px] w-full h-[45px] focus:outline-none text-sm'
                 />
               </div>
               <div className='space-y-2'>
@@ -1521,12 +1522,12 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
           </div>
         </div>
         <div className='px-4 sm:px-6 lg:px-10 mt-4'>
-          <div className='bg-white w-full xl:h-[630px] p-4 lg:p-6 rounded-md shadow-sm'>
+          <div className='bg-white w-full max-w-[1850px] xl:h-[610px] p-4 lg:p-6 rounded-md shadow-sm'>
             <div className='xl:flex px-4 gap-10'>
-              <div className='xl:flex w-full xl:w-[1100px]'>
+              <div className='xl:flex xl:w-[1100px]'>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-left'>
                   <div className='space-y-1 flex items-center max-w-[300px]'>
-                    <label className='font-semibold text-[#E4572E] text-sm sm:text-base w-40'>Select Type</label>
+                    <label className='font-semibold text-[#E4572E] text-sm sm:text-base xl:w-40 w-20'>Select Type</label>
                     <Select
                       options={[
                         { value: 'Advance', label: 'Advance' },
@@ -1684,7 +1685,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                     </textarea>
                   </div>
                   <div className=''>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-2">
                       <div className='flex items-center'>
                         <label htmlFor="fileInput" className="cursor-pointer flex items-center text-orange-600 text-sm">
                           <img className='w-5 h-4 mr-1' alt='' src={Attach}></img>
@@ -1730,7 +1731,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                 </div>
                 <div className='border-l-8 border-l-[#BF9853] rounded-lg overflow-hidden w-full'>
                   <div className='overflow-x-auto max-h-[400px] overflow-y-auto thin-scrollbar w-full'>
-                    <table className="w-full min-w-[800px]">
+                    <table className="w-full">
                       <thead className="bg-[#FAF6ED] text-left sticky top-0 z-10">
                         <tr>
                           <th className="px-2 sm:px-4 lg:px-6 py-2 text-xs sm:text-sm whitespace-nowrap">Date</th>
