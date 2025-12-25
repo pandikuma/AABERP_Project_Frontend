@@ -15,7 +15,8 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
         shop: '',
         projectName: '',
         projectType: '',
-        tenant: ''
+        tenant: '',
+        month: ''
     });
     const [projects, setProjects] = useState([]);
     const [electricityPayments, setElectricityPayments] = useState([]);
@@ -112,6 +113,7 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
         const serviceFilter = toLower(filters.service);
         const tenantFilter = toLower(filters.tenant);
         const projectNameFilter = toLower(filters.projectName);
+        const monthFilter = filters.month;
 
         const filtered = projects.reduce((acc, project) => {
             if (selectedCategory && project.projectCategory !== selectedCategory) {
@@ -156,6 +158,18 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                         project.vendor
                     );
                     if (!vendorValue || !vendorValue.includes(vendorFilter)) {
+                        return false;
+                    }
+                }
+
+                if (monthFilter) {
+                    const paymentData = getPaymentData(property.ebNo, monthFilter, property.id);
+                    const hasDataForMonth = paymentData && (
+                        paymentData.amount !== '-' && 
+                        paymentData.amount !== undefined &&
+                        (parseFloat(paymentData.amount) > 0 || paymentData.amount === '0')
+                    );
+                    if (!hasDataForMonth) {
                         return false;
                     }
                 }
@@ -672,6 +686,34 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                 className="w-full"
                             />
                         </div>
+                        <div>
+                            <label className="block font-semibold mb-1">Month</label>
+                            <Select
+                                options={[
+                                    { value: 'Jan', label: 'January' },
+                                    { value: 'Feb', label: 'February' },
+                                    { value: 'Mar', label: 'March' },
+                                    { value: 'Apr', label: 'April' },
+                                    { value: 'May', label: 'May' },
+                                    { value: 'June', label: 'June' },
+                                    { value: 'July', label: 'July' },
+                                    { value: 'Aug', label: 'August' },
+                                    { value: 'Sep', label: 'September' },
+                                    { value: 'Oct', label: 'October' },
+                                    { value: 'Nov', label: 'November' },
+                                    { value: 'Dec', label: 'December' }
+                                ]}
+                                value={filters.month ? (() => {
+                                    const monthMap = { 'Jan': 'January', 'Feb': 'February', 'Mar': 'March', 'Apr': 'April', 'May': 'May', 'June': 'June', 'July': 'July', 'Aug': 'August', 'Sep': 'September', 'Oct': 'October', 'Nov': 'November', 'Dec': 'December' };
+                                    return { value: filters.month, label: monthMap[filters.month] || filters.month };
+                                })() : null}
+                                onChange={(selectedOption) => handleFilterChange('month', selectedOption)}
+                                placeholder="Select Month"
+                                isClearable
+                                styles={customSelectStyles}
+                                className="w-full"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -735,7 +777,7 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                     <div className="border-l-8 border-l-[#BF9853] rounded-lg">
                         <div className="overflow-y-auto h-[480px]">
                             <table className="w-full border-collapse ">
-                                <thead className="sticky top-0 z-10">
+                                <thead className="sticky top-0">
                                     <tr className="bg-[#FAF6ED]">
                                         <td className=" px-4 py-2 text-left font-semibold">Sl.No</td>
                                         <td className=" px-4 py-2 text-left font-semibold">PID</td>

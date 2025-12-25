@@ -1100,7 +1100,7 @@ const AdvanceReport = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         </div>
         <div
           ref={scrollRef}
-          className=" rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[500px] overflow-auto select-none "
+          className=" rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[500px] overflow-auto select-none"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}

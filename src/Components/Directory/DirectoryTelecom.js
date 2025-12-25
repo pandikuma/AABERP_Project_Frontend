@@ -1319,9 +1319,9 @@ const DirectoryTelecom = () => {
                       <div className="overflow-y-auto max-h-[500px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                         <table className="table-auto w-full">
                           <tbody>
-                            {filteredTypeItems.map((item) => (
+                            {filteredTypeItems.map((item, index) => (
                               <tr key={`${item.id}-${item.name}`} className="border-b last:border-b-0 group">
-                                <td className="p-2 w-16 font-semibold">{item.id}</td>
+                                <td className="p-2 w-16 font-semibold">{index + 1}</td>
                                 <td className="p-2 w-40 flex justify-between">{item.name}
                                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                     <button onClick={() => handleEditItem('type', item)} className="p-1 rounded hover:bg-gray-100">
@@ -1377,9 +1377,9 @@ const DirectoryTelecom = () => {
                       <div className="overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                         <table className="table-auto w-full">
                           <tbody>
-                            {filteredNetworkItems.map((item) => (
+                            {filteredNetworkItems.map((item, index) => (
                               <tr key={`${item.id}-${item.name}`} className="border-b last:border-b-0 group">
-                                <td className="p-2 w-16 font-semibold">{item.id}</td>
+                                <td className="p-2 w-16 font-semibold">{index + 1}</td>
                                 <td className="p-2 w-40 flex justify-between">{item.name}
                                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                     <button onClick={() => handleEditItem('network', item)} className="p-1 rounded hover:bg-gray-100">
@@ -1435,9 +1435,9 @@ const DirectoryTelecom = () => {
                       <div className="overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                         <table className="table-auto w-full">
                           <tbody>
-                            {filteredCategoryItems.map((item) => (
+                            {filteredCategoryItems.map((item, index) => (
                               <tr key={`${item.id}-${item.name}`} className="border-b last:border-b-0 group">
-                                <td className="p-2 w-16 font-semibold">{item.id}</td>
+                                <td className="p-2 w-16 font-semibold">{index + 1}</td>
                                 <td className="p-2 w-40 flex justify-between">{item.name}
                                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                     <button onClick={() => handleEditItem('category', item)} className="p-1 rounded hover:bg-gray-100">
