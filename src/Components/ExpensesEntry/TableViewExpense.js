@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import axios from 'axios';
 import Modal from 'react-modal';
 import edit from '../Images/Edit.svg';
@@ -8,7 +8,6 @@ import Reload from '../Images/rotate-right.png'
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 Modal.setAppElement('#root');
-
 // Date Range Picker Component
 const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChange }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -16,7 +15,6 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
     const [tempStartDate, setTempStartDate] = useState(null);
     const [tempEndDate, setTempEndDate] = useState(null);
     const datePickerRef = useRef(null);
-
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
@@ -30,7 +28,6 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [isOpen]);
-
     const formatDate = (dateString) => {
         if (!dateString) return '';
         // If dateString is already in YYYY-MM-DD format, parse it directly
@@ -45,7 +42,6 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         const year = d.getFullYear();
         return `${day}-${month}-${year}`;
     };
-
     const getDisplayText = () => {
         if (startDate && endDate) {
             return `${formatDate(startDate)} to ${formatDate(endDate)}`;
@@ -54,41 +50,42 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         }
         return 'Select Date';
     };
-
     const getDaysInMonth = (date) => {
         return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
     };
-
     const getFirstDayOfMonth = (date) => {
         return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
     };
-
     const formatDateToString = (year, month, day) => {
         const monthStr = String(month + 1).padStart(2, '0');
         const dayStr = String(day).padStart(2, '0');
         return `${year}-${monthStr}-${dayStr}`;
     };
-
     const handleDateClick = (day, isCurrentMonth) => {
         if (!isCurrentMonth) return;
-        
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth();
         const dateString = formatDateToString(year, month, day);
-
         if (!tempStartDate || (tempStartDate && tempEndDate)) {
             setTempStartDate(dateString);
             setTempEndDate(null);
         } else if (tempStartDate && !tempEndDate) {
+            let finalStartDate = tempStartDate;
+            let finalEndDate = dateString;
             if (dateString < tempStartDate) {
-                setTempEndDate(tempStartDate);
-                setTempStartDate(dateString);
-            } else {
-                setTempEndDate(dateString);
+                finalStartDate = dateString;
+                finalEndDate = tempStartDate;
             }
+            setTempStartDate(finalStartDate);
+            setTempEndDate(finalEndDate);        
+            // Auto-apply when both dates are selected
+            setTimeout(() => {
+                onStartDateChange(finalStartDate);
+                onEndDateChange(finalEndDate);
+                setIsOpen(false);
+            }, 0);
         }
     };
-
     const handleDone = () => {
         if (tempStartDate) {
             onStartDateChange(tempStartDate);
@@ -100,13 +97,11 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         }
         setIsOpen(false);
     };
-
     const handleCancel = () => {
         setTempStartDate(startDate || null);
         setTempEndDate(endDate || null);
         setIsOpen(false);
     };
-
     const handleClear = () => {
         setTempStartDate(null);
         setTempEndDate(null);
@@ -114,21 +109,17 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         onEndDateChange('');
         setIsOpen(false);
     };
-
     const prevMonth = () => {
         setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
     };
-
     const nextMonth = () => {
         setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
     };
-
     const isDateInRange = (day, isCurrentMonth) => {
         if (!tempStartDate || !isCurrentMonth) return false;
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth();
-        const dateString = formatDateToString(year, month, day);
-        
+        const dateString = formatDateToString(year, month, day);        
         if (tempStartDate && tempEndDate) {
             return dateString >= tempStartDate && dateString <= tempEndDate;
         } else if (tempStartDate) {
@@ -136,7 +127,6 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         }
         return false;
     };
-
     const isStartDate = (day, isCurrentMonth) => {
         if (!tempStartDate || !isCurrentMonth) return false;
         const year = currentMonth.getFullYear();
@@ -144,7 +134,6 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         const dateString = formatDateToString(year, month, day);
         return dateString === tempStartDate;
     };
-
     const isEndDate = (day, isCurrentMonth) => {
         if (!tempEndDate || !isCurrentMonth) return false;
         const year = currentMonth.getFullYear();
@@ -152,38 +141,32 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         const dateString = formatDateToString(year, month, day);
         return dateString === tempEndDate;
     };
-
     const daysInMonth = getDaysInMonth(currentMonth);
     const firstDay = getFirstDayOfMonth(currentMonth);
     const days = [];
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
     // Previous month's trailing days
     const prevMonthDays = getDaysInMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
     for (let i = firstDay - 1; i >= 0; i--) {
         days.push({ day: prevMonthDays - i, isCurrentMonth: false });
     }
-
     // Current month's days
     for (let i = 1; i <= daysInMonth; i++) {
         days.push({ day: i, isCurrentMonth: true });
     }
-
     // Next month's leading days
     const totalCells = 42; // 6 rows * 7 days
     const remainingDays = totalCells - days.length;
     for (let i = 1; i <= remainingDays; i++) {
         days.push({ day: i, isCurrentMonth: false });
     }
-
     useEffect(() => {
         if (isOpen) {
             setTempStartDate(startDate || null);
             setTempEndDate(endDate || null);
         }
     }, [isOpen, startDate, endDate]);
-
     return (
         <div className="relative" ref={datePickerRef}>
             <input
@@ -278,8 +261,7 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         </div>
     );
 };
-
-const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) => {
+const TableViewExpense = ({ username, userRoles = [] }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [totalAmount, setTotalAmount] = useState(0);
     const [expenses, setExpenses] = useState([]);
@@ -328,14 +310,6 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
     const [contractorOption, setContractorOption] = useState([]);
     const [categoryOption, setCategoryOption] = useState([]);
     const [machineToolsOption, setMachineToolsOption] = useState([]);
-
-    const [editPaymentMode, setEditPaymentMode] = useState('');
-    const [editUtilityType, setEditUtilityType] = useState('');
-    const [editEbNumberOptions, setEditEbNumberOptions] = useState([]);
-    const [editSelectedEbNumber, setEditSelectedEbNumber] = useState(null);
-    const [editSelectedMonths, setEditSelectedMonths] = useState('');
-    const [editThirdInput, setEditThirdInput] = useState('');
-    const [editProjectData, setEditProjectData] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -777,7 +751,6 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
         setMachineToolsOptions(getOptions(filtered, "machineTools"));
         setAccountTypeOptions(getOptions(filtered, "accountType"));
         setEnoOptions([...new Set(filtered.map(item => item.eno).filter(Boolean))]);
-
     }, [
         selectedSiteName,
         selectedVendor,
@@ -929,7 +902,7 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
         }),
         input: (provided) => ({
             ...provided,
-            fontWeight: '400',
+            fontWeight: '300',
             color: 'black',
             textAlign: 'left',
         }),
@@ -1046,7 +1019,6 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
         setModalIsOpen(false);
         setSelectedFile(null);
     };
-
     const clearFilters = () => {
         setSelectedSiteName('');
         setSelectedVendor('');
@@ -1061,7 +1033,6 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
         setCurrentPage(1);
         setSortField('');
         setSortDirection('asc');
-
         localStorage.removeItem('expenseFilter_siteName');
         localStorage.removeItem('expenseFilter_vendor');
         localStorage.removeItem('expenseFilter_contractor');
@@ -1120,26 +1091,17 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
         link.click();
         document.body.removeChild(link);
     };
-
-    // Expose export functions to parent component via ref
-    useImperativeHandle(ref, () => ({
-        generateFilteredPDF,
-        exportToCSV,
-        print: () => window.print()
-    }));
     return (
         <body className=' bg-[#FAF6ED]'>
             <div>
                 <div className='md:mt-[-35px] mb-3 text-left md:text-right md:items-center items-start cursor-default flex justify-between max-w-screen-2xl table-auto min-w-full overflow-auto w-screen'>
                     <div></div>
-                    {/* Desktop Export Buttons */}
-                    <div className='hidden md:flex'>
+                    <div>
                         <span className='text-[#E4572E] mr-9 font-semibold hover:underline cursor-pointer' onClick={generateFilteredPDF}>Export pdf</span>
                         <span className='text-[#007233] mr-9 font-semibold hover:underline cursor-pointer' onClick={exportToCSV}>Export XL</span>
                         <span className=' text-[#BF9853] mr-9 font-semibold hover:underline'>Print</span>
                     </div>
                 </div>
-
                 <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg overflow-x-auto">
                     <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || startDate || endDate
                         ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-3 gap-2`}>
@@ -1231,35 +1193,35 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
                                         <th className="pt-2 pl-3 w-36 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('date')}>
                                             Date {sortField === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('siteName')}>
+                                        <th className="px-0.5 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('siteName')}>
                                             Project Name {sortField === 'siteName' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('vendor')}>
+                                        <th className="px-0.5 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('vendor')}>
                                             Vendor {sortField === 'vendor' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('contractor')}>
+                                        <th className="px-0.5 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('contractor')}>
                                             Contractor {sortField === 'contractor' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[120px] font-bold text-left">Quantity</th>
-                                        <th className="px-2 w-[120px] font-bold text-left">Amount</th>
-                                        <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('comments')}>
+                                        <th className="px-0.5 w-[120px] font-bold text-left">Quantity</th>
+                                        <th className="px-0.5 w-[120px] font-bold text-left">Amount</th>
+                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('comments')}>
                                             Comments {sortField === 'comments' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('category')}>
+                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('category')}>
                                             Category {sortField === 'category' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('accountType')}>
+                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('accountType')}>
                                             A/C Type {sortField === 'accountType' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('machineTools')}>
+                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('machineTools')}>
                                             Machine Tools {sortField === 'machineTools' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[150px] font-bold text-left">Source From</th>
-                                        <th className="px-2 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('eno')}>
+                                        <th className="px-0.5 w-[150px] font-bold text-left">Source From</th>
+                                        <th className="px-0.5 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('eno')}>
                                             E.No {sortField === 'eno' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[60px] font-bold text-left">Edit</th>
-                                        <th className="px-3 w-[110px] font-bold text-left">Attach file</th>
+                                        <th className="px-0.5 w-[60px] font-bold text-left">Edit</th>
+                                        <th className="px-0.5 w-[50px] font-bold text-left">File</th>
                                     </tr>
                                     {showFilters && (
                                         <tr className="bg-[#FAF6ED]">
@@ -1357,16 +1319,16 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
                                             <td className=" text-sm text-left ">{getDisplayVendorName(expense)}</td>
                                             <td className=" text-sm text-left ">{getDisplayContractorName(expense)}</td>
                                             <td className=" text-sm text-left ">{expense.quantity}</td>
-                                            <td className="text-sm text-left pl-2 ">
+                                            <td className="text-sm text-right pr-5 ">
                                                 ₹{Number(expense.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className=" text-sm text-left ">{expense.comments}</td>
+                                            <td className="text-sm text-left w-[120px] max-w-[120px] break-words overflow-hidden whitespace-normal px-1">{expense.comments || ''}</td>
                                             <td className=" text-sm text-left ">{expense.category}</td>
                                             <td className=" text-sm text-left ">{expense.accountType}</td>
                                             <td className=" text-sm text-left ">{expense.machineTools}</td>
                                             <td className=" text-sm text-left ">{expense.source}</td>
                                             <td className=" text-sm text-left pl-3 ">{expense.eno}</td>
-                                            <td className=" py-2">
+                                            <td className=" py-1.5">
                                                 {userPermissions.includes("Edit") && (
                                                     <button onClick={() => handleEditClick(expense)} className="rounded-full transition duration-200 ml-2 mr-3">
                                                         <img
@@ -1377,7 +1339,7 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
                                                     </button>
                                                 )}
                                             </td>
-                                            <td className="px-4 text-sm">
+                                            <td className="px-1 text-sm">
                                                 {expense.billCopy ? (
                                                     <a
                                                         href={expense.billCopy}
@@ -1396,7 +1358,7 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
                                 </tbody>
                             </table>
                         </div>
-                        <div className="xl:flex items-center xl:justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
+                        <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
                             <div className="flex items-center space-x-2">
                                 <span className="text-sm text-gray-700">Items per page:</span>
                                 <select
@@ -1821,8 +1783,7 @@ const TableViewExpense = React.forwardRef(({ username, userRoles = [] }, ref) =>
             </div>
         </body>
     );
-});
-TableViewExpense.displayName = 'TableViewExpense';
+};
 export default TableViewExpense;
 const formatDate = (dateString) => {
     const date = new Date(dateString);

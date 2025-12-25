@@ -31,15 +31,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     const [contractorOption, setContractorOption] = useState([]);
     const [categoryOption, setCategoryOption] = useState([]);
     const [machineToolsOption, setMachineToolsOption] = useState([]);
-    
-    // State for conditional fields in edit modal
-    const [editPaymentMode, setEditPaymentMode] = useState('');
-    const [editUtilityType, setEditUtilityType] = useState('');
-    const [editEbNumberOptions, setEditEbNumberOptions] = useState([]);
-    const [editSelectedEbNumber, setEditSelectedEbNumber] = useState(null);
-    const [editSelectedMonths, setEditSelectedMonths] = useState('');
-    const [editThirdInput, setEditThirdInput] = useState('');
-    const [editProjectData, setEditProjectData] = useState(null);
     // Initialize filter states from localStorage or defaults
     const [selectedSiteName, setSelectedSiteName] = useState(() => {
         return localStorage.getItem('expenseFilter_siteName') || '';
@@ -58,7 +49,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     const [selectedEno, setSelectedEno] = useState(() => {
         return localStorage.getItem('expenseFilter_eno') || '';
     });
-    const [exportFilteredExpenses, setExportFilteredExpenses] = useState([]);
     const [accountTypeOptions, setAccountTypeOptions] = useState([]);
     const [selectedMachineTools, setSelectedMachineTools] = useState(() => {
         return localStorage.getItem('expenseFilter_machineTools') || '';
@@ -180,8 +170,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         return () => cancelMomentum();
     }, []);
-
-    // Save filter values to localStorage whenever they change
     useEffect(() => {
         localStorage.setItem('expenseFilter_siteName', selectedSiteName);
     }, [selectedSiteName]);
@@ -246,7 +234,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             ...provided,
             borderWidth: '2px',
             lineHeight: '20px',
-            fontSize: '14px',
+            fontSize: '12px',
             height: '45px',
             borderRadius: '8px',
             borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.3)' : 'rgba(191, 152, 83, 0.3)',
@@ -560,7 +548,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 const expenseDate = new Date(expense.date);
                 if (expenseDate > e) return false;
             }
-
             return (
                 (selectedSiteName ? expense.siteName === selectedSiteName : true) &&
                 (selectedVendor ? expense.vendor === selectedVendor : true) &&
@@ -677,7 +664,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             setIsSubmitting(false);
         }
     };
-
     // Sorting function
     const handleSort = (field) => {
         if (sortField === field) {
@@ -688,14 +674,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         }
         setCurrentPage(1); // Reset to first page when sorting
     };
-
     // Sort data
     const sortedExpenses = [...filteredExpenses].sort((a, b) => {
         if (!sortField) return 0;
-        
         let aValue = a[sortField];
         let bValue = b[sortField];
-        
         // Handle different data types
         if (sortField === 'date') {
             aValue = new Date(aValue);
@@ -710,18 +693,15 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             aValue = String(aValue || '').toLowerCase();
             bValue = String(bValue || '').toLowerCase();
         }
-        
         if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
         return 0;
     });
-
     // Pagination logic
     const totalPages = Math.ceil(sortedExpenses.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const currentItems = sortedExpenses.slice(startIndex, endIndex);
-    
     // Calculate account type summary
     const accountTypeSummary = React.useMemo(() => {
         const summary = {};
@@ -738,7 +718,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         });
         return summary;
     }, [filteredExpenses]);
-
     // Create lookup maps for ID to name conversion
     const projectIdToName = React.useMemo(() => {
         const map = {};
@@ -749,7 +728,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         });
         return map;
     }, [siteOption]);
-
     const vendorIdToName = React.useMemo(() => {
         const map = {};
         vendorOption.forEach(option => {
@@ -759,7 +737,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         });
         return map;
     }, [vendorOption]);
-
     const contractorIdToName = React.useMemo(() => {
         const map = {};
         contractorOption.forEach(option => {
@@ -769,7 +746,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         });
         return map;
     }, [contractorOption]);
-
     // Helper functions to get display names
     const getDisplaySiteName = (expense) => {
         if (expense.projectId && projectIdToName[expense.projectId]) {
@@ -777,21 +753,18 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         }
         return expense.siteName || '';
     };
-
     const getDisplayVendorName = (expense) => {
         if (expense.vendorId && vendorIdToName[expense.vendorId]) {
             return vendorIdToName[expense.vendorId];
         }
         return expense.vendor || '';
     };
-
     const getDisplayContractorName = (expense) => {
         if (expense.contractorId && contractorIdToName[expense.contractorId]) {
             return contractorIdToName[expense.contractorId];
         }
         return expense.contractor || '';
     };
-    
     const handleEditClick = (expense) => {
         setEditId(expense.id);
         setFormData({
@@ -856,7 +829,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         setCurrentPage(1);
         setSortField('');
         setSortDirection('asc');
-        
         // Clear localStorage as well
         localStorage.removeItem('expenseFilter_siteName');
         localStorage.removeItem('expenseFilter_vendor');
@@ -903,7 +875,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         const csvContent = [headers, ...rows]
             .map(row => row.map(value => `"${value}"`).join(","))
             .join("\n");
-
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
@@ -917,7 +888,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         const doc = new jsPDF({ orientation: "landscape" });
         doc.setFontSize(16);
         doc.text("Filtered Expenses Report", 14, 15);
-
         autoTable(doc, {
             startY: 25,
             head: [[
@@ -946,7 +916,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 fillColor: [191, 152, 83],
             },
         });
-
         const dateStr = new Date().toISOString().slice(0, 10);
         doc.save(`Filtered_Expenses_${dateStr}.pdf`);
     };
@@ -1143,35 +1112,35 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         <th className="pt-2 w-32 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('date')}>
                                             Date {sortField === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('siteName')}>
+                                        <th className="px-0.5 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('siteName')}>
                                             Project Name {sortField === 'siteName' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('vendor')}>
+                                        <th className="px-0.5 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('vendor')}>
                                             Vendor {sortField === 'vendor' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('contractor')}>
+                                        <th className="px-0.5 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('contractor')}>
                                             Contractor {sortField === 'contractor' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[120px] font-bold text-left">Quantity</th>
-                                        <th className="px-2 w-[120px] font-bold text-left">Amount</th>
-                                        <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('comments')}>
+                                        <th className="px-0.5 w-[120px] font-bold text-left">Quantity</th>
+                                        <th className="px-0.5 w-[120px] font-bold text-left">Amount</th>
+                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('comments')}>
                                             Comments {sortField === 'comments' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[160px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('category')}>
+                                        <th className="px-0.5 w-[160px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('category')}>
                                             Category {sortField === 'category' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[130px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('accountType')}>
+                                        <th className="px-0.5 w-[130px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('accountType')}>
                                             A/C Type {sortField === 'accountType' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('machineTools')}>
+                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('machineTools')}>
                                             Machine Tools {sortField === 'machineTools' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[150px] font-bold text-left">Source From</th>
-                                        <th className="px-2 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('eno')}>
+                                        <th className="px-0.5 w-[150px] font-bold text-left">Source From</th>
+                                        <th className="px-0.5 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('eno')}>
                                             E.No {sortField === 'eno' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-2 w-[120px] font-bold text-left">Activity</th>
-                                        <th className="px-3 w-[110px] font-bold text-left">Attach file</th>
+                                        <th className="px-0.5 w-[120px] font-bold text-left">Activity</th>
+                                        <th className="px-0.5 w-[50px] font-bold text-left">File</th>
                                     </tr>
                                     {showFilters && (
                                         <tr className="bg-[#FAF6ED]">
@@ -1181,11 +1150,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     type="date"
                                                     value={selectedDate}
                                                     onChange={(e) => setSelectedDate(e.target.value)}
-                                                    className="w-full px-2 py-2 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200"
+                                                    className="w-full px-1.5 py-2 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200"
                                                     placeholder="Search Date..."
                                                 />
                                             </th>
-                                            <th className="px-2 py-3">
+                                            <th className="py-3">
                                                 <Select
                                                     className="w-full"
                                                     options={siteOptions}
@@ -1196,7 +1165,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="px-2 py-3">
+                                            <th className="py-3">
                                                 <Select
                                                     className="w-full"
                                                     options={vendorOptions}
@@ -1207,7 +1176,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="px-2 py-3">
+                                            <th className="py-3">
                                                 <Select
                                                     className="w-full"
                                                     options={contractorOptions}
@@ -1219,11 +1188,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 />
                                             </th>
                                             <th></th>
-                                            <th className="text-base text-left pl-2 font-bold py-3">
+                                            <th className="text-base text-left font-bold py-3">
                                                 ₹{Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </th>
                                             <th></th>
-                                            <th className="px-2 py-3">
+                                            <th className="py-3">
                                                 <Select
                                                     className="w-full"
                                                     options={categoryOptions}
@@ -1234,7 +1203,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="px-2 py-3">
+                                            <th className="py-3">
                                                 <Select
                                                     className="w-full"
                                                     options={accountTypeOptions}
@@ -1245,7 +1214,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="px-2 py-3">
+                                            <th className="py-3">
                                                 <Select
                                                     className="w-full"
                                                     options={machineToolsOptions}
@@ -1272,10 +1241,10 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             <td className=" text-sm text-left ">{getDisplayVendorName(expense)}</td>
                                             <td className=" text-sm text-left ">{getDisplayContractorName(expense)}</td>
                                             <td className=" text-sm text-left ">{expense.quantity}</td>
-                                            <td className="text-sm text-left pl-2 ">
+                                            <td className="text-sm text-right pr-5">
                                                 ₹{Number(expense.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className=" text-sm text-left ">{expense.comments}</td>
+                                            <td className="text-sm text-left w-[120px] max-w-[120px] break-words overflow-hidden whitespace-normal px-1">{expense.comments || ''}</td>
                                             <td className=" text-sm text-left ">{expense.category}</td>
                                             <td className=" text-sm text-left ">{expense.accountType}</td>                                            
                                             <td className=" text-sm text-left ">{expense.machineTools}</td>
@@ -1304,7 +1273,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     />
                                                 </button>
                                             </td>
-                                            <td className="px-4 text-sm">
+                                            <td className="px-1 text-sm">
                                                 {expense.billCopy ? (
                                                     <a
                                                         href={expense.billCopy}
@@ -1621,8 +1590,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
                                         />
                                         <input type="file" className="hidden" id="fileInput" onChange={handleFileChange} />
-                                    </div>
-                                    
+                                    </div>                                    
                                     {/* Conditional fields based on Account Type */}
                                     {(formData.accountType === 'Claim' || formData.accountType === 'Utility Bills') && (
                                         <div>
@@ -1639,8 +1607,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 <option value="Cheque">Cheque</option>
                                             </select>
                                         </div>
-                                    )}
-                                    
+                                    )}                                    
                                     {formData.accountType === 'Utility Bills' && (
                                         <>
                                             <div>
@@ -1657,8 +1624,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     <option value="Telecom">Telecom</option>
                                                     <option value="Subscription">Subscription</option>
                                                 </select>
-                                            </div>
-                                            
+                                            </div>                                            
                                             <div>
                                                 <label className="block text-gray-500 font-semibold text-left">
                                                     {formData.utilityType === 'Electricity' ? 'EB Number' : 
@@ -1675,8 +1641,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                                    formData.utilityType === 'Water' ? 'Water Tax Number' : 'Number'}...`}
                                                     className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
                                                 />
-                                            </div>
-                                            
+                                            </div>                                            
                                             <div>
                                                 <label className="block text-gray-500 font-semibold text-left">Months</label>
                                                 <input
@@ -1687,8 +1652,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     placeholder="Enter months..."
                                                     className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
                                                 />
-                                            </div>
-                                            
+                                            </div>                                            
                                             {(formData.utilityType === 'Telecom' || formData.utilityType === 'Subscription') && (
                                                 <div>
                                                     <label className="block text-gray-500 font-semibold text-left">Additional Input</label>
@@ -1755,7 +1719,7 @@ const AuditModal = ({ show, onClose, audits }) => {
     ];
     const formatDate = (dateString) => {
         const date = new Date(dateString);
-        date.setMinutes(date.getMinutes() + 330);
+        date.setMinutes(date.getMinutes());
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear();

@@ -43,6 +43,12 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
   const [overallLoan, setOverallLoan] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [isRequestLoanModalOpen, setIsRequestLoanModalOpen] = useState(false);
+  const adminUsernames = ['Mahalingam M', 'Admin'];
+  const normalizedUsername = (username || '').trim().toLowerCase();
+  const isAdminUser = adminUsernames.some(name => name.toLowerCase() === normalizedUsername);
+  const isAdmin = isAdminUser;
+  const [requestingLoanEntry, setRequestingLoanEntry] = useState(null);
   const scrollRef = useRef(null);
   const isDragging = useRef(false);
   const start = useRef({ x: 0, y: 0 });
@@ -751,32 +757,22 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       "E.No"
     ];
     const csvRows = sortedData.map((entry, index) => {
-      // Get purpose (project_id or from_purpose_id)
       const purposeValue = getSiteName(entry.project_id) ||
         purposeOptions.find(p => p.id === entry.from_purpose_id)?.value ||
         entry.from_purpose_id || "";
-
-      // Get transfer to destination
       const transferTo = entry.type === "Transfer"
         ? (entry.to_purpose_id
           ? purposeOptions.find(purpose => purpose.id === entry.to_purpose_id)?.value || ""
           : siteOptions.find(site => site.id === entry.transfer_Project_id)?.value || "")
         : "";
-
-      // Get loan amount (only for Loan/Transfer type)
       const loanAmount = (entry.type === "Loan" || entry.type === "Transfer") && entry.amount
         ? Number(entry.amount).toLocaleString("en-US", { maximumFractionDigits: 0 })
         : "";
-
-      // Get refund amount (only for Refund type)
       const refundAmount = entry.type === "Refund" && entry.loan_refund_amount
         ? Number(entry.loan_refund_amount).toLocaleString("en-US", { maximumFractionDigits: 0 })
         : "";
-
-      // Get payment mode
       const paymentMode = finalPaymentModeOptions.find(opt => opt.value === entry.loan_payment_mode)?.label ||
         entry.loan_payment_mode || '';
-
       return [
         index + 1,
         formatDateOnly(entry.date),
@@ -791,7 +787,6 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         entry.entry_no || ""
       ];
     });
-
     const csvString = [
       csvHeaders.join(","),
       ...csvRows.map(row =>
@@ -810,7 +805,6 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
   };
   const handleUpdate = async () => {
     try {
-
       const payload = {
         loanPortalId: editingId,
         type: editSelectedType,
@@ -872,6 +866,36 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         autoClose: 3000,
         theme: "colored",
       });
+    }
+  };
+  const handleSendLoanEditRequest = async () => {
+    if (!requestingLoanEntry) return;
+    try {
+      const requestData = {
+        module_name: 'Loan Portal',
+        module_name_id: requestingLoanEntry.loanPortalId,
+        module_name_eno: requestingLoanEntry.entry_no,
+        request_send_by: username,
+        request_approval: false,
+        request_completed: false
+      };
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/edit_requests/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(requestData)
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to create edit request');
+      }
+      alert('Edit request sent successfully. Waiting for admin approval.');
+      window.dispatchEvent(new Event('editRequestCreated'));
+      setIsRequestLoanModalOpen(false);
+      setRequestingLoanEntry(null);
+    } catch (error) {
+      console.error('Error creating edit request:', error);
+      alert('Failed to send edit request. Please try again.');
     }
   };
   return (
@@ -1178,6 +1202,11 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                             alt="Edit"
                             className="w-4 h-6 transform hover:scale-110 hover:brightness-110 transition duration-200"
                             onClick={() => {
+                              if (!isAdmin && (entry.not_allow_to_edit || entry.allow_to_edit === false)) {
+                                setRequestingLoanEntry(entry);
+                                setIsRequestLoanModalOpen(true);
+                                return;
+                              }
                               setEditingId(entry.loanPortalId || entry.id);
                               setEditFormData({
                                 date: entry.date?.split('T')[0] || '',
@@ -1434,6 +1463,30 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                   Save
                 </button>
 
+              </div>
+            </div>
+          </div>
+        )}
+        {isRequestLoanModalOpen && requestingLoanEntry && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg w-[400px] text-center">
+              <h2 className="text-lg font-bold mb-2 text-[#BF9853]">Request Edit Permission</h2>
+              <p className="text-gray-700 mb-6">
+                You need admin approval to edit this record.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={() => {
+                    setIsRequestLoanModalOpen(false);
+                    setRequestingLoanEntry(null);
+                  }}
+                  className="px-4 py-2 border border-[#BF9853] w-[100px] h-[45px] rounded"
+                >
+                  Cancel
+                </button>
+                <button onClick={handleSendLoanEditRequest} className="px-4 py-2 bg-[#BF9853] w-[160px] h-[45px] text-white rounded" >
+                  Send Request
+                </button>
               </div>
             </div>
           </div>

@@ -70,6 +70,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     const [weeklyPaymentReceivedAudits, setWeeklyPaymentReceivedAudits] = useState([]);
     const [allRefundAmount, setAllRefundAmount] = useState([]);
     const [popup, setPopup] = useState({ show: false, message: "", type: "", dateStr: "", editRowId: null, editIndex: null, originalDate: "" });
+    const [isSubmitting, setIsSubmitting] = useState(false);
     // Expenses
     const [expenses, setExpenses] = useState([]);
     const [weeklyReceivedTypes, setWeeklyReceivedTypes] = useState([]);
@@ -79,13 +80,11 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     const [selectContractororVendorName, setSelectContractororVendorName] = useState('');
     const [selectProjectName, setSelectProjectName] = useState('');
     const [selectType, setSelectType] = useState('');
-
     // Sorting state
     const [sortConfig, setSortConfig] = useState({
         key: null,
         direction: 'asc'
     });
-
     // Click and drag scrolling functionality
     const scrollRef = useRef(null);
     const isDragging = useRef(false);
@@ -94,7 +93,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     const velocity = useRef({ x: 0, y: 0 });
     const animationFrame = useRef(null);
     const lastMove = useRef({ time: 0, x: 0, y: 0 });
-
     const handleMouseDown = (e) => {
         if (!scrollRef.current) return;
         isDragging.current = true;
@@ -112,7 +110,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         scrollRef.current.style.userSelect = 'none';
         cancelMomentum();
     };
-
     const handleMouseMove = (e) => {
         if (!isDragging.current || !scrollRef.current) return;
         const dx = e.clientX - start.current.x;
@@ -131,7 +128,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             y: e.clientY,
         };
     };
-
     const handleMouseUp = () => {
         if (!isDragging.current || !scrollRef.current) return;
         isDragging.current = false;
@@ -139,14 +135,12 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         scrollRef.current.style.userSelect = '';
         applyMomentum();
     };
-
     const cancelMomentum = () => {
         if (animationFrame.current) {
             cancelAnimationFrame(animationFrame.current);
             animationFrame.current = null;
         }
     };
-
     const applyMomentum = () => {
         if (!scrollRef.current) return;
         const friction = 0.95;
@@ -166,15 +160,12 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         };
         animationFrame.current = requestAnimationFrame(step);
     };
-
     useEffect(() => {
         fetchWeeklyReceivedType();
     }, []);
-
     useEffect(() => {
         fetchWeeklyPaymentBills();
     }, []);
-
     const fetchWeeklyReceivedType = async () => {
         try {
             const response = await fetch('https://backendaab.in/aabuildersDash/api/weekly_received_types/getAll');
@@ -274,7 +265,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     };
     const handleEditChange = (e) => {
         const { name, value } = e.target;
-
         if (name === "date") {
             // Validate date against current week range
             if (!value || !currentWeekNumber) {
@@ -316,7 +306,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             // Validate type selection against current party selection
             const allowedTypesForClient = ["Loan", "Bank", "Claim"];
             const isClientTypeAllowed = allowedTypesForClient.includes(value);
-            
             if (value === "Staff Advance") {
                 // Staff Advance only allows Employee
                 if (editFormData.contractor_id || editFormData.vendor_id || editFormData.client_id) {
@@ -330,7 +319,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                     return; // Prevent type change
                 }
             }
-            
             // If type doesn't allow client selection and client toggle is active, disable it and clear client selection
             if (!isClientTypeAllowed && isClientToggleActive) {
                 setIsClientToggleActive(false);
@@ -344,7 +332,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 }));
                 return;
             }
-            
             // If validation passes, update the type
             setEditFormData((prev) => ({ ...prev, [name]: value }));
         }
@@ -383,6 +370,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     const [categoryOptions, setCategoryOptions] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [isConfirmingCategory, setIsConfirmingCategory] = useState(false);
+    const [categoryComments, setCategoryComments] = useState("");
     const [showPaymentDetailsPopup, setShowPaymentDetailsPopup] = useState(false);
     const [selectedPaymentDetails, setSelectedPaymentDetails] = useState([]);
     const handleEditPaymentClick = (row) => {
@@ -475,7 +463,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             })
                 .replace(",", "")
                 .replace(/\s/g, "-");
-
             const formData = new FormData();
             const finalName = `${timestamp}-${siteNo}-${name}`;
             formData.append("file", selectedFileForPopup);
@@ -497,7 +484,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ billCopyUrl: pdfUrl })
+                body: JSON.stringify(pdfUrl)
             });
             if (!updateResponse.ok) {
                 throw new Error("Failed to update bill copy URL");
@@ -561,7 +548,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     const handleEditPaymentChange = (e) => {
         const { name, value } = e.target;
         if (name === "date") {
-            // Validate date against current week range
             if (!value || !currentWeekNumber) {
                 setEditPaymentData((prev) => ({ ...prev, date: value }));
                 return;
@@ -581,7 +567,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                     editIndex: paymentIndex !== -1 ? paymentIndex : null,
                     originalDate: editPaymentData.date || ""
                 });
-                return; // Prevent date change
+                return;
             }
             setEditPaymentData((prev) => ({ ...prev, date: value }));
         } else {
@@ -696,6 +682,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                     { value: "Daily Wage", label: "Daily Wage", id: 8, sNo: "8" },
                     { value: "Rent Management Portal", label: "Rent Management Portal", id: 9, sNo: "9" },
                     { value: "Multi-Project Batch", label: "Multi-Project Batch", id: 10, sNo: "10" },
+                    { value: "Loan Portal", label: "Loan Portal", id: 11, sNo: "11" },
                 ];
                 const projectClientMapTemp = {};
                 const projectClientNameTemp = {};
@@ -837,7 +824,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             console.log('Error fetching tile area names.');
         }
     };
-
     const fetchAccountDetails = async () => {
         try {
             const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
@@ -851,7 +837,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             console.error('Error fetching account details:', error);
         }
     };
-
     const fetchCategories = async () => {
         try {
             const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
@@ -907,7 +892,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     const fetchStaffAdvanceDescriptions = useCallback(async (expensesData) => {
         const staffAdvanceRows = expensesData.filter(row => row.type === "Staff Advance" && row.staff_advance_portal_id);
         const newDescriptions = { ...staffAdvanceDescriptions };
-
         for (const row of staffAdvanceRows) {
             if (!(row.staff_advance_portal_id in newDescriptions)) {
                 try {
@@ -981,12 +965,9 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         }
     }, [clientProjectOptions, isClientToggleActive]);
     // Calculations
-    const totalExpenses =
-        expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0) + (Number(newExpense.amount) || 0);
-    const totalPayments =
-        payments.reduce((sum, p) => sum + Number(p.amount || 0), 0) + (Number(newPayment.amount) || 0);
-    const totalRefund = allRefundAmount
-        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0) + (Number(newExpense.amount) || 0);
+    const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0) + (Number(newPayment.amount) || 0);
+    const totalRefund = allRefundAmount.reduce((sum, p) => sum + Number(p.amount || 0), 0);
     const balance = totalPayments - expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
     // Expense input change with immediate date validation
     const handleExpenseChange = (e) => {
@@ -998,30 +979,24 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             if (isNaN(numericValue)) numericValue = "";
             if (numericValue > balance) {
                 alert(`Amount cannot exceed balance: ${balance}`);
-                numericValue = "";   // clear instead of clamping
+                numericValue = "";
             }
             if (numericValue < 0) numericValue = 0;
             setNewExpense((prev) => ({ ...prev, amount: numericValue }));
         } else if (name === "type") {
-            // Validate type selection against current party selection
             const allowedTypesForClient = ["Loan", "Bank", "Claim"];
             const isClientTypeAllowed = allowedTypesForClient.includes(value);
-            
             if (value === "Staff Advance") {
-                // Staff Advance only allows Employee
                 if (selectedContractor || selectedVendor || selectedClient) {
                     alert("Staff Advance type only allows Employee. Please select an Employee or clear the Contractor/Vendor/Client selection.");
-                    return; // Prevent type change
+                    return;
                 }
             } else if (value === "Project Advance") {
-                // Project Advance only allows Contractor or Vendor
                 if (selectedEmployee || selectedClient) {
                     alert("Project Advance type only allows Contractor or Vendor. Please select a Contractor or Vendor or clear the Employee/Client selection.");
-                    return; // Prevent type change
+                    return;
                 }
             }
-            
-            // If type doesn't allow client selection and client toggle is active, disable it and clear client selection
             if (!isClientTypeAllowed && isClientToggleActive) {
                 setIsClientToggleActive(false);
                 setSelectedClient(null);
@@ -1035,7 +1010,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 setSelectedProjectName(null);
                 return;
             }
-            
             setNewExpense((prev) => ({ ...prev, [name]: value }));
         } else {
             setNewExpense((prev) => ({ ...prev, [name]: value }));
@@ -1270,7 +1244,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         }
         return response.json();
     };
-    // Immediate date validation for Expense
     const validateExpenseDate = (dateStr) => {
         if (!dateStr || !currentWeekNumber) return;
         const year = new Date().getFullYear();
@@ -1291,9 +1264,12 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             setNewExpense((prev) => ({ ...prev, date: dateStr }));
         }
     };
-    // Expense save on Enter with date checked previously
     const handleKeyDownExpense = async (e) => {
         if (e.key !== "Enter") return;
+        if (isSubmitting) {
+            alert("Please wait for the previous submission to complete.");
+            return;
+        }
         if (!newExpense.date) {
             alert("Please select a date");
             return;
@@ -1302,7 +1278,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             alert("Please fill all fields except date");
             return;
         }
-        // Validation for Staff Advance: only employee_id allowed
+        setIsSubmitting(true);
         if (newExpense.type === "Staff Advance") {
             if (selectedContractor || selectedVendor) {
                 alert("Staff Advance type only allows Employee. Please select an Employee and remove Contractor/Vendor selection.");
@@ -1313,7 +1289,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 return;
             }
         }
-        // Validation for Project Advance: only contractor_id or vendor_id allowed
         if (newExpense.type === "Project Advance") {
             if (selectedEmployee) {
                 alert("Project Advance type only allows Contractor or Vendor. Please select a Contractor/Vendor and remove Employee selection.");
@@ -1325,7 +1300,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             }
         }
         try {
-            // ---------- Common object for weekly-expenses ----------
             const expenseForBackend = {
                 date: newExpense.date,
                 contractor_id: selectedContractor ? Number(selectedContractor.id) : null,
@@ -1339,8 +1313,8 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 weekly_number: currentWeekNumber,
                 status: false,
                 created_at: new Date().toISOString(),
-                advance_portal_id: null, // will be filled if Project Advance
-                staff_advance_portal_id: null, // will be filled if Staff Advance
+                advance_portal_id: null,
+                staff_advance_portal_id: null,
                 loan_portal_id: null,
             };
             if (newExpense.type === "Loan") {
@@ -1356,7 +1330,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 expenseForBackend.loan_portal_id = loanResponse?.id || loanResponse?.loanPortalId || null;
             }
             if (newExpense.type === "Project Advance") {
-                // ---------- Save to advance_portal ----------
                 const res = await fetch("https://backendaab.in/aabuildersDash/api/advance_portal/getAll");
                 if (!res.ok) throw new Error("Failed to fetch entry numbers");
                 const allData = await res.json();
@@ -1370,7 +1343,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                     const start = new Date(now.getFullYear(), 0, 1);
                     const diff =
                         now - start + (start.getTimezoneOffset() - now.getTimezoneOffset()) * 60000;
-                    const oneWeek = 604800000; // ms in a week
+                    const oneWeek = 604800000;
                     return Math.floor(diff / oneWeek) + 1;
                 };
                 const advancePayload = {
@@ -1389,7 +1362,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                     description: "",
                     file_url: "",
                 };
-                // Ensure employee_id is null for Project Advance
                 expenseForBackend.employee_id = null;
                 const saveAdvance = await fetch("https://backendaab.in/aabuildersDash/api/advance_portal/save", {
                     method: "POST",
@@ -1398,9 +1370,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 });
                 if (!saveAdvance.ok) throw new Error("Failed to save advance");
                 const savedAdvance = await saveAdvance.json();
-                // ✅ use correct field name from backend
                 expenseForBackend.advance_portal_id = savedAdvance.advancePortalId;
-                // ---------- Save to weekly-expenses ----------
                 const saveWeekly = await fetch("https://backendaab.in/aabuildersDash/api/weekly-expenses/save", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -1410,13 +1380,11 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 const savedWeekly = await saveWeekly.json();
                 setExpenses((prev) => {
                     const newExpenses = [savedAdvance, savedWeekly, ...prev];
-                    // Fetch descriptions for the new Project Advance rows
                     fetchPortalDescriptions(newExpenses);
                     return newExpenses;
                 });
                 window.location.reload();
             } else if (newExpense.type === "Staff Advance") {
-                // ---------- Save to staff-advance ----------
                 const res = await fetch("https://backendaab.in/aabuildersDash/api/staff-advance/all");
                 if (!res.ok) throw new Error("Failed to fetch staff advance entry numbers");
                 const allData = await res.json();
@@ -1442,8 +1410,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 });
                 if (!saveStaffAdvance.ok) throw new Error("Failed to save staff advance");
                 const savedStaffAdvance = await saveStaffAdvance.json();
-                // ---------- Save to weekly-expenses ----------
-                // Ensure contractor_id and vendor_id are null for Staff Advance
                 expenseForBackend.contractor_id = null;
                 expenseForBackend.vendor_id = null;
                 expenseForBackend.staff_advance_portal_id = savedStaffAdvance.staffAdvancePortalId;
@@ -1456,13 +1422,11 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 const savedWeekly = await saveWeekly.json();
                 setExpenses((prev) => {
                     const newExpenses = [savedStaffAdvance, savedWeekly, ...prev];
-                    // Fetch descriptions for the new Staff Advance rows
                     fetchStaffAdvanceDescriptions(newExpenses);
                     return newExpenses;
                 });
                 window.location.reload();
             } else {
-                // ---------- Normal case (not Project Advance or Staff Advance) ----------
                 const res = await fetch("https://backendaab.in/aabuildersDash/api/weekly-expenses/save", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -1472,13 +1436,11 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 const saved = await res.json();
                 setExpenses((prev) => {
                     const newExpenses = [saved, ...prev];
-                    // Fetch descriptions for the new Project Advance rows
                     fetchPortalDescriptions(newExpenses);
                     return newExpenses;
                 });
                 window.location.reload();
             }
-            // ---------- Reset fields ----------
             setNewExpense({
                 date: "",
                 contractor: "",
@@ -1499,10 +1461,10 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             setSelectedClient(null);
             setSelectedProjectName(null);
         } catch (err) {
+            setIsSubmitting(false);
             alert("Error saving expense: " + err.message);
         }
     };
-    // Payment input change with immediate date validation
     const handlePaymentChange = (e) => {
         const { name, value } = e.target;
         if (name === "date") {
@@ -1511,7 +1473,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             setNewPayment((prev) => ({ ...prev, [name]: value }));
         }
     };
-    // Immediate date validation for Payment
     const validatePaymentDate = (dateStr) => {
         if (!dateStr || !currentWeekNumber) return;
         const year = new Date().getFullYear();
@@ -1531,9 +1492,12 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             setNewPayment((prev) => ({ ...prev, date: dateStr }));
         }
     };
-    // Payment save on Enter with date checked previously
     const handleKeyDownPayment = (e) => {
         if (e.key !== "Enter") return;
+        if (isSubmitting) {
+            alert("Please wait for the previous submission to complete.");
+            return;
+        }
         if (!newPayment.date) {
             alert("Please select a date");
             return;
@@ -1542,6 +1506,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             alert("Please fill Amount and Type");
             return;
         }
+        setIsSubmitting(true);
         const payload = {
             date: newPayment.date,
             amount: Number(newPayment.amount),
@@ -1563,9 +1528,11 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 setNewPayment({ date: "", amount: "", type: "Weekly" });
                 window.location.reload();
             })
-            .catch((err) => alert("Error saving payment: " + err.message));
+            .catch((err) => {
+                setIsSubmitting(false);
+                alert("Error saving payment: " + err.message);
+            });
     };
-    // Open Account Closure popup
     const openAccountClosure = () => {
         setCarryForwardBalance(balance.toFixed(2));
         setShowPopup(true);
@@ -1596,7 +1563,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     const mergedExpenses = Object.entries(groupedExpenses).map(([type, amount]) => ({ type, amount }));
     const saveEditedExpense = async (row) => {
         try {
-            // Validation for Staff Advance: only employee_id allowed
             if (editFormData.type === "Staff Advance") {
                 if (editFormData.contractor_id || editFormData.vendor_id) {
                     alert("Staff Advance type only allows Employee. Please select an Employee and remove Contractor/Vendor selection.");
@@ -1607,7 +1573,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                     return;
                 }
             }
-            // Validation for Project Advance: only contractor_id or vendor_id allowed
             if (editFormData.type === "Project Advance") {
                 if (editFormData.employee_id) {
                     alert("Project Advance type only allows Contractor or Vendor. Please select a Contractor/Vendor and remove Employee selection.");
@@ -1635,8 +1600,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             const isNowProjectAdvance = editFormData.type === "Project Advance";
             const wasStaffAdvance = row.type === "Staff Advance";
             const isNowStaffAdvance = editFormData.type === "Staff Advance";
-            
-            // Handle Project Advance Portal clearing when changing from Project Advance to another type
             if (wasProjectAdvance && !isNowProjectAdvance && row.advance_portal_id) {
                 try {
                     await clearAdvancePortalEntry(row.advance_portal_id, editFormData.date);
@@ -1645,8 +1608,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 }
                 editFormData.advance_portal_id = null;
             }
-            
-            // Handle Staff Advance Portal clearing when changing from Staff Advance to another type
             if (wasStaffAdvance && !isNowStaffAdvance && row.staff_advance_portal_id) {
                 try {
                     await clearStaffAdvancePortalEntry(row.staff_advance_portal_id, editFormData.date);
@@ -1655,8 +1616,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 }
                 editFormData.staff_advance_portal_id = null;
             }
-            
-            // Handle Project Advance Portal
             if (isNowProjectAdvance) {
                 const advancePayload = {
                     date: editFormData.date,
@@ -1710,8 +1669,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                     editFormData.advance_portal_id = savedAdvance.advancePortalId;
                 }
             }
-            
-            // Handle Staff Advance Portal
             if (isNowStaffAdvance) {
                 const staffAdvancePayload = {
                     date: editFormData.date,
@@ -1925,7 +1882,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             console.log("Deletion cancelled.");
         }
     };
-
     const buildClientKey = (name = "", father = "", mobile = "") => {
         const normalizedName = (name || "").trim().toLowerCase();
         if (!normalizedName) return "";
@@ -2152,7 +2108,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         }
         const totalExpenses = expenses.reduce((t, e) => t + Number(e.amount || 0), 0);
         const totalPayments = payments.reduce((t, p) => t + Number(p.amount || 0), 0);
-        const balance = totalPayments - totalExpenses;        
+        const balance = totalPayments - totalExpenses;
         let advancePortalData = [];
         let staffAdvanceData = [];
         let loanPortalData = [];
@@ -2179,17 +2135,17 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             const date = new Date(dateStr);
             date.setHours(0, 0, 0, 0);
             return date >= weekDates.startDate && date <= weekDates.endDate;
-        };        
+        };
         const staffAdvanceTotalFromPortal = staffAdvanceData
-            .filter(entry => 
-                entry.staff_payment_mode === "Cash" && 
+            .filter(entry =>
+                entry.staff_payment_mode === "Cash" &&
                 entry.type === "Advance" &&
                 isDateInWeek(entry.date)
             )
             .reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
         const loanTotalFromPortal = loanPortalData
-            .filter(entry => 
-                (entry.loan_payment_mode === "Cash" || entry.payment_mode === "Cash") && 
+            .filter(entry =>
+                (entry.loan_payment_mode === "Cash" || entry.payment_mode === "Cash") &&
                 entry.type === "Loan" &&
                 isDateInWeek(entry.date)
             )
@@ -2260,9 +2216,11 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
             doc.text("EXPENSES", 660, 37);
+            const amountX = 800;
             doc.text(
                 String(totalExpenses.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"),
-                730, 37
+                amountX, 37,
+                { align: "right" }
             );
             doc.setFillColor(250, 220, 220);
             doc.rect(620, 44, 190, 18.5, "F");
@@ -2271,7 +2229,8 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             doc.text("BALANCE", 660, 58);
             doc.text(
                 String(balance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"),
-                740, 58
+                amountX, 58,
+                { align: "right" }
             );
         };
         drawHeader(doc, "WEEKLY PAYMENT REPORT");
@@ -2462,7 +2421,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         }, {});
         const allExpenseTypes = [...new Set(
             expenses
-                .filter(expense => expense.type )
+                .filter(expense => expense.type)
                 .map(e => e.type)
                 .filter(Boolean)
         )];
@@ -2473,7 +2432,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             }
         });
         expenses
-            .filter(expense => Number(expense.amount) > 0 )
+            .filter(expense => Number(expense.amount) > 0)
             .forEach(expense => {
                 const type = expense.type;
                 const amount = Number(expense.amount);
@@ -2575,100 +2534,104 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         const newTableX = 520;
         let newTableY = baseY;
         const staffAdvanceEntries = expenses.filter(e => e.type === "Staff Advance");
-        const staffAdvanceCount = staffAdvanceEntries.length;
-        const staffAdvanceTotal = staffAdvanceEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-        const staffAdvanceY = newTableY + 10;
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("STAFF ADVANCE", newTableX, staffAdvanceY - 25);
-        const staffAdvanceHead = [[
-            String(staffAdvanceCount || "0"),
-            "PARTY",
-            "PROJECT NAME",
-            String(staffAdvanceTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]];
-        const staffAdvanceBody = staffAdvanceEntries.map(e => [
-            String(e.date ? formatDateOnly(e.date) : ""),
-            String(getPartyDisplayName(e) || ""),
-            String(siteOptions.find(opt => opt.id === Number(e.project_id))?.label || ""),
-            String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]);
-        autoTable(doc, {
-            head: staffAdvanceHead,
-            body: staffAdvanceBody,
-            startY: staffAdvanceY - 20,
-            margin: { left: newTableX },
-            tableWidth: 310,
-            theme: "grid",
-            styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
-            headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
-            bodyStyles: { fontStyle: 'bold' },
-            columnStyles: {
-                3: { halign: 'right' }
-            },
-            didParseCell: (data) => {
-                if (data.section === 'head' && data.column.index === 3) {
-                    data.cell.styles.halign = 'right';
+        if (staffAdvanceEntries.length > 0) {
+            const staffAdvanceCount = staffAdvanceEntries.length;
+            const staffAdvanceTotal = staffAdvanceEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+            const staffAdvanceY = newTableY + 10;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("STAFF ADVANCE", newTableX, staffAdvanceY - 25);
+            const staffAdvanceHead = [[
+                String(staffAdvanceCount || "0"),
+                "PARTY",
+                "PROJECT NAME",
+                String(staffAdvanceTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]];
+            const staffAdvanceBody = staffAdvanceEntries.map(e => [
+                String(e.date ? formatDateOnly(e.date) : ""),
+                String(getPartyDisplayName(e) || ""),
+                String(siteOptions.find(opt => opt.id === Number(e.project_id))?.label || ""),
+                String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]);
+            autoTable(doc, {
+                head: staffAdvanceHead,
+                body: staffAdvanceBody,
+                startY: staffAdvanceY - 20,
+                margin: { left: newTableX },
+                tableWidth: 310,
+                theme: "grid",
+                styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
+                headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
+                bodyStyles: { fontStyle: 'bold' },
+                columnStyles: {
+                    3: { halign: 'right' }
+                },
+                didParseCell: (data) => {
+                    if (data.section === 'head' && data.column.index === 3) {
+                        data.cell.styles.halign = 'right';
+                    }
+                },
+                didDrawPage: () => {
+                    drawHeader(doc);
                 }
-            },
-            didDrawPage: () => {
-                drawHeader(doc);
-            }
-        });
-        newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+            });
+            newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+        }
         const staffSalaryEntries = expenses.filter(e => e.type === "Staff Salary");
-        const staffSalaryCount = staffSalaryEntries.length;
-        const staffSalaryTotal = staffSalaryEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-        const staffSalaryY = newTableY + 30;
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("STAFF SALARY", newTableX, staffSalaryY - 25);        
-        const staffSalaryHead = [[
-            String(staffSalaryCount || "0"),
-            "PARTY",
-            "PROJECT NAME",
-            String(staffSalaryTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]];
-        const staffSalaryBody = staffSalaryEntries.map(e => [
-            String(e.date ? formatDateOnly(e.date) : ""),
-            String(getPartyDisplayName(e) || ""),
-            String(siteOptions.find(opt => opt.id === Number(e.project_id))?.label || ""),
-            String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]);
-        autoTable(doc, {
-            head: staffSalaryHead,
-            body: staffSalaryBody,
-            startY: staffSalaryY - 20,
-            margin: { left: newTableX },
-            tableWidth: 310,
-            theme: "grid",
-            styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
-            headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
-            bodyStyles: { fontStyle: 'bold' },
-            columnStyles: {
-                3: { halign: 'right' }
-            },
-            didParseCell: (data) => {
-                if (data.section === 'head' && data.column.index === 3) {
-                    data.cell.styles.halign = 'right';
+        if (staffSalaryEntries.length > 0) {
+            const staffSalaryCount = staffSalaryEntries.length;
+            const staffSalaryTotal = staffSalaryEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+            const staffSalaryY = newTableY + 30;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("STAFF SALARY", newTableX, staffSalaryY - 25);
+            const staffSalaryHead = [[
+                String(staffSalaryCount || "0"),
+                "PARTY",
+                "PROJECT NAME",
+                String(staffSalaryTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]];
+            const staffSalaryBody = staffSalaryEntries.map(e => [
+                String(e.date ? formatDateOnly(e.date) : ""),
+                String(getPartyDisplayName(e) || ""),
+                String(siteOptions.find(opt => opt.id === Number(e.project_id))?.label || ""),
+                String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]);
+            autoTable(doc, {
+                head: staffSalaryHead,
+                body: staffSalaryBody,
+                startY: staffSalaryY - 20,
+                margin: { left: newTableX },
+                tableWidth: 310,
+                theme: "grid",
+                styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
+                headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
+                bodyStyles: { fontStyle: 'bold' },
+                columnStyles: {
+                    3: { halign: 'right' }
+                },
+                didParseCell: (data) => {
+                    if (data.section === 'head' && data.column.index === 3) {
+                        data.cell.styles.halign = 'right';
+                    }
+                },
+                didDrawPage: () => {
+                    drawHeader(doc);
                 }
-            },
-            didDrawPage: () => {
-                drawHeader(doc);
-            }
-        });
-        newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+            });
+            newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+        }
         const excludedTypes = ["Bill", "Wage", "Project Advance", "Staff Advance", "Staff Salary", "Daily", "Diwali Bonus"];
-        const otherExpenseTypes = [...new Set(expenses.map(e => e.type).filter(type => type && !excludedTypes.includes(type)))];        
+        const otherExpenseTypes = [...new Set(expenses.map(e => e.type).filter(type => type && !excludedTypes.includes(type)))];
         otherExpenseTypes.forEach((expenseType) => {
             const typeEntries = expenses.filter(e => e.type === expenseType);
-            if (typeEntries.length === 0) return;            
+            if (typeEntries.length === 0) return;
             const typeCount = typeEntries.length;
             const typeTotal = typeEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
             const typeY = newTableY + 30;
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
-            doc.text(expenseType.toUpperCase(), newTableX, typeY - 25);            
+            doc.text(expenseType.toUpperCase(), newTableX, typeY - 25);
             const typeHead = [[
                 String(typeCount || "0"),
                 "PARTY",
@@ -2685,7 +2648,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 doc.addPage();
                 drawHeader(doc, "WEEKLY PAYMENT STATEMENT");
                 newTableY = baseY;
-            }            
+            }
             autoTable(doc, {
                 head: typeHead,
                 body: typeBody,
@@ -2711,48 +2674,50 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
         });
         const diwaliBonusEntries = expenses.filter(e => e.type === "Diwali Bonus");
-        const diwaliBonusCount = diwaliBonusEntries.length;
-        const diwaliBonusTotal = diwaliBonusEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-        const diwaliBonusY = newTableY + 30;
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("DIWALI BONUS", newTableX, diwaliBonusY - 25);
-        const diwaliBonusHead = [[
-            String(diwaliBonusCount || "0"),
-            "PARTY",
-            "AMOUNT",
-            String(diwaliBonusTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]];
-        const diwaliBonusBody = diwaliBonusEntries.map(e => [
-            String(e.date ? formatDateOnly(e.date) : ""),
-            String(getPartyDisplayName(e) || ""),
-            String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"),
-            ""
-        ]);
-        autoTable(doc, {
-            head: diwaliBonusHead,
-            body: diwaliBonusBody,
-            startY: diwaliBonusY - 20,
-            margin: { left: newTableX },
-            tableWidth: 310,
-            theme: "grid",
-            styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
-            headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
-            bodyStyles: { fontStyle: 'bold' },
-            columnStyles: {
-                2: { halign: 'right' },
-                3: { halign: 'right' }
-            },
-            didParseCell: (data) => {
-                if (data.section === 'head' && data.column.index === 3) {
-                    data.cell.styles.halign = 'right';
+        if (diwaliBonusEntries.length > 0) {
+            const diwaliBonusCount = diwaliBonusEntries.length;
+            const diwaliBonusTotal = diwaliBonusEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+            const diwaliBonusY = newTableY + 30;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("DIWALI BONUS", newTableX, diwaliBonusY - 25);
+            const diwaliBonusHead = [[
+                String(diwaliBonusCount || "0"),
+                "PARTY",
+                "AMOUNT",
+                String(diwaliBonusTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]];
+            const diwaliBonusBody = diwaliBonusEntries.map(e => [
+                String(e.date ? formatDateOnly(e.date) : ""),
+                String(getPartyDisplayName(e) || ""),
+                String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"),
+                ""
+            ]);
+            autoTable(doc, {
+                head: diwaliBonusHead,
+                body: diwaliBonusBody,
+                startY: diwaliBonusY - 20,
+                margin: { left: newTableX },
+                tableWidth: 310,
+                theme: "grid",
+                styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
+                headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
+                bodyStyles: { fontStyle: 'bold' },
+                columnStyles: {
+                    2: { halign: 'right' },
+                    3: { halign: 'right' }
+                },
+                didParseCell: (data) => {
+                    if (data.section === 'head' && data.column.index === 3) {
+                        data.cell.styles.halign = 'right';
+                    }
+                },
+                didDrawPage: () => {
+                    drawHeader(doc);
                 }
-            },
-            didDrawPage: () => {
-                drawHeader(doc);
-            }
-        });
-        newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+            });
+            newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+        }
         const lastPeriodEndDate = expenses
             .map(exp => exp.period_end_date)
             .filter(Boolean)
@@ -2848,15 +2813,11 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                 <table className="w-[1320px] border-collapse text-left">
                                     <thead className="sticky top-0 z-10 bg-white">
                                         <tr className="bg-[#FAF6ED]">
-                                            <th className="pt-2 pl-2 w-[60px] font-bold text-left">Sl.No</th>
-                                            <th className="pt-2 w-[135px] font-bold text-left cursor-pointer hover:bg-gray-200"
-                                                onClick={() => handleSort('date')}
-                                            >
+                                            <th className="pt-2 pl-2 w-[60px] font-bold text-left">S.No</th>
+                                            <th className="pt-2 w-[135px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('date')}>
                                                 Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th className="px-1 w-[200px] font-bold text-left cursor-pointer hover:bg-gray-200"
-                                                onClick={() => handleSort('contractor_vendor')}
-                                            >
+                                            <th className="px-1 w-[200px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('contractor_vendor')}>
                                                 <div className="flex items-center gap-2">
                                                     <span>{isClientToggleActive ? 'Client Name' : 'Contractor/Vendor/Employee'}</span>
                                                     {sortConfig.key === 'contractor_vendor' && (
@@ -2864,14 +2825,10 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                     )}
                                                 </div>
                                             </th>
-                                            <th className="px-1 w-[240px] font-bold text-left cursor-pointer hover:bg-gray-200"
-                                                onClick={() => handleSort('project_name')}
-                                            >
+                                            <th className="px-1 w-[240px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('project_name')}>
                                                 Project Name {sortConfig.key === 'project_name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                             </th>
-                                            <th className="px-1 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200"
-                                                onClick={() => handleSort('type')}
-                                            >
+                                            <th className="px-1 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('type')}>
                                                 Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th className="px-1 w-[110px] font-bold text-left">Amount</th>
@@ -3068,12 +3025,14 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                     value={newExpense.date}
                                                     onChange={handleExpenseChange}
                                                     onKeyDown={handleKeyDownExpense}
+                                                    disabled={isSubmitting}
                                                 />
                                             </td>
                                             <td className="pt-2 pb-2 w-[200px]">
                                                 <div className="flex items-center gap-2 w-full">
                                                     <Select
                                                         name="party"
+                                                        isDisabled={isSubmitting}
                                                         value={isClientToggleActive
                                                             ? (selectedClient || null)
                                                             : (selectedContractor || selectedVendor || selectedEmployee || null)}
@@ -3222,13 +3181,10 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                             })
                                                         }}
                                                     />
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={handlePartySourceToggle}
-                                                        >
+                                                    <button type="button" onClick={handlePartySourceToggle} disabled={isSubmitting} >
                                                         <img
                                                             src={Change}
-                                                            className={`w-4 h-4 ${isClientToggleActive ? 'opacity-100' : 'opacity-60'}`}
+                                                            className={`w-4 h-4 ${isClientToggleActive ? 'opacity-100' : 'opacity-60'} ${isSubmitting ? 'opacity-40' : ''}`}
                                                             alt="Toggle party type"
                                                         />
                                                     </button>
@@ -3237,6 +3193,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                             <td className="pt-2 pb-2 w-[240px]">
                                                 <Select
                                                     name="project"
+                                                    isDisabled={isSubmitting}
                                                     value={selectedProjectName}
                                                     onChange={(selectedOption) => {
                                                         setSelectedProjectName(selectedOption);
@@ -3309,6 +3266,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                     value={newExpense.type}
                                                     onChange={handleExpenseChange}
                                                     onKeyDown={handleKeyDownExpense}
+                                                    disabled={isSubmitting}
                                                 >
                                                     <option value="">Select Type...</option>
                                                     {weeklyTypes.map((type, index) => (
@@ -3326,7 +3284,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                     value={newExpense.amount}
                                                     onChange={handleExpenseChange}
                                                     onKeyDown={handleKeyDownExpense}
-                                                    disabled={!newExpense.date || !selectedProjectName}
+                                                    disabled={isSubmitting || !newExpense.date || !selectedProjectName}
                                                     min="0"
                                                     step="any"
                                                 />
@@ -3686,12 +3644,8 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                                             setShowPopups(true);
                                                                         }}
                                                                     >
-                                                                        <img
-                                                                            src={
-                                                                                portalDescriptions[row.advance_portal_id] ? NotesEnd : NotesStart
-                                                                            }
-                                                                            alt="Notes"
-                                                                            className="w-4 h-4 mr-3"
+                                                                        <img src={portalDescriptions[row.advance_portal_id] ? NotesEnd : NotesStart}
+                                                                            alt="Notes" className="w-4 h-4 mr-3"
                                                                         />
                                                                     </button>
                                                                 ) : (
@@ -3877,44 +3831,46 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                         <button
                                                             onClick={() => saveEditedPaymentReceived(row)}
                                                             className="text-green-600 font-bold text-lg"
-                                                            disabled={row.type === "Carry (CF))" || row.type === "Wage Refund" || row.type === "Claim"}
+                                                            disabled={!weeklyReceivedTypes.some(type => type.received_type === row.type)}
                                                         >
                                                             ✓
                                                         </button>
                                                     ) : (
-                                                        row.type === "Carry (CF)" || row.type === "Wage Refund" || row.type === "Claim" ? (
+                                                        weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
+                                                            <button onClick={() => handleEditPaymentClick(row)}>
+                                                                <img className="w-5 h-4" src={Edit} alt="Edit" />
+                                                            </button>
+                                                        ) : (
                                                             <img
                                                                 className="w-5 h-4 opacity-40 cursor-not-allowed"
                                                                 src={Edit}
                                                                 alt="Edit Disabled"
                                                             />
-                                                        ) : (
-                                                            <button onClick={() => handleEditPaymentClick(row)}>
-                                                                <img className="w-5 h-4" src={Edit} alt="Edit" />
-                                                            </button>
                                                         )
                                                     )}
-                                                    {row.type === "Carry (CF)" || row.type === "Wage Refund" || row.type === "Claim" ? (
-                                                        <img
-                                                            className="w-5 h-4 opacity-40 cursor-not-allowed"
-                                                            src={Delete}
-                                                            alt="Delete Disabled"
-                                                        />
-                                                    ) : (
+                                                    {weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
                                                         <button className="pl-3">
                                                             <img src={Delete} className="w-5 h-4" alt="Delete" onClick={() => handleWeeklyReceivedDelete(row.id)} />
                                                         </button>
+                                                    ) : (
+                                                        <span className="pl-3">
+                                                            <img
+                                                                className="w-5 h-4 opacity-40 cursor-not-allowed"
+                                                                src={Delete}
+                                                                alt="Delete Disabled"
+                                                            />
+                                                        </span>
                                                     )}
-                                                    {row.type === "Carry (CF)" || row.type === "Wage Refund" || row.type === "Claim" ? (
+                                                    {weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
+                                                        <button className="" onClick={() => fetchAuditDetailsForPaymentReceived(row.id)}>
+                                                            <img src={history} className="w-5 h-4" alt="History" />
+                                                        </button>
+                                                    ) : (
                                                         <img
                                                             className="w-5 h-4 opacity-40 cursor-not-allowed"
                                                             src={history}
                                                             alt="History Disabled"
                                                         />
-                                                    ) : (
-                                                        <button className="" onClick={() => fetchAuditDetailsForPaymentReceived(row.id)}>
-                                                            <img src={history} className="w-5 h-4" alt="History" />
-                                                        </button>
                                                     )}
                                                 </div>
                                             </td>
@@ -3929,13 +3885,15 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                 value={newPayment.date}
                                                 onChange={handlePaymentChange}
                                                 onKeyDown={handleKeyDownPayment}
+                                                disabled={isSubmitting}
                                             />
                                         </td>
                                         <td className="px-2 py-2">
                                             <select
                                                 name="type"
                                                 className="border-2 border-[#BF9853] border-opacity-25 w-[90px] h-[40px] rounded-lg focus:outline-none"
-                                                value={newPayment.type} onChange={handlePaymentChange} onKeyDown={handleKeyDownPayment}>
+                                                value={newPayment.type} onChange={handlePaymentChange} onKeyDown={handleKeyDownPayment}
+                                                disabled={isSubmitting}>
                                                 <option value="">Select</option>
                                                 {weeklyReceivedTypes.map((type, index) => (
                                                     <option key={index} value={type.received_type}>
@@ -3955,6 +3913,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                 min="0"
                                                 step="any"
                                                 onWheel={(e) => e.preventDefault()}
+                                                disabled={isSubmitting}
                                             />
                                         </td>
                                     </tr>
@@ -4112,7 +4071,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                             />
                                         </div>
                                     </div>
-
                                     {/* Amount */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
@@ -4124,7 +4082,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                             className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none no-spinner"
                                         />
                                     </div>
-
                                     {/* Mode */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Mode</label>
@@ -4142,7 +4099,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                     </div>
                                 </div>
                             </div>
-
                             {/* Second Row: Transaction Number, Account Number, Cheque Fields - with border */}
                             <div className="border-2 border-[#BF9853] border-opacity-25 w-[600px] rounded-lg p-4">
                                 <div className="space-y-4">
@@ -4160,7 +4116,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                     className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none"
                                                 />
                                             </div>
-
                                             {/* Cheque Date */}
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Date</label>
@@ -4186,7 +4141,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                 className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none"
                                             />
                                         </div>
-
                                         {/* Account Number */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
@@ -4204,8 +4158,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                             </select>
                                         </div>
                                     </div>
-
-
                                 </div>
                             </div>
                         </div>
@@ -4252,10 +4204,8 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                {/* Second Row: Transaction Number, Account Number, Cheque Fields */}
                                                 <div className="border-2 border-[#BF9853] border-opacity-25 rounded-lg p-4">
                                                     <div className="space-y-4">
-                                                        {/* Cheque Fields Row (if cheque payment) */}
                                                         {payment.bill_payment_mode === "Cheque" && (
                                                             <div className="grid grid-cols-2 gap-4">
                                                                 {/* Cheque No */}
@@ -4280,9 +4230,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                                 </div>
                                                             </div>
                                                         )}
-                                                        {/* Transaction Number and Account Number Row */}
                                                         <div className="grid grid-cols-2 gap-4">
-                                                            {/* Transaction Number */}
                                                             <div>
                                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Number</label>
                                                                 <input
@@ -4292,7 +4240,6 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                                     className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full  text-gray-600"
                                                                 />
                                                             </div>
-                                                            {/* Account Number */}
                                                             <div>
                                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
                                                                 <input
@@ -4622,11 +4569,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                             )}
                         </div>
                         <div className="flex justify-end mt-4">
-                            <button
-                                onClick={() => {
-                                    setShowPaymentDetailsPopup(false);
-                                    setSelectedPaymentDetails([]);
-                                }}
+                            <button onClick={() => {setShowPaymentDetailsPopup(false); setSelectedPaymentDetails([]);}}
                                 className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
                             >
                                 Close
@@ -4706,12 +4649,25 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                 }}
                             />
                         </div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Comments
+                            </label>
+                            <textarea
+                                value={categoryComments}
+                                onChange={(e) => setCategoryComments(e.target.value)}
+                                placeholder="Enter comments..."
+                                className="w-full border-2 border-[#BF9853] border-opacity-25 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent resize-none"
+                                rows={3}
+                            />
+                        </div>
                         <div className="flex justify-end gap-3 mt-6">
                             <button
                                 onClick={() => {
                                     setShowCategoryPopup(false);
                                     setSelectedCategory(null);
                                     setIsConfirmingCategory(false);
+                                    setCategoryComments("");
                                 }}
                                 className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
                             >
@@ -4744,8 +4700,9 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                             contractor: contractorOptions.find(opt => opt.id === Number(currentProjectAdvanceRow.contractor_id))?.label || "",
                                             amount: Number(currentProjectAdvanceRow.amount) + previousPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
                                             category: selectedCategory.value,
-                                            comments: `Claim from Weekly Payment `,
+                                            comments: categoryComments || "",
                                             machineTools: "",
+                                            source: "Cash Register",
                                             billCopyUrl: currentProjectAdvanceRow.bill_copy_url
                                         };
                                         const expensesFormResponse = await fetch('https://backendaab.in/aabuilderDash/expenses_form/save', {
@@ -4791,6 +4748,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                 setCurrentProjectAdvanceRow(null);
                                                 setSelectedCategory(null);
                                                 setIsConfirmingCategory(false);
+                                                setCategoryComments("");
                                             }, 2000);
                                         } else {
                                             throw new Error('Failed to update expense entry status');

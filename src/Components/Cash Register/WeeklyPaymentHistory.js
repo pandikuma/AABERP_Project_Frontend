@@ -13,6 +13,7 @@ import fileUpload from '../Images/file_upload.png';
 import file from '../Images/file.png';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { i } from 'mathjs';
 function cleanUrl(url) {
     if (!url) return url;
     let cleanedUrl = url.replace(/^["']|["']$/g, '');
@@ -47,7 +48,8 @@ const History = ({ username, userRoles = [] }) => {
         client_name: "",
         client_id: "",
     });
-    const [newPayment, setNewPayment] = useState({ date: "", amount: "", type: "Weekly" });
+    const [categoryComments, setCategoryComments] = useState("");
+    const [newPayment, setNewPayment] = useState({ date: "", amount: "", type: "" });
     const [weeks, setWeeks] = useState([]);
     const [vendorOptions, setVendorOptions] = useState([]);
     const [contractorOptions, setContractorOptions] = useState([]);
@@ -79,6 +81,7 @@ const History = ({ username, userRoles = [] }) => {
     const [weeklyPaymentReceivedAudits, setWeeklyPaymentReceivedAudits] = useState([]);
     const [year, setYear] = useState(new Date().getFullYear().toString());
     const [weeklyTypes, setWeeklyTypes] = useState([]);
+    const [weeklyReceivedTypes, setWeeklyReceivedTypes] = useState([]);
     const currentYear = new Date().getFullYear();
     const startYear = 2000;
     const years = Array.from({ length: currentYear - startYear + 1 }, (_, i) => startYear + i);
@@ -271,6 +274,32 @@ const History = ({ username, userRoles = [] }) => {
         const normalizedMobile = (mobile || "").trim();
         return `${normalizedName}|${normalizedFather}|${normalizedMobile}`;
     };
+    const [laboursList, setLaboursList] = useState([]);
+    useEffect(() => {
+        fetchLaboursList();
+    }, []);
+    const fetchLaboursList = async () => {
+        try {
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
+            if (response.ok) {
+                const data = await response.json();
+                const formattedData = data.map(item => ({
+                    value: item.labour_name,
+                    label: item.labour_name,
+                    id: item.id,
+                    type: "Labour",
+                    salary: item.labour_salary,
+                    extra: item.extra_amount
+                }));
+                setLaboursList(formattedData);
+            } else {
+                console.log('Error fetching Labour names.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            console.log('Error fetching Labour names.');
+        }
+    };
     const getClientName = (entry) => {
         if (!entry) return "";
         if (entry.client_name) return entry.client_name;
@@ -300,6 +329,9 @@ const History = ({ username, userRoles = [] }) => {
         fetchWeeklyType();
     }, []);
     useEffect(() => {
+        fetchWeeklyReceivedType();
+    }, []);
+    useEffect(() => {
         fetchAccountDetails();
     }, []);
     useEffect(() => {
@@ -317,6 +349,19 @@ const History = ({ username, userRoles = [] }) => {
         } catch (error) {
             console.error('Error:', error);
             console.log('Error fetching tile area names.');
+        }
+    };
+    const fetchWeeklyReceivedType = async () => {
+        try {
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/weekly_received_types/getAll');
+            if (response.ok) {
+                const data = await response.json();
+                setWeeklyReceivedTypes(data);
+            } else {
+                console.log('Error fetching Payment Received type.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
         }
     };
     const fetchAccountDetails = async () => {
@@ -586,6 +631,7 @@ const History = ({ username, userRoles = [] }) => {
             { value: "Daily Wage", label: "Daily Wage", id: 8, sNo: "8" },
             { value: "Rent Management Portal", label: "Rent Management Portal", id: 9, sNo: "9" },
             { value: "Multi-Project Batch", label: "Multi-Project Batch", id: 10, sNo: "10" },
+            { value: "Loan Portal", label: "Loan Portal", id: 11, sNo: "11" },
         ];
         const fetchSites = async () => {
             try {
@@ -734,7 +780,7 @@ const History = ({ username, userRoles = [] }) => {
             // Validate type selection against current party selection
             const allowedTypesForClient = ["Loan", "Bank", "Claim"];
             const isClientTypeAllowed = allowedTypesForClient.includes(value);
-            
+
             if (value === "Staff Advance") {
                 // Staff Advance only allows Employee
                 if (selectedContractor || selectedVendor || selectedClient) {
@@ -748,7 +794,7 @@ const History = ({ username, userRoles = [] }) => {
                     return; // Prevent type change
                 }
             }
-            
+
             // If type doesn't allow client selection and client toggle is active, disable it and clear client selection
             if (!isClientTypeAllowed && isClientToggleActive) {
                 setIsClientToggleActive(false);
@@ -764,7 +810,7 @@ const History = ({ username, userRoles = [] }) => {
                 }));
                 return;
             }
-            
+
             // If validation passes, update the type
             setNewExpense((prev) => ({ ...prev, [name]: value }));
         } else {
@@ -785,6 +831,8 @@ const History = ({ username, userRoles = [] }) => {
         employeeOptions.find(c => c.id === id)?.value || "";
     const getSiteName = (id) =>
         siteOptions.find(s => String(s.id) === String(id))?.value || "";
+    const getLabourName = (id) =>
+        laboursList.find(l => l.id === id)?.value || "";
     const getPartyDisplayName = (entry) => {
         const hasContractorVendorEmployee = entry.contractor_id || entry.vendor_id || entry.employee_id;
         if (!hasContractorVendorEmployee && entry.type === "Loan") {
@@ -794,6 +842,7 @@ const History = ({ username, userRoles = [] }) => {
         if (entry.vendor_id) return getVendorName(entry.vendor_id);
         if (entry.contractor_id) return getContractorName(entry.contractor_id);
         if (entry.employee_id) return getEmployeeName(entry.employee_id);
+        if (entry.labour_id) return getLabourName(entry.labour_id);
         return "";
     };
     const filteredExpenses = expenses.filter((entry) => {
@@ -1426,33 +1475,26 @@ const History = ({ username, userRoles = [] }) => {
             );
             return;
         } else if (field === "type") {
-            // Validate type selection against current party selection in the row being edited
             const row = expenses.find(exp => exp.id === id);
             const allowedTypesForClient = ["Loan", "Bank", "Claim"];
             const isClientTypeAllowed = allowedTypesForClient.includes(value);
-            
             if (value === "Staff Advance") {
-                // Staff Advance only allows Employee
                 if (row?.contractor_id || row?.vendor_id || row?.client_id) {
                     alert("Staff Advance type only allows Employee. Please select an Employee or clear the Contractor/Vendor/Client selection.");
-                    return; // Prevent type change
+                    return;
                 }
             } else if (value === "Project Advance") {
-                // Project Advance only allows Contractor or Vendor
                 if (row?.employee_id || row?.client_id) {
                     alert("Project Advance type only allows Contractor or Vendor. Please select a Contractor or Vendor or clear the Employee/Client selection.");
-                    return; // Prevent type change
+                    return;
                 }
             }
-            
-            // If type doesn't allow client selection and client toggle is active, disable it and clear client selection
             if (!isClientTypeAllowed && isClientToggleActive && row?.client_id) {
                 setIsClientToggleActive(false);
                 setSelectedClient(null);
                 setClientProjectOptions([]);
                 setSelectedProjectName(null);
                 setSelectedProjectOption(null);
-                // Clear client selection from the row
                 setExpenses((prevExpenses) =>
                     prevExpenses.map((expense) =>
                         expense.id === id ? { ...expense, [field]: value, client_name: "", client_id: "" } : expense
@@ -1460,8 +1502,6 @@ const History = ({ username, userRoles = [] }) => {
                 );
                 return;
             }
-            
-            // If validation passes, update the type
             setExpenses((prevExpenses) =>
                 prevExpenses.map((expense) =>
                     expense.id === id ? { ...expense, [field]: value } : expense
@@ -1477,7 +1517,6 @@ const History = ({ username, userRoles = [] }) => {
     };
     const handleEditPayment = (index, field, value) => {
         if (field === "date") {
-            // Validate date against selected week range
             const row = payments[index];
             if (!value || !selectedWeek) {
                 setPayments((prevPayments) =>
@@ -1502,7 +1541,7 @@ const History = ({ username, userRoles = [] }) => {
                     editIndex: index,
                     originalDate: row?.date || ""
                 });
-                return; // Prevent date change
+                return;
             }
             setPayments((prevPayments) =>
                 prevPayments.map((payment, i) =>
@@ -1550,18 +1589,15 @@ const History = ({ username, userRoles = [] }) => {
             alert("Error: Data not loaded properly. Please refresh the page and try again.");
             return;
         }
-        
         let advancePortalData = [];
         let staffAdvanceData = [];
         let loanPortalData = [];
-        
         try {
             const [advanceRes, staffAdvanceRes, loanRes] = await Promise.all([
                 fetch("https://backendaab.in/aabuildersDash/api/advance_portal/getAll").catch(() => null),
                 fetch("https://backendaab.in/aabuildersDash/api/staff-advance/all").catch(() => null),
                 fetch("https://backendaab.in/aabuildersDash/api/loans/all").catch(() => null)
             ]);
-            
             if (advanceRes && advanceRes.ok) {
                 advancePortalData = await advanceRes.json();
             }
@@ -1574,29 +1610,22 @@ const History = ({ username, userRoles = [] }) => {
         } catch (error) {
             console.error("Error fetching portal data:", error);
         }
-        
-        // Helper function to check if date is in week range
         const isDateInWeek = (dateStr) => {
             if (!dateStr) return false;
             const date = new Date(dateStr);
             date.setHours(0, 0, 0, 0);
             return date >= start && date <= end;
         };
-        
-
-        // Get Staff Advance total from staff advance portal (Cash payment mode, within week)
         const staffAdvanceTotalFromPortal = staffAdvanceData
-            .filter(entry => 
-                entry.staff_payment_mode === "Cash" && 
+            .filter(entry =>
+                entry.staff_payment_mode === "Cash" &&
                 entry.type === "Advance" &&
                 isDateInWeek(entry.date)
             )
             .reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
-        
-        // Get Loan total from loan portal (Cash payment mode, within week)
         const loanTotalFromPortal = loanPortalData
-            .filter(entry => 
-                (entry.loan_payment_mode === "Cash" || entry.payment_mode === "Cash") && 
+            .filter(entry =>
+                (entry.loan_payment_mode === "Cash" || entry.payment_mode === "Cash") &&
                 entry.type === "Loan" &&
                 isDateInWeek(entry.date)
             )
@@ -1624,10 +1653,12 @@ const History = ({ username, userRoles = [] }) => {
             doc.rect(620, 25, 190, 18.5, "F");
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
+            const amountX = 800;
             doc.text("EXPENSES", 660, 37);
             doc.text(
                 String(totalExpenses.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"),
-                730, 37
+                amountX, 37,
+                { align: "right" }
             );
             doc.setFillColor(250, 220, 220);
             doc.rect(620, 44, 190, 18.5, "F");
@@ -1636,7 +1667,8 @@ const History = ({ username, userRoles = [] }) => {
             doc.text("BALANCE", 660, 58);
             doc.text(
                 String(balance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"),
-                740, 58
+                amountX, 58,
+                { align: "right" }
             );
         };
         drawHeader(doc, "WEEKLY PAYMENT REPORT");
@@ -1825,23 +1857,20 @@ const History = ({ username, userRoles = [] }) => {
             acc[typeObj.type] = { count: 0, total: 0 };
             return acc;
         }, {});
-        // Get all expense types from all expenses (excluding Project Advance)
         const allExpenseTypes = [...new Set(
             expenses
-                .filter(expense => expense.type )
+                .filter(expense => expense.type)
                 .map(e => e.type)
                 .filter(Boolean)
         )];
-        // Get fixed types from weeklyTypes
         const fixedTypes = weeklyTypes.map(typeObj => typeObj.type);
-        // Add any expense types that are not in weeklyTypes
         allExpenseTypes.forEach(type => {
             if (!fixedTypes.includes(type)) {
                 summaryMap[type] = { count: 0, total: 0 };
             }
         });
         expenses
-            .filter(expense => Number(expense.amount) > 0 )
+            .filter(expense => Number(expense.amount) > 0)
             .forEach(expense => {
                 const type = expense.type;
                 const amount = Number(expense.amount);
@@ -1852,15 +1881,12 @@ const History = ({ username, userRoles = [] }) => {
                     }
                 }
             });
-        
-        // Update totals from portal data for specific types
         if (summaryMap["Staff Advance"]) {
             summaryMap["Staff Advance"].total = staffAdvanceTotalFromPortal;
         }
         if (summaryMap["Loan"]) {
             summaryMap["Loan"].total = loanTotalFromPortal;
         }
-        
         const summaryData = Object.entries(summaryMap)
             .map(([type, { count, total }]) => [
                 String(type || ""),
@@ -1946,108 +1972,104 @@ const History = ({ username, userRoles = [] }) => {
         const newTableX = 520;
         let newTableY = baseY;
         const staffAdvanceEntries = expenses.filter(e => e.type === "Staff Advance");
-        const staffAdvanceCount = staffAdvanceEntries.length;
-        const staffAdvanceTotal = staffAdvanceEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-        const staffAdvanceY = newTableY + 10;
-        // Add title above the table like DIWALI BONUS
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("STAFF ADVANCE", newTableX, staffAdvanceY - 25);
-        
-        const staffAdvanceHead = [[
-            String(staffAdvanceCount || "0"),
-            "PARTY",
-            "PROJECT NAME",
-            String(staffAdvanceTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]];
-        const staffAdvanceBody = staffAdvanceEntries.map(e => [
-            String(e.date ? formatDateOnly(e.date) : ""),
-            String(getPartyDisplayName(e) || ""),
-            String(siteOptions.find(opt => opt.id === Number(e.project_id))?.label || ""),
-            String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]);
-        autoTable(doc, {
-            head: staffAdvanceHead,
-            body: staffAdvanceBody,
-            startY: staffAdvanceY - 20,
-            margin: { left: newTableX },
-            tableWidth: 310,
-            theme: "grid",
-            styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
-            headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
-            bodyStyles: { fontStyle: 'bold' },
-            columnStyles: {
-                3: { halign: 'right' }
-            },
-            didParseCell: (data) => {
-                if (data.section === 'head' && data.column.index === 3) {
-                    data.cell.styles.halign = 'right';
+        if (staffAdvanceEntries.length > 0) {
+            const staffAdvanceCount = staffAdvanceEntries.length;
+            const staffAdvanceTotal = staffAdvanceEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+            const staffAdvanceY = newTableY + 10;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("STAFF ADVANCE", newTableX, staffAdvanceY - 25);
+            const staffAdvanceHead = [[
+                String(staffAdvanceCount || "0"),
+                "PARTY",
+                "PROJECT NAME",
+                String(staffAdvanceTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]];
+            const staffAdvanceBody = staffAdvanceEntries.map(e => [
+                String(e.date ? formatDateOnly(e.date) : ""),
+                String(getPartyDisplayName(e) || ""),
+                String(siteOptions.find(opt => opt.id === Number(e.project_id))?.label || ""),
+                String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]);
+            autoTable(doc, {
+                head: staffAdvanceHead,
+                body: staffAdvanceBody,
+                startY: staffAdvanceY - 20,
+                margin: { left: newTableX },
+                tableWidth: 310,
+                theme: "grid",
+                styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
+                headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
+                bodyStyles: { fontStyle: 'bold' },
+                columnStyles: {
+                    3: { halign: 'right' }
+                },
+                didParseCell: (data) => {
+                    if (data.section === 'head' && data.column.index === 3) {
+                        data.cell.styles.halign = 'right';
+                    }
+                },
+                didDrawPage: () => {
+                    drawHeader(doc);
                 }
-            },
-            didDrawPage: () => {
-                drawHeader(doc);
-            }
-        });
-        newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+            });
+            newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+        }
         const staffSalaryEntries = expenses.filter(e => e.type === "Staff Salary");
-        const staffSalaryCount = staffSalaryEntries.length;
-        const staffSalaryTotal = staffSalaryEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-        const staffSalaryY = newTableY + 30;
-        // Add title above the table like DIWALI BONUS
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("STAFF SALARY", newTableX, staffSalaryY - 25);
-        
-        const staffSalaryHead = [[
-            String(staffSalaryCount || "0"),
-            "PARTY",
-            "PROJECT NAME",
-            String(staffSalaryTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]];
-        const staffSalaryBody = staffSalaryEntries.map(e => [
-            String(e.date ? formatDateOnly(e.date) : ""),
-            String(getPartyDisplayName(e) || ""),
-            String(siteOptions.find(opt => opt.id === Number(e.project_id))?.label || ""),
-            String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]);
-        autoTable(doc, {
-            head: staffSalaryHead,
-            body: staffSalaryBody,
-            startY: staffSalaryY - 20,
-            margin: { left: newTableX },
-            tableWidth: 310,
-            theme: "grid",
-            styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
-            headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
-            bodyStyles: { fontStyle: 'bold' },
-            columnStyles: {
-                3: { halign: 'right' }
-            },
-            didParseCell: (data) => {
-                if (data.section === 'head' && data.column.index === 3) {
-                    data.cell.styles.halign = 'right';
+        if (staffSalaryEntries.length > 0) {
+            const staffSalaryCount = staffSalaryEntries.length;
+            const staffSalaryTotal = staffSalaryEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+            const staffSalaryY = newTableY + 30;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("STAFF SALARY", newTableX, staffSalaryY - 25);
+            const staffSalaryHead = [[
+                String(staffSalaryCount || "0"),
+                "PARTY",
+                "PROJECT NAME",
+                String(staffSalaryTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]];
+            const staffSalaryBody = staffSalaryEntries.map(e => [
+                String(e.date ? formatDateOnly(e.date) : ""),
+                String(getPartyDisplayName(e) || ""),
+                String(siteOptions.find(opt => opt.id === Number(e.project_id))?.label || ""),
+                String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]);
+            autoTable(doc, {
+                head: staffSalaryHead,
+                body: staffSalaryBody,
+                startY: staffSalaryY - 20,
+                margin: { left: newTableX },
+                tableWidth: 310,
+                theme: "grid",
+                styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
+                headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
+                bodyStyles: { fontStyle: 'bold' },
+                columnStyles: {
+                    3: { halign: 'right' }
+                },
+                didParseCell: (data) => {
+                    if (data.section === 'head' && data.column.index === 3) {
+                        data.cell.styles.halign = 'right';
+                    }
+                },
+                didDrawPage: () => {
+                    drawHeader(doc);
                 }
-            },
-            didDrawPage: () => {
-                drawHeader(doc);
-            }
-        });
-        newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+            });
+            newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+        }
         const excludedTypes = ["Bill", "Wage", "Project Advance", "Staff Advance", "Staff Salary", "Daily", "Diwali Bonus"];
         const otherExpenseTypes = [...new Set(expenses.map(e => e.type).filter(type => type && !excludedTypes.includes(type)))];
-        
         otherExpenseTypes.forEach((expenseType) => {
             const typeEntries = expenses.filter(e => e.type === expenseType);
             if (typeEntries.length === 0) return;
-            
             const typeCount = typeEntries.length;
             const typeTotal = typeEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
             const typeY = newTableY + 30;
-            
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
             doc.text(expenseType.toUpperCase(), newTableX, typeY - 25);
-            
             const typeHead = [[
                 String(typeCount || "0"),
                 "PARTY",
@@ -2060,13 +2082,11 @@ const History = ({ username, userRoles = [] }) => {
                 String(siteOptions.find(opt => opt.id === Number(e.project_id))?.label || ""),
                 String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
             ]);
-            
             if (newTableY > doc.internal.pageSize.getHeight() - 150) {
                 doc.addPage();
                 drawHeader(doc, "WEEKLY PAYMENT STATEMENT");
                 newTableY = baseY;
             }
-            
             autoTable(doc, {
                 head: typeHead,
                 body: typeBody,
@@ -2092,48 +2112,50 @@ const History = ({ username, userRoles = [] }) => {
             newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
         });
         const diwaliBonusEntries = expenses.filter(e => e.type === "Diwali Bonus");
-        const diwaliBonusCount = diwaliBonusEntries.length;
-        const diwaliBonusTotal = diwaliBonusEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-        const diwaliBonusY = newTableY + 30;
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("DIWALI BONUS", newTableX, diwaliBonusY - 25);
-        const diwaliBonusHead = [[
-            String(diwaliBonusCount || "0"),
-            "PARTY",
-            "AMOUNT",
-            String(diwaliBonusTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
-        ]];
-        const diwaliBonusBody = diwaliBonusEntries.map(e => [
-            String(e.date ? formatDateOnly(e.date) : ""),
-            String(getPartyDisplayName(e) || ""),
-            String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"),
-            ""
-        ]);
-        autoTable(doc, {
-            head: diwaliBonusHead,
-            body: diwaliBonusBody,
-            startY: diwaliBonusY - 20,
-            margin: { left: newTableX },
-            tableWidth: 310,
-            theme: "grid",
-            styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
-            headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
-            bodyStyles: { fontStyle: 'bold' },
-            columnStyles: {
-                2: { halign: 'right' },
-                3: { halign: 'right' }
-            },
-            didParseCell: (data) => {
-                if (data.section === 'head' && data.column.index === 3) {
-                    data.cell.styles.halign = 'right';
+        if (diwaliBonusEntries.length > 0) {
+            const diwaliBonusCount = diwaliBonusEntries.length;
+            const diwaliBonusTotal = diwaliBonusEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+            const diwaliBonusY = newTableY + 30;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("DIWALI BONUS", newTableX, diwaliBonusY - 25);
+            const diwaliBonusHead = [[
+                String(diwaliBonusCount || "0"),
+                "PARTY",
+                "AMOUNT",
+                String(diwaliBonusTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00")
+            ]];
+            const diwaliBonusBody = diwaliBonusEntries.map(e => [
+                String(e.date ? formatDateOnly(e.date) : ""),
+                String(getPartyDisplayName(e) || ""),
+                String(Number(e.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"),
+                ""
+            ]);
+            autoTable(doc, {
+                head: diwaliBonusHead,
+                body: diwaliBonusBody,
+                startY: diwaliBonusY - 20,
+                margin: { left: newTableX },
+                tableWidth: 310,
+                theme: "grid",
+                styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5 },
+                headStyles: { textColor: [0, 0, 0], fillColor: [255, 230, 230], lineColor: [0, 0, 0], lineWidth: 1, fontStyle: 'bold' },
+                bodyStyles: { fontStyle: 'bold' },
+                columnStyles: {
+                    2: { halign: 'right' },
+                    3: { halign: 'right' }
+                },
+                didParseCell: (data) => {
+                    if (data.section === 'head' && data.column.index === 3) {
+                        data.cell.styles.halign = 'right';
+                    }
+                },
+                didDrawPage: () => {
+                    drawHeader(doc);
                 }
-            },
-            didDrawPage: () => {
-                drawHeader(doc);
-            }
-        });
-        newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+            });
+            newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
+        }
         const lastPeriodEndDate = expenses
             .map(exp => exp.period_end_date)
             .filter(Boolean)
@@ -2206,7 +2228,6 @@ const History = ({ username, userRoles = [] }) => {
                 editingOriginalRow && editingOriginalRow.id === row.id
                     ? editingOriginalRow
                     : expenses.find((exp) => exp.id === row.id);
-            // Check if any changes were made
             if (originalExpense) {
                 const normalize = (val) => {
                     if (val === null || val === undefined || val === "") return "";
@@ -3029,10 +3050,7 @@ const History = ({ username, userRoles = [] }) => {
                                                                 }),
                                                             }}
                                                         />
-                                                        <button 
-                                                            type="button" 
-                                                            onClick={handlePartySourceToggle}
-                                                        >
+                                                        <button type="button" onClick={handlePartySourceToggle} >
                                                             <img
                                                                 src={Change}
                                                                 className={`w-4 h-4 ${isClientToggleActive ? 'opacity-100' : 'opacity-60'}`}
@@ -3278,7 +3296,7 @@ const History = ({ username, userRoles = [] }) => {
                                                         <div className="flex flex-col gap-1">
                                                             <div className="flex items-center gap-2">
                                                                 <span className={row.type === "Claim" && !row.send_to_expenses_entry ? "text-red-500" : ""}>{row.type}</span>
-                                                                {row.type !== "Daily" && Number(row.weekly_number) === Number(lastWeekNumber) && (
+                                                                
                                                                     <button
                                                                         onClick={() => {
                                                                             setCurrentProjectAdvanceRow(row);
@@ -3300,7 +3318,7 @@ const History = ({ username, userRoles = [] }) => {
                                                                     >
                                                                         +
                                                                     </button>
-                                                                )}
+                                                                
                                                             </div>
                                                             {(() => {
                                                                 const payments = getPaymentsByExpenseId(row.id);
@@ -3548,16 +3566,19 @@ const History = ({ username, userRoles = [] }) => {
                                                     {editingPaymentId === (row.id || null) ? (
                                                         <>
                                                             <select
-                                                                value={row.type || "Weekly"}
+                                                                value={row.type || ""}
                                                                 onChange={(e) =>
                                                                     handleEditPayment(index, "type", e.target.value)
                                                                 }
                                                                 className="border-2 border-[#BF9853] border-opacity-25 w-[90px] h-[40px] rounded-lg bg-transparent focus:outline-none"
                                                                 disabled={editingPaymentId !== row.id}
                                                             >
-                                                                <option id='1' value="Weekly">Weekly</option>
-                                                                <option id='2' value="Daily">Daily</option>
-                                                                <option id='3' value="Monthly">Monthly</option>
+                                                                <option value="">Select</option>
+                                                                {weeklyReceivedTypes.map((type, idx) => (
+                                                                    <option key={idx} value={type.received_type}>
+                                                                        {type.received_type}
+                                                                    </option>
+                                                                ))}
                                                             </select>
                                                         </>
                                                     ) : (
@@ -3573,18 +3594,12 @@ const History = ({ username, userRoles = [] }) => {
                                                                 <button
                                                                     className="text-green-600 font-bold text-lg"
                                                                     onClick={() => saveEditedPaymentReceived(row)}
-                                                                    disabled={row.type === "Carry (CF))" || row.type === "Wage Refund" || row.type === "Claim"}
+                                                                    disabled={!weeklyReceivedTypes.some(type => type.received_type === row.type)}
                                                                 >
                                                                     ✓
                                                                 </button>
                                                             ) : (
-                                                                (row.type === "Carry (CF)" || row.type === "Wage Refund" || row.type === "Claim") ? (
-                                                                    <img
-                                                                        className="w-5 h-4 opacity-40 cursor-not-allowed"
-                                                                        src={Edit}
-                                                                        alt="Edit Disabled"
-                                                                    />
-                                                                ) : (
+                                                                weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
                                                                     canEditDelete && (
                                                                         <button onClick={() => {
                                                                             setEditingPaymentId(row.id);
@@ -3593,31 +3608,37 @@ const History = ({ username, userRoles = [] }) => {
                                                                             <img className="w-5 h-4" src={Edit} alt="Edit" />
                                                                         </button>
                                                                     )
+                                                                ) : (
+                                                                    <img
+                                                                        className="w-5 h-4 opacity-40 cursor-not-allowed"
+                                                                        src={Edit}
+                                                                        alt="Edit Disabled"
+                                                                    />
                                                                 )
                                                             )}
-                                                            {(row.type === "Carry (CF)" || row.type === "Wage Refund" || row.type === "Claim") ? (
-                                                                <img
-                                                                    className="w-5 h-4 opacity-40 cursor-not-allowed"
-                                                                    src={Delete}
-                                                                    alt="Delete Disabled"
-                                                                />
-                                                            ) : (
+                                                            {weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
                                                                 canEditDelete && (
                                                                     <button className="" onClick={() => handleWeeklyReceivedDelete(row.id)}>
                                                                         <img src={Delete} className="w-5 h-4" alt="Delete" />
                                                                     </button>
                                                                 )
+                                                            ) : (
+                                                                <img
+                                                                    className="w-5 h-4 opacity-40 cursor-not-allowed"
+                                                                    src={Delete}
+                                                                    alt="Delete Disabled"
+                                                                />
                                                             )}
-                                                            {(row.type === "Carry (CF)" || row.type === "Wage Refund" || row.type === "Claim") ? (
+                                                            {weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
+                                                                <button className="" onClick={() => fetchAuditDetailsForPaymentReceived(row.id)}>
+                                                                    <img src={history} className="w-5 h-4" alt="History" />
+                                                                </button>
+                                                            ) : (
                                                                 <img
                                                                     className="w-5 h-4 opacity-40 cursor-not-allowed"
                                                                     src={history}
                                                                     alt="History Disabled"
                                                                 />
-                                                            ) : (
-                                                                <button className="" onClick={() => fetchAuditDetailsForPaymentReceived(row.id)}>
-                                                                    <img src={history} className="w-5 h-4" alt="History" />
-                                                                </button>
                                                             )}
                                                         </div>
                                                     )}
@@ -3657,9 +3678,12 @@ const History = ({ username, userRoles = [] }) => {
                                                         onChange={handlePaymentChange}
                                                         onKeyDown={handleKeyDown1}
                                                     >
-                                                        <option id='1' value="Weekly">Weekly</option>
-                                                        <option id='2' value="Daily">Daily</option>
-                                                        <option id='3' value="Monthly">Monthly</option>
+                                                        <option value="">Select</option>
+                                                        {weeklyReceivedTypes.map((type, index) => (
+                                                            <option key={index} value={type.received_type}>
+                                                                {type.received_type}
+                                                            </option>
+                                                        ))}
                                                     </select>
                                                 </td>
                                                 <td></td>
@@ -4310,6 +4334,18 @@ const History = ({ username, userRoles = [] }) => {
                                 }}
                             />
                         </div>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Comments
+                            </label>
+                            <textarea
+                                value={categoryComments}
+                                onChange={(e) => setCategoryComments(e.target.value)}
+                                placeholder="Enter comments..."
+                                className="w-full border-2 border-[#BF9853] border-opacity-25 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent resize-none"
+                                rows={3}
+                            />
+                        </div>
                         <div className="flex justify-end gap-3 mt-6">
                             <button
                                 onClick={() => {
@@ -4348,8 +4384,9 @@ const History = ({ username, userRoles = [] }) => {
                                             contractor: contractorOptions.find(opt => opt.id === Number(currentProjectAdvanceRow.contractor_id))?.label || "",
                                             amount: Number(currentProjectAdvanceRow.amount) + previousPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
                                             category: selectedCategory.value,
-                                            comments: `Claim from Weekly Payment `,
+                                            comments: categoryComments || "",
                                             machineTools: "",
+                                            source: "Cash Register",
                                             billCopyUrl: currentProjectAdvanceRow.bill_copy_url
                                         };
                                         const expensesFormResponse = await fetch('https://backendaab.in/aabuilderDash/expenses_form/save', {
@@ -4401,6 +4438,7 @@ const History = ({ username, userRoles = [] }) => {
                                                 setCurrentProjectAdvanceRow(null);
                                                 setSelectedCategory(null);
                                                 setIsConfirmingCategory(false);
+                                                setCategoryComments("");
                                             }, 2000);
                                         } else {
                                             throw new Error('Failed to update expense entry status');
