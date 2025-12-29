@@ -1,9 +1,26 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import PurchaseOrder from './PurchaseOrder';
 import PurchaseHistory from "./PurchaseHistory";
 import PurchaseInputData from "./PurchaseInputData";
+import MobilePurchaseOrder from '../../componentsMobile/PurchaseOrder/PurchaseOrder';
 
 const PurchaseHeading = ({ username, userRoles = [] }) => {
+    const [isMobile, setIsMobile] = useState(() => {
+        return window.innerWidth < 768;
+    });
+
+    useEffect(() => {
+        // Re-check mobile view on mount and route changes
+        setIsMobile(window.innerWidth < 768);
+        
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const [activeTab, setActiveTab] = useState(() => {
         return localStorage.getItem('activeTab') || 'purchaseorder';
     });
@@ -15,6 +32,18 @@ const PurchaseHeading = ({ username, userRoles = [] }) => {
             localStorage.setItem('activeTab', activeTab);
         }
     }, [activeTab]);
+
+    // For mobile view, render mobile component
+    if (isMobile) {
+        // Get full user object from localStorage to pass to mobile component
+        const storedUser = localStorage.getItem('user');
+        const user = storedUser ? JSON.parse(storedUser) : { username, userRoles };
+        return (
+            <div style={{ textAlign: 'left' }}>
+                <MobilePurchaseOrder user={user} onLogout={() => {}} />
+            </div>
+        );
+    }
 
     const renderContent = () => {
         switch (activeTab) {

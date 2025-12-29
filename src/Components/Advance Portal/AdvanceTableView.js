@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import Select from 'react-select';
@@ -531,7 +531,6 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
         setLoading(false);
       }
     };
-
     fetchData();
   }, []);
   const formatDateOnly = (dateString) => {
@@ -601,7 +600,6 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
     }
     return true;
   });
-  // Extract unique values from table data for filter options
   const filterOptionsFromData = React.useMemo(() => {
     const uniqueVendors = new Set();
     const uniqueContractors = new Set();
@@ -610,9 +608,7 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
     const uniqueTypes = new Set();
     const uniqueModes = new Set();
     const uniqueEntryNos = new Set();
-
     advanceData.forEach(entry => {
-      // Extract vendors and contractors
       if (entry.vendor_id) {
         const vendorName = getVendorName(entry.vendor_id);
         if (vendorName) uniqueVendors.add(vendorName);
@@ -621,36 +617,24 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
         const contractorName = getContractorName(entry.contractor_id);
         if (contractorName) uniqueContractors.add(contractorName);
       }
-
-      // Extract project IDs
       if (entry.project_id) {
         const projectName = getSiteName(entry.project_id);
         if (projectName) uniqueProjectIds.add(projectName);
       }
-
-      // Extract transfer site IDs
       if (entry.transfer_site_id) {
         const transferName = getSiteName(entry.transfer_site_id);
         if (transferName) uniqueTransferSiteIds.add(transferName);
       }
-
-      // Extract types
       if (entry.type) {
         uniqueTypes.add(entry.type);
       }
-
-      // Extract payment modes
       if (entry.payment_mode) {
         uniqueModes.add(entry.payment_mode);
       }
-
-      // Extract entry numbers
       if (entry.entry_no) {
         uniqueEntryNos.add(entry.entry_no.toString());
       }
     });
-
-    // Create options arrays for Select components
     const vendorContractorOptions = [
       ...Array.from(uniqueVendors).map(name => {
         const vendor = vendorOptions.find(v => v.value === name);
@@ -661,25 +645,21 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
         return contractor || { value: name, label: name, type: 'Contractor' };
       })
     ].sort((a, b) => a.label.localeCompare(b.label));
-
     const projectOptions = Array.from(uniqueProjectIds)
       .map(name => {
         const site = siteOptions.find(s => s.value === name);
         return site || { value: name, label: name, id: null };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
-
     const transferSiteOptions = Array.from(uniqueTransferSiteIds)
       .map(name => {
         const site = siteOptions.find(s => s.value === name);
         return site || { value: name, label: name, id: null };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
-
     const typeOptions = Array.from(uniqueTypes).sort();
     const modeOptions = Array.from(uniqueModes).sort();
     const entryNoOptions = Array.from(uniqueEntryNos).sort((a, b) => Number(a) - Number(b));
-
     return {
       vendorContractorOptions,
       projectOptions,
@@ -689,12 +669,6 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
       entryNoOptions
     };
   }, [advanceData, vendorOptions, contractorOptions, siteOptions]);
-  const modeOptions = filterOptionsFromData.modeOptions.map(mode => ({
-    label: mode,
-    value: mode,
-  }));
-
-
   const sortedData = React.useMemo(() => {
     let sortableData = [...filteredData];
     if (sortConfig.key) {
@@ -798,7 +772,6 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
     return sum;
   }, 0);
   const handleEditClick = (entry) => {
-    // Non-admin users must request permission when editing is disabled
     if (!isAdmin && (entry.not_allow_to_edit || entry.allow_to_edit === false)) {
       setRequestingEntry(entry);
       setIsRequestModalOpen(true);
@@ -830,7 +803,6 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
     setSelectedOption(preSelected || null);
     setIsEditModalOpen(true);
   };
-
   const handleSendEditRequest = async () => {
     if (!requestingEntry) return;
     try {
@@ -864,16 +836,23 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
   const sortedSiteOptions = siteOptions.sort((a, b) =>
     a.label.localeCompare(b.label)
   );
-  const customStyles = useMemo(() => ({
+  const customStyles = {
     control: (provided, state) => ({
       ...provided,
       borderWidth: '2px',
-      lineHeight: '20px',
-      fontSize: '12px',
       height: '45px',
       borderRadius: '8px',
-      borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.3)' : 'rgba(191, 152, 83, 0.3)',
-      boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.3)' : 'none',
+      borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'rgba(191, 152, 83, 0.2)',
+      boxShadow: state.isFocused ? '0 0 0 1px rgba(101, 102, 53, 0.1)' : 'none',
+      '&:hover': {
+        borderColor: 'rgba(191, 152, 83, 0.2)',
+      }
+    }),
+    indicatorSeparator: () => ({
+      display: 'none',
+    }),
+    dropdownIndicator: () => ({
+      display: 'none',
     }),
     clearIndicator: (provided) => ({
       ...provided,
@@ -895,19 +874,17 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
     }),
     singleValue: (provided) => ({
       ...provided,
-      fontWeight: '600',
-      fontSize: '12px',
+      fontWeight: '500',
       color: 'black',
       textAlign: 'left',
     }),
     option: (provided, state) => ({
       ...provided,
-      fontWeight: '600',
-      fontSize: '14px',
-      backgroundColor: state.isSelected
-        ? 'rgba(191, 152, 83, 0.3)'
-        : state.isFocused
-          ? 'rgba(191, 152, 83, 0.1)'
+      fontWeight: '500',
+      backgroundColor: state.isSelected 
+        ? 'rgba(191, 152, 83, 0.3)' 
+        : state.isFocused 
+          ? 'rgba(191, 152, 83, 0.1)' 
           : 'white',
       color: 'black',
       textAlign: 'left',
@@ -924,11 +901,7 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
       color: '#999',
       textAlign: 'left',
     }),
-    indicatorSeparator: (provided) => ({
-      ...provided,
-      display: 'none',
-    }),
-  }), []);
+  };
   const handleUpdate = async () => {
     try {
       const currentEntry = advanceData.find(entry => entry.advancePortalId === editingId);
@@ -940,13 +913,6 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
       if (selectedFile) {
         try {
           const formData = new FormData();
-          const formatDateOnly = (dateString) => {
-            const date = new Date(dateString);
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            return `${day}-${month}-${year}`;
-          };
           const now = new Date();
           const timestamp = now.toLocaleString("en-GB", {
             day: "2-digit",
@@ -1177,31 +1143,31 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
       <div>
         <div className=' max-w-[1850px] bg-white xl:h-[128px] rounded-md ml-10 mr-10 px-4 py-2 text-left flex flex-wrap items-center '>
           <div className='flex flex-wrap gap-[16px] p-4'>
-            <div className='space-y-2'>
-              <label className='xl:block mb-2 font-semibold'>Advance Amount</label>
+            <div>
+              <label className='block mb-2 font-semibold'>Advance Amount</label>
               <input
                 className='w-full h-[45px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2'
                 value={`₹${totalAdvance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`}
                 readOnly
               />
             </div>
-            <div className='space-y-2'>
-              <label className='xl:block mb-2 font-semibold'>Bill Amount</label>
+            <div>
+              <label className='block mb-2 font-semibold'>Bill Amount</label>
               <input
                 className='w-full h-[45px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2'
                 value={`₹${totalBill.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`}
                 readOnly
               />
             </div>
-            <div className='space-y-2'>
-              <label className='xl:block mb-2 font-semibold'>Transfer Amount </label>
+            <div>
+              <label className='block mb-2 font-semibold'>Transfer Amount </label>
               <input
                 value={`₹${totalTransfer.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`}
                 readOnly
                 className='w-full h-[45px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2' />
             </div>
-            <div className='space-y-2'>
-              <label className='xl:block mb-2 font-semibold'>Refund Amount</label>
+            <div>
+              <label className='block mb-2 font-semibold'>Refund Amount</label>
               <input
                 className='w-full h-[45px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2'
                 value={`₹${totalRefund.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`}
@@ -1211,7 +1177,7 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
           </div>
           <div className='flex flex-wrap gap-5 xl:px-0 px-4'>
             <div>
-              <label className='xl:block mb-2 font-semibold'>Start Date</label>
+              <label className='block mb-2 font-semibold'>Start Date</label>
               <input
                 type="date"
                 value={startDate}
@@ -1220,7 +1186,7 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
               />
             </div>
             <div>
-              <label className='xl:block mb-2 font-semibold'>End Date</label>
+              <label className='block mb-2 font-semibold'>End Date</label>
               <input
                 type="date"
                 value={endDate}
@@ -1346,29 +1312,29 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
-              <table className="table-fixed min-w-[1805px] w-full border-collapse">
+              <table className="min-w-[1805px] w-full border-collapse">
                 <thead className="sticky top-0 z-10 bg-white ">
                   <tr className="bg-[#FAF6ED]">
-                    <th className="pt-2 pl-3 w-36 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('date')}>
+                    <th className="pt-2 pl-3 py-2 w-44 font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('date')}>
                       Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('vendor')}>
+                    <th className="px-2 w-[320px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('vendor')}>
                       Contractor/Vendor {sortConfig.key === 'vendor' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('project')}>
+                    <th className="px-2 w-[400px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('project')}>
                       Project Name {sortConfig.key === 'project' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[250px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('transfer')}>
+                    <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('transfer')}>
                       Transfer Site {sortConfig.key === 'transfer' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
                     <th className="px-2 w-[100px] font-bold text-right">Advance</th>
-                    <th className="px-2 w-[120px] font-bold text-right">Bill Payment</th>
-                    <th className="px-2 pr-6 w-[110px] font-bold text-right">Refund</th>
-                    <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('type')}>
+                    <th className="px-2 w-[170px] font-bold text-right">Bill Payment</th>
+                    <th className="px-2 w-[120px] font-bold text-right">Refund</th>
+                    <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('type')}>
                       Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[150px] font-bold text-left">Description</th>
-                    <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('mode')}>
+                    <th className="px-2 w-[120px] font-bold text-left">Description</th>
+                    <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('mode')}>
                       Mode {sortConfig.key === 'mode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
                     <th className="px-2 w-[80px] font-bold text-left">File</th>
@@ -1376,41 +1342,141 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                     <th className="px-2 w-[120px] font-bold text-left">Activity</th>
                   </tr>
                   {showFilters && (
-                    <tr className="bg-[#FAF6ED] border-b border-gray-200">
+                    <tr className="bg-white border-b border-gray-200">
                       <th className="pt-2 pb-2">
-                        <input
-                          type="date"
-                          value={selectDate}
-                          onChange={(e) => setSelectDate(e.target.value)}
-                          className="rounded-lg bg-transparent w-[130px] h-[45px] text-[14px] px-1 font-normal border-2 border-[#BF9853] border-opacity-30 focus:outline-none"
-                          placeholder="Search Date..."
-                        />
+                        
                       </th>
-                      <th className="pt-2 pb-2 xl:w-[200px]">
+                      <th className="pt-2 pb-2">
                         <Select
                           options={filterOptionsFromData.vendorContractorOptions}
                           value={selectContractororVendorName ? { value: selectContractororVendorName, label: selectContractororVendorName } : null}
                           onChange={(opt) => setSelectContractororVendorName(opt ? opt.value : "")}
-                          className="text-xs focus:outline-none xl:w-[200px]"
+                          className="text-xs focus:outline-none w-[180px]"
                           placeholder="Contractor/Ven..."
                           isSearchable
                           menuPortalTarget={document.body}
-                          styles={customStyles}
+                          isClearable
+                          styles={{
+                            control: (provided, state) => ({
+                              ...provided,
+                              backgroundColor: 'transparent',
+                              borderWidth: '3px',
+                              borderColor: state.isFocused
+                                ? 'rgba(191, 152, 83, 0.2)'
+                                : 'rgba(191, 152, 83, 0.2)',
+                              borderRadius: '6px',
+                              boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
+                              '&:hover': {
+                                borderColor: 'rgba(191, 152, 83, 0.2)',
+                              },
+                            }),
+                            placeholder: (provided) => ({
+                              ...provided,
+                              color: '#999',
+                              textAlign: 'left',
+                            }),
+                            menu: (provided) => ({
+                              ...provided,
+                              zIndex: 9,
+                            }),
+                            option: (provided, state) => ({
+                              ...provided,
+                              textAlign: 'left',
+                              fontWeight: '600',
+                              fontSize: '15px',
+                              backgroundColor: state.isSelected 
+                                ? 'rgba(191, 152, 83, 0.3)' 
+                                : state.isFocused 
+                                  ? 'rgba(191, 152, 83, 0.1)' 
+                                  : 'white',
+                              color: 'black',
+                            }),
+                            singleValue: (provided) => ({
+                              ...provided,
+                              textAlign: 'left',
+                              fontWeight: '600',
+                              color: 'black',
+                            }),
+                            input: (provided) => ({
+                              ...provided,
+                              fontWeight: '600',
+                              color: 'black',
+                              textAlign: 'left',
+                            }),
+                            placeholder: (provided) => ({
+                              ...provided,
+                              fontWeight: '600',
+                              color: '#999',
+                            }),
+                          }}
                         />
                       </th>
-                      <th className="pt-2 pb-2 xl:w-[250px]">
+                      <th className="pt-2 pb-2">
                         <Select
                           options={filterOptionsFromData.projectOptions}
                           value={selectProjectName ? { value: selectProjectName, label: selectProjectName } : null}
                           onChange={(opt) => setSelectProjectName(opt ? opt.value : "")}
-                          className="focus:outline-none text-xs xl:w-[250px]"
+                          className="focus:outline-none text-xs"
                           placeholder="Project Name..."
                           isSearchable
                           menuPortalTarget={document.body}
-                          styles={customStyles}
+                          isClearable
+                          styles={{
+                            control: (provided, state) => ({
+                              ...provided,
+                              backgroundColor: 'transparent',
+                              borderWidth: '3px',
+                              borderColor: state.isFocused
+                                ? 'rgba(191, 152, 83, 0.2)'
+                                : 'rgba(191, 152, 83, 0.2)',
+                              borderRadius: '6px',
+                              boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
+                              '&:hover': {
+                                borderColor: 'rgba(191, 152, 83, 0.2)',
+                              },
+                            }),
+                            placeholder: (provided) => ({
+                              ...provided,
+                              color: '#999',
+                              textAlign: 'left',
+                            }),
+                            menu: (provided) => ({
+                              ...provided,
+                              zIndex: 9,
+                            }),
+                            option: (provided, state) => ({
+                              ...provided,
+                              textAlign: 'left',
+                              fontWeight: '600',
+                              fontSize: '15px',
+                              backgroundColor: state.isSelected 
+                                ? 'rgba(191, 152, 83, 0.3)' 
+                                : state.isFocused 
+                                  ? 'rgba(191, 152, 83, 0.1)' 
+                                  : 'white',
+                              color: 'black',
+                            }),
+                            singleValue: (provided) => ({
+                              ...provided,
+                              textAlign: 'left',
+                              fontWeight: '600',
+                              color: 'black',
+                            }),
+                            input: (provided) => ({
+                              ...provided,
+                              fontWeight: '600',
+                              color: 'black',
+                              textAlign: 'left',
+                            }),
+                            placeholder: (provided) => ({
+                              ...provided,
+                              fontWeight: '600',
+                              color: '#999',
+                            }),
+                          }}
                         />
                       </th>
-                      <th className="pt-2 pb-2 xl:w-[250px]">
+                      <th className="pt-2 pb-2">
                         <Select
                           options={filterOptionsFromData.transferSiteOptions}
                           value={selectTransfer ? { value: selectTransfer, label: selectTransfer } : null}
@@ -1420,60 +1486,104 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                           isSearchable
                           menuPortalTarget={document.body}
                           isClearable
-                          styles={customStyles}
+                          styles={{
+                            control: (provided, state) => ({
+                              ...provided,
+                              backgroundColor: 'transparent',
+                              borderWidth: '3px',
+                              borderColor: state.isFocused
+                                ? 'rgba(191, 152, 83, 0.2)'
+                                : 'rgba(191, 152, 83, 0.2)',
+                              borderRadius: '6px',
+                              boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
+                              '&:hover': {
+                                borderColor: 'rgba(191, 152, 83, 0.2)',
+                              },
+                            }),
+                            placeholder: (provided) => ({
+                              ...provided,
+                              color: '#999',
+                              textAlign: 'left',
+                            }),
+                            menu: (provided) => ({
+                              ...provided,
+                              zIndex: 9,
+                            }),
+                            option: (provided, state) => ({
+                              ...provided,
+                              textAlign: 'left',
+                              fontWeight: '600',
+                              fontSize: '15px',
+                              backgroundColor: state.isSelected 
+                                ? 'rgba(191, 152, 83, 0.3)' 
+                                : state.isFocused 
+                                  ? 'rgba(191, 152, 83, 0.1)' 
+                                  : 'white',
+                              color: 'black',
+                            }),
+                            singleValue: (provided) => ({
+                              ...provided,
+                              textAlign: 'left',
+                              fontWeight: '600',
+                              color: 'black',
+                            }),
+                            input: (provided) => ({
+                              ...provided,
+                              fontWeight: '600',
+                              color: 'black',
+                              textAlign: 'left',
+                            }),
+                            placeholder: (provided) => ({
+                              ...provided,
+                              fontWeight: '600',
+                              color: '#999',
+                            }),
+                          }}
                         />
                       </th>
-                      <th className='xl:w-[100px] pt-2 pb-2 text-right'>{totals.amount.toLocaleString("en-IN")}</th>
-                      <th className='xl:w-[180px] pt-2 pb-2 text-right'>{totals.bill_amount.toLocaleString("en-IN")}</th>
-                      <th className='xl:w-[110px] pt-2 pb-2 pr-6 text-right'>{totals.refund_amount.toLocaleString("en-IN")}</th>
-                      <th className="pt-2 pb-2 xl:w-[120px]">
-                        <Select
-                          value={
-                            selectType
-                              ? { label: selectType, value: selectType }
-                              : null
-                          }
-                          onChange={(selected) => setSelectType(selected?.value || "")}
-                          options={filterOptionsFromData.typeOptions.map(type => ({
-                            label: type,
-                            value: type
-                          }))}
-                          placeholder="Select"
-                          isSearchable={true}
+                      <th className='w-[100px] pt-2 pb-2 text-right'>{totals.amount.toLocaleString("en-IN")}</th>
+                      <th className='w-[180px] pt-2 pb-2 text-right'>{totals.bill_amount.toLocaleString("en-IN")}</th>
+                      <th className='w-[120px] pt-2 pb-2 text-right'>{totals.refund_amount.toLocaleString("en-IN")}</th>
+                      <th className="pt-2 pb-2">
+                        <select
+                          value={selectType}
+                          onChange={(e) => setSelectType(e.target.value)}
+                          className="rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                          placeholder="Type..."
                           menuPortalTarget={document.body}
-                          styles={customStyles}
-                          className="xl:w-[145px] text-xs"
-                        />
+                        >
+                          <option value=''>Select Type...</option>
+                          {filterOptionsFromData.typeOptions.map(type => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
                       </th>
-                      <th className="pt-2 pb-2 xl:w-[120px]"></th>
-                      <th className="pt-2 pb-2 xl:w-[120px]">
-                        <Select
-                          options={modeOptions}
-                          value={
-                            selectMode
-                              ? { label: selectMode, value: selectMode }
-                              : null
-                          }
-                          onChange={(selected) => setSelectMode(selected?.value || "")}
-                          placeholder="Select"
-                          isSearchable
+                      <th className="pt-2 pb-2"></th>
+                      <th className="pt-2 pb-2">
+                        <select
+                          value={selectMode}
+                          onChange={(e) => setSelectMode(e.target.value)}
+                          className="rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                          placeholder="Mode..."
                           menuPortalTarget={document.body}
-                          className="text-xs"
-                          styles={customStyles}
-                        />
+                        >
+                          <option value=''>Select</option>
+                          {filterOptionsFromData.modeOptions.map(mode => (
+                            <option key={mode} value={mode}>{mode}</option>
+                          ))}
+                        </select>
                       </th>
-                      <th className='xl:w-[80px] pt-2 pb-2'></th>
-                      <th className="pt-2 pb-2 xl:w-[120px]">
+                      <th className='w-[80px] pt-2 pb-2'></th>
+                      <th className="pt-2 pb-2">
                         <input
                           type="text"
                           value={selectEntryNo}
                           onChange={(e) => setSelectEntryNo(e.target.value)}
-                          className="rounded-lg bg-transparent w-[80px] h-[45px] px-1 font-normal border-2 border-[#BF9853] border-opacity-30 focus:outline-none text-xs"
+                          className="rounded-md bg-transparent w-[80px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
                           placeholder="Entry No..."
                         />
                       </th>
-                      <th className=' pt-2 pb-2'></th>
-                      <th></th>
+                      <th className='w-[120px] pt-2 pb-2'></th>
                     </tr>
                   )}
                 </thead>
@@ -1481,37 +1591,37 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                   {currentData.length > 0 ? (
                     currentData.map((entry) => (
                       <tr key={entry.id} className="odd:bg-white even:bg-[#FAF6ED]">
-                        <td className="text-sm text-left p-2 w-36 font-semibold">{formatDateOnly(entry.date)}</td>
-                        <td className="text-sm text-left w-[220px] font-semibold">
+                        <td className="text-sm text-left p-2 w-32 font-semibold">{formatDateOnly(entry.date)}</td>
+                        <td className="text-sm text-left w-[150px] font-semibold">
                           {entry.vendor_id
                             ? getVendorName(entry.vendor_id)
                             : getContractorName(entry.contractor_id)}
                         </td>
-                        <td className="text-sm text-left w-[300px] font-semibold">
+                        <td className="text-sm text-left w-[250px] font-semibold">
                           {getSiteName(entry.project_id)}
                         </td>
-                        <td className="text-sm text-left w-[250px] font-semibold">
+                        <td className="text-sm text-left font-semibold">
                           {getSiteName(entry.transfer_site_id)}
                         </td>
-                        <td className="text-sm text-right w-[90px] font-semibold">
+                        <td className="text-sm text-right font-semibold">
                           {entry.amount != null && entry.amount !== ""
                             ? Number(entry.amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
                             : ""}
                         </td>
-                        <td className="text-sm text-right w-[130px] font-semibold">
+                        <td className="text-sm text-right font-semibold">
                           {entry.bill_amount != null && entry.bill_amount !== ""
                             ? Number(entry.bill_amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
                             : ""}
                         </td>
-                        <td className="text-sm text-right w-[120px] pr-6 font-semibold">
+                        <td className="text-sm text-right pr-1 font-semibold">
                           {entry.refund_amount != null && entry.refund_amount !== ""
                             ? Number(entry.refund_amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
                             : ""}
                         </td>
-                        <td className="text-sm text-left w-[140px] font-semibold">{entry.type}</td>
-                        <td className="text-sm text-left w-[110px] font-semibold">{entry.description}</td>
-                        <td className="text-sm text-left w-[120px] font-semibold">{entry.payment_mode}</td>
-                        <td className="text-sm text-left w-[80px]">
+                        <td className="text-sm text-left font-semibold">{entry.type}</td>
+                        <td className="text-sm text-left font-semibold">{entry.description}</td>
+                        <td className="text-sm text-left font-semibold">{entry.payment_mode}</td>
+                        <td className="text-sm text-left pl-">
                           {entry.file_url ? (
                             <a
                               href={entry.file_url}
@@ -1525,8 +1635,8 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                             <span></span>
                           )}
                         </td>
-                        <td className="text-sm text-left w-[70px] font-semibold">{entry.entry_no}</td>
-                        <td className="flex py-2 justify-center w-[115px]">
+                        <td className="text-sm text-left pl-3 font-semibold">{entry.entry_no}</td>
+                        <td className="flex py-2">
                           <button
                             className={`rounded-full transition duration-200 ml-2 mr-3 ${entry.not_allow_to_edit && !isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
                             disabled={entry.not_allow_to_edit && !isAdmin}
@@ -1812,7 +1922,6 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                           </>
                         )}
                       </div>
-                      {/* Description */}
                       <div className=' mt-8'>
                         <label className='block font-semibold mb-2'>Description</label>
                         <textarea
@@ -1838,10 +1947,7 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                   >
                     Cancel
                   </button>
-                  <button
-                    onClick={handleUpdate}
-                    className="px-4 py-2 bg-[#BF9853] w-[100px] h-[45px] text-white rounded"
-                  >
+                  <button onClick={handleUpdate} className="px-4 py-2 bg-[#BF9853] w-[100px] h-[45px] text-white rounded" >
                     Save
                   </button>
                 </div>
@@ -1865,10 +1971,7 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                   >
                     Cancel
                   </button>
-                  <button
-                    onClick={handleSendEditRequest}
-                    className="px-4 py-2 bg-[#BF9853] w-[160px] h-[45px] text-white rounded"
-                  >
+                  <button onClick={handleSendEditRequest} className="px-4 py-2 bg-[#BF9853] w-[160px] h-[45px] text-white rounded" >
                     Send Request
                   </button>
                 </div>
@@ -1878,8 +1981,6 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
         </div>
       </div>
     </div>
-
   )
 }
-
 export default AdvanceTableView

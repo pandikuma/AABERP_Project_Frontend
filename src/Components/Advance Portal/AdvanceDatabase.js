@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import Select from 'react-select';
@@ -49,7 +49,7 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
   const adminUsernames = ['Mahalingam M', 'Admin'];
   const normalizedUsername = (username || '').trim().toLowerCase();
   const isAdminUser = adminUsernames.some(name => name.toLowerCase() === normalizedUsername);
-  const isAdmin = isAdminUser;
+  const isAdmin = isAdminUser ;
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -338,12 +338,12 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
       styles: {
         fontSize: 8,
         cellPadding: 2,
-        lineWidth: 0.3,
+        lineWidth: 0.3, 
         lineColor: [100, 100, 100],
         halign: "left"
       },
       headStyles: {
-        fillColor: false,
+        fillColor: false, 
         textColor: [0, 0, 0],
         fontStyle: "bold",
         lineWidth: 0.3,
@@ -359,8 +359,8 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
       tableLineColor: [100, 100, 100],
       columnStyles: {
         5: { halign: 'right' },
-        6: { halign: 'right' },
-        7: { halign: 'right' }
+        6: { halign: 'right' }, 
+        7: { halign: 'right' } 
       }
     });
     doc.save("Transaction_Report.pdf");
@@ -495,16 +495,23 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
   const sortedSiteOptions = siteOptions.sort((a, b) =>
     a.label.localeCompare(b.label)
   );
-  const customStyles = useMemo(() => ({
+  const customStyles = {
     control: (provided, state) => ({
       ...provided,
       borderWidth: '2px',
-      lineHeight: '20px',
-      fontSize: '12px',
       height: '45px',
       borderRadius: '8px',
-      borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.3)' : 'rgba(191, 152, 83, 0.3)',
-      boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.3)' : 'none',
+      borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'rgba(191, 152, 83, 0.2)',
+      boxShadow: state.isFocused ? '0 0 0 1px rgba(101, 102, 53, 0.1)' : 'none',
+      '&:hover': {
+        borderColor: 'rgba(191, 152, 83, 0.2)',
+      }
+    }),
+    indicatorSeparator: () => ({
+      display: 'none',
+    }),
+    dropdownIndicator: () => ({
+      display: 'none',
     }),
     clearIndicator: (provided) => ({
       ...provided,
@@ -526,19 +533,17 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
     }),
     singleValue: (provided) => ({
       ...provided,
-      fontWeight: '600',
-      fontSize: '12px',
+      fontWeight: '500',
       color: 'black',
       textAlign: 'left',
     }),
     option: (provided, state) => ({
       ...provided,
-      fontWeight: '600',
-      fontSize: '14px',
-      backgroundColor: state.isSelected
-        ? 'rgba(191, 152, 83, 0.3)'
-        : state.isFocused
-          ? 'rgba(191, 152, 83, 0.1)'
+      fontWeight: '500',
+      backgroundColor: state.isSelected 
+        ? 'rgba(191, 152, 83, 0.3)' 
+        : state.isFocused 
+          ? 'rgba(191, 152, 83, 0.1)' 
           : 'white',
       color: 'black',
       textAlign: 'left',
@@ -555,11 +560,7 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
       color: '#999',
       textAlign: 'left',
     }),
-    indicatorSeparator: (provided) => ({
-      ...provided,
-      display: 'none',
-    }),
-  }), []);
+  };
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
   };
@@ -584,9 +585,9 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
         body: formData,
       });
       if (response.ok) {
-        const result = await response.text();
+        const result = await response.text(); 
         alert("File uploaded successfully!");
-        window.location.reload();
+        window.location.reload(); 
       } else {
         const errorText = await response.text();
         alert("Upload failed: " + errorText);
@@ -696,29 +697,29 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
         const contractorName = getContractorName(entry.contractor_id);
         if (contractorName) uniqueContractors.add(contractorName);
       }
-
+      
       // Extract project IDs
       if (entry.project_id) {
         const projectName = getSiteName(entry.project_id);
         if (projectName) uniqueProjectIds.add(projectName);
       }
-
+      
       // Extract transfer site IDs
       if (entry.transfer_site_id) {
         const transferName = getSiteName(entry.transfer_site_id);
         if (transferName) uniqueTransferSiteIds.add(transferName);
       }
-
+      
       // Extract types
       if (entry.type) {
         uniqueTypes.add(entry.type);
       }
-
+      
       // Extract payment modes
       if (entry.payment_mode) {
         uniqueModes.add(entry.payment_mode);
       }
-
+      
       // Extract entry numbers
       if (entry.entry_no) {
         uniqueEntryNos.add(entry.entry_no.toString());
@@ -764,15 +765,6 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
       entryNoOptions
     };
   }, [advanceData, vendorOptions, contractorOptions, siteOptions]);
-  const typeOptions = filterOptionsFromData.typeOptions.map(type => ({
-    label: type,
-    value: type,
-  }));
-  const databaseModeOptions = filterOptionsFromData.modeOptions.map(mode => ({
-    label: mode,
-    value: mode,
-  }));
-
   const sortedData = React.useMemo(() => {
     let sortableData = [...filteredData];
     if (sortConfig.key) {
@@ -943,7 +935,7 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
       return;
     }
     setEditingId(entry.advancePortalId);
-    setSelectedFile(null);
+    setSelectedFile(null); 
     setEditFormData({
       date: entry.date?.split('T')[0] || '',
       amount: entry.amount || '',
@@ -1475,50 +1467,50 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
           <div ref={scrollRef} className='overflow-auto max-h-[485px] thin-scrollbar'
             onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
           >
-            <table className="table-fixed min-w-[1805px] w-full border-collapse">
+            <table className="min-w-[1805px] w-full border-collapse">
               <thead className="sticky top-0 z-10 bg-white">
                 <tr className="bg-[#FAF6ED]">
-                  <th className="py-2 pl-3 w-[155px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="py-2 pl-3 w-[340px] font-bold text-left cursor-pointer hover:bg-gray-200"
                     onClick={() => handleSort('timestamp')}
                   >
                     Time Stamp {sortConfig.key === 'timestamp' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="pt-2 pl-3 w-[130px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="pt-2 pl-3 w-[320px] font-bold text-left cursor-pointer hover:bg-gray-200"
                     onClick={() => handleSort('date')}
                   >
                     Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[230px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200"
                     onClick={() => handleSort('vendor')}
                   >
                     Contractor/Vendor {sortConfig.key === 'vendor' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[260px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200"
                     onClick={() => handleSort('project')}
                   >
                     Project Name {sortConfig.key === 'project' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[250px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200"
                     onClick={() => handleSort('transfer')}
                   >
                     Transfer Site {sortConfig.key === 'transfer' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
                   <th className="px-2 w-[100px] font-bold text-right">Advance</th>
                   <th className="px-2 w-[100px] font-bold text-right whitespace-nowrap">Bill Payment</th>
-                  <th className="px-2 pr-6 w-[110px] font-bold text-right">Refund</th>
+                  <th className="px-2 w-[120px] font-bold text-right">Refund</th>
                   <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200"
                     onClick={() => handleSort('type')}
                   >
                     Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
                   <th className="px-2 w-[120px] font-bold text-left">Description</th>
-                  <th className="px-2 w-[170px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200"
                     onClick={() => handleSort('mode')}
                   >
                     Mode {sortConfig.key === 'mode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
                   <th className="px-2 w-[80px] font-bold text-left whitespace-nowrap">File</th>
-                  <th className="px-2 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200"
                     onClick={() => handleSort('entry_no')}
                   >
                     E.No {sortConfig.key === 'entry_no' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
@@ -1526,13 +1518,13 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
                   <th className="px-2 w-[120px] font-bold text-left">Activity</th>
                 </tr>
                 {showFilters && (
-                  <tr className="bg-[#FAF6ED] border-b border-gray-200">
-                    <th className="w-[150px]">
+                  <tr className="bg-white border-b border-gray-200">
+                    <th className="">
                       <input
                         type="date"
                         value={selectTimeStampDate}
                         onChange={(e) => setSelectTimeStampDate(e.target.value)}
-                        className="px-1 rounded-md bg-transparent w-[120px] h-[45px] text-[14px] font-normal border-2 border-[#BF9853] border-opacity-30 focus:outline-none"
+                        className="p-1  mt-3 mb-3 rounded-md bg-transparent w-[170px] border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
                         placeholder="Date..."
                       />
                     </th>
@@ -1541,7 +1533,7 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
                         type="date"
                         value={selectDatabaseDate}
                         onChange={(e) => setSelectDatabaseDate(e.target.value)}
-                        className="px-1 rounded-md bg-transparent w-[120px] h-[45px] text-[14px] font-normal border-2 border-[#BF9853] border-opacity-30 focus:outline-none"
+                        className="p-1  mt-3 mb-3 rounded-md bg-transparent w-32 border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
                         placeholder="Date..."
                       />
                     </th>
@@ -1555,7 +1547,44 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
                         isSearchable
                         menuPortalTarget={document.body}
                         isClearable
-                        styles={customStyles}
+                        styles={{
+                          control: (provided, state) => ({
+                            ...provided,
+                            backgroundColor: 'transparent',
+                            borderWidth: '3px',
+                            borderColor: state.isFocused
+                              ? 'rgba(191, 152, 83, 0.2)'
+                              : 'rgba(191, 152, 83, 0.2)',
+                            borderRadius: '6px',
+                            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
+                            '&:hover': {
+                              borderColor: 'rgba(191, 152, 83, 0.2)',
+                            },
+                          }),
+                          placeholder: (provided) => ({
+                            ...provided,
+                            color: '#999',
+                            textAlign: 'left',
+                          }),
+                          menu: (provided) => ({
+                            ...provided,
+                            zIndex: 9,
+                          }),
+                          option: (provided, state) => ({
+                            ...provided,
+                            textAlign: 'left',
+                            fontWeight: 'normal',
+                            fontSize: '15px',
+                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+                            color: 'black',
+                          }),
+                          singleValue: (provided) => ({
+                            ...provided,
+                            textAlign: 'left',
+                            fontWeight: 'normal',
+                            color: 'black',
+                          }),
+                        }}
                       />
                     </th>
                     <th className="">
@@ -1568,7 +1597,44 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
                         isSearchable
                         menuPortalTarget={document.body}
                         isClearable
-                        styles={customStyles}
+                        styles={{
+                          control: (provided, state) => ({
+                            ...provided,
+                            backgroundColor: 'transparent',
+                            borderWidth: '3px',
+                            borderColor: state.isFocused
+                              ? 'rgba(191, 152, 83, 0.2)'
+                              : 'rgba(191, 152, 83, 0.2)',
+                            borderRadius: '6px',
+                            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
+                            '&:hover': {
+                              borderColor: 'rgba(191, 152, 83, 0.2)',
+                            },
+                          }),
+                          placeholder: (provided) => ({
+                            ...provided,
+                            color: '#999',
+                            textAlign: 'left',
+                          }),
+                          menu: (provided) => ({
+                            ...provided,
+                            zIndex: 9,
+                          }),
+                          option: (provided, state) => ({
+                            ...provided,
+                            textAlign: 'left',
+                            fontWeight: 'normal',
+                            fontSize: '15px',
+                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+                            color: 'black',
+                          }),
+                          singleValue: (provided) => ({
+                            ...provided,
+                            textAlign: 'left',
+                            fontWeight: 'normal',
+                            color: 'black',
+                          }),
+                        }}
                       />
                     </th>
                     <th className="">
@@ -1581,48 +1647,77 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
                         isSearchable
                         menuPortalTarget={document.body}
                         isClearable
-                        styles={customStyles}
+                        styles={{
+                          control: (provided, state) => ({
+                            ...provided,
+                            backgroundColor: 'transparent',
+                            borderWidth: '3px',
+                            borderColor: state.isFocused
+                              ? 'rgba(191, 152, 83, 0.2)'
+                              : 'rgba(191, 152, 83, 0.2)',
+                            borderRadius: '6px',
+                            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
+                            '&:hover': {
+                              borderColor: 'rgba(191, 152, 83, 0.2)',
+                            },
+                          }),
+                          placeholder: (provided) => ({
+                            ...provided,
+                            color: '#999',
+                            textAlign: 'left',
+                          }),
+                          menu: (provided) => ({
+                            ...provided,
+                            zIndex: 9,
+                          }),
+                          option: (provided, state) => ({
+                            ...provided,
+                            textAlign: 'left',
+                            fontWeight: 'normal',
+                            fontSize: '15px',
+                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+                            color: 'black',
+                          }),
+                          singleValue: (provided) => ({
+                            ...provided,
+                            textAlign: 'left',
+                            fontWeight: 'normal',
+                            color: 'black',
+                          }),
+                        }}
                       />
                     </th>
                     <th className='w-[100px] pt-2 pb-2 text-right'>{totals.amount.toLocaleString("en-IN")}</th>
                     <th className='w-[150px] pt-2 pb-2 text-right'>{totals.bill_amount.toLocaleString("en-IN")}</th>
-                    <th className='xl:w-[110px] pt-2 pb-2 pr-6 text-right'>{totals.refund_amount.toLocaleString("en-IN")}</th>
-                    <th className="w-[120px]">
-                      <Select
-                        options={typeOptions}
-                        value={
-                          selectDatabaseType
-                            ? { label: selectDatabaseType, value: selectDatabaseType }
-                            : null
-                        }
-                        onChange={(selected) =>
-                          setSelectDatabaseType(selected?.value || "")
-                        }
-                        placeholder="Select"
-                        isSearchable
+                    <th className='w-[120px] pt-2 pb-2 text-right'>{totals.refund_amount.toLocaleString("en-IN")}</th>
+                    <th className="">
+                      <select
+                        value={selectDatabaseType}
+                        onChange={(e) => setSelectDatabaseType(e.target.value)}
+                        className="p-1  mt-3 mb-3 rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                        placeholder="Type..."
                         menuPortalTarget={document.body}
-                        className="mt-3 mb-3  text-xs"
-                        styles={customStyles}
-                      />
+                      >
+                        <option value=''>Select Type...</option>
+                        {filterOptionsFromData.typeOptions.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
                     </th>
                     <th className='w-[80px]'></th>
                     <th className="">
-                      <Select
-                        options={databaseModeOptions}
-                        value={
-                          selectDatabaseMode
-                            ? { label: selectDatabaseMode, value: selectDatabaseMode }
-                            : null
-                        }
-                        onChange={(selected) =>
-                          setSelectDatabaseMode(selected?.value || "")
-                        }
-                        placeholder="Select"
-                        isSearchable
+                      <select
+                        value={selectDatabaseMode}
+                        onChange={(e) => setSelectDatabaseMode(e.target.value)}
+                        className="mt-3 mb-3 rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                        placeholder="Mode..."
                         menuPortalTarget={document.body}
-                        className="mt-3 mb-3 w-[120px] text-xs"
-                        styles={customStyles}
-                      />
+                      >
+                        <option value=''>Select</option>
+                        {filterOptionsFromData.modeOptions.map(mode => (
+                          <option key={mode} value={mode}>{mode}</option>
+                        ))}
+                      </select>
                     </th>
                     <th className='w-[80px] '></th>
                     <th className='w-[140px] '>
@@ -1630,7 +1725,7 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
                         type="text"
                         value={selectDatabaseEntryNo}
                         onChange={(e) => setSelectDatabaseEntryNo(e.target.value)}
-                        className="px-1 rounded-md bg-transparent w-[80px] h-[45px] font-semibold border-2 border-[#BF9853] border-opacity-30 focus:outline-none text-xs"
+                        className="mt-3 mb-3 rounded-md bg-transparent w-[140px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
                         placeholder="Entry No..."
                       />
                     </th>
@@ -1665,7 +1760,7 @@ const AdvanceDatabase = ({ username, userRoles = [] }) => {
                           ? Number(entry.bill_amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
                           : ""}
                       </td>
-                      <td className="text-sm text-right w-[120px] pr-6 font-semibold">
+                      <td className="text-sm text-right pr-2 font-semibold">
                         {entry.refund_amount != null && entry.refund_amount !== ""
                           ? Number(entry.refund_amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
                           : ""}

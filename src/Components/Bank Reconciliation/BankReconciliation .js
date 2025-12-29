@@ -100,7 +100,8 @@ const BankReconciliation = () => {
           { value: "Summary Bill", label: "Summary Bill", id: 7, sNo: "7" },
           { value: "Daily Wage", label: "Daily Wage", id: 8, sNo: "8" },
           { value: "Rent Management Portal", label: "Rent Management Portal", id: 9, sNo: "9" },
-          {value:"Multi-Project Batch",label:"Multi-Project Batch",id:10,sNo:"10"}
+          { value: "Multi-Project Batch", label: "Multi-Project Batch", id: 10, sNo: "10" },
+          { value: "Loan Portal", label: "Loan Portal", id: 11, sNo: "11" },
         ];
         setSiteOptions([...predefinedSiteOptions, ...formattedProjects]);
         
@@ -178,28 +179,22 @@ const BankReconciliation = () => {
   };
 
   const getProjectOrPurposeName = (item) => {
-    // Check if this is a tenant - if so, show tenant_complex_name directly from the data
     const partyData = getPartyNameAndType(item);
     if (partyData.type === 'Tenant' && item.tenant_complex_name) {
       return item.tenant_complex_name;
     }
-    
-    // First try to get project name
     if (item.project_id) {
       const projectName = getProjectName(item.project_id);
       if (projectName !== '-') {
         return projectName;
       }
     }
-    
-    // If no project_id or project not found, try to get purpose name
     if (item.purpose_id) {
       const purposeName = getPurposeName(item.purpose_id);
       if (purposeName !== '-') {
         return purposeName;
       }
     }
-    
     return '-';
   };
 

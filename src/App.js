@@ -1,6 +1,6 @@
 import './App.css';
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import Sidebar from './Components/Bars/Sidebar';
 import Navbar from './Components/Bars/Navbar';
 import Home from './Components/Home/HomePage';
@@ -21,7 +21,7 @@ import PurchaseHeading from './Components/Purchase/PurchaseHeading';
 import TestPurchaseOrder from './Components/Purchase/TestPurchaseOrder';
 import ManageHeading from './Components/ManageUsers/ManageHeading';
 import Attendancelog from './Components/Attendances/Attendancelog';
-import InventoryHeading from './Components/ProcurementInventory/InventoryHeading';
+import InventoryHeading from './Components/Inventory/InventoryHeading';
 import AdvanceHeading from './Components/Advance Portal/AdvanceHeading';
 import ClaimPaymentHeading from './Components/ClaimPayments/ClaimPaymentHeading';
 import StaffHeading from './Components/StaffAdvance/StaffHeading';
@@ -36,37 +36,34 @@ import DirectoryHeading from './Components/Directory/DirectoryHeading';
 import ToolsTrackerHeading from './Components/ToolsTracker/ToolsTrackerHeading';
 import TestToolsTrackerHeading from './Components/TestToolsTracker/TestToolsTrackerHeading';
 
-function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState(null);
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser)); // Parse back to object
-      setIsLoggedIn(true);
-    }
-  }, []);
-  const handleLogin = (userData) => {
-    setIsLoggedIn(true);
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-  };
+function AppContent({ user, handleLogout }) {
+  const location = useLocation();
+  const [isMobile, setIsMobile] = useState(() => {
+    return window.innerWidth < 768;
+  });
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUser('');
-    localStorage.removeItem('user');
-  };
-  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Check if current route is purchaseorder or inventory
+  const isMobileRoute = location.pathname.startsWith('/purchaseorder') || location.pathname.startsWith('/inventory');
+  const shouldHideDesktopBars = isMobile && isMobileRoute;
+
   return (
-    <Router>
-      {!user ? (
-        <LoginPage onLogin={handleLogin} />
-      ) : (
-        <div>
+    <div>
+      {!shouldHideDesktopBars && (
+        <>
           <Navbar username={user.username} userImage={user.userImage} position={user.position} email={user.email} userRoles={user?.userRoles || []} onLogout={handleLogout} />
           <Sidebar userRoles={user?.userRoles || []} />
-          <Routes>
+        </>
+      )}
+      <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/expense-entry/*" element={<Heading username={user.username} userRoles={user?.userRoles || []}/>} />
             <Route path="/designtool/*" element={<DHeading username={user.username} userRoles={user?.userRoles || []}/>} />
@@ -99,8 +96,39 @@ function App() {
             <Route path="/toolsTracker/*" element={<ToolsTrackerHeading username={user.username} userRoles={user?.userRoles || []} />} />
             <Route path="/testtoolsTracker/*" element={<TestToolsTrackerHeading username={user.username} userRoles={user?.userRoles || []} />} />
             <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </div>
+      </Routes>
+    </div>
+  );
+}
+
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser)); // Parse back to object
+      setIsLoggedIn(true);
+    }
+  }, []);
+  const handleLogin = (userData) => {
+    setIsLoggedIn(true);
+    setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUser('');
+    localStorage.removeItem('user');
+  };
+  
+  return (
+    <Router>
+      {!user ? (
+        <LoginPage onLogin={handleLogin} />
+      ) : (
+        <AppContent user={user} handleLogout={handleLogout} />
       )}
     </Router>
   );

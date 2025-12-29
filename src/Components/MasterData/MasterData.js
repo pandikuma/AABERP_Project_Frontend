@@ -234,6 +234,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     projectId: '',
     projectCategory: '',
     projectReferenceName: '',
+    branch: '',
     ownerDetailsList: [{
       clientName: "",
       fatherName: "",
@@ -274,6 +275,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     projectId: '',
     projectCategory: '',
     projectReferenceName: '',
+    branch: '',
     ownerDetailsList: [{
       clientName: "",
       fatherName: "",
@@ -1300,6 +1302,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         projectId: newProject.projectId,
         projectCategory: newProject.projectCategory,
         projectReferenceName: newProject.projectReferenceName,
+        branch: newProject.branch,
         ownerDetails: newProject.ownerDetailsList,      // map to backend
         propertyDetails: newProject.propertyDetailsList // map to backend
       };
@@ -1318,7 +1321,8 @@ const MasterData = ({ username, userRoles = [] }) => {
 
           const siteNamePayload = {
             siteName: newProject.projectName,
-            siteNo: newProject.projectId
+            siteNo: newProject.projectId,
+            branch: newProject.branch
           };
 
           if (existingSiteName) {
@@ -1589,6 +1593,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       projectId: item.projectId || '',
       projectCategory: item.projectCategory || '',
       projectReferenceName: item.projectReferenceName || '',
+      branch: item.branch || '',
       ownerDetailsList: item.ownerDetails && item.ownerDetails.length > 0 ? item.ownerDetails : [{
         clientName: "",
         fatherName: "",
@@ -1667,6 +1672,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         projectId: editProject.projectId,
         projectCategory: editProject.projectCategory,
         projectReferenceName: editProject.projectReferenceName,
+        branch: editProject.branch,
         ownerDetails: editProject.ownerDetailsList,       // mapped for backend
         propertyDetails: sortedPropertyDetails  // mapped for backend - sorted before submit
       };
@@ -1683,7 +1689,8 @@ const MasterData = ({ username, userRoles = [] }) => {
           const existingSiteName = existingSiteNameById || existingSiteNameBySiteNo;
           const siteNamePayload = {
             siteName: editProject.projectName,
-            siteNo: editProject.projectId
+            siteNo: editProject.projectId,
+            branch: editProject.branch
           };
           if (existingSiteName) {
             const siteNameResponse = await fetch(`https://backendaab.in/aabuilderDash/api/project_Names/edit/${existingSiteName.id}`, {
@@ -6054,10 +6061,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                   </div>
                   <div className="mb-4 pl-5">
                     <label className="block text-lg font-medium mb-2">Branch</label>
-                    <select className="w-[15rem] border-2 border-[#BF9853] border-opacity-30 p-2 rounded-lg h-14 focus:outline-none">
+                    <select 
+                      className="w-[15rem] border-2 border-[#BF9853] border-opacity-30 p-2 rounded-lg h-14 focus:outline-none"
+                      value={newProject.branch}
+                      onChange={(e) =>
+                        setNewProject((prev) => ({ ...prev, branch: e.target.value }))
+                      }
+                    >
                       <option value="">Select Branch</option>
-                      <option value="Branch 1">Madurai</option>
-                      <option value="Branch 2">Srivilliputhur</option>
+                      <option value="Madurai">Madurai</option>
+                      <option value="Srivilliputtur">Srivilliputtur</option>
                     </select>
                   </div>
                 </div>
@@ -6371,10 +6384,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                   </div>
                   <div className="mb-4 pl-5">
                     <label className="block text-lg font-medium mb-2">Branch</label>
-                    <select className="w-[15rem] border-2 border-[#BF9853] border-opacity-30 p-2 rounded-lg h-14 focus:outline-none">
+                    <select 
+                      className="w-[15rem] border-2 border-[#BF9853] border-opacity-30 p-2 rounded-lg h-14 focus:outline-none"
+                      value={editProject.branch}
+                      onChange={(e) =>
+                        setEditProject((prev) => ({ ...prev, branch: e.target.value }))
+                      }
+                    >
                       <option value="">Select Branch</option>
-                      <option value="Branch 1">Madurai</option>
-                      <option value="Branch 2">Srivilliputhur</option>
+                      <option value="Madurai">Madurai</option>
+                      <option value="Srivilliputtur">Srivilliputtur</option>
                     </select>
                   </div>
                 </div>

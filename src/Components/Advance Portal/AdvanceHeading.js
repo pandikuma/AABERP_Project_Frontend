@@ -11,7 +11,8 @@ const paymentModeOptions = [
     { value: 'GPay', label: 'GPay' },
     { value: 'PhonePe', label: 'PhonePe' },
     { value: 'Net Banking', label: 'Net Banking' },
-    { value: 'Cheque', label: 'Cheque' }
+    { value: 'Cheque', label: 'Cheque' },
+    { value: 'Direct', label:'Direct'}
 ];
 
 const AdvanceHeading = ({ username, userRoles = [] }) => {
@@ -49,46 +50,40 @@ const AdvanceHeading = ({ username, userRoles = [] }) => {
         }
     };
     return (
-        <div className="bg-[#FAF6ED] w-full h-auto min-h-screen overflow-auto">
-            {/* Fixed border wrapper */}
-            <div className="w-full xl:px-0 px-5">
-                {/* Scrolling headings only */}
-                <div className="w-full overflow-x-auto no-scrollbar xl:px-0">
-                    <div className="topbar-title flex flex-nowrap xl:flex-wrap min-w-max xl:min-w-0">
-                        <h2
-                            className={`link ${activeTab === 'advanceportal' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('advanceportal')}
-                        >
-                            Advance
-                        </h2>
-                        <h2
-                            className={`link ${activeTab === 'advacetablview' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('advacetablview')}
-                        >
-                            Table View
-                        </h2>
-                        {(username === 'Mahalingam M' || username === 'Admin') && (
-                            <h2
-                                className={`link ${activeTab === 'advancedatabase' ? 'active' : ''}`}
-                                onClick={() => setActiveTab('advancedatabase')}
-                            >
-                                Database
-                            </h2>
-                        )}
-                        <h2
-                            className={`link ${activeTab === 'advancereport' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('advancereport')}
-                        >
-                            Report
-                        </h2>
-                        <h2
-                            className={`link ${activeTab === 'advancesummary' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('advancesummary')}
-                        >
-                            Summary
-                        </h2>
-                    </div>
-                </div>
+        <div className="bg-[#FAF6ED] w-full h-auto min-h-screen">
+            <div className="topbar-title">
+                <h2
+                    className={`link ${activeTab === 'advanceportal' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('advanceportal')}
+                >
+                    Advance
+                </h2>
+                <h2
+                    className={`link ${activeTab === 'advacetablview' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('advacetablview')}
+                >
+                    Table View
+                </h2>
+                {(username === 'Mahalingam M' || username === 'Admin') && (
+                    <h2
+                        className={`link ${activeTab === 'advancedatabase' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('advancedatabase')}
+                    >
+                        Database
+                    </h2>
+                )}
+                <h2
+                    className={`link ${activeTab === 'advancereport' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('advancereport')}
+                >
+                    Report
+                </h2>
+                <h2
+                    className={`link ${activeTab === 'advancesummary' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('advancesummary')}
+                >
+                    Summary
+                </h2>
             </div>
             <div className="content">
                 {renderContent()}
