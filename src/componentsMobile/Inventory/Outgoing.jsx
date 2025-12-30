@@ -8,7 +8,7 @@ import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import SearchItemsModal from '../PurchaseOrder/SearchItemsModal';
 import editIcon from '../Images/edit.png';
 
-const Outgoing = () => {
+const Outgoing = ({ user }) => {
   // Helper functions for date
   const getTodayDate = () => {
     const today = new Date();
@@ -47,6 +47,8 @@ const Outgoing = () => {
   const [showSearchItemsModal, setShowSearchItemsModal] = useState(false);
   const [poItemName, setPoItemName] = useState([]);
   const expandedItemIdRef = useRef(expandedItemId);
+  // State for edit mode additional fields
+  const [editTransactionId, setEditTransactionId] = useState('');
   
   // Outgoing page options (same as PurchaseOrder but independent)
   const [outgoingSiteOptions, setOutgoingSiteOptions] = useState([]);
@@ -173,6 +175,187 @@ const Outgoing = () => {
   useEffect(() => {
     fetchPoItemName();
   }, [fetchPoItemName]);
+
+  // Listen for editInventory event from History component
+  useEffect(() => {
+    const handleEditInventory = (event) => {
+      const inventoryItem = event.detail;
+      if (!inventoryItem) return;
+
+      // Wait for site options and employee list to be loaded
+      if (outgoingSiteOptions.length === 0 || outgoingEmployeeList.length === 0) {
+        // Store in localStorage and retry when dependencies are ready
+        localStorage.setItem('editingInventory', JSON.stringify(inventoryItem));
+        return;
+      }
+
+      // Format date
+      const itemDate = inventoryItem.date || inventoryItem.created_at || inventoryItem.createdAt;
+      const formattedDate = itemDate ? formatDate(itemDate) : getTodayDate();
+
+      // Get project name from client_id
+      const clientId = inventoryItem.client_id || inventoryItem.clientId;
+      let projectName = '';
+      if (clientId && outgoingSiteOptions.length > 0) {
+        const projectSite = outgoingSiteOptions.find(site => 
+          site.id === clientId || 
+          String(site.id) === String(clientId)
+        );
+        projectName = projectSite ? (projectSite.value || projectSite.label || '') : '';
+      }
+      // Fallback to direct field if client_id mapping fails
+      if (!projectName) {
+        projectName = inventoryItem.project_name || inventoryItem.projectName || '';
+      }
+
+      // Get contact from site_incharge_mobile_number or contact field
+      const contact = inventoryItem.site_incharge_mobile_number || inventoryItem.siteInchargeMobileNumber || inventoryItem.contact || '';
+
+      // Get stocking location from stocking_location_id
+      const stockingLocationId = inventoryItem.stocking_location_id || inventoryItem.stockingLocationId;
+      let stockingLocation = '';
+      if (stockingLocationId && outgoingSiteOptions.length > 0) {
+        const stockingLocationSite = outgoingSiteOptions.find(site => 
+          (site.id === stockingLocationId || String(site.id) === String(stockingLocationId)) && 
+          site.markedAsStockingLocation === true
+        );
+        stockingLocation = stockingLocationSite ? (stockingLocationSite.value || stockingLocationSite.label || '') : '';
+      }
+      // Fallback to direct field if ID mapping fails
+      if (!stockingLocation) {
+        stockingLocation = inventoryItem.stocking_location || inventoryItem.stockingLocation || '';
+      }
+
+      // Find and set selected incharge by ID
+      const inchargeId = inventoryItem.site_incharge_id || inventoryItem.siteInchargeId || null;
+      let projectInchargeName = inventoryItem.project_incharge || inventoryItem.projectIncharge || '';
+      
+      if (inchargeId && outgoingEmployeeList.length > 0) {
+        const employee = outgoingEmployeeList.find(emp => 
+          String(emp.id) === String(inchargeId)
+        );
+        if (employee) {
+          projectInchargeName = employee.employeeName || employee.name || employee.fullName || employee.employee_name || projectInchargeName;
+          setSelectedIncharge({
+            id: employee.id,
+            name: projectInchargeName,
+            mobileNumber: employee.employee_mobile_number || employee.mobileNumber || employee.mobile_number || employee.contact || contact || '',
+            type: 'employee'
+          });
+        }
+      } else if (projectInchargeName && outgoingEmployeeList.length > 0) {
+        // Fallback: find by name if ID not available
+        const employee = outgoingEmployeeList.find(emp => {
+          const empName = emp.employeeName || emp.name || emp.fullName || emp.employee_name || '';
+          return empName === projectInchargeName;
+        });
+        if (employee) {
+          projectInchargeName = employee.employeeName || employee.name || employee.fullName || employee.employee_name || projectInchargeName;
+          setSelectedIncharge({
+            id: employee.id,
+            name: projectInchargeName,
+            mobileNumber: employee.employee_mobile_number || employee.mobileNumber || employee.mobile_number || employee.contact || contact || '',
+            type: 'employee'
+          });
+        }
+      }
+      
+      // Ensure projectInchargeName is set even if employee not found
+      if (!projectInchargeName) {
+        projectInchargeName = inventoryItem.project_incharge || inventoryItem.projectIncharge || '';
+      }
+
+      // Load inventory items
+      const inventoryItems = inventoryItem.inventoryItems || inventoryItem.inventory_items || [];
+      let formattedItems = [];
+      if (Array.isArray(inventoryItems) && inventoryItems.length > 0) {
+        // Generate IDs starting from 1 (fresh start for edit)
+        formattedItems = inventoryItems.map((invItem, index) => {
+          // Extract item name and category
+          let itemName = invItem.itemName || invItem.item_name || '';
+          let category = invItem.categoryName || invItem.category_name || invItem.category || '';
+          
+          // If itemName includes category (format: "ItemName, Category")
+          if (itemName && itemName.includes(',')) {
+            const parts = itemName.split(',');
+            itemName = parts[0].trim();
+            category = parts[1] ? parts[1].trim() : category;
+          }
+
+          return {
+            id: index + 1,
+            name: itemName && category ? `${itemName}, ${category}` : itemName || '',
+            brand: invItem.brandName || invItem.brand_name || invItem.brand || '',
+            model: invItem.modelName || invItem.model_name || invItem.model || '',
+            type: invItem.typeName || invItem.type_name || invItem.type || '',
+            category: category || '',
+            quantity: Math.abs(invItem.qty || invItem.quantity || invItem.Qty || invItem.Quantity || 0),
+            price: 0,
+            itemId: invItem.item_id || invItem.itemId || null,
+            brandId: invItem.brand_id || invItem.brandId || null,
+            modelId: invItem.model_id || invItem.modelId || null,
+            typeId: invItem.type_id || invItem.typeId || null,
+            categoryId: invItem.category_id || invItem.categoryId || null,
+          };
+        });
+      }
+
+      // Load inventory data into form
+      setOutgoingData({
+        projectName: projectName,
+        projectIncharge: projectInchargeName,
+        stockingLocation: stockingLocation,
+        contact: contact,
+        date: formattedDate
+      });
+
+      // Calculate transaction ID (same format as History.jsx)
+      const dateObj = new Date(itemDate);
+      const year = dateObj.getFullYear();
+      const entryNumber = inventoryItem.eno || inventoryItem.ENO || inventoryItem.entry_number || inventoryItem.entryNumber || inventoryItem.entrynumber || inventoryItem.id || '';
+      const outgoingType = inventoryItem.outgoing_type || inventoryItem.outgoingType || '';
+      let transactionId = '';
+      if (outgoingType.toLowerCase() === 'stock return' || outgoingType.toLowerCase() === 'stockreturn') {
+        transactionId = `SR - ${year} - ${entryNumber}`;
+      } else if (outgoingType.toLowerCase() === 'dispatch') {
+        transactionId = `DP - ${year} - ${entryNumber}`;
+      } else {
+        transactionId = `SR - ${year} - ${entryNumber}`;
+      }
+
+      // Set items
+      setItems(formattedItems);
+
+      // Set edit mode fields
+      setEditTransactionId(transactionId);
+
+      // Set edit mode and show items
+      setIsEditMode(true);
+      setHasOpenedAdd(formattedItems.length > 0);
+    };
+
+    window.addEventListener('editInventory', handleEditInventory);
+
+    return () => {
+      window.removeEventListener('editInventory', handleEditInventory);
+    };
+  }, [outgoingEmployeeList, outgoingSiteOptions]);
+
+  // Check localStorage on mount and when employee list and site options are loaded
+  useEffect(() => {
+    const editingInventory = localStorage.getItem('editingInventory');
+    if (editingInventory && outgoingSiteOptions.length > 0 && outgoingEmployeeList.length > 0) {
+      try {
+        const inventoryItem = JSON.parse(editingInventory);
+        // Dispatch event to trigger loadInventoryData
+        window.dispatchEvent(new CustomEvent('editInventory', { detail: inventoryItem }));
+        // Clear from localStorage after loading
+        localStorage.removeItem('editingInventory');
+      } catch (error) {
+        console.error('Error parsing editingInventory from localStorage:', error);
+      }
+    }
+  }, [outgoingEmployeeList, outgoingSiteOptions]);
 
   // Get available items function - returns the actual API data structure
   const getAvailableItems = useCallback(() => {
@@ -449,6 +632,138 @@ const Outgoing = () => {
     setShowDeleteConfirm(false);
   };
 
+  // Save outgoing inventory data (for both dispatch and stock return)
+  const handleSaveOutgoing = async (outgoingType) => {
+    // Validate required fields
+    if (!outgoingData.projectName || !outgoingData.projectIncharge || !outgoingData.stockingLocation) {
+      alert('Please fill in all required fields (Project Name, Project Incharge, and Stocking Location)');
+      return;
+    }
+
+    if (items.length === 0) {
+      alert('Please add at least one item');
+      return;
+    }
+
+    if (!selectedIncharge || !selectedIncharge.id) {
+      alert('Project Incharge ID not found. Please select a valid project incharge.');
+      return;
+    }
+
+    try {
+      // Find stocking location ID from outgoingSiteOptions
+      const stockingLocationSite = outgoingSiteOptions.find(
+        site => site.value === outgoingData.stockingLocation && site.markedAsStockingLocation === true
+      );
+      
+      if (!stockingLocationSite || !stockingLocationSite.id) {
+        alert('Stocking location ID not found. Please select a valid stocking location.');
+        return;
+      }
+
+      const stockingLocationId = stockingLocationSite.id;
+
+      // Find project/client ID from outgoingSiteOptions
+      const projectSite = outgoingSiteOptions.find(
+        site => site.value === outgoingData.projectName
+      );
+      
+      if (!projectSite || !projectSite.id) {
+        alert('Project ID not found. Please select a valid project.');
+        return;
+      }
+
+      const clientId = projectSite.id;
+      const siteInchargeId = selectedIncharge.id;
+      const siteInchargeMobileNumber = outgoingData.contact || selectedIncharge.mobileNumber || '';
+
+      // Get outgoing count for ENO
+      const countResponse = await fetch(
+        `https://backendaab.in/aabuildersDash/api/inventory/outgoingCount?stockingLocationId=${stockingLocationId}`
+      );
+      
+      if (!countResponse.ok) {
+        throw new Error('Failed to fetch outgoing count');
+      }
+      
+      const outgoingCount = await countResponse.json();
+      const eno = String(outgoingCount + 1 || 0);
+
+      // Convert date from DD/MM/YYYY to YYYY-MM-DD format for backend
+      const dateParts = outgoingData.date.split('/');
+      const formattedDate = dateParts.length === 3 
+        ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}` 
+        : outgoingData.date;
+
+      // Prepare inventory items
+      // For dispatch: negative quantity (-qty)
+      // For stock return: positive quantity (+qty)
+      const inventoryItems = items.map(item => {
+        const baseQuantity = Math.abs(item.quantity || 0);
+        const quantity = outgoingType === 'dispatch' ? -baseQuantity : baseQuantity;
+        return {
+          item_id: item.itemId || null,
+          category_id: item.categoryId || null,
+          model_id: item.modelId || null,
+          brand_id: item.brandId || null,
+          type_id: item.typeId || null,
+          quantity: quantity,
+          amount: Math.abs((item.price || 0) * baseQuantity)
+        };
+      });
+
+      // Prepare payload
+      const payload = {
+        client_id: clientId,
+        stocking_location_id: stockingLocationId,
+        inventory_type: 'outgoing',
+        outgoing_type: outgoingType,
+        site_incharge_id: siteInchargeId,
+        site_incharge_type: selectedIncharge.type || 'employee',
+        date: formattedDate,
+        site_incharge_mobile_number: siteInchargeMobileNumber,
+        eno: eno,
+        created_by: (user && user.username) || '',
+        inventoryItems: inventoryItems
+      };
+
+      // Save to backend
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to save inventory data');
+      }
+
+      const savedData = await response.json();
+      alert(`Inventory data saved successfully as ${outgoingType === 'dispatch' ? 'Dispatch' : 'Stock Return'}!`);
+      
+      // Reset form
+      setOutgoingData({
+        projectName: '',
+        projectIncharge: '',
+        stockingLocation: '',
+        contact: '',
+        date: getTodayDate()
+      });
+      setSelectedIncharge(null);
+      setItems([]);
+      setHasOpenedAdd(false);
+      setIsEditMode(false);
+      // Clear edit mode fields
+      setEditTransactionId('');
+    } catch (error) {
+      console.error('Error saving inventory:', error);
+      alert(`Error saving inventory: ${error.message}`);
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date and Actions Row - Only show when not in empty state */}
@@ -462,26 +777,20 @@ const Outgoing = () => {
             >
               {outgoingData.date}
             </button>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center">
               <button
                 type="button"
-                className="flex items-center gap-1 text-[13px] font-medium text-black leading-normal"
+                onClick={() => handleSaveOutgoing('stock return')}
+                className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
               >
                 Stock Return
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 3V6L11 3M8 13V10L5 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M3 8C3 5.23858 5.23858 3 8 3C10.7614 3 13 5.23858 13 8C13 10.7614 10.7614 13 8 13C5.23858 13 3 10.7614 3 8Z" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
               </button>
               <button
                 type="button"
-                className="flex items-center gap-1 text-[13px] font-medium text-black leading-normal"
+                onClick={() => handleSaveOutgoing('dispatch')}
+                className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
               >
                 Dispatch
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 3V6L11 3M8 13V10L5 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M3 8C3 5.23858 5.23858 3 8 3C10.7614 3 13 5.23858 13 8C13 10.7614 10.7614 13 8 13C5.23858 13 3 10.7614 3 8Z" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
               </button>
               {hasOpenedAdd && (
                 <button
@@ -623,8 +932,8 @@ const Outgoing = () => {
         </div>
       )}
 
-      {/* Summary details card - show after first + click */}
-      {hasOpenedAdd && !isEmptyState && (outgoingData.projectName || outgoingData.projectIncharge || outgoingData.stockingLocation) && (
+      {/* Summary details card - show after first + click or in edit mode */}
+      {(hasOpenedAdd || isEditMode) && !isEmptyState && (outgoingData.projectName || outgoingData.projectIncharge || outgoingData.stockingLocation) && (
         <div className="flex-shrink-0 mx-2 mb-1 p-2 bg-white border border-[#aaaaaa] rounded-[8px]">
           <div className="flex flex-col gap-2 px-2">
             {outgoingData.projectName && (
@@ -687,7 +996,7 @@ const Outgoing = () => {
               {items.length > 0 && (
                 <div className="flex-1 overflow-y-auto scrollbar-hide">
                   <div className="space-y-2">
-                    {items.map((item) => {
+                    {items.map((item, index) => {
                       const minSwipeDistance = 50;
                       const handleTouchStart = (e, itemId) => {
                         const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
@@ -888,6 +1197,12 @@ const Outgoing = () => {
         getAvailableItems={getAvailableItems}
         existingItems={items}
         onRefreshData={fetchPoItemName}
+        stockingLocationId={(() => {
+          const stockingLocationSite = outgoingSiteOptions.find(
+            site => site.value === outgoingData.stockingLocation && site.markedAsStockingLocation === true
+          );
+          return stockingLocationSite?.id || null;
+        })()}
       />
     </div>
   );

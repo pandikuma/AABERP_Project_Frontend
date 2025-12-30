@@ -1,153 +1,159 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Edit from '../Images/edit1.png';
+import Delete from '../Images/delete.png';
 
-const History = () => {
+const History = ({ onTabChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [historyData, setHistoryData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [clientData, setClientData] = useState([]);
+  const [expandedItemId, setExpandedItemId] = useState(null);
+  const [swipeStates, setSwipeStates] = useState({});
+  const expandedItemIdRef = useRef(expandedItemId);
+  const cardRefs = useRef({});
+
+  // Fetch client data
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        if (!response.ok) {
+          throw new Error("Network response was not ok: " + response.statusText);
+        }
+        const data = await response.json();
+        const formattedData = data.map(item => ({
+          value: item.siteName,
+          label: item.siteName,
+          id: item.id,
+          siteNo: item.siteNo,
+          branch: item.branch,
+          markedAsStockingLocation: item.markedAsStockingLocation || false,
+        }));
+        setClientData(formattedData);
+      } catch (error) {
+        console.error("Fetch error: ", error);
+      }
+    };
+    fetchClients();
+  }, []);
 
   // Fetch inventory history data
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         setLoading(true);
-        // Fetch both outgoing and incoming data
-        const [outgoingRes, incomingRes] = await Promise.all([
-          fetch('https://backendaab.in/aabuildersDash/api/inventory-outgoing/getAll').catch(() => null),
-          fetch('https://backendaab.in/aabuildersDash/api/inventory-incoming/getAll').catch(() => null)
-        ]);
+        // Fetch inventory data from getAll endpoint
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
 
-        let allHistory = [];
-
-        if (outgoingRes && outgoingRes.ok) {
-          const outgoingData = await outgoingRes.json();
-          const formattedOutgoing = outgoingData.map(item => ({
-            id: item.id,
-            transactionId: item.outgoing_number || `SR - ${new Date(item.date || item.created_at).getFullYear()} - ${item.id}`,
-            customerName: item.project_name || item.projectName || '',
-            location: item.stocking_location || item.stockingLocation || '',
-            date: item.date || item.created_at,
-            time: item.time || (item.created_at ? new Date(item.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : ''),
-            numberOfItems: item.items ? item.items.length : (item.number_of_items || 0),
-            quantity: item.total_quantity || item.quantity || 0,
-            price: item.total_price || item.price || 0,
-            type: 'SR'
-          }));
-          allHistory = [...allHistory, ...formattedOutgoing];
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
         }
 
-        if (incomingRes && incomingRes.ok) {
-          const incomingData = await incomingRes.json();
-          const formattedIncoming = incomingData.map(item => ({
+        const inventoryData = await response.json();
+        
+        // Filter for outgoing type only
+        const outgoingItems = inventoryData.filter(item => 
+          item.inventory_type === 'outgoing' || item.inventoryType === 'outgoing'
+        );
+
+        // Format the outgoing items
+        const formattedHistory = outgoingItems.map(item => {
+          // Get the date from date column
+          const itemDate = item.date || item.created_at || item.createdAt;
+          const dateObj = new Date(itemDate);
+          const year = dateObj.getFullYear();
+          
+          // Get entry number - use eno as primary source
+          const entryNumber = item.eno || item.ENO || item.entry_number || item.entryNumber || item.entrynumber || item.id || '';
+          
+          // Determine transaction ID based on outgoing type
+          let transactionId = '';
+          const outgoingType = item.outgoing_type || item.outgoingType || '';
+          
+          if (outgoingType.toLowerCase() === 'stock return' || outgoingType.toLowerCase() === 'stockreturn') {
+            transactionId = `SR - ${year} - ${entryNumber}`;
+          } else if (outgoingType.toLowerCase() === 'dispatch') {
+            transactionId = `DP - ${year} - ${entryNumber}`;
+          } else {
+            // Default fallback
+            transactionId = `SR - ${year} - ${entryNumber}`;
+          }
+
+          // Get client name from client_id
+          const clientId = item.client_id || item.clientId;
+          let clientName = '';
+          if (clientId && clientData.length > 0) {
+            const client = clientData.find(c => 
+              c.id === clientId || 
+              c.client_id === clientId || 
+              String(c.id) === String(clientId) ||
+              String(c.client_id) === String(clientId)
+            );
+            clientName = client ? (client.label || client.value || '') : '';
+          }
+
+          // Calculate numberOfItems from inventoryItems count
+          const inventoryItems = item.inventoryItems || item.inventory_items || [];
+          const numberOfItems = Array.isArray(inventoryItems) ? inventoryItems.length : 0;
+          
+          // Calculate quantity as sum of inventoryItems qty
+          const quantity = Array.isArray(inventoryItems) 
+            ? inventoryItems.reduce((sum, invItem) => {
+                const qty = invItem.qty || invItem.quantity || invItem.Qty || invItem.Quantity || 0;
+                return sum + (parseFloat(qty) || 0);
+              }, 0)
+            : (item.total_quantity || item.totalQuantity || item.quantity || 0);
+
+          return {
             id: item.id,
-            transactionId: item.incoming_number || `DP - ${new Date(item.date || item.created_at).getFullYear()} - ${item.id}`,
-            customerName: item.vendor_name || item.vendorName || '',
+            transactionId: transactionId,
+            customerName: clientName || item.project_name || item.projectName || item.project_incharge || item.projectIncharge || '',
             location: item.stocking_location || item.stockingLocation || '',
-            date: item.date || item.created_at,
-            time: item.time || (item.created_at ? new Date(item.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : ''),
-            numberOfItems: item.items ? item.items.length : (item.number_of_items || 0),
-            quantity: item.total_quantity || item.quantity || 0,
-            price: item.total_price || item.price || 0,
-            type: 'DP'
-          }));
-          allHistory = [...allHistory, ...formattedIncoming];
-        }
+            date: itemDate,
+            createdDateTime: item.created_date_time || item.createdDateTime || item.created_at ,
+            time: item.time || (itemDate ? new Date(itemDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : ''),
+            numberOfItems: numberOfItems,
+            quantity: quantity,
+            price: item.total_price || item.totalPrice || item.price || 0,
+            type: outgoingType.toLowerCase() === 'dispatch' ? 'DP' : 'SR',
+            // Store original item data for editing
+            originalItem: item
+          };
+        });
 
         // Sort by date (newest first)
-        allHistory.sort((a, b) => {
+        formattedHistory.sort((a, b) => {
           const dateA = new Date(a.date);
           const dateB = new Date(b.date);
           return dateB - dateA;
         });
 
-        setHistoryData(allHistory);
-        setFilteredData(allHistory);
+        setHistoryData(formattedHistory);
+        setFilteredData(formattedHistory);
       } catch (error) {
         console.error('Error fetching inventory history:', error);
-        // Use mock data for development if API fails
-        const mockData = [
-          {
-            id: 1,
-            transactionId: 'SR - 2025 - 134',
-            customerName: 'Ramar',
-            location: 'Krishnankovil',
-            date: new Date().toISOString(),
-            time: '10:24 AM',
-            numberOfItems: 4,
-            quantity: 20,
-            price: 10000,
-            type: 'SR'
-          },
-          {
-            id: 2,
-            transactionId: 'SR - 2025 - 145',
-            customerName: 'Ramar',
-            location: 'Krishnankovil',
-            date: new Date().toISOString(),
-            time: '12:40 PM',
-            numberOfItems: 8,
-            quantity: 34,
-            price: 20000,
-            type: 'SR'
-          },
-          {
-            id: 3,
-            transactionId: 'SR - 2025 - 54',
-            customerName: 'Baalu',
-            location: 'Thiruvannamalai',
-            date: new Date().toISOString(),
-            time: '11:23 AM',
-            numberOfItems: 2,
-            quantity: 4,
-            price: 15000,
-            type: 'SR'
-          },
-          {
-            id: 4,
-            transactionId: 'SR - 2025 - 15',
-            customerName: 'Arumuga',
-            location: 'Indira Nagar',
-            date: new Date('2025-11-10').toISOString(),
-            time: '11:32 AM',
-            numberOfItems: 8,
-            quantity: 47,
-            price: 5000,
-            type: 'SR'
-          },
-          {
-            id: 5,
-            transactionId: 'DP - 2025 - 155',
-            customerName: 'Sakthi',
-            location: 'Major Nagar',
-            date: new Date('2025-11-09').toISOString(),
-            time: '03:23 PM',
-            numberOfItems: 2,
-            quantity: 4,
-            price: 25000,
-            type: 'DP'
-          },
-          {
-            id: 6,
-            transactionId: 'DP - 2025 - 144',
-            customerName: 'Ramar',
-            location: 'Krishnankovil',
-            date: new Date('2025-11-08').toISOString(),
-            time: '02:15 PM',
-            numberOfItems: 2,
-            quantity: 4,
-            price: 12000,
-            type: 'DP'
-          }
-        ];
-        setHistoryData(mockData);
-        setFilteredData(mockData);
+        setHistoryData([]);
+        setFilteredData([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchHistory();
-  }, []);
+  }, [clientData]);
 
   // Filter data based on search query
   useEffect(() => {
@@ -196,6 +202,201 @@ const History = () => {
     }).format(price);
   };
 
+  // Update ref when expandedItemId changes
+  useEffect(() => {
+    expandedItemIdRef.current = expandedItemId;
+  }, [expandedItemId]);
+
+  // Swipe handlers
+  const minSwipeDistance = 50;
+  
+  const handleTouchStart = (e, itemId) => {
+    const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
+    setSwipeStates(prev => ({
+      ...prev,
+      [itemId]: {
+        startX: touch.clientX,
+        currentX: touch.clientX,
+        isSwiping: false
+      }
+    }));
+  };
+
+  const handleTouchMove = (e, itemId) => {
+    const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
+    const state = swipeStates[itemId];
+    if (!state) return;
+    const deltaX = touch.clientX - state.startX;
+    const isExpanded = expandedItemIdRef.current === itemId;
+    // Allow swiping left to reveal buttons, or swiping right to hide if already expanded
+    if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+      // preventDefault is handled by non-passive listener in useEffect
+      setSwipeStates(prev => ({
+        ...prev,
+        [itemId]: {
+          ...prev[itemId],
+          currentX: touch.clientX,
+          isSwiping: true
+        }
+      }));
+    }
+  };
+
+  const handleTouchEnd = (itemId) => {
+    const state = swipeStates[itemId];
+    if (!state) return;
+    const deltaX = state.currentX - state.startX;
+    const absDeltaX = Math.abs(deltaX);
+    if (absDeltaX >= minSwipeDistance) {
+      if (deltaX < 0) {
+        // Swiped left (reveal buttons)
+        setExpandedItemId(itemId);
+      } else {
+        // Swiped right (hide buttons)
+        setExpandedItemId(null);
+      }
+    } else {
+      // Small movement - snap back
+      if (expandedItemIdRef.current === itemId) {
+        setExpandedItemId(null);
+      }
+    }
+    // Reset swipe state
+    setSwipeStates(prev => {
+      const newState = { ...prev };
+      delete newState[itemId];
+      return newState;
+    });
+  };
+
+  // Set up non-passive touch event listeners to allow preventDefault
+  useEffect(() => {
+    const cleanupFunctions = [];
+    
+    // Set up non-passive touchmove listeners for each card to handle preventDefault
+    Object.keys(cardRefs.current).forEach(itemId => {
+      const cardElement = cardRefs.current[itemId];
+      if (!cardElement) return;
+
+      const touchMoveHandler = (e) => {
+        const state = swipeStates[itemId];
+        if (!state) return;
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - state.startX;
+        const isExpanded = expandedItemIdRef.current === itemId;
+        // Prevent default scrolling when swiping horizontally
+        if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+          e.preventDefault();
+        }
+      };
+
+      // Add non-passive touchmove listener
+      cardElement.addEventListener('touchmove', touchMoveHandler, { passive: false });
+
+      cleanupFunctions.push(() => {
+        cardElement.removeEventListener('touchmove', touchMoveHandler);
+      });
+    });
+
+    return () => {
+      cleanupFunctions.forEach(cleanup => cleanup());
+    };
+  }, [filteredData, swipeStates]);
+
+  // Global mouse handlers for desktop support
+  useEffect(() => {
+    if (filteredData.length === 0) return;
+
+    const globalMouseMoveHandler = (e) => {
+      setSwipeStates(prev => {
+        let hasChanges = false;
+        const newState = { ...prev };
+
+        filteredData.forEach(item => {
+          const state = prev[item.id];
+          if (!state) return;
+          const deltaX = e.clientX - state.startX;
+          const isExpanded = expandedItemIdRef.current === item.id;
+          // Only update if dragging horizontally
+          if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+            newState[item.id] = {
+              ...state,
+              currentX: e.clientX,
+              isSwiping: true
+            };
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? newState : prev;
+      });
+    };
+
+    const globalMouseUpHandler = () => {
+      setSwipeStates(prev => {
+        let hasChanges = false;
+        const newState = { ...prev };
+
+        filteredData.forEach(item => {
+          const state = prev[item.id];
+          if (!state) return;
+          const deltaX = state.currentX - state.startX;
+          const absDeltaX = Math.abs(deltaX);
+          if (absDeltaX >= minSwipeDistance) {
+            if (deltaX < 0) {
+              // Swiped left (reveal buttons)
+              setExpandedItemId(item.id);
+            } else {
+              // Swiped right (hide buttons)
+              setExpandedItemId(null);
+            }
+          } else {
+            // Small movement - snap back
+            if (expandedItemIdRef.current === item.id) {
+              setExpandedItemId(null);
+            }
+          }
+          // Remove swipe state for this card
+          delete newState[item.id];
+          hasChanges = true;
+        });
+
+        return hasChanges ? newState : prev;
+      });
+    };
+
+    // Add global mouse event listeners
+    document.addEventListener('mousemove', globalMouseMoveHandler);
+    document.addEventListener('mouseup', globalMouseUpHandler);
+
+    return () => {
+      document.removeEventListener('mousemove', globalMouseMoveHandler);
+      document.removeEventListener('mouseup', globalMouseUpHandler);
+    };
+  }, [filteredData]);
+
+  // Handle edit
+  const handleEdit = (item) => {
+    // Store inventory item data in localStorage to load in outgoing tab
+    if (item.originalItem) {
+      localStorage.setItem('editingInventory', JSON.stringify(item.originalItem));
+    }
+    // Dispatch custom event for outgoing component to listen
+    window.dispatchEvent(new CustomEvent('editInventory', { detail: item.originalItem || item }));
+    // Navigate to outgoing tab for editing
+    if (onTabChange) {
+      onTabChange('outgoing');
+    }
+    setExpandedItemId(null);
+  };
+
+  // Handle delete
+  const handleDelete = (itemId) => {
+    console.log('Delete item:', itemId);
+    // TODO: Implement delete functionality
+    setExpandedItemId(null);
+  };
+
   return (
     <div className="flex flex-col h-full bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Search Bar */}
@@ -240,51 +441,125 @@ const History = () => {
         ) : (
           <div className="space-y-3">
             {filteredData.map((item) => {
-              const displayDate = formatDate(item.date);
-              const displayTime = formatTime(item.date, item.time);
-              const customerLocation = `${item.customerName} - ${item.location}`;
+              // Get created_date_time and add 5.30 hours
+              const createdDateTime = item.created_date_time || item.createdDateTime || item.created_at ;
+              let adjustedDate = null;
+              if (createdDateTime) {
+                adjustedDate = new Date(createdDateTime);
+                // Add 5 hours and 30 minutes (5.30 hours = 5.5 hours = 19800000 milliseconds)
+                adjustedDate.setTime(adjustedDate.getTime() );
+              }
               
+              const displayDate = adjustedDate ? formatDate(adjustedDate.toISOString()) : formatDate(item.date);
+              const displayTime = adjustedDate ? formatTime(adjustedDate.toISOString(), null) : formatTime(item.date, item.time);
+              const customerLocation = `${item.customerName}`;
+              
+              const isExpanded = expandedItemId === item.id;
+              const swipeState = swipeStates[item.id];
+              let swipeOffset = 0;
+              if (swipeState && swipeState.isSwiping) {
+                swipeOffset = Math.max(-110, Math.min(0, swipeState.currentX - swipeState.startX));
+              } else if (isExpanded) {
+                swipeOffset = -110;
+              } else {
+                swipeOffset = 0;
+              }
+
               return (
-                <div
-                  key={item.id}
-                  className="bg-white border border-[rgba(0,0,0,0.16)] rounded-[8px] p-3 cursor-pointer hover:bg-gray-50 transition-colors"
-                >
-                  {/* Transaction ID */}
-                  <div className="mb-2">
-                    <p className="text-[14px] font-semibold text-black leading-normal">
-                      {item.transactionId}
-                    </p>
-                  </div>
+                <div key={item.id} className="relative overflow-hidden">
+                  {/* History Card */}
+                  <div
+                    ref={(el) => {
+                      if (el) {
+                        cardRefs.current[item.id] = el;
+                      } else {
+                        delete cardRefs.current[item.id];
+                      }
+                    }}
+                    className="bg-white border border-[rgba(0,0,0,0.16)] rounded-[8px] p-2 cursor-pointer hover:bg-gray-50 transition-all duration-300 ease-out relative z-10"
+                    style={{
+                      transform: `translateX(${swipeOffset}px)`,
+                      touchAction: 'pan-y'
+                    }}
+                    onTouchStart={(e) => handleTouchStart(e, item.id)}
+                    onTouchMove={(e) => handleTouchMove(e, item.id)}
+                    onTouchEnd={() => handleTouchEnd(item.id)}
+                    onMouseDown={(e) => handleTouchStart(e, item.id)}
+                    onClick={(e) => {
+                      if (!isExpanded) {
+                        e.stopPropagation();
+                      }
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      {/* Left side: Transaction ID, Customer/Location Name, Date and Time */}
+                      <div className="flex-1">
+                        {/* Transaction ID */}
+                        <div className="mb-1">
+                          <p className="text-[14px] font-semibold text-black leading-normal">
+                            {item.transactionId}
+                          </p>
+                        </div>
 
-                  {/* Customer/Location Name */}
-                  <div className="mb-2">
-                    <p className="text-[12px] font-medium text-black leading-normal">
-                      {customerLocation}
-                    </p>
-                  </div>
+                        {/* Customer/Location Name */}
+                        <div className="mb-1">
+                          <p className="text-[12px] font-medium text-black leading-normal">
+                            {customerLocation}
+                          </p>
+                        </div>
 
-                  {/* Date and Time */}
-                  <div className="mb-2">
-                    <p className="text-[12px] font-medium text-[#616161] leading-normal">
-                      {displayDate} • {displayTime}
-                    </p>
-                  </div>
+                        {/* Date and Time */}
+                        <div>
+                          <p className="text-[12px] font-medium text-[#616161] leading-normal">
+                            {displayDate} • {displayTime}
+                          </p>
+                        </div>
+                      </div>
 
-                  {/* Number of Items, Quantity, and Price */}
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
-                    <div>
-                      <p className="text-[11px] font-medium text-[#616161] leading-normal mb-1">
-                        No. of Items - {item.numberOfItems}
-                      </p>
-                      <p className="text-[12px] font-semibold text-[#FF6B35] leading-normal">
-                        Quantity - {item.quantity}
-                      </p>
+                      {/* Right side: Number of Items, Quantity, and Price */}
+                      <div className="flex flex-col items-end text-right flex-shrink-0 ml-4">
+                        <p className="text-[11px] font-medium text-[#616161] leading-normal mb-1">
+                          No. of Items - {item.numberOfItems}
+                        </p>
+                        <p className="text-[12px] font-semibold text-[#BF9853] leading-normal mb-1">
+                          Quantity - {Math.abs(item.quantity)}
+                        </p>
+                        <p className="text-[14px] font-semibold text-black leading-normal">
+                          {formatPrice(item.price)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[14px] font-semibold text-black leading-normal">
-                        {formatPrice(item.price)}
-                      </p>
-                    </div>
+                  </div>
+
+                  {/* Action Buttons - Behind the card on the right, revealed on swipe */}
+                  <div
+                    className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
+                    style={{
+                      opacity: isExpanded || (swipeState && swipeState.isSwiping && swipeOffset < -20) ? 1 : 0,
+                      transition: 'opacity 0.2s ease-out',
+                      pointerEvents: isExpanded ? 'auto' : 'none'
+                    }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(item);
+                      }}
+                      className="action-button w-[48px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 transition-colors shadow-sm min-h-[80px]"
+                      title="Edit"
+                    >
+                      <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item.id);
+                      }}
+                      className="action-button w-[48px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm min-h-[80px]"
+                      title="Delete"
+                    >
+                      <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />
+                    </button>
                   </div>
                 </div>
               );
