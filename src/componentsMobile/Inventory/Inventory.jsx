@@ -9,6 +9,10 @@ import Incoming from './Incoming';
 import AddInput from './AddInput';
 import History from './History';
 import ProjectUsageReport from './ProjectUsageReport';
+import IncomingTracker from './IncomingTracker';
+import NetStock from './NetStock';
+import ProjectUsageHistory from './ProjectUsageHistory';
+import NonPOHistory from './NonPOHistory';
 
 const Inventory = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -50,39 +54,19 @@ const Inventory = ({ user, onLogout }) => {
       case 'incoming':
         return <Incoming user={user} />;
       case 'net-stock':
-        return (
-          <div className="p-4">
-            <h2 className="text-lg font-semibold text-black mb-4">Net Stock</h2>
-            <p className="text-gray-500">Net Stock content will be displayed here</p>
-          </div>
-        );
+        return <NetStock />;
       case 'history':
         return <History onTabChange={handleTabChange} />
       case 'add-input':
         return <AddInput />;
       case 'incoming-tracker':
-        return (
-          <div className="p-4">
-            <h2 className="text-lg font-semibold text-black mb-4">Incoming Tracker</h2>
-            <p className="text-gray-500">Incoming Tracker content will be displayed here</p>
-          </div>
-        );
+        return <IncomingTracker />;
       case 'project-usage-report':
         return <ProjectUsageReport />;
       case 'project-usage-history':
-        return (
-          <div className="p-4">
-            <h2 className="text-lg font-semibold text-black mb-4">Project Usage History</h2>
-            <p className="text-gray-500">Project Usage History content will be displayed here</p>
-          </div>
-        );
+        return <ProjectUsageHistory />;
       case 'non-po-history':
-        return (
-          <div className="p-4">
-            <h2 className="text-lg font-semibold text-black mb-4">Non PO History</h2>
-            <p className="text-gray-500">Non PO History content will be displayed here</p>
-          </div>
-        );
+        return <NonPOHistory />;
       default:
         return null;
     }

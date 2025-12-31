@@ -269,8 +269,7 @@ const Incoming = ({ user }) => {
     setLoadingPOItems(true);
     try {
       let data = allPurchaseOrders;
-      let po = null;
-      
+      let po = null;      
       // If we have a cached PO, use it directly (from SelectPOModal)
       if (cachedPO) {
         po = cachedPO;
@@ -278,28 +277,23 @@ const Incoming = ({ user }) => {
         // Use cached data if available, otherwise fetch
         if (data.length === 0) {
           data = await fetchAllPurchaseOrders();
-        }
-      
+        }      
         // Find the PO with matching ENO - use numeric comparison for better matching
-        const targetEno = getNumericEno(eno);
-        
+        const targetEno = getNumericEno(eno);        
         // Filter by vendor first to narrow down the search
         const vendorPOs = incomingData.vendorId 
           ? data.filter(p => String(p.vendor_id || p.vendorId) === String(incomingData.vendorId))
-          : data;
-        
+          : data;        
         // Find ALL POs with matching ENO for this vendor
         const matchingPOs = vendorPOs.filter(p => {
           const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
           return poEno === targetEno && poEno !== 0;
-        });
-        
+        });        
         // Prioritize PO with items - find all POs with items, then pick the most recent one
         const posWithItems = matchingPOs.filter(p => {
           const items = p.purchaseTable || p.purchase_table || p.items || [];
           return items.length > 0;
-        });
-        
+        });        
         if (posWithItems.length > 0) {
           // If multiple POs have items, pick the most recent one (highest ID)
           po = posWithItems.reduce((latest, current) => {
@@ -316,49 +310,48 @@ const Incoming = ({ user }) => {
           });
         }
       }
-
         if (po) {
           // Handle purchaseTable - it might be an array or might need to be accessed differently
-          const purchaseTableItems = po.purchaseTable || po.purchase_table || po.items || [];
-          
+          const purchaseTableItems = po.purchaseTable || po.purchase_table || po.items || [];          
           if (purchaseTableItems.length === 0) {
             setLoadingPOItems(false);
             return;
           }
-
           // Fetch existing inventory records for this PO number to check already added quantities
-          let inventoryItemQuantities = {}; // Map of item_id to total quantity already added
+          // Map using composite key: item_id-category_id-model_id-brand_id-type_id
+          let inventoryItemQuantities = {}; // Map of composite key to total quantity already added
           try {
             const poNumberStr = String(eno).replace('#', '').trim();
             const inventoryResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
             if (inventoryResponse.ok) {
-              const inventoryRecords = await inventoryResponse.json();
-              
+              const inventoryRecords = await inventoryResponse.json();              
               // Filter inventory records by purchase_no matching the PO number and exclude deleted records
               const matchingInventoryRecords = inventoryRecords.filter(record => {
                 // Exclude deleted records
                 const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
                 if (recordDeleteStatus) {
                   return false;
-                }
-                
+                }                
                 // Match by purchase_no
                 const recordPurchaseNo = record.purchase_no || record.purchaseNo || record.purchase_number || '';
                 const recordPurchaseNoStr = String(recordPurchaseNo).replace('#', '').trim();
                 return recordPurchaseNoStr === poNumberStr;
-              });
-              
-              // Calculate total quantity per item_id from inventory records
+              });              
+              // Calculate total quantity per full row (composite key) from inventory records
               matchingInventoryRecords.forEach(record => {
                 const inventoryItems = record.inventoryItems || record.inventory_items || [];
                 if (Array.isArray(inventoryItems)) {
                   inventoryItems.forEach(invItem => {
-                    const itemId = invItem.item_id || invItem.itemId;
-                    const quantity = Math.abs(invItem.quantity || 0); // Use absolute value for incoming
-                    
+                    const itemId = invItem.item_id || invItem.itemId || null;
+                    const categoryId = invItem.category_id || invItem.categoryId || null;
+                    const modelId = invItem.model_id || invItem.modelId || null;
+                    const brandId = invItem.brand_id || invItem.brandId || null;
+                    const typeId = invItem.type_id || invItem.typeId || null;
+                    const quantity = Math.abs(invItem.quantity || 0); // Use absolute value for incoming                    
+                    // Create composite key for full row matching
+                    const compositeKey = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;                    
                     if (itemId !== null && itemId !== undefined) {
-                      const itemIdStr = String(itemId);
-                      inventoryItemQuantities[itemIdStr] = (inventoryItemQuantities[itemIdStr] || 0) + quantity;
+                      inventoryItemQuantities[compositeKey] = (inventoryItemQuantities[compositeKey] || 0) + quantity;
                     }
                   });
                 }
@@ -368,52 +361,47 @@ const Incoming = ({ user }) => {
             console.error('Error fetching inventory records:', error);
             // Continue with PO items even if inventory fetch fails
           }
-
           // Transform purchaseTable items to the format expected by items
           // Use functional update to get current items and generate IDs correctly
           setItems(prevItems => {
-            const maxId = prevItems.length > 0 ? Math.max(...prevItems.map(i => i.id)) : 0;
-            
-            // First, filter and adjust quantities based on inventory
+            const maxId = prevItems.length > 0 ? Math.max(...prevItems.map(i => i.id)) : 0;            
+            // First, filter and adjust quantities based on inventory (matching full row)
             const filteredAndAdjustedItems = purchaseTableItems
               .map((item) => {
-                const poItemId = item.item_id || item.itemId;
-                const poQuantity = item.quantity || 0;
-                
-                // If item_id exists, check inventory quantities
+                const poItemId = item.item_id || item.itemId || null;
+                const poCategoryId = item.category_id || item.categoryId || null;
+                const poModelId = item.model_id || item.modelId || null;
+                const poBrandId = item.brand_id || item.brandId || null;
+                const poTypeId = item.type_id || item.typeId || null;
+                const poQuantity = item.quantity || 0;                
+                // If item_id exists, check inventory quantities using full row match
                 if (poItemId !== null && poItemId !== undefined) {
-                  const itemIdStr = String(poItemId);
-                  const alreadyAddedQty = inventoryItemQuantities[itemIdStr] || 0;
-                  
+                  // Create composite key for full row matching (same format as inventory)
+                  const compositeKey = `${poItemId || 'null'}-${poCategoryId || 'null'}-${poModelId || 'null'}-${poBrandId || 'null'}-${poTypeId || 'null'}`;
+                  const alreadyAddedQty = inventoryItemQuantities[compositeKey] || 0;                  
                   // Calculate balance quantity
-                  const balanceQty = poQuantity - alreadyAddedQty;
-                  
+                  const balanceQty = poQuantity - alreadyAddedQty;                  
                   // If balance is 0 or negative, don't include this item
                   if (balanceQty <= 0) {
                     return null;
-                  }
-                  
+                  }                  
                   // Use balance quantity instead of PO quantity
                   return { ...item, quantity: balanceQty };
-                }
-                
+                }                
                 // If no item_id, include as is
                 return item;
               })
               .filter(item => item !== null); // Remove items with 0 or negative balance
-            
             // Then transform to the expected format
             const transformedItems = filteredAndAdjustedItems.map((item, index) => {
               // Look up item name - check multiple possible field names
               let itemName = item.itemName || item.name || item.item_name || '';
-              
               // Try to get item name from poItemName API data if not provided in purchaseTable
               if (!itemName && (item.item_id || item.itemId) && poItemName && poItemName.length > 0) {
                 const itemId = item.item_id || item.itemId;
                 itemName = findNameById(poItemName, itemId, 'itemName') ||
                   findNameById(poItemName, itemId, 'name') || '';
-              }
-              
+              }              
               // Fallback if still no name - check if name is just the ID
               if (!itemName) {
                 const itemId = item.item_id || item.itemId || '';
@@ -423,7 +411,6 @@ const Incoming = ({ user }) => {
                 }
                 itemName = itemName || (itemId ? `Item ${itemId}` : 'Item');
               }
-
               // Look up category name from categoryOptions if we have category_id
               // Check multiple possible field names
               let categoryName = item.categoryName || item.category_name || item.category || '';
@@ -432,7 +419,6 @@ const Incoming = ({ user }) => {
                 const foundCategory = categoryOptions.find(cat => String(cat.id) === String(categoryId));
                 categoryName = foundCategory ? foundCategory.label : '';
               }
-
               // Look up brand name from poBrand if we have brand_id
               // Check multiple possible field names
               let brand = item.brandName || item.brand_name || item.brand || '';
@@ -442,7 +428,6 @@ const Incoming = ({ user }) => {
                   findNameById(poBrand, brandId, 'brandName') ||
                   findNameById(poBrand, brandId, 'name') || '';
               }
-
               // Look up model name from poModel if we have model_id
               // Check multiple possible field names
               let model = item.modelName || item.model_name || item.model || '';
@@ -452,7 +437,6 @@ const Incoming = ({ user }) => {
                   findNameById(poModel, modelId, 'modelName') ||
                   findNameById(poModel, modelId, 'name') || '';
               }
-
               // Look up type name from poType if we have type_id
               // Check multiple possible field names
               let type = item.typeName || item.type_name || item.type || item.typeColor || '';
@@ -463,7 +447,6 @@ const Incoming = ({ user }) => {
                   findNameById(poType, typeId, 'typeName') ||
                   findNameById(poType, typeId, 'name') || '';
               }
-
               const newItemId = maxId + 1 + index;
               return {
                 id: newItemId,
@@ -481,7 +464,6 @@ const Incoming = ({ user }) => {
                 categoryId: categoryId || null,
               };
             });
-
             return [...prevItems, ...transformedItems];
           });
         }

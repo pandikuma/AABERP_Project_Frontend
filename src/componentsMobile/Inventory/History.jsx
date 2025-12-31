@@ -117,6 +117,13 @@ const History = ({ onTabChange }) => {
               }, 0)
             : (item.total_quantity || item.totalQuantity || item.quantity || 0);
 
+          // Ensure originalItem includes inventoryItems explicitly
+          const originalItemWithItems = {
+            ...item,
+            inventoryItems: inventoryItems.length > 0 ? inventoryItems : (item.inventoryItems || []),
+            inventory_items: inventoryItems.length > 0 ? inventoryItems : (item.inventory_items || [])
+          };
+
           return {
             id: item.id,
             transactionId: transactionId,
@@ -129,8 +136,8 @@ const History = ({ onTabChange }) => {
             quantity: quantity,
             price: item.total_price || item.totalPrice || item.price || 0,
             type: outgoingType.toLowerCase() === 'dispatch' ? 'DP' : 'SR',
-            // Store original item data for editing
-            originalItem: item
+            // Store original item data for editing with inventoryItems explicitly included
+            originalItem: originalItemWithItems
           };
         });
 
@@ -143,6 +150,7 @@ const History = ({ onTabChange }) => {
 
         setHistoryData(formattedHistory);
         setFilteredData(formattedHistory);
+        console.log(formattedHistory);
       } catch (error) {
         console.error('Error fetching inventory history:', error);
         setHistoryData([]);
@@ -376,18 +384,79 @@ const History = ({ onTabChange }) => {
   }, [filteredData]);
 
   // Handle edit
-  const handleEdit = (item) => {
-    // Store inventory item data in localStorage to load in outgoing tab
-    if (item.originalItem) {
-      localStorage.setItem('editingInventory', JSON.stringify(item.originalItem));
+  const handleEdit = async (item) => {
+    try {
+      // Get the original inventory item data (should already have inventoryItems from originalItem)
+      let inventoryData = item.originalItem || item;
+      
+      // Check if inventoryItems are present in the data
+      const hasInventoryItems = inventoryData?.inventoryItems || inventoryData?.inventory_items;
+      
+      // If inventoryItems are missing, try to fetch them from the backend
+      if (!hasInventoryItems || (Array.isArray(inventoryData?.inventoryItems) && inventoryData.inventoryItems.length === 0) || 
+          (Array.isArray(inventoryData?.inventory_items) && inventoryData.inventory_items.length === 0)) {
+        if (inventoryData?.id) {
+          try {
+            // Try to fetch the inventory record with items by ID
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${inventoryData.id}`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (response.ok) {
+              const detailedData = await response.json();
+              // Merge the detailed data with inventoryItems
+              if (detailedData.inventoryItems || detailedData.inventory_items) {
+                const items = detailedData.inventoryItems || detailedData.inventory_items;
+                inventoryData = {
+                  ...inventoryData,
+                  inventoryItems: items,
+                  inventory_items: items
+                };
+              }
+            }
+          } catch (fetchError) {
+            console.error('Error fetching inventory details:', fetchError);
+            // Continue with existing data even if fetch fails
+          }
+        }
+      }
+      
+      // Ensure inventoryItems are explicitly set (use both field names for compatibility)
+      if (inventoryData?.inventoryItems || inventoryData?.inventory_items) {
+        const items = inventoryData.inventoryItems || inventoryData.inventory_items;
+        inventoryData = {
+          ...inventoryData,
+          inventoryItems: items,
+          inventory_items: items
+        };
+      }
+      
+      // Store inventory item data in localStorage to load in outgoing tab
+      if (inventoryData) {
+        localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
+      }
+      // Dispatch custom event for outgoing component to listen
+      window.dispatchEvent(new CustomEvent('editInventory', { detail: inventoryData }));
+      // Navigate to outgoing tab for editing
+      if (onTabChange) {
+        onTabChange('outgoing');
+      }
+      setExpandedItemId(null);
+    } catch (error) {
+      console.error('Error in handleEdit:', error);
+      // Fallback: still try to pass the data even if there's an error
+      const inventoryData = item.originalItem || item;
+      localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
+      window.dispatchEvent(new CustomEvent('editInventory', { detail: inventoryData }));
+      if (onTabChange) {
+        onTabChange('outgoing');
+      }
+      setExpandedItemId(null);
     }
-    // Dispatch custom event for outgoing component to listen
-    window.dispatchEvent(new CustomEvent('editInventory', { detail: item.originalItem || item }));
-    // Navigate to outgoing tab for editing
-    if (onTabChange) {
-      onTabChange('outgoing');
-    }
-    setExpandedItemId(null);
   };
 
   // Handle delete
