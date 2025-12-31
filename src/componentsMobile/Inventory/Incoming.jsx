@@ -1223,7 +1223,7 @@ const Incoming = ({ user }) => {
         inventory_type: 'incoming',
         date: formattedDate,
         eno: eno,
-        purchase_no: incomingData.poNumber || '',
+        purchase_no: incomingData.poNumber || 'NO_PO',
         created_by: (user && user.username) || '',
         inventoryItems: inventoryItems
       };
@@ -1241,30 +1241,20 @@ const Incoming = ({ user }) => {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to save inventory data');
       }
-
       const savedData = await response.json();
-      
-      // Get the inventory management ID from saved data
-      // Try different possible field names for the ID
       const inventoryManagementId = savedData.id || savedData.inventoryManagementId || savedData.inventory_management_id;
-      
       if (!inventoryManagementId) {
         console.warn('Inventory management ID not found in saved data:', savedData);
       }
-      
-      // Save PDF URLs if there are any uploaded files
       if (inventoryManagementId && attachedFiles.length > 0) {
         const filesWithUrls = attachedFiles.filter(f => f.pdfUrl && f.status === 'completed');
-        
         if (filesWithUrls.length > 0) {
           try {
-            // Save each PDF URL to the backend
             const pdfSavePromises = filesWithUrls.map(async (file) => {
               const pdfPayload = {
                 incoming_pdf: file.pdfUrl,
                 inventory_management_id: inventoryManagementId
               };
-              
               const pdfResponse = await fetch('https://backendaab.in/aabuildersDash/api/incoming_pdfs/save', {
                 method: 'POST',
                 headers: {
@@ -1272,26 +1262,20 @@ const Incoming = ({ user }) => {
                 },
                 body: JSON.stringify(pdfPayload)
               });
-              
               if (!pdfResponse.ok) {
                 const errorData = await pdfResponse.json().catch(() => ({}));
                 throw new Error(errorData.message || 'Failed to save PDF URL');
               }
-              
               return await pdfResponse.json();
             });
-            
             await Promise.all(pdfSavePromises);
           } catch (pdfError) {
             console.error('Error saving PDF URLs:', pdfError);
-            // Don't fail the entire operation if PDF save fails, just log it
             alert(`Inventory saved successfully, but there was an error saving PDF attachments: ${pdfError.message}`);
           }
         }
-      }
-      
+      }      
       alert('Inventory data saved successfully!');
-      
       // Reset form
       setIncomingData({
         poNumber: '',
@@ -1311,7 +1295,6 @@ const Incoming = ({ user }) => {
       alert(`Error saving inventory: ${error.message}`);
     }
   };
-
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* PO Number and Date Row - Only show when not in empty state */}
@@ -1371,7 +1354,6 @@ const Incoming = ({ user }) => {
           </div>
         </div>
       )}
-
       {/* Form Fields - visible while you are selecting the fields (before first + click) */}
       {!showAddItems && !hasOpenedAdd && (
         <div className="flex-shrink-0 px-4 pt-4">
@@ -1442,7 +1424,6 @@ const Incoming = ({ user }) => {
             )}
           </div>
         </div>
-
         {/* Stocking Location Field */}
         <div className="mb-4 relative">
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -1479,7 +1460,6 @@ const Incoming = ({ user }) => {
         </div>
         </div>
       )}
-
       {/* Summary details card - show after first + click */}
       {hasOpenedAdd && !isEmptyState && (incomingData.vendorName || incomingData.stockingLocation) && (
         <div className="flex-shrink-0 mx-2 mb-1 p-2 bg-white border border-[#aaaaaa] rounded-[8px]">
@@ -1501,7 +1481,6 @@ const Incoming = ({ user }) => {
           </div>
         </div>
       )}
-
       {/* Filled State extras (items) - Show when fields are filled OR after opening add items OR in edit mode */}
       {(hasOpenedAdd || !isEmptyState || isEditMode) && (
         <>
@@ -1613,6 +1592,12 @@ const Incoming = ({ user }) => {
                             setExpandedItemId(null);
                             handleDeleteItem(item.id);
                           }}
+                          onAmountChange={(itemId, newPrice) => {
+                            const updatedItems = items.map(i =>
+                              i.id === itemId ? { ...i, price: newPrice } : i
+                            );
+                            setItems(updatedItems);
+                          }}
                         />
                       );
                     })}
@@ -1623,7 +1608,6 @@ const Incoming = ({ user }) => {
           )}
         </>
       )}
-
       {/* File Upload Button - Fixed position above + button */}
       {hasOpenedAdd && items.length > 0 && incomingData.vendorName && incomingData.stockingLocation && (
         <div className="fixed bottom-[170px] right-[24px] lg:right-[calc(50%-164px)] z-30">
@@ -1639,7 +1623,6 @@ const Incoming = ({ user }) => {
           </button>
         </div>
       )}
-
       {/* Add Button - Fixed position (only enabled when all required fields are filled) */}
       <AddButton
         onClick={() => {
@@ -1650,7 +1633,6 @@ const Incoming = ({ user }) => {
         disabled={!areIncomingFieldsFilled}
         showNew={false}
       />
-
       {/* Modals */}
       <SelectVendorModal
         isOpen={showVendorModal}
@@ -1758,7 +1740,6 @@ const Incoming = ({ user }) => {
         allPurchaseOrders={allPurchaseOrders}
         onFetchPOs={fetchAllPurchaseOrders}
       />
-
       {/* File Upload Modal */}
       {showFileUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -1776,14 +1757,11 @@ const Incoming = ({ user }) => {
                 </svg>
               </button>
             </div>
-
             {/* Modal Content */}
             <div className="p-4">
               <p className="text-[12px] font-medium text-[#616161] mb-4">Attachments will be of this invoice</p>
-
               {/* Upload Area */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
+              <div onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-[#FF9800] rounded-[8px] p-8 mb-4 cursor-pointer hover:bg-gray-50 transition-colors"
               >
                 <input
@@ -1802,7 +1780,6 @@ const Incoming = ({ user }) => {
                   <p className="text-[12px] font-medium text-[#9E9E9E]">(Max, File size: 5 MB)</p>
                 </div>
               </div>
-
               {/* File Uploading Section */}
               {attachedFiles.length > 0 && (
                 <div className="mt-4">
@@ -1834,7 +1811,6 @@ const Incoming = ({ user }) => {
                             </svg>
                           )}
                         </div>
-
                         {/* File Info */}
                         <div className="flex-1 min-w-0">
                           <p className="text-[12px] font-medium text-black truncate">{file.name}</p>
@@ -1863,7 +1839,6 @@ const Incoming = ({ user }) => {
                             </p>
                           )}
                         </div>
-
                         {/* Delete Button */}
                         <button
                           type="button"
@@ -1886,7 +1861,6 @@ const Incoming = ({ user }) => {
           </div>
         </div>
       )}
-
       {/* Invoice Preview Modal */}
       {showInvoicePreview && selectedFilePreview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center p-2">
@@ -1919,6 +1893,4 @@ const Incoming = ({ user }) => {
     </div>
   );
 };
-
 export default Incoming;
-

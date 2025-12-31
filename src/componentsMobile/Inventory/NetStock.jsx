@@ -13,7 +13,7 @@ const NetStock = () => {
 
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('Plumbing');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedStockingLocation, setSelectedStockingLocation] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showStockingLocationModal, setShowStockingLocationModal] = useState(false);
