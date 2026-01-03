@@ -96,7 +96,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
             }
         } catch (error) {
             console.error('Error:', error);
-            console.log('Error fetching Payment Received type.');
         }
     };
     const fetchPurposeOptions = async () => {
@@ -138,7 +137,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
             }
         } catch (error) {
             console.error('Error:', error);
-            console.log('Error fetching category.');
         }
     };
     // Sorting state
@@ -419,11 +417,56 @@ const DailyPayment = ({ username, userRoles = [] }) => {
         }
         return sortableData;
     }, [filteredExpenses, sortConfig, laboursList, siteOptions, isChangeButtonActive, combinedOptions, employeeOptions, vendorOptions, contractorOptions]);
+    // ISO 8601 week number calculation
+    // Week belongs to the year that contains the Thursday of that week
+    // Week 1 is the week with the year's first Thursday
+    const getISOWeekNumber = (date) => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        
+        // Get Thursday of the week containing the date
+        // Monday = 1, Tuesday = 2, ..., Sunday = 0 (convert to 7)
+        const dayOfWeek = d.getDay() || 7; // Convert Sunday (0) to 7
+        const thursday = new Date(d);
+        thursday.setDate(d.getDate() + 4 - dayOfWeek); // Thursday is 4 days after Monday
+        thursday.setHours(0, 0, 0, 0);
+        
+        // Use the year that Thursday falls in (ISO 8601 rule)
+        const weekYear = thursday.getFullYear();
+        
+        // Get January 1st of that year
+        const jan1 = new Date(weekYear, 0, 1);
+        jan1.setHours(0, 0, 0, 0);
+        
+        // Get the Thursday of week 1 (first Thursday of the year)
+        const jan1DayOfWeek = jan1.getDay() || 7;
+        const firstThursday = new Date(jan1);
+        firstThursday.setDate(jan1.getDate() + 4 - jan1DayOfWeek);
+        firstThursday.setHours(0, 0, 0, 0);
+        
+        // Calculate week number: difference in days divided by 7, plus 1
+        const daysDiff = Math.floor((thursday - firstThursday) / 86400000);
+        const weekNo = Math.floor(daysDiff / 7) + 1;
+        
+        return weekNo;
+    };
+
     const getCurrentWeekNumber = () => {
-        const date = new Date();
-        const firstJan = new Date(date.getFullYear(), 0, 1);
-        const days = Math.floor((date - firstJan) / (24 * 60 * 60 * 1000));
-        return Math.ceil((days + firstJan.getDay() + 1) / 7);
+        return getISOWeekNumber(new Date());
+    };
+
+    // Calculate week number from a specific date (not current date)
+    const getWeekNumberFromDate = (dateString) => {
+        if (!dateString) return getCurrentWeekNumber();
+        const date = new Date(dateString);
+        // Handle date strings in DD/MM/YYYY format
+        if (dateString.includes('/')) {
+            const parts = dateString.split('/');
+            if (parts.length === 3) {
+                date.setFullYear(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+            }
+        }
+        return getISOWeekNumber(date);
     };
     const currentWeekNumber = getCurrentWeekNumber();
     const startYear = 2000; // Change if needed
@@ -603,7 +646,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
             }
         } catch (error) {
             console.error('Error:', error);
-            console.log('Error fetching Labour names.');
         }
     };
     useEffect(() => {
@@ -625,7 +667,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
             }
         } catch (error) {
             console.error('Error:', error);
-            console.log('Error fetching tile area names.');
         }
     };
     useEffect(() => {
@@ -937,6 +978,8 @@ const DailyPayment = ({ username, userRoles = [] }) => {
             return;
         }
         try {
+            // Calculate week_no from the date to ensure it's correct
+            const weekNo = getWeekNumberFromDate(pendingRefundData.date);
             const loanPortalPayload = {
                 type: "Refund",
                 date: pendingRefundData.date,
@@ -949,6 +992,7 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                 vendor_id: Number(pendingRefundData.vendor_id) || 0,
                 contractor_id: Number(pendingRefundData.contractor_id) || 0,
                 project_id: 0,
+                week_no: Number(weekNo),
                 description: "Refund from Cash Register",
                 file_url: ""
             };
@@ -957,12 +1001,14 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                 loanPortalPayload,
                 { headers: { "Content-Type": "application/json" } }
             );
+            // Calculate weekly_number from the date in pendingRefundData to ensure it's correct
+            const correctWeeklyNumber = getWeekNumberFromDate(pendingRefundData.date);
             const refundPayload = {
                 date: pendingRefundData.date,
                 vendor_id: Number(pendingRefundData.vendor_id) || null,
                 contractor_id: Number(pendingRefundData.contractor_id) || null,
                 amount: Number(pendingRefundData.amount),
-                weekly_number: Number(pendingRefundData.weekly_number),
+                weekly_number: Number(correctWeeklyNumber),
                 staff_advance_portal_id: null,
                 loan_portal_id: loanPortalResponse.data?.id || loanPortalResponse.data?.loanPortalId
             };
@@ -1483,25 +1529,18 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                 fetch('https://backendaab.in/aabuildersDash/api/staff-advance/all'),
                 fetch('https://backendaab.in/aabuildersDash/api/loans/all')
             ]);
-
             const staffAdvanceData = staffAdvanceRes.ok ? await staffAdvanceRes.json() : [];
             const loanData = loanRes.ok ? await loanRes.json() : [];
-
             const selectedDateObj = new Date(selectedDate);
-
             // Calculate balances for each refund payment
             return refundPaymentsList.map((refundRow, currentIndex) => {
                 let balance = 0;
-
                 if (refundRow.labour_id) {
-                    // For labour_id: Get balance from staff-advance data
                     // Filter entries for this labour_id up to selectedDate
                     const labourEntries = staffAdvanceData.filter(entry => {
                         if (entry.labour_id !== Number(refundRow.labour_id)) return false;
                         const entryDate = new Date(entry.date);
                         if (entryDate > selectedDateObj) return false;
-
-                        // Exclude refunds from staff-advance that match refunds in refundPaymentsList
                         // to avoid double-counting
                         if (entry.type === 'Refund') {
                             const refundAmount = Number(entry.staff_refund_amount || 0);
@@ -1517,7 +1556,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                         }
                         return true;
                     });
-
                     // Calculate base balance: Advance amount - Refund amount from staff-advance data
                     labourEntries.forEach(entry => {
                         if (entry.type === 'Advance') {
@@ -1526,7 +1564,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                             balance -= Number(entry.staff_refund_amount || 0);
                         }
                     });
-
                     // Subtract all refunds from refundPaymentsList for this labour up to and including current row
                     for (let i = 0; i <= currentIndex; i++) {
                         const refund = refundPaymentsList[i];
@@ -1542,8 +1579,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                         if (!matchesVendor && !matchesContractor) return false;
                         const entryDate = new Date(entry.date);
                         if (entryDate > selectedDateObj) return false;
-
-                        // Exclude refunds from loan data that match refunds in refundPaymentsList
                         // to avoid double-counting
                         if (entry.type === 'Refund') {
                             const refundAmount = Number(entry.loan_refund_amount || 0);
@@ -1561,7 +1596,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                         }
                         return true;
                     });
-
                     // Calculate base balance: Loan amount - Refund amount from loan data
                     loanEntries.forEach(entry => {
                         if (entry.type === 'Loan' || entry.type === 'Transfer') {
@@ -1570,7 +1604,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                             balance -= Number(entry.loan_refund_amount || 0);
                         }
                     });
-
                     // Subtract all refunds from refundPaymentsList for this vendor/contractor up to and including current row
                     for (let i = 0; i <= currentIndex; i++) {
                         const refund = refundPaymentsList[i];
@@ -1580,7 +1613,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                         }
                     }
                 }
-
                 return { ...refundRow, calculatedBalance: balance };
             });
         } catch (error) {
@@ -1588,7 +1620,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
             return refundPaymentsList.map(row => ({ ...row, calculatedBalance: 0 }));
         }
     };
-
     const generateExpensesPDF = async () => {
         if (!selectedDate || dailyExpenses.length === 0) {
             alert("No data available to generate PDF");
@@ -1688,12 +1719,12 @@ const DailyPayment = ({ username, userRoles = [] }) => {
         ]);
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
-        doc.text('WAGE EXPENSES', 14, 48);
+        doc.text('WAGE EXPENSES', 14, 44);
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
-        doc.text('EXPENDITURE PAYMENTS', 14, 38);
+        doc.text('EXPENDITURE PAYMENTS', 14, 35);
         doc.autoTable({
-            startY: 50,
+            startY: 46,
             head: [expensesTableColumn],
             body: expensesTableRows,
             styles: {
@@ -1739,7 +1770,7 @@ const DailyPayment = ({ username, userRoles = [] }) => {
         doc.setPage(1);
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(`NET BALANCE: ${netBalance.toLocaleString('en-IN')}`, 155, 38);
+        doc.text(`NET BALANCE: ${netBalance.toLocaleString('en-IN')}`, 155, 35);
         const addHeaderToPage = (pageNum) => {
             doc.setPage(pageNum);
             doc.setFontSize(14);
@@ -3344,7 +3375,7 @@ const DailyPayment = ({ username, userRoles = [] }) => {
         </body >
     )
 }
-export default DailyPayment
+export default DailyPayment;
 const AuditModal = ({ show, onClose, audits, laboursList, siteOptions, vendorOptions, employeeOptions, contractorOptions }) => {
     if (!show) return null;
     const getNameById = (id, options) => {

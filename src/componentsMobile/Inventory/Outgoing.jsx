@@ -44,6 +44,7 @@ const Outgoing = ({ user }) => {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [hideSummaryCard, setHideSummaryCard] = useState(false);
   const [showSearchItemsModal, setShowSearchItemsModal] = useState(false);
   const [poItemName, setPoItemName] = useState([]);
   const [poBrand, setPoBrand] = useState([]);
@@ -53,6 +54,8 @@ const Outgoing = ({ user }) => {
   const expandedItemIdRef = useRef(expandedItemId);
   // State for edit mode additional fields
   const [editTransactionId, setEditTransactionId] = useState('');
+  const [editingInventoryId, setEditingInventoryId] = useState(null);
+  const [pendingItemsFromClone, setPendingItemsFromClone] = useState([]);
   
   // Outgoing page options (same as PurchaseOrder but independent)
   const [outgoingSiteOptions, setOutgoingSiteOptions] = useState([]);
@@ -426,19 +429,21 @@ const Outgoing = ({ user }) => {
           return formattedItem;
         });
       }
+      // Get outgoing type before using it
+      const outgoingType = inventoryItem.outgoing_type || inventoryItem.outgoingType || '';
       // Load inventory data into form
       setOutgoingData({
         projectName: projectName,
         projectIncharge: projectInchargeName,
         stockingLocation: stockingLocation,
         contact: contact,
-        date: formattedDate
+        date: formattedDate,
+        outgoingType: outgoingType
       });
       // Calculate transaction ID (same format as History.jsx)
       const dateObj = new Date(itemDate);
       const year = dateObj.getFullYear();
       const entryNumber = inventoryItem.eno || inventoryItem.ENO || inventoryItem.entry_number || inventoryItem.entryNumber || inventoryItem.entrynumber || inventoryItem.id || '';
-      const outgoingType = inventoryItem.outgoing_type || inventoryItem.outgoingType || '';
       let transactionId = '';
       if (outgoingType.toLowerCase() === 'stock return' || outgoingType.toLowerCase() === 'stockreturn') {
         transactionId = `SR - ${year} - ${entryNumber}`;
@@ -447,12 +452,20 @@ const Outgoing = ({ user }) => {
       } else {
         transactionId = `SR - ${year} - ${entryNumber}`;
       }
-      // Set items
-      setItems(formattedItems);
       // Set edit mode fields
       setEditTransactionId(transactionId);
-      // Set edit mode and show items
-      setIsEditMode(true);
+      // Check if this is edit mode (update) or clone mode (create new)
+      // Only set to true if isEditMode is explicitly true (edit button), false otherwise (clone button)
+      const isEditModeFlag = inventoryItem.isEditMode === true;
+      setIsEditMode(isEditModeFlag);
+      // Store inventory ID only if in edit mode (for updates)
+      if (isEditModeFlag && inventoryItem.id) {
+        setEditingInventoryId(inventoryItem.id);
+      } else {
+        setEditingInventoryId(null);
+      }
+      // Both edit and clone mode should set items immediately
+      setItems(formattedItems);
       setHasOpenedAdd(formattedItems.length > 0);
     };
     window.addEventListener('editInventory', handleEditInventory);
@@ -478,7 +491,7 @@ const Outgoing = ({ user }) => {
   }, [outgoingEmployeeList, outgoingSiteOptions]);
   // Re-resolve item names when API data loads (for items already in state)
   useEffect(() => {
-    if (items.length > 0 && isEditMode && (poItemName.length > 0 || poBrand.length > 0 || poModel.length > 0 || poType.length > 0 || categoryOptions.length > 0)) {
+    if (items.length > 0 && (poItemName.length > 0 || poBrand.length > 0 || poModel.length > 0 || poType.length > 0 || categoryOptions.length > 0)) {
       const updatedItems = items.map(item => {
         let itemName = item.name ? item.name.split(',')[0].trim() : '';
         let category = item.category || (item.name ? item.name.split(',')[1]?.trim() : '') || '';
@@ -796,7 +809,7 @@ const Outgoing = ({ user }) => {
       alert('Please fill in all required fields (Project Name, Project Incharge, and Stocking Location)');
       return;
     }
-
+    const username = (user && user.username) || '';
     if (items.length === 0) {
       alert('Please add at least one item');
       return;
@@ -834,17 +847,23 @@ const Outgoing = ({ user }) => {
       const siteInchargeId = selectedIncharge.id;
       const siteInchargeMobileNumber = outgoingData.contact || selectedIncharge.mobileNumber || '';
 
-      // Get outgoing count for ENO
-      const countResponse = await fetch(
-        `https://backendaab.in/aabuildersDash/api/inventory/outgoingCount?stockingLocationId=${stockingLocationId}`
-      );
-      
-      if (!countResponse.ok) {
-        throw new Error('Failed to fetch outgoing count');
+      // Check if this is an update (edit mode) or create new (clone mode)
+      const isUpdate = isEditMode && editingInventoryId;
+
+      let eno = '';
+      if (!isUpdate) {
+        // Get outgoing count for ENO only for new records
+        const countResponse = await fetch(
+          `https://backendaab.in/aabuildersDash/api/inventory/outgoingCount?stockingLocationId=${stockingLocationId}`
+        );
+        
+        if (!countResponse.ok) {
+          throw new Error('Failed to fetch outgoing count');
+        }
+        
+        const outgoingCount = await countResponse.json();
+        eno = String(outgoingCount + 1 || 0);
       }
-      
-      const outgoingCount = await countResponse.json();
-      const eno = String(outgoingCount + 1 || 0);
 
       // Convert date from DD/MM/YYYY to YYYY-MM-DD format for backend
       const dateParts = outgoingData.date.split('/');
@@ -879,14 +898,24 @@ const Outgoing = ({ user }) => {
         site_incharge_type: selectedIncharge.type || 'employee',
         date: formattedDate,
         site_incharge_mobile_number: siteInchargeMobileNumber,
-        eno: eno,
         created_by: (user && user.username) || '',
         inventoryItems: inventoryItems
       };
 
-      // Save to backend
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
-        method: 'POST',
+      // Add eno only for new records
+      if (!isUpdate) {
+        payload.eno = eno;
+      }
+
+      // Determine API endpoint and method
+      const apiUrl = isUpdate 
+        ? `https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${editingInventoryId}?changedBy=${encodeURIComponent(username)}`
+        : 'https://backendaab.in/aabuildersDash/api/inventory/save';
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      // Save/Update to backend
+      const response = await fetch(apiUrl, {
+        method: method,
         headers: {
           'Content-Type': 'application/json'
         },
@@ -895,11 +924,11 @@ const Outgoing = ({ user }) => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to save inventory data');
+        throw new Error(errorData.message || `Failed to ${isUpdate ? 'update' : 'save'} inventory data`);
       }
 
       const savedData = await response.json();
-      alert(`Inventory data saved successfully as ${outgoingType === 'dispatch' ? 'Dispatch' : 'Stock Return'}!`);
+      alert(`Inventory data ${isUpdate ? 'updated' : 'saved'} successfully!`);
       
       // Reset form
       setOutgoingData({
@@ -915,6 +944,7 @@ const Outgoing = ({ user }) => {
       setIsEditMode(false);
       // Clear edit mode fields
       setEditTransactionId('');
+      setEditingInventoryId(null);
     } catch (error) {
       console.error('Error saving inventory:', error);
       alert(`Error saving inventory: ${error.message}`);
@@ -935,26 +965,39 @@ const Outgoing = ({ user }) => {
               {outgoingData.date}
             </button>
             <div className="flex items-center">
-              <button
-                type="button"
-                onClick={() => handleSaveOutgoing('stock return')}
-                className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
-              >
-                Stock Return
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSaveOutgoing('dispatch')}
-                className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
-              >
-                Dispatch
-              </button>
+              {editingInventoryId ? (
+                <button
+                  type="button"
+                  onClick={() => handleSaveOutgoing(outgoingData.outgoingType || 'stock return')}
+                  className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                >
+                  Update
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveOutgoing('stock return')}
+                    className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                  >
+                    Stock Return
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveOutgoing('dispatch')}
+                    className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                  >
+                    Dispatch
+                  </button>
+                </>
+              )}
               {hasOpenedAdd && (
                 <button
                   type="button"
                   onClick={() => {
                     setIsEditMode(true);
                     setHasOpenedAdd(false);
+                    setHideSummaryCard(true);
                   }}
                   className="flex items-center font-semibold justify-center rounded p-1"
                 >
@@ -1090,7 +1133,7 @@ const Outgoing = ({ user }) => {
       )}
 
       {/* Summary details card - show after first + click or in edit mode */}
-      {(hasOpenedAdd || isEditMode) && !isEmptyState && (outgoingData.projectName || outgoingData.projectIncharge || outgoingData.stockingLocation) && (
+      {(hasOpenedAdd || isEditMode) && !hideSummaryCard && !isEmptyState && (outgoingData.projectName || outgoingData.projectIncharge || outgoingData.stockingLocation) && (
         <div className="flex-shrink-0 mx-2 mb-1 p-2 bg-white border border-[#aaaaaa] rounded-[8px]">
           <div className="flex flex-col gap-2 px-2">
             {outgoingData.projectName && (

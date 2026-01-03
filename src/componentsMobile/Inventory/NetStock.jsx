@@ -3,14 +3,12 @@ import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-
 const NetStock = () => {
   // Helper function for date
   const getTodayDate = () => {
     const today = new Date();
     return today.toLocaleDateString('en-GB'); // DD/MM/YYYY
   };
-
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -23,7 +21,6 @@ const NetStock = () => {
   const [netStockData, setNetStockData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(true);
-
   // Fetch category options
   useEffect(() => {
     const fetchCategories = async () => {
@@ -44,7 +41,6 @@ const NetStock = () => {
     };
     fetchCategories();
   }, []);
-
   // Fetch stocking locations
   useEffect(() => {
     const fetchStockingLocations = async () => {
@@ -73,14 +69,11 @@ const NetStock = () => {
     };
     fetchStockingLocations();
   }, []);
-
   // Fetch net stock data
   useEffect(() => {
     const fetchNetStock = async () => {
       try {
         setLoading(true);
-        // TODO: Replace with actual net stock API endpoint when available
-        // For now, using sample data based on the image
         const sampleData = [
           {
             id: 1,
@@ -119,7 +112,6 @@ const NetStock = () => {
             isFavorite: false
           }
         ];
-        
         // Simulate API delay
         setTimeout(() => {
           setNetStockData(sampleData);
@@ -132,23 +124,9 @@ const NetStock = () => {
     };
     fetchNetStock();
   }, []);
-
   // Filter data based on category, location, and search
   useEffect(() => {
     let filtered = [...netStockData];
-
-    // Filter by category
-    if (selectedCategory) {
-      // For now, sample data doesn't have category field, so we'll skip this filter
-      // In real implementation, filter by category
-    }
-
-    // Filter by stocking location
-    if (selectedStockingLocation) {
-      // For now, sample data doesn't have location field, so we'll skip this filter
-      // In real implementation, filter by location
-    }
-
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -159,26 +137,20 @@ const NetStock = () => {
         item.description.toLowerCase().includes(query)
       );
     }
-
     setFilteredData(filtered);
   }, [selectedCategory, selectedStockingLocation, searchQuery, netStockData]);
-
   const handleDateConfirm = (date) => {
     setSelectedDate(date);
     setShowDatePicker(false);
   };
-
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    
     // Add title
     doc.setFontSize(16);
     doc.text('Net Stock Report', 14, 15);
-    
     // Add date
     doc.setFontSize(10);
     doc.text(`Date: ${selectedDate}`, 14, 25);
-    
     // Add filters
     if (selectedCategory) {
       doc.text(`Category: ${selectedCategory}`, 14, 32);
@@ -186,7 +158,6 @@ const NetStock = () => {
     if (selectedStockingLocation) {
       doc.text(`Stocking Location: ${selectedStockingLocation}`, 14, 39);
     }
-
     // Prepare table data
     const tableData = filteredData.map(item => [
       item.itemId,
@@ -197,7 +168,6 @@ const NetStock = () => {
       item.minQty,
       item.status
     ]);
-
     // Add table
     doc.autoTable({
       startY: selectedStockingLocation ? 46 : (selectedCategory ? 39 : 32),
@@ -206,18 +176,9 @@ const NetStock = () => {
       styles: { fontSize: 8 },
       headStyles: { fillColor: [191, 152, 83] }
     });
-
     // Save PDF
     doc.save(`NetStock_${selectedDate.replace(/\//g, '-')}.pdf`);
   };
-
-  const getStatusButtonClass = (status) => {
-    if (status === 'Place Order') {
-      return 'bg-[#C8E6C9] text-black';
-    }
-    return 'bg-[#FFF9C4] text-black';
-  };
-
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date and Export PDF Row */}
@@ -239,7 +200,6 @@ const NetStock = () => {
           </button>
         </div>
       </div>
-
       {/* Filters Section */}
       <div className="flex-shrink-0 px-4 pt-4 pb-2 space-y-3">
         {/* Category Filter */}
@@ -260,7 +220,6 @@ const NetStock = () => {
             </svg>
           </div>
         </div>
-
         {/* Stocking Location Filter */}
         <div>
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -279,7 +238,6 @@ const NetStock = () => {
             </svg>
           </div>
         </div>
-
         {/* Search Bar */}
         <div className="relative">
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
@@ -297,12 +255,9 @@ const NetStock = () => {
           />
         </div>
       </div>
-
       {/* Product List */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        
       </div>
-
       {/* Modals */}
       <DatePickerModal
         isOpen={showDatePicker}
@@ -335,6 +290,4 @@ const NetStock = () => {
     </div>
   );
 };
-
 export default NetStock;
-

@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from "react";
 import Incoming from "./Incoming";
-import MobileInventory from '../../componentsMobile/Inventory/Inventory';
+import MobileInventory from "../../componentsMobile/Inventory/Inventory";
 
 const InventoryHeading = ({ username, userRoles = [] }) => {
+
     const [isMobile, setIsMobile] = useState(() => {
-        return window.innerWidth < 768;
+        return window.innerWidth <= 768;
     });
 
     useEffect(() => {
-        // Re-check mobile view on mount and route changes
-        setIsMobile(window.innerWidth < 768);
-        
         const handleResize = () => {
-            setIsMobile(window.innerWidth < 768);
+            setIsMobile(window.innerWidth <= 768);
         };
-
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+        };
     }, []);
+
+
 
     const [activeTab, setActiveTab] = useState(() => {
         return localStorage.getItem('activeTab') || 'incoming';
@@ -31,14 +32,12 @@ const InventoryHeading = ({ username, userRoles = [] }) => {
         }
     }, [activeTab]);
 
-    // For mobile view, render mobile component
     if (isMobile) {
-        // Get full user object from localStorage to pass to mobile component
         const storedUser = localStorage.getItem('user');
-        const user = storedUser ? JSON.parse(storedUser) : { username, userRoles };
+        const user = storedUser ? JSON.parse(storedUser) : { username, userRoles};
         return (
-            <div style={{ textAlign: 'left' }}>
-                <MobileInventory user={user} onLogout={() => {}} />
+            <div style={{textAlign: 'left'}}>
+                <MobileInventory user={user} onLogout={() => {}}/>;
             </div>
         );
     }

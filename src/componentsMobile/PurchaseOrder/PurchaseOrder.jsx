@@ -1360,14 +1360,12 @@ const PurchaseOrder = ({ user, onLogout }) => {
     } else {
       // Normalize values for comparison
       const normalizeValue = (val) => (val || '').toString().toLowerCase().trim();
-
       const newItemName = normalizeValue(itemData.itemName);
       const newCategory = normalizeValue(itemData.category);
       const newModel = normalizeValue(itemData.model);
       const newBrand = normalizeValue(itemData.brand);
       const newType = normalizeValue(itemData.type);
       const newQuantity = parseInt(itemData.quantity) || 0;
-
       // Check if an item with the same properties exists
       const existingItemIndex = items.findIndex(item => {
         const itemNameParts = item.name ? item.name.split(',') : [];
@@ -1376,7 +1374,6 @@ const PurchaseOrder = ({ user, onLogout }) => {
         const existingModel = normalizeValue(item.model);
         const existingBrand = normalizeValue(item.brand);
         const existingType = normalizeValue(item.type);
-
         // Match if all properties are the same
         return (
           existingItemName === newItemName &&
@@ -1386,7 +1383,6 @@ const PurchaseOrder = ({ user, onLogout }) => {
           existingType === newType
         );
       });
-
       if (existingItemIndex !== -1) {
         // Merge with existing item by adding quantities
         const updatedItems = items.map((item, index) => {
