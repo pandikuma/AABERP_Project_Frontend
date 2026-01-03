@@ -80,12 +80,26 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
   }, [activeTab]);
 
   return (
-    <div className="fixed top-[50px] transform  w-full max-w-[340px] h-[40px] overflow-x-auto bg-white z-40" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      <div className="relative h-full overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        <div 
-          ref={tabsContainerRef}
-          className="flex items-center gap-4 px-4 h-full overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+    <>
+      <style>{`
+        .inventory-tabs-container::-webkit-scrollbar,
+        .inventory-tabs-scroll::-webkit-scrollbar {
+          display: none;
+          width: 0;
+          height: 0;
+        }
+        .inventory-tabs-container,
+        .inventory-tabs-scroll {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+      <div className="fixed top-[50px] transform w-full max-w-[340px] h-[40px] overflow-x-auto bg-white z-40 inventory-tabs-container" style={{ fontFamily: "'Manrope', sans-serif" }}>
+        <div className="relative h-full overflow-x-auto scrollbar-hide inventory-tabs-scroll" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div 
+            ref={tabsContainerRef}
+            className="flex items-center gap-4 px-4 h-full overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing inventory-tabs-scroll"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           onMouseDown={(e) => {
             setIsDragging(true);
             setStartX(e.pageX - tabsContainerRef.current.offsetLeft);
@@ -150,6 +164,7 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
         ></div>
       </div>
     </div>
+    </>
   );
 };
 
