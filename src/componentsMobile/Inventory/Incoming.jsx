@@ -1597,6 +1597,7 @@ const Incoming = ({ user }) => {
           );
           return stockingLocationSite?.id || null;
         })()}
+        disableAvailabilityCheck={true}
       />
       <SelectPOModal
         isOpen={showPOModal}

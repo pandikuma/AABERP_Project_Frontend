@@ -51,7 +51,7 @@ const NonPOHistory = () => {
     const fetchNonPORecords = async () => {
       try {
         setLoading(true);
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll', {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getIncoming', {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -65,16 +65,15 @@ const NonPOHistory = () => {
 
         const inventoryData = await response.json();
 
-        // Filter for incoming type only, non-PO, and exclude deleted
+        // Filter for non-PO records (no purchase_no or purchase_no is 'NO_PO') and exclude deleted
         const nonPOItems = inventoryData.filter(item => {
-          const inventoryType = item.inventory_type || item.inventoryType || '';
-          const isIncoming = String(inventoryType).toLowerCase() === 'incoming';
           const isDeleted = item.delete_status || item.deleteStatus;
           const purchaseNo = item.purchase_no || item.purchaseNo || item.purchase_number || '';
+          // Check if purchase_no is empty/null or equals 'NO_PO' (case-insensitive)
           const isNonPO = !purchaseNo || 
                          String(purchaseNo).trim() === '' || 
-                         String(purchaseNo).toLowerCase() === 'non po';
-          return isIncoming && !isDeleted && isNonPO;
+                         String(purchaseNo).toUpperCase() === 'NO_PO';
+          return !isDeleted && isNonPO;
         });
 
         // Process each non-PO record

@@ -41,12 +41,10 @@ const Inventory = ({ user, onLogout }) => {
     }
     // Other pages can be handled here when implemented
   };
-
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     localStorage.setItem('inventoryActiveTab', tab);
   };
-
   const renderTabContent = () => {
     switch (activeTab) {
       case 'outgoing':
@@ -71,7 +69,6 @@ const Inventory = ({ user, onLogout }) => {
         return null;
     }
   };
-
   return (
     <div className="relative w-full min-h-screen bg-white max-w-[360px] mx-auto pb-[80px]" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Sidebar */}
@@ -100,6 +97,4 @@ const Inventory = ({ user, onLogout }) => {
     </div>
   );
 };
-
 export default Inventory;
-
