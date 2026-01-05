@@ -142,11 +142,13 @@ const History = ({ onTabChange }) => {
           };
         });
 
-        // Sort by date (newest first)
+        // Sort by created_date_time (latest entry first)
         formattedHistory.sort((a, b) => {
-          const dateA = new Date(a.date);
-          const dateB = new Date(b.date);
-          return dateB - dateA;
+          const dateTimeA = a.createdDateTime || a.created_date_time || a.created_at || a.date;
+          const dateTimeB = b.createdDateTime || b.created_date_time || b.created_at || b.date;
+          const timeA = new Date(dateTimeA).getTime();
+          const timeB = new Date(dateTimeB).getTime();
+          return timeB - timeA; // Latest first (descending order)
         });
 
         setHistoryData(formattedHistory);

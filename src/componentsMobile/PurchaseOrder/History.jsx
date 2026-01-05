@@ -847,7 +847,7 @@ const History = () => {
     )
   ].filter(Boolean))].sort();
   return (
-    <div className="relative w-full h-screen bg-white max-w-[360px] mx-auto flex flex-col overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Header Section - Fixed */}
       <div className="flex-shrink-0 bg-white px-4 pt-4 z-30">
         {/* Search Bar */}
@@ -895,7 +895,7 @@ const History = () => {
             </button>
 
             {/* Active Filter Tags - Next to Filter button */}
-            <div className="flex items-center gap-2 overflow-x-auto  min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none  min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {/* Show "Filter" text only when no filters are active */}
               
               {/* Show filter tags when filters are active */}
@@ -988,7 +988,7 @@ const History = () => {
 
       {/* Purchase Orders List - Scrollable */}
       <div
-        className="overflow-y-auto scrollbar-hide px-4 mt-1 pb-4"
+        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 mt-1 "
         style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
         onClick={() => setExpandedPoId(null)}
       >
@@ -1029,7 +1029,7 @@ const History = () => {
               }
 
               return (
-                <div key={po.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-gray-50 rounded-[8px] h-[100px]">
+                <div key={po.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-gray-50 rounded-[8px] h-[90px]">
                   {/* PO Card */}
                   <div
                     ref={(el) => {
