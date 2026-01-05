@@ -589,7 +589,7 @@ const IncomingTracker = () => {
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden bg-white">
       {/* Back Button - Show when detail view is open */}
       {showDetailView && selectedRecord && (
-        <div className="flex-shrink-0 px-4 pt-1">
+        <div className="flex-shrink-0 px-4 pt-2 pb-1">
           <button
             type="button"
             onClick={() => {
@@ -608,19 +608,19 @@ const IncomingTracker = () => {
 
       {/* Date and Category Buttons - Hide when detail view is open */}
       {!showDetailView && (
-        <div className="flex-shrink-0 px-4 pt-1 pb-1">
+        <div className="flex-shrink-0 px-4 pt-1">
           <div className="flex items-center justify-between">
             {/* Date Button */}
             <button
               type="button"
-              className="px-3 py-1.5 h-8 text-[12px] font-medium text-black"
+              className="px-3 h-8 text-[12px] font-medium text-black"
             >
               Date
             </button>
             {/* Category Button */}
             <button
               type="button"
-              className="px-3 py-1.5 h-8 text-[12px] font-medium text-black"
+              className="px-3 h-8 text-[12px] font-medium text-black"
             >
               Category
             </button>
