@@ -402,14 +402,22 @@ const Outgoing = ({ user }) => {
           if (!type && typeId && typeId !== 0 && poType.length > 0) {
             type = resolveTypeName(typeId);
           }
-          if (!category && categoryId && categoryOptions.length > 0) {
-            category = resolveCategoryName(categoryId);
-          }          
+          // Always try to resolve category from categoryId if available (even if category is already set)
+          // This ensures category is resolved when categoryOptions loads
+          if (categoryId && categoryOptions.length > 0) {
+            const resolvedCategory = resolveCategoryName(categoryId);
+            if (resolvedCategory) {
+              category = resolvedCategory;
+            }
+          }
           // If itemName includes category (format: "ItemName, Category")
           if (itemName && itemName.includes(',')) {
             const parts = itemName.split(',');
             itemName = parts[0].trim();
-            category = parts[1] ? parts[1].trim() : category;
+            // Only use category from itemName if we don't already have a resolved category
+            if (!category || category === '') {
+              category = parts[1] ? parts[1].trim() : category;
+            }
           }
           const formattedItem = {
             id: index + 1,
@@ -494,7 +502,11 @@ const Outgoing = ({ user }) => {
     if (items.length > 0 && (poItemName.length > 0 || poBrand.length > 0 || poModel.length > 0 || poType.length > 0 || categoryOptions.length > 0)) {
       const updatedItems = items.map(item => {
         let itemName = item.name ? item.name.split(',')[0].trim() : '';
-        let category = item.category || (item.name ? item.name.split(',')[1]?.trim() : '') || '';
+        // Extract category from item.category first, then from item.name if category is empty
+        let category = item.category || '';
+        if (!category && item.name && item.name.includes(',')) {
+          category = item.name.split(',')[1]?.trim() || '';
+        }
         let brand = item.brand || '';
         let model = item.model || '';
         let type = item.type || '';
@@ -511,8 +523,13 @@ const Outgoing = ({ user }) => {
         if (!type && item.typeId && item.typeId !== 0 && poType.length > 0) {
           type = resolveTypeName(item.typeId);
         }
-        if (!category && item.categoryId && categoryOptions.length > 0) {
-          category = resolveCategoryName(item.categoryId);
+        // Always try to resolve category from categoryId if available (even if category is already set)
+        // This ensures category is resolved when categoryOptions loads
+        if (item.categoryId && categoryOptions.length > 0) {
+          const resolvedCategory = resolveCategoryName(item.categoryId);
+          if (resolvedCategory) {
+            category = resolvedCategory;
+          }
         }
         return {
           ...item,
@@ -875,6 +892,15 @@ const Outgoing = ({ user }) => {
       return;
     }
 
+    // Validate that all items have a category
+    for (const item of items) {
+      if (!item.categoryId && !item.category) {
+        const itemName = item.name ? item.name.split(',')[0].trim() : 'item';
+        alert(`Please select a category for "${itemName}". Category is required for all items.`);
+        return;
+      }
+    }
+
     if (!selectedIncharge || !selectedIncharge.id) {
       alert('Project Incharge ID not found. Please select a valid project incharge.');
       return;
@@ -983,9 +1009,27 @@ const Outgoing = ({ user }) => {
       const inventoryItems = items.map(item => {
         const baseQuantity = Math.abs(item.quantity || 0);
         const quantity = outgoingType === 'dispatch' ? -baseQuantity : baseQuantity;
+        
+        // Resolve categoryId if not already present
+        let categoryId = item.categoryId || null;
+        if (!categoryId && item.category && categoryOptions.length > 0) {
+          const categoryOption = categoryOptions.find(cat => {
+            const catName = (cat.category || cat.name || cat.label || '').toLowerCase().trim();
+            const itemCategory = item.category.toLowerCase().trim();
+            return catName === itemCategory;
+          });
+          categoryId = categoryOption ? (categoryOption.id || categoryOption._id || null) : null;
+        }
+        
+        // Category is mandatory - throw error if still missing
+        if (!categoryId) {
+          const itemName = item.name ? item.name.split(',')[0].trim() : 'item';
+          throw new Error(`Category is required for "${itemName}". Please select a category.`);
+        }
+        
         return {
           item_id: item.itemId || null,
-          category_id: item.categoryId || null,
+          category_id: categoryId, // Category is now mandatory
           model_id: item.modelId || null,
           brand_id: item.brandId || null,
           type_id: item.typeId || null,
@@ -1474,7 +1518,7 @@ const Outgoing = ({ user }) => {
           brand: editingItem.brand || '',
           type: editingItem.type || '',
           quantity: editingItem.quantity ? String(editingItem.quantity) : '',
-          category: editingItem.name ? editingItem.name.split(',')[1]?.trim() || '' : '',
+          category: editingItem.category || (editingItem.name && editingItem.name.includes(',') ? editingItem.name.split(',')[1]?.trim() || '' : '') || '',
           itemId: editingItem.itemId || null,
           brandId: editingItem.brandId || null,
           modelId: editingItem.modelId || null,

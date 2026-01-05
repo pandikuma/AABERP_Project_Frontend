@@ -255,6 +255,131 @@ const AddInput = () => {
     'Hardwares'
   ]);
 
+  // State for fetched data (same as PurchaseOrder Input Data page)
+  const [poItemName, setPoItemName] = useState([]);
+  const [poModel, setPoModel] = useState([]);
+  const [poBrand, setPoBrand] = useState([]);
+  const [poType, setPoType] = useState([]);
+
+  // Fetch item names from API
+  useEffect(() => {
+    const fetchPoItemName = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setPoItemName(data);
+        } else {
+          console.log('Error fetching item names.');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    fetchPoItemName();
+  }, []);
+
+  // Fetch models from API
+  useEffect(() => {
+    const fetchPoModel = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setPoModel(data);
+        } else {
+          console.log('Error fetching model names.');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    fetchPoModel();
+  }, []);
+
+  // Fetch brands from API
+  useEffect(() => {
+    const fetchPoBrand = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setPoBrand(data);
+        } else {
+          console.log('Error fetching brand names.');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    fetchPoBrand();
+  }, []);
+
+  // Fetch types from API
+  useEffect(() => {
+    const fetchPoType = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setPoType(data);
+        } else {
+          console.log('Error fetching type names.');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    };
+    fetchPoType();
+  }, []);
+
+  // Filter options based on selected category (same logic as PurchaseOrder page)
+  const getFilteredItemNameOptions = () => {
+    if (!addInputData.category) {
+      // If no category selected, return all item names
+      return poItemName.map(item => item.itemName?.trim()).filter(Boolean);
+    }
+    const filtered = poItemName.filter(
+      item => item.category?.toLowerCase() === addInputData.category.toLowerCase()
+    );
+    return filtered.map(item => item.itemName?.trim()).filter(Boolean);
+  };
+
+  const getFilteredModelOptions = () => {
+    if (!addInputData.category) {
+      // If no category selected, return all models
+      return poModel.map(item => item.model?.trim()).filter(Boolean);
+    }
+    const filtered = poModel.filter(
+      item => item.category?.toLowerCase() === addInputData.category.toLowerCase()
+    );
+    return filtered.map(item => item.model?.trim()).filter(Boolean);
+  };
+
+  const getFilteredBrandOptions = () => {
+    if (!addInputData.category) {
+      // If no category selected, return all brands
+      return poBrand.map(item => item.brand?.trim()).filter(Boolean);
+    }
+    const filtered = poBrand.filter(item => {
+      const brandCategory = item.category?.toLowerCase() || "";
+      const currentCategory = addInputData.category.toLowerCase();
+      return !brandCategory || brandCategory === currentCategory;
+    });
+    return filtered.map(item => item.brand?.trim()).filter(Boolean);
+  };
+
+  const getFilteredTypeOptions = () => {
+    if (!addInputData.category) {
+      // If no category selected, return all types
+      return poType.map(item => item.typeColor?.trim()).filter(Boolean);
+    }
+    const filtered = poType.filter(
+      item => item.category?.toLowerCase() === addInputData.category.toLowerCase()
+    );
+    return filtered.map(item => item.typeColor?.trim()).filter(Boolean);
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Group, Locators, Categories Labels */}
@@ -506,7 +631,7 @@ const AddInput = () => {
           setShowItemNameModal(false);
         }}
         selectedValue={addInputData.itemName}
-        options={[]}
+        options={getFilteredItemNameOptions()}
         fieldName="Item Name"
         showStarIcon={false}
       />
@@ -518,7 +643,7 @@ const AddInput = () => {
           setShowModelModal(false);
         }}
         selectedValue={addInputData.model}
-        options={[]}
+        options={getFilteredModelOptions()}
         fieldName="Model"
         showStarIcon={false}
       />
@@ -530,7 +655,7 @@ const AddInput = () => {
           setShowTypeModal(false);
         }}
         selectedValue={addInputData.type}
-        options={[]}
+        options={getFilteredTypeOptions()}
         fieldName="Type"
         showStarIcon={false}
       />
@@ -542,7 +667,7 @@ const AddInput = () => {
           setShowBrandModal(false);
         }}
         selectedValue={addInputData.brand}
-        options={[]}
+        options={getFilteredBrandOptions()}
         fieldName="Brand"
         showStarIcon={false}
       />

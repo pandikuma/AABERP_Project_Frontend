@@ -878,7 +878,6 @@ const History = () => {
                 {/* Top arrows pointing left and right */}
                 <path d="M7 4L9 5L11 4" stroke={hasActiveFilters ? "#26bf94" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                 <path d="M7 6L9 5L11 6" stroke={hasActiveFilters ? "#26bf94" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-
                 {/* Bottom horizontal line */}
                 <line x1="2" y1="13" x2="16" y2="13" stroke={hasActiveFilters ? "#26bf94" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" />
                 {/* Bottom vertical line intersecting center */}
@@ -893,11 +892,9 @@ const History = () => {
                 </span>
               )}
             </button>
-
             {/* Active Filter Tags - Next to Filter button */}
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none  min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {/* Show "Filter" text only when no filters are active */}
-              
+              {/* Show "Filter" text only when no filters are active */}              
               {/* Show filter tags when filters are active */}
               {(filters.vendorName || filters.clientName || filters.siteIncharge || filters.startDate || filters.endDate || filters.branch) && (
                 <div className="flex items-center gap-2 flex-nowrap">
@@ -919,8 +916,7 @@ const History = () => {
                   {filters.vendorName && (
                     <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Vendor</span>
-                      <button
-                        onClick={() => setFilters({ ...filters, vendorName: '' })}
+                      <button onClick={() => setFilters({ ...filters, vendorName: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
                       >
                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -932,8 +928,7 @@ const History = () => {
                   {filters.clientName && (
                     <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Project</span>
-                      <button
-                        onClick={() => setFilters({ ...filters, clientName: '' })}
+                      <button onClick={() => setFilters({ ...filters, clientName: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
                       >
                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -945,8 +940,7 @@ const History = () => {
                   {filters.siteIncharge && (
                     <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Incharge</span>
-                      <button
-                        onClick={() => setFilters({ ...filters, siteIncharge: '' })}
+                      <button onClick={() => setFilters({ ...filters, siteIncharge: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
                       >
                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -960,8 +954,7 @@ const History = () => {
                       <span className="text-[11px] font-medium text-black whitespace-nowrap">
                         Date
                       </span>
-                      <button
-                        onClick={() => setFilters({ ...filters, startDate: '', endDate: '' })}
+                      <button onClick={() => setFilters({ ...filters, startDate: '', endDate: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
                       >
                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -974,22 +967,15 @@ const History = () => {
               )}
             </div>
           </div>
-
           {hasActiveFilters && (
-            <button
-              onClick={handleClear}
-              className="text-[14px] font-medium hover:text-black transition-colors flex-shrink-0 text-[#9E9E9E]"
-            >
+            <button onClick={handleClear} className="text-[14px] font-medium hover:text-black transition-colors flex-shrink-0 text-[#9E9E9E]" >
               x
             </button>
           )}
         </div>
       </div>
-
       {/* Purchase Orders List - Scrollable */}
-      <div
-        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 mt-1 "
-        style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
+      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 mt-1 " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
         onClick={() => setExpandedPoId(null)}
       >
         {filteredPOs.length === 0 ? (
@@ -1017,7 +1003,6 @@ const History = () => {
                 const amount = item.amount || (item.quantity * item.price) || 0;
                 return sum + Number(amount);
               }, 0) || 0;
-
               const swipeState = swipeStates[po.id];
               let swipeOffset = 0;
               if (swipeState && swipeState.isSwiping) {
@@ -1027,9 +1012,8 @@ const History = () => {
               } else {
                 swipeOffset = 0;
               }
-
               return (
-                <div key={po.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-gray-50 rounded-[8px] h-[90px]">
+                <div key={po.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-gray-50 rounded-[8px] h-[100px]">
                   {/* PO Card */}
                   <div
                     ref={(el) => {
@@ -1052,7 +1036,7 @@ const History = () => {
                   >
                     <div className="flex items-start justify-between gap-2">
                       {/* Left: PO Details */}
-                      <div className=" min-w-0">
+                      <div className=" min-w-0 mb-1">
                         <div className="flex items-center gap-2 mb-1">
                           <button
                             onClick={(e) => {
@@ -1077,7 +1061,6 @@ const History = () => {
                           </span>
                         )}
                       </div>
-
                       {/* Right: Payment Status Badge and Amount - Always visible */}
                       <div className="flex-shrink-0 flex flex-col items-end gap-1">
                         {po.paymentStatus && (
@@ -1115,7 +1098,6 @@ const History = () => {
                       </div>
                     </div>
                   </div>
-
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
                     className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
@@ -1155,7 +1137,6 @@ const History = () => {
           </div>
         )}
       </div>
-
       {/* Filter Modal */}
       {showFilterModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={() => setShowFilterModal(false)}>
@@ -1174,7 +1155,6 @@ const History = () => {
                 {filters.branch || 'Branch'}
               </button>
             </div>
-
             <div className="px-6 pb-32">
               <div className="space-y-4">
                 {/* Vendor Name Filter */}
@@ -1192,7 +1172,6 @@ const History = () => {
                     showAllOptions={true}
                   />
                 </div>
-
                 {/* Client Name Filter */}
                 <div>
                   <label className="text-[12px] font-semibold text-black mb-1 block">
@@ -1208,7 +1187,6 @@ const History = () => {
                     showAllOptions={true}
                   />
                 </div>
-
                 {/* Site Incharge Filter */}
                 <div>
                   <label className="text-[12px] font-semibold text-black mb-1 block">
@@ -1224,7 +1202,6 @@ const History = () => {
                     showAllOptions={true}
                   />
                 </div>
-
                 <div className="flex gap-2">
                   {/* Date Filter */}
                   <div className="flex-1">
@@ -1250,7 +1227,6 @@ const History = () => {
                       </button>
                     </div>
                   </div>
-
                   {/* PO.No Filter */}
                   <div className="flex-1">
                     <label className="text-[12px] font-semibold text-black mb-1 block">PO.No</label>
@@ -1266,8 +1242,7 @@ const History = () => {
                   </div>
                 </div>
               </div>
-            </div>
-            
+            </div>            
             {/* Action Buttons - Fixed at bottom */}
             <div className="absolute bottom-6 left-0 right-0 px-6 flex gap-4">
               <button
@@ -1286,7 +1261,6 @@ const History = () => {
           </div>
         </div>
       )}
-
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={showDeleteConfirm}
@@ -1294,7 +1268,6 @@ const History = () => {
         onCancel={cancelDelete}
         message="Are you sure you want to delete this purchase order?"
       />
-
       {/* Date Range Picker Modal */}
       <DateRangePickerModal
         isOpen={showDatePicker}
@@ -1303,7 +1276,6 @@ const History = () => {
         initialStartDate={filters.startDate ? formatDate(filters.startDate) : ''}
         initialEndDate={filters.endDate ? formatDate(filters.endDate) : ''}
       />
-
       {/* Branch Select Modal */}
       <SelectVendorModal
         isOpen={showBranchModal}
@@ -1321,6 +1293,4 @@ const History = () => {
     </div>
   );
 };
-
 export default History;
-
