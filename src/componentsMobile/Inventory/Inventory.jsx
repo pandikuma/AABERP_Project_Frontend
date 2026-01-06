@@ -11,8 +11,8 @@ import History from './History';
 import ProjectUsageReport from './ProjectUsageReport';
 import IncomingTracker from './IncomingTracker';
 import NetStock from './NetStock';
-import ProjectUsageHistory from './ProjectUsageHistory';
 import NonPOHistory from './NonPOHistory';
+import EditStock from './EditStock';
 
 const Inventory = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -62,9 +62,11 @@ const Inventory = ({ user, onLogout }) => {
       case 'project-usage-report':
         return <ProjectUsageReport />;
       case 'project-usage-history':
-        return <ProjectUsageHistory />;
+        return <ProjectUsageReport />;
       case 'non-po-history':
         return <NonPOHistory />;
+      case 'edit-stock':
+        return <EditStock />;
       default:
         return null;
     }

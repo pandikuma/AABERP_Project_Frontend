@@ -497,17 +497,36 @@ const NetStock = () => {
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
             Category
           </p>
-          <div
-            onClick={() => setShowCategoryModal(true)}
-            className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
-            style={{
-              color: selectedCategory ? '#000' : '#9E9E9E'
-            }}
-          >
-            <span>{selectedCategory || 'Select Category'}</span>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <div className="relative">
+            <div
+              onClick={() => setShowCategoryModal(true)}
+              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
+              style={{
+                paddingRight: selectedCategory ? '40px' : '12px',
+                boxSizing: 'border-box',
+                color: selectedCategory ? '#000' : '#9E9E9E'
+              }}
+            >
+              <span>{selectedCategory || 'Select Category'}</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            {selectedCategory && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedCategory('');
+                }}
+                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                style={{ right: '24px' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
         {/* Stocking Location Filter */}
@@ -515,17 +534,36 @@ const NetStock = () => {
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
             Stocking Location
           </p>
-          <div
-            onClick={() => setShowStockingLocationModal(true)}
-            className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
-            style={{
-              color: selectedStockingLocation ? '#000' : '#9E9E9E'
-            }}
-          >
-            <span>{selectedStockingLocation || 'Select Location'}</span>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <div className="relative">
+            <div
+              onClick={() => setShowStockingLocationModal(true)}
+              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
+              style={{
+                paddingRight: selectedStockingLocation ? '40px' : '12px',
+                boxSizing: 'border-box',
+                color: selectedStockingLocation ? '#000' : '#9E9E9E'
+              }}
+            >
+              <span>{selectedStockingLocation || 'Select Location'}</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            {selectedStockingLocation && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedStockingLocation('');
+                }}
+                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                style={{ right: '24px' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
         {/* Search Bar */}
@@ -564,7 +602,7 @@ const NetStock = () => {
               >
                 <div className="flex items-start justify-between">
                   {/* Left side: Item details */}
-                  <div className="flex-1 pr-3">
+                  <div className="flex-1">
                     {/* Item ID and Favorite */}
                     <div className="flex items-center gap-1 mb-1">
                       {item.isFavorite && (
@@ -572,63 +610,49 @@ const NetStock = () => {
                           <path d="M6 1L7.545 4.13L11 4.635L8.5 7.07L9.09 10.5L6 8.885L2.91 10.5L3.5 7.07L1 4.635L4.455 4.13L6 1Z" fill="#EF4444" />
                         </svg>
                       )}
-                      <span className="text-[12px] font-medium text-[#616161]">
-                        {item.itemId}
-                      </span>
                     </div>
 
-                    {/* Item Name with Model */}
-                    <div className="mb-1">
+                    {/* Item Name */}
+                    <div className="mb-1 flex items-center justify-between">
                       <p className="text-[13px] font-semibold text-black leading-tight">
-                        {item.itemName} {item.model ? `- ${item.model}` : ''}
+                        {item.itemName}
                       </p>
-                    </div>
-
-                    {/* Brand and Type */}
-                    <div className="mb-1.5">
-                      <p className="text-[12px] font-medium text-[#616161]">
-                        {item.brand && item.type ? `${item.brand}, ${item.type}` : item.brand || item.type || ''}
-                      </p>
-                    </div>
-
-                    {/* Default Qty */}
-                    <div>
-                      <p className="text-[11px] font-medium text-[#BF9853]">
-                        Default Qty : {item.defaultQty || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right side: Status, Net Stock, Min Qty */}
-                  <div className="flex flex-col items-end">
-                    
-                    {/* Status Button */}
-                    <div className="mb-5">
                       {item.status === 'Place Order' ? (
-                        <button className="bg-[#4CAF50] text-white text-[11px] font-medium px-3 py-1.5 rounded-[4px] whitespace-nowrap">
+                        <button className="bg-[#007233] text-white text-[11px] font-medium px-3  rounded-[4px]">
                           Place Order
                         </button>
                       ) : (
-                        <div className="bg-[#f7f1c9] text-[#BF9853] text-[11px] font-medium px-3 py-1 rounded-[15px] whitespace-nowrap">
+                        <div className="bg-[#f7f1c9] text-[#BF9853] text-[11px] font-medium px-3  rounded-[15px] ">
                           Available
                         </div>
                       )}
                     </div>
-
-                    {/* Net Stock */}
+                    {/* Model */}
                     <div className="mb-1">
-                      <p className="text-[12px] font-medium text-[#EF4444]">
+                      <p className="text-[13px] font-semibold text-black leading-tight">
+                         {item.model ? `- ${item.model}` : ''}
+                      </p>
+                    </div>
+
+                    {/* Brand and Type */}
+                    <div className="mb-1 flex items-center justify-between">
+                      <p className="text-[12px] font-medium text-[#616161]">
+                        {item.brand && item.type ? `${item.brand}, ${item.type}` : item.brand || item.type || ''}
+                      </p>
+                      <p className="text-[11px] font-medium text-[#E4572E] pl-3">
                         Net Stock : {String(item.netStock).padStart(2, '0')}
                       </p>
                     </div>
-
-                    {/* Min Qty */}
-                    <div>
-                      <p className="text-[12px] font-medium text-[#4CAF50]">
-                        Min Qty : {item.minQty || 'N/A'}
-                      </p>
-                    </div>
                   </div>
+                </div>
+                {/* Default Qty and Min Qty - Same horizontal line */}
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-medium text-[#BF9853]">
+                    Default Qty : {item.defaultQty || 'N/A'}
+                  </p>
+                  <p className="text-[11px] font-medium text-[#007233] text-right">
+                    Min Qty : {item.minQty || 'N/A'}
+                  </p>
                 </div>
               </div>
             ))}

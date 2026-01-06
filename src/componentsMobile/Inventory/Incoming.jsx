@@ -1308,8 +1308,8 @@ const Incoming = ({ user }) => {
                   setIncomingData({ ...incomingData, vendorName: '', vendorId: null, poNumber: '' });
                   setItems([]); // Clear items when vendor is cleared
                 }}
-                className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                style={{ right: '32px' }}
+                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                style={{ right: '24px' }}
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1342,8 +1342,8 @@ const Incoming = ({ user }) => {
                   e.stopPropagation();
                   setIncomingData({ ...incomingData, stockingLocation: '', poNumber: '' });
                 }}
-                className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                style={{ right: '32px' }}
+                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                style={{ right: '24px' }}
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

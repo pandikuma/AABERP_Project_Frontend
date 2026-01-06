@@ -637,8 +637,8 @@ const IncomingTracker = () => {
               type="button"
               onClick={() => setActiveStatus('live')}
               className={`flex-1 py-1 px-4 ml-1 h-8 rounded text-[14px] font-medium transition-colors ${activeStatus === 'live'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-100 text-gray-600'
+                ? 'bg-white text-black'
+                : 'bg-gray-100 text-gray-600'
                 }`}
             >
               Live
@@ -647,8 +647,8 @@ const IncomingTracker = () => {
               type="button"
               onClick={() => setActiveStatus('closed')}
               className={`flex-1 py-1 px-4 h-8 rounded-lg text-[14px] font-medium transition-colors ${activeStatus === 'closed'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-100 text-gray-600'
+                ? 'bg-white text-black'
+                : 'bg-gray-100 text-gray-600'
                 }`}
             >
               Closed
@@ -657,8 +657,8 @@ const IncomingTracker = () => {
               type="button"
               onClick={() => setActiveStatus('history')}
               className={`flex-1 py-1 px-4 h-8 rounded-lg text-[14px] font-medium transition-colors ${activeStatus === 'history'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-100 text-gray-600'
+                ? 'bg-white text-black'
+                : 'bg-gray-100 text-gray-600'
                 }`}
             >
               History
@@ -706,12 +706,12 @@ const IncomingTracker = () => {
       )}
 
       {/* Records List */}
-      <div className="flex-1 px-4 ">
+      <div className="flex-1 px-4 overflow-hidden flex flex-col">
         {showDetailView && selectedRecord ? (
           /* Detail View - Inline below search bar */
-          <div className="bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white flex flex-col flex-1 min-h-0" style={{ fontFamily: "'Manrope', sans-serif" }}>
             {/* Purchase Order Info Card */}
-            <div className=" p-4 bg-white border border-gray-200 rounded-lg mb-2">
+            <div className="flex-shrink-0 p-4 bg-white border border-gray-200 rounded-lg mb-2">
               <div className="space-y-2">
                 <div className="flex items-start">
                   <p className="text-[12px] font-medium text-[#3f3f3f] w-[120px]">Vendor Name</p>
@@ -732,7 +732,7 @@ const IncomingTracker = () => {
             </div>
 
             {/* Items Summary */}
-            <div className="mb-4 flex items-center gap-2 border-b border-[#E0E0E0] pb-2">
+            <div className="flex-shrink-0 mb-4 flex items-center gap-2 border-b border-[#E0E0E0] pb-2">
               <p className="text-[14px] font-medium text-black">Items</p>
               <input
                 type="text"
@@ -749,7 +749,7 @@ const IncomingTracker = () => {
             </div>
 
             {/* Items List */}
-            <div className="space-y-3">
+            <div className=" overflow-y-auto min-h-0 space-y-1 no-scrollbar scrollbar-none scrollbar-hide">
               {(() => {
                 // Use allInventoryItems if available (for merged records), otherwise use regular inventoryItems
                 const inventoryItems = selectedRecord.allInventoryItems || selectedRecord.inventoryItems || selectedRecord.inventory_items || [];
@@ -807,22 +807,29 @@ const IncomingTracker = () => {
 
                   return (
                     <div key={index} className="bg-white border border-[#E0E0E0] rounded-[8px] p-3">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1 pr-2">
-                          <p className="text-[14px] font-semibold text-black mb-1">{itemName}</p>
-                          {details && (
-                            <p className="text-[12px] font-medium text-gray-600 mb-1">
-                              {details}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full mb-2 ${getCategoryColor(category)}`}>
+                      <div className=" ">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[14px] font-semibold text-black">{itemName}</p>
+                          <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full ${getCategoryColor(category)}`}>
                             {(category || 'Electricals').toUpperCase()}
                           </span>
-                            <p className="text-[12px] font-medium text-[#BF9853] mb-2">
-                              Quantity {quantity}{unit}
-                            </p>
+                        </div>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[12px] font-medium text-gray-600">
+                            {model ? `${model}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          
+                          <p className="text-[12px] font-medium text-gray-600">
+                            {brand ? `${brand}` : ''} {type ? `${type}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between">
+
+                          <p className="text-[12px] font-medium text-[#BF9853]">
+                            Quantity {quantity}{unit}
+                          </p>
                           <p className="text-[14px] font-semibold text-black">
                             ₹{amount.toLocaleString('en-IN')}
                           </p>
@@ -867,12 +874,12 @@ const IncomingTracker = () => {
                   hour12: true
                 }) : '');
 
-              const displayQuantity = activeStatus === 'history' 
-                ? record.totalQuantity 
+              const displayQuantity = activeStatus === 'history'
+                ? record.totalQuantity
                 : (record.totalMergedQuantity || record.totalQuantity);
-              
-              const displayItems = activeStatus === 'history' 
-                ? record.numberOfItems 
+
+              const displayItems = activeStatus === 'history'
+                ? record.numberOfItems
                 : (record.totalMergedItems || record.numberOfItems);
 
               if (activeStatus === 'history') {
@@ -932,7 +939,7 @@ const IncomingTracker = () => {
                           {displayDate}{displayTime ? ` • ${displayTime}` : ''}
                         </p>
                       </div>
-                      
+
                       {/* Right Side */}
                       <div className="flex flex-col items-end">
                         <p className="text-[12px] text-gray-600 mb-1">

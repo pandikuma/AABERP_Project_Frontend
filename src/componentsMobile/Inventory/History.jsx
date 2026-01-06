@@ -669,7 +669,7 @@ const History = ({ onTabChange }) => {
             <button
               type="button"
               onClick={() => setActiveType('dispatch')}
-              className={`flex-1 py-1 px-4 h-8 rounded-lg text-[14px] font-medium transition-colors ${activeType === 'dispatch'
+              className={`flex-1 py-1 px-4 mr-1 h-8 rounded-lg text-[14px] font-medium transition-colors ${activeType === 'dispatch'
                   ? 'bg-white text-black'
                   : 'bg-gray-100 text-gray-600'
                 }`}

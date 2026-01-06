@@ -433,8 +433,8 @@ const AddInput = () => {
                   e.stopPropagation();
                   setAddInputData({ ...addInputData, category: '' });
                 }}
-                className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                style={{ right: '32px' }}
+                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                style={{ right: '24px' }}
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -468,8 +468,8 @@ const AddInput = () => {
                   e.stopPropagation();
                   setAddInputData({ ...addInputData, itemName: '' });
                 }}
-                className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                style={{ right: '32px' }}
+                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                style={{ right: '24px' }}
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -487,8 +487,10 @@ const AddInput = () => {
           <div className="relative">
             <div
               onClick={() => setShowModelModal(true)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer"
               style={{
+                paddingRight: addInputData.model ? '40px' : '12px',
+                boxSizing: 'border-box',
                 color: addInputData.model ? '#000' : '#9E9E9E'
               }}
             >
@@ -504,6 +506,21 @@ const AddInput = () => {
                 <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
+            {addInputData.model && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAddInputData({ ...addInputData, model: '' });
+                }}
+                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                style={{ right: '24px' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -515,8 +532,10 @@ const AddInput = () => {
           <div className="relative">
             <div
               onClick={() => setShowTypeModal(true)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer"
               style={{
+                paddingRight: addInputData.type ? '40px' : '12px',
+                boxSizing: 'border-box',
                 color: addInputData.type ? '#000' : '#9E9E9E'
               }}
             >
@@ -532,6 +551,21 @@ const AddInput = () => {
                 <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
+            {addInputData.type && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAddInputData({ ...addInputData, type: '' });
+                }}
+                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                style={{ right: '24px' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -546,6 +580,8 @@ const AddInput = () => {
                 onClick={() => setShowBrandModal(true)}
                 className="w-[120px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-3 text-[12px] font-medium bg-white flex items-center cursor-pointer"
                 style={{
+                  paddingRight: addInputData.brand ? '40px' : '12px',
+                  boxSizing: 'border-box',
                   color: addInputData.brand ? '#000' : '#9E9E9E'
                 }}
               >
@@ -561,6 +597,21 @@ const AddInput = () => {
                   <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
+              {addInputData.brand && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAddInputData({ ...addInputData, brand: '' });
+                  }}
+                  className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  style={{ right: '24px' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
 
