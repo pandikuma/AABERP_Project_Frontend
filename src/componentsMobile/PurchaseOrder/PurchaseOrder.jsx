@@ -431,10 +431,12 @@ const PurchaseOrder = ({ user, onLogout }) => {
         // Check if this is a clone operation - if so, don't set isEditFromHistory to show "Generate PO" instead of "Update PO"
         if (po.isClone) {
           setIsEditFromHistory(false); // Clone should show "Generate PO"
+          setHasOpenedAdd(false);
         } else {
           setIsEditFromHistory(true); // Edit should show "Update PO"
+          setHasOpenedAdd(po.items && po.items.length > 0);
         }
-        setHasOpenedAdd(po.items && po.items.length > 0);
+        
         setIsPdfGenerated(false);
         setPdfBlob(null);
         // Switch to create tab
@@ -2020,38 +2022,40 @@ const PurchaseOrder = ({ user, onLogout }) => {
                         {isGenerating ? (isEditFromHistory ? 'Updating...' : 'Generating...') : (isEditFromHistory ? 'Update PO' : 'Generate PO')}
                       </button>
                     ) : null}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Update UI state immediately for instant response
-                        setIsEditMode(true);
-                        setIsViewOnlyFromHistory(false); // Clear view-only mode when editing
-                        setHasOpenedAdd(false);
-                        setIsPdfGenerated(false);
-                        setPdfBlob(null);
+                    {!isViewOnlyFromHistory && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Update UI state immediately for instant response
+                          setIsEditMode(true);
+                          setIsViewOnlyFromHistory(false); // Clear view-only mode when editing
+                          setHasOpenedAdd(false);
+                          setIsPdfGenerated(false);
+                          setPdfBlob(null);
 
-                        // Preserve isEditFromHistory flag - don't clear it if already editing from History
-                        // Only clear if we're not already editing from History (editing from Create PO page)
-                        if (!isEditFromHistory) {
-                          setIsEditFromHistory(false);
-                          // Update PO number automatically when clicking edit after generating PO
-                          // Do this asynchronously without blocking UI update
-                          if (selectedVendor?.id) {
-                            fetchNextPoNumberForVendor(selectedVendor.id)
-                              .then(nextPoNo => {
-                                setPoData(prev => ({ ...prev, poNumber: `#${nextPoNo}` }));
-                                previousVendorId.current = selectedVendor.id; // Update tracked vendor ID
-                              })
-                              .catch(error => {
-                                console.error('Error fetching PO number:', error);
-                              });
+                          // Preserve isEditFromHistory flag - don't clear it if already editing from History
+                          // Only clear if we're not already editing from History (editing from Create PO page)
+                          if (!isEditFromHistory) {
+                            setIsEditFromHistory(false);
+                            // Update PO number automatically when clicking edit after generating PO
+                            // Do this asynchronously without blocking UI update
+                            if (selectedVendor?.id) {
+                              fetchNextPoNumberForVendor(selectedVendor.id)
+                                .then(nextPoNo => {
+                                  setPoData(prev => ({ ...prev, poNumber: `#${nextPoNo}` }));
+                                  previousVendorId.current = selectedVendor.id; // Update tracked vendor ID
+                                })
+                                .catch(error => {
+                                  console.error('Error fetching PO number:', error);
+                                });
+                            }
                           }
-                        }
-                      }}
-                      className="flex items-center font-semibold justify-center"
-                    >
-                      <img src={editIcon} alt="Edit" className="w-[15px] h-[15px]" />
-                    </button>
+                        }}
+                        className="flex items-center font-semibold justify-center"
+                      >
+                        <img src={editIcon} alt="Edit" className="w-[15px] h-[15px]" />
+                      </button>
+                    )}
 
                   </div>
                 </div>
@@ -2332,6 +2336,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                                   setExpandedItemId(null);
                                   handleDeleteItem(item.id);
                                 }}
+                                hideButtons={isViewOnlyFromHistory}
                               />
                             );
                           })}
