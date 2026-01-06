@@ -1544,6 +1544,7 @@ const Outgoing = ({ user }) => {
                             setExpandedItemId(null);
                             handleDeleteItem(item.id);
                           }}
+                          hideButtons={fromHistory && !isEditMode}
                         />
                       );
                     })}
@@ -1558,12 +1559,31 @@ const Outgoing = ({ user }) => {
       {/* Add Button - Fixed position (only enabled when all required fields are filled) */}
       <AddButton
         onClick={() => {
-          setHasOpenedAdd(true);
-          setEditingItem(null);
-          setShowAddItems(true);
+          if (fromHistory && !isEditMode) {
+            // Reset to main outgoing page when clicking "+ New"
+            setOutgoingData({
+              projectName: '',
+              projectIncharge: '',
+              stockingLocation: '',
+              contact: '',
+              date: getTodayDate()
+            });
+            setSelectedIncharge(null);
+            setItems([]);
+            setHasOpenedAdd(false);
+            setIsEditMode(false);
+            setFromHistory(false);
+            setEditTransactionId('');
+            setEditingInventoryId(null);
+            setHideSummaryCard(false);
+          } else {
+            setHasOpenedAdd(true);
+            setEditingItem(null);
+            setShowAddItems(true);
+          }
         }}
-        disabled={!areOutgoingFieldsFilled}
-        showNew={false}
+        disabled={fromHistory && !isEditMode ? false : !areOutgoingFieldsFilled}
+        showNew={fromHistory && !isEditMode}
       />
 
       {/* Modals */}

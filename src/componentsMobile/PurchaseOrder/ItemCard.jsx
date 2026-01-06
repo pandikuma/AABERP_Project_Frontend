@@ -51,7 +51,8 @@ const ItemCard = ({
   onSwipeMove,
   onSwipeEnd,
   swipeState,
-  onAmountChange      // Optional callback when amount changes
+  onAmountChange,      // Optional callback when amount changes
+  hideButtons = false  // When true, hide edit/delete buttons
 }) => {
   const [isEditingAmount, setIsEditingAmount] = useState(false);
   const [amountValue, setAmountValue] = useState(item?.price || 0);
@@ -81,7 +82,7 @@ const ItemCard = ({
   // Set up non-passive event listeners using refs
   // Must be called before any conditional returns
   useEffect(() => {
-    if (!item) return;
+    if (!item || hideButtons) return;
     
     const element = cardRef.current;
     if (!element || !onSwipeStart || !onSwipeMove || !onSwipeEnd) return;
@@ -130,7 +131,7 @@ const ItemCard = ({
       element.removeEventListener('touchend', touchEndHandler);
       element.removeEventListener('mousedown', mouseDownHandler);
     };
-  }, [item, item?.id, onSwipeStart, onSwipeMove, onSwipeEnd]);
+  }, [item, item?.id, onSwipeStart, onSwipeMove, onSwipeEnd, hideButtons]);
 
   if (!item) return null;
 
@@ -147,8 +148,9 @@ const ItemCard = ({
   const buttonWidth = 96;
 
   // Calculate swipe offset for smooth animation
-  const swipeOffset =
-    swipeState && swipeState.isSwiping
+  const swipeOffset = hideButtons
+    ? 0
+    : swipeState && swipeState.isSwiping
       ? Math.max(-buttonWidth, swipeState.currentX - swipeState.startX)
       : expanded
         ? -buttonWidth
@@ -277,37 +279,39 @@ const ItemCard = ({
       </div>
 
       {/* Action Buttons - Behind the card on the right, revealed on swipe */}
-      <div
-        className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
-        style={{
-          opacity:
-            expanded ||
-              (swipeState && swipeState.isSwiping && swipeOffset < -20)
-              ? 1
-              : 0,
-          transition: 'opacity 0.2s ease-out',
-          pointerEvents: expanded ? 'auto' : 'none'
-        }}
-      >
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit && onEdit();
+      {!hideButtons && (
+        <div
+          className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
+          style={{
+            opacity:
+              expanded ||
+                (swipeState && swipeState.isSwiping && swipeOffset < -20)
+                ? 1
+                : 0,
+            transition: 'opacity 0.2s ease-out',
+            pointerEvents: expanded ? 'auto' : 'none'
           }}
-          className="action-button w-[40px] h-[66px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
         >
-          <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete && onDelete();
-          }}
-          className="action-button w-[40px] h-[66px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
-        >
-          <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />
-        </button>
-      </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit && onEdit();
+            }}
+            className="action-button w-[40px] h-[66px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+          >
+            <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete && onDelete();
+            }}
+            className="action-button w-[40px] h-[66px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+          >
+            <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
