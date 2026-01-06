@@ -140,7 +140,6 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
             </button>
           ))}
         </div>
-        
         {/* Three dots menu button */}
         <button className="absolute right-0 top-1/2 transform -translate-y-1/2 w-[20px] h-[20px] flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity bg-white z-10 pointer-events-auto">
           <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -149,8 +148,7 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
             <circle cx="2" cy="14" r="1.5" fill="#000"/>
           </svg>
         </button>
-      </div>
-      
+      </div>      
       {/* Base border line in gray */}
       <div className="absolute bottom-0 left-0 w-full h-[1px]" style={{ backgroundColor: '#D9D9D9' }}>
         {/* Active tab underline - positioned exactly below the clicked heading */}
@@ -169,4 +167,3 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
 };
 
 export default InventoryTabs;
-
