@@ -1433,7 +1433,7 @@ const InputData = () => {
 
             {/* otherPOEntityList Table - Show when itemName is selected */}
             {formData.itemName && otherPOEntityList.length > 0 && (
-                <div className="px-4 pt-6 pb-4">
+                <div className="px-4 pt-3">
                     <p className="text-[12px] font-semibold text-black leading-normal mb-2">
                         Available Combinations for {formData.itemName}
                     </p>
@@ -1445,9 +1445,8 @@ const InputData = () => {
                             <div className="flex-1 text-[11px] font-semibold text-black px-2">Brand</div>
                             <div className="flex-1 text-[11px] font-semibold text-black px-2">Type</div>
                         </div>
-
                         {/* Table Rows */}
-                        <div className="divide-y divide-[#E0E0E0]">
+                        <div className="divide-y divide-[#E0E0E0] overflow-y-auto" style={{ maxHeight: 'calc(79vh - 420px)' }}>
                             {otherPOEntityList.map((entity, index) => {
                                 const isExpanded = expandedRowIndex === index;
                                 const swipeState = swipeStates[index];
