@@ -481,6 +481,13 @@ const Outgoing = ({ user }) => {
       // Both edit and clone mode should set items immediately
       setItems(formattedItems);
       setHasOpenedAdd(formattedItems.length > 0);
+      // When cloning (not edit mode, not from history), show form fields instead of summary card
+      if (!isEditModeFlag && !fromHistoryFlag && formattedItems.length > 0) {
+        setHideSummaryCard(true);
+      } else if (isEditModeFlag && fromHistoryFlag) {
+        // When editing from history, show summary card by default
+        setHideSummaryCard(false);
+      }
     };
     window.addEventListener('editInventory', handleEditInventory);
     return () => {
@@ -1239,14 +1246,25 @@ const Outgoing = ({ user }) => {
                   >
                     Dispatch
                   </button>
+                  {hasOpenedAdd && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHideSummaryCard(true);
+                        setIsEditMode(true);
+                      }}
+                      className="flex items-center font-semibold justify-center rounded p-1 ml-1"
+                    >
+                      <img src={editIcon} alt="Edit" className="w-[15px] h-[15px]" />
+                    </button>
+                  )}
                 </>
               )}
-              {hasOpenedAdd && isEditMode && (
+              {hasOpenedAdd && isEditMode && fromHistory && (
                 <button
                   type="button"
                   onClick={() => {
                     setIsEditMode(true);
-                    setFromHistory(false);
                     setHasOpenedAdd(false);
                     setHideSummaryCard(true);
                   }}
@@ -1260,8 +1278,8 @@ const Outgoing = ({ user }) => {
         </div>
       )}
 
-      {/* Form Fields - visible while you are selecting the three fields (before first + click) or in edit mode */}
-      {(!hasOpenedAdd || (isEditMode && hideSummaryCard)) && (
+      {/* Form Fields - visible while you are selecting the three fields (before first + click) or when hideSummaryCard is true */}
+      {(!hasOpenedAdd || hideSummaryCard) && (
         <div className="flex-shrink-0 px-4 pt-4">
           {/* Date in empty state */}
           {isEmptyState && (

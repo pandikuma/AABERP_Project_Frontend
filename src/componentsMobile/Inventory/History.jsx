@@ -59,32 +59,25 @@ const History = ({ onTabChange }) => {
             'Content-Type': 'application/json'
           }
         });
-
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-
-        const inventoryData = await response.json();
-        
+        const inventoryData = await response.json();        
         // Filter for outgoing type only
         const outgoingItems = inventoryData.filter(item => 
           item.inventory_type === 'outgoing' || item.inventoryType === 'outgoing'
         );
-
         // Format the outgoing items
         const formattedHistory = outgoingItems.map(item => {
           // Get the date from date column
           const itemDate = item.date || item.created_at || item.createdAt;
           const dateObj = new Date(itemDate);
-          const year = dateObj.getFullYear();
-          
+          const year = dateObj.getFullYear();          
           // Get entry number - use eno as primary source
-          const entryNumber = item.eno || item.ENO || item.entry_number || item.entryNumber || item.entrynumber || item.id || '';
-          
+          const entryNumber = item.eno || item.ENO || item.entry_number || item.entryNumber || item.entrynumber || item.id || '';          
           // Determine transaction ID based on outgoing type
           let transactionId = '';
-          const outgoingType = item.outgoing_type || item.outgoingType || '';
-          
+          const outgoingType = item.outgoing_type || item.outgoingType || '';          
           if (outgoingType.toLowerCase() === 'stock return' || outgoingType.toLowerCase() === 'stockreturn') {
             transactionId = `SR - ${year} - ${entryNumber}`;
           } else if (outgoingType.toLowerCase() === 'dispatch') {
@@ -93,7 +86,6 @@ const History = ({ onTabChange }) => {
             // Default fallback
             transactionId = `SR - ${year} - ${entryNumber}`;
           }
-
           // Get client name from client_id
           const clientId = item.client_id || item.clientId;
           let clientName = '';
@@ -106,11 +98,9 @@ const History = ({ onTabChange }) => {
             );
             clientName = client ? (client.label || client.value || '') : '';
           }
-
           // Calculate numberOfItems from inventoryItems count
           const inventoryItems = item.inventoryItems || item.inventory_items || [];
           const numberOfItems = Array.isArray(inventoryItems) ? inventoryItems.length : 0;
-          
           // Calculate quantity as sum of inventoryItems qty
           const quantity = Array.isArray(inventoryItems) 
             ? inventoryItems.reduce((sum, invItem) => {
@@ -118,14 +108,12 @@ const History = ({ onTabChange }) => {
                 return sum + (parseFloat(qty) || 0);
               }, 0)
             : (item.total_quantity || item.totalQuantity || item.quantity || 0);
-
           // Ensure originalItem includes inventoryItems explicitly
           const originalItemWithItems = {
             ...item,
             inventoryItems: inventoryItems.length > 0 ? inventoryItems : (item.inventoryItems || []),
             inventory_items: inventoryItems.length > 0 ? inventoryItems : (item.inventory_items || [])
           };
-
           return {
             id: item.id,
             transactionId: transactionId,
@@ -142,7 +130,6 @@ const History = ({ onTabChange }) => {
             originalItem: originalItemWithItems
           };
         });
-
         // Sort by created_date_time (latest entry first)
         formattedHistory.sort((a, b) => {
           const dateTimeA = a.createdDateTime || a.created_date_time || a.created_at || a.date;
@@ -151,7 +138,6 @@ const History = ({ onTabChange }) => {
           const timeB = new Date(dateTimeB).getTime();
           return timeB - timeA; // Latest first (descending order)
         });
-
         setHistoryData(formattedHistory);
         setFilteredData(formattedHistory);
         console.log(formattedHistory);
@@ -163,7 +149,6 @@ const History = ({ onTabChange }) => {
         setLoading(false);
       }
     };
-
     fetchHistory();
   }, [clientData]);
 
@@ -803,7 +788,7 @@ const History = ({ onTabChange }) => {
                         delete cardRefs.current[item.id];
                       }
                     }}
-                    className="bg-white border border-[rgba(0,0,0,0.16)] rounded-[8px] p-2 cursor-pointer hover:bg-gray-50 transition-all duration-300 ease-out relative"
+                    className="bg-white border border-[rgba(0,0,0,0.16)] rounded-[8px] p-2 hover:bg-gray-50 transition-all duration-300 ease-out relative"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y'
@@ -812,20 +797,22 @@ const History = ({ onTabChange }) => {
                     onTouchMove={(e) => handleTouchMove(e, item.id)}
                     onTouchEnd={() => handleTouchEnd(item.id)}
                     onMouseDown={(e) => handleTouchStart(e, item.id)}
-                    onClick={(e) => {
-                      if (!isExpanded && !isCloneExpanded) {
-                        e.stopPropagation();
-                        // Navigate to outgoing page (view mode from History)
-                        handleView(item);
-                      }
-                    }}
                   >
                     <div className="flex items-start justify-between">
                       {/* Left side: Transaction ID, Customer/Location Name, Date and Time */}
                       <div className="flex-1">
                         {/* Transaction ID */}
                         <div className="mb-1">
-                          <p className="text-[14px] font-semibold text-black leading-normal">
+                          <p 
+                            className="text-[14px] font-semibold text-black leading-normal cursor-pointer hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isExpanded && !isCloneExpanded) {
+                                // Navigate to outgoing page (view mode from History)
+                                handleView(item);
+                              }
+                            }}
+                          >
                             {item.transactionId}
                           </p>
                         </div>

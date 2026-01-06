@@ -526,6 +526,11 @@ const Incoming = ({ user }) => {
     } else if (quantity > 0) {
       // Add new item
       const newItemId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
+      // Resolve categoryId if not provided
+      let categoryId = item.categoryId || null;
+      if (!categoryId && item.category && categoryOptions.length > 0) {
+        categoryId = resolveCategoryId(item.category);
+      }
       const newItem = {
         id: newItemId,
         name: `${item.itemName}, ${item.category}`,
@@ -539,7 +544,7 @@ const Incoming = ({ user }) => {
         brandId: item.brandId || null,
         modelId: item.modelId || null,
         typeId: item.typeId || null,
-        categoryId: item.categoryId || null,
+        categoryId: categoryId,
       };
       setItems([...items, newItem]);
     }
@@ -615,8 +620,12 @@ const Incoming = ({ user }) => {
   }, [items]);
   // Helper function to resolve category ID
   const resolveCategoryId = (categoryName) => {
-    // This would need categoryOptions from API, for now return null
-    return null;
+    if (!categoryName || !categoryOptions.length) return null;
+    const category = categoryOptions.find(cat => {
+      const label = (cat.label || cat.value || cat.category || cat.categoryName || cat.name || '').toLowerCase().trim();
+      return label === categoryName.toLowerCase().trim();
+    });
+    return category ? (category.id || category._id || null) : null;
   };
   const handleAddItem = (itemData) => {
     if (editingItem) {

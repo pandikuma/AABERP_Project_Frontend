@@ -1347,11 +1347,13 @@ const PurchaseOrder = ({ user, onLogout }) => {
             model: itemData.model,
             type: itemData.type,
             quantity: parseInt(itemData.quantity),
-            itemId: itemData.itemId || item.itemId || null,
-            brandId: itemData.brandId || item.brandId || null,
-            modelId: itemData.modelId || item.modelId || null,
-            typeId: itemData.typeId || item.typeId || null,
-            categoryId: itemData.categoryId || item.categoryId || resolveCategoryId(itemData.category) || null,
+            // When editing, use the new itemData IDs - don't fall back to old item IDs
+            // This ensures that if user selects a new item, we use the new item's ID, not the old deleted one
+            itemId: itemData.itemId || null,
+            brandId: itemData.brandId || null,
+            modelId: itemData.modelId || null,
+            typeId: itemData.typeId || null,
+            categoryId: itemData.categoryId || resolveCategoryId(itemData.category) || null,
           }
           : item
       );
@@ -2373,19 +2375,30 @@ const PurchaseOrder = ({ user, onLogout }) => {
           onAdd={handleAddItem}
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
-          initialData={editingItem ? {
-            itemName: editingItem.name ? editingItem.name.split(',')[0].trim() : '',
-            model: editingItem.model || '',
-            brand: editingItem.brand || '',
-            type: editingItem.type || '',
-            quantity: editingItem.quantity ? String(editingItem.quantity) : '',
-            category: editingItem.name ? editingItem.name.split(',')[1]?.trim() || '' : '',
-            itemId: editingItem.itemId || null,
-            brandId: editingItem.brandId || null,
-            modelId: editingItem.modelId || null,
-            typeId: editingItem.typeId || null,
-            categoryId: editingItem.categoryId || null,
-          } : {}}
+          initialData={editingItem ? (() => {
+            // Resolve category: prefer editingItem.category, then extract from name, then resolve from categoryId
+            let resolvedCategory = editingItem.category || '';
+            if (!resolvedCategory && editingItem.name && editingItem.name.includes(',')) {
+              resolvedCategory = editingItem.name.split(',')[1]?.trim() || '';
+            }
+            if (!resolvedCategory && editingItem.categoryId && categoryOptions.length > 0) {
+              const categoryOption = categoryOptions.find(cat => String(cat.id) === String(editingItem.categoryId));
+              resolvedCategory = categoryOption?.label || categoryOption?.value || '';
+            }
+            return {
+              itemName: editingItem.name ? editingItem.name.split(',')[0].trim() : '',
+              model: editingItem.model || '',
+              brand: editingItem.brand || '',
+              type: editingItem.type || '',
+              quantity: editingItem.quantity ? String(editingItem.quantity) : '',
+              category: resolvedCategory,
+              itemId: editingItem.itemId || null,
+              brandId: editingItem.brandId || null,
+              modelId: editingItem.modelId || null,
+              typeId: editingItem.typeId || null,
+              categoryId: editingItem.categoryId || null,
+            };
+          })() : {}}
           onRefreshItemName={fetchPoItemName}
           onRefreshModel={fetchPoModel}
           onRefreshBrand={fetchPoBrand}

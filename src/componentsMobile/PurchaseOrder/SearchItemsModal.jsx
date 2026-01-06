@@ -145,7 +145,7 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
     );
 };
 
-const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingItems = [], onRefreshData, stockingLocationId = null }) => {
+const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingItems = [], onRefreshData, stockingLocationId = null, disableAvailabilityCheck = false }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
@@ -578,6 +578,10 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
 
     // Check if item is available in selected stocking location
     const checkItemAvailabilityInLocation = (item) => {
+        // Skip availability check if disabled (e.g., for incoming inventory where we're adding stock)
+        if (disableAvailabilityCheck) {
+            return true;
+        }
         if (!stockingLocationId) {
             return true; // If no location selected, allow (will be validated in parent)
         }
