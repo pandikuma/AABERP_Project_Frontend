@@ -7,6 +7,8 @@ import DeleteConfirmModal from '../PurchaseOrder/DeleteConfirmModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import SearchItemsModal from '../PurchaseOrder/SearchItemsModal';
 import editIcon from '../Images/edit.png';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const Outgoing = ({ user }) => {
   // Helper functions for date
@@ -56,6 +58,7 @@ const Outgoing = ({ user }) => {
   const [editTransactionId, setEditTransactionId] = useState('');
   const [editingInventoryId, setEditingInventoryId] = useState(null);
   const [pendingItemsFromClone, setPendingItemsFromClone] = useState([]);
+  const [fromHistory, setFromHistory] = useState(false);
   
   // Outgoing page options (same as PurchaseOrder but independent)
   const [outgoingSiteOptions, setOutgoingSiteOptions] = useState([]);
@@ -466,6 +469,9 @@ const Outgoing = ({ user }) => {
       // Only set to true if isEditMode is explicitly true (edit button), false otherwise (clone button)
       const isEditModeFlag = inventoryItem.isEditMode === true;
       setIsEditMode(isEditModeFlag);
+      // Check if coming from History (view mode)
+      const fromHistoryFlag = inventoryItem.fromHistory === true;
+      setFromHistory(fromHistoryFlag);
       // Store inventory ID only if in edit mode (for updates)
       if (isEditModeFlag && inventoryItem.id) {
         setEditingInventoryId(inventoryItem.id);
@@ -879,6 +885,83 @@ const Outgoing = ({ user }) => {
     setShowDeleteConfirm(false);
   };
 
+  // Download PDF function
+  const handleDownloadPDF = () => {
+    if (items.length === 0) {
+      alert('No items to download');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPos = 20;
+
+    // Title
+    doc.setFontSize(16);
+    doc.text(editTransactionId || 'Outgoing Inventory', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+
+    // Project Information
+    doc.setFontSize(12);
+    yPos += 5;
+    doc.text(`Project Name: ${outgoingData.projectName || ''}`, 14, yPos);
+    yPos += 7;
+    doc.text(`Project Incharge: ${outgoingData.projectIncharge || ''}`, 14, yPos);
+    yPos += 7;
+    doc.text(`Stocking Location: ${outgoingData.stockingLocation || ''}`, 14, yPos);
+    yPos += 7;
+    doc.text(`Date: ${outgoingData.date || ''}`, 14, yPos);
+    yPos += 10;
+
+    // Items Table
+    const tableData = items.map((item, index) => {
+      const itemNameParts = item.name ? item.name.split(',') : [];
+      const itemName = itemNameParts[0] || '';
+      const category = itemNameParts[1] || item.category || '';
+      return [
+        index + 1,
+        itemName,
+        category,
+        item.model || '',
+        item.brand || '',
+        item.type || '',
+        item.quantity || 0
+      ];
+    });
+
+    doc.autoTable({
+      head: [['S.No', 'Item Name', 'Category', 'Model', 'Brand', 'Type', 'Quantity']],
+      body: tableData,
+      startY: yPos,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        lineWidth: 0.5,
+        lineColor: [0, 0, 0],
+        textColor: [0, 0, 0]
+      },
+      headStyles: {
+        fillColor: [240, 240, 240],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        lineWidth: 0.5,
+        lineColor: [0, 0, 0]
+      },
+      margin: { left: 14, right: 14 }
+    });
+
+    // Total Quantity
+    const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(12);
+    doc.text(`Total Quantity: ${totalQuantity}`, 14, finalY);
+
+    // Save PDF
+    const fileName = editTransactionId ? `${editTransactionId}.pdf` : `Outgoing_${outgoingData.date || 'Inventory'}.pdf`;
+    doc.save(fileName);
+  };
+
   // Save outgoing inventory data (for both dispatch and stock return)
   const handleSaveOutgoing = async (outgoingType) => {
     // Validate required fields
@@ -1092,6 +1175,7 @@ const Outgoing = ({ user }) => {
       setItems([]);
       setHasOpenedAdd(false);
       setIsEditMode(false);
+      setFromHistory(false);
       // Clear edit mode fields
       setEditTransactionId('');
       setEditingInventoryId(null);
@@ -1115,13 +1199,29 @@ const Outgoing = ({ user }) => {
               {outgoingData.date}
             </button>
             <div className="flex items-center">
-              {editingInventoryId ? (
+              {isEditMode && fromHistory ? (
                 <button
                   type="button"
                   onClick={() => handleSaveOutgoing(outgoingData.outgoingType || 'stock return')}
                   className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
                 >
                   Update
+                </button>
+              ) : fromHistory && !isEditMode && ((outgoingData.outgoingType || '').toLowerCase() === 'stock return' || (outgoingData.outgoingType || '').toLowerCase() === 'stockreturn') ? (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadPDF()}
+                  className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                >
+                  Download
+                </button>
+              ) : fromHistory && !isEditMode && (outgoingData.outgoingType || '').toLowerCase() === 'dispatch' ? (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadPDF()}
+                  className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                >
+                  Download
                 </button>
               ) : (
                 <>
@@ -1141,11 +1241,12 @@ const Outgoing = ({ user }) => {
                   </button>
                 </>
               )}
-              {hasOpenedAdd && (
+              {hasOpenedAdd && isEditMode && (
                 <button
                   type="button"
                   onClick={() => {
                     setIsEditMode(true);
+                    setFromHistory(false);
                     setHasOpenedAdd(false);
                     setHideSummaryCard(true);
                   }}

@@ -13,6 +13,7 @@ const History = ({ onTabChange }) => {
   const [swipeStates, setSwipeStates] = useState({});
   const expandedItemIdRef = useRef(expandedItemId);
   const cardRefs = useRef({});
+  const [activeType, setActiveType] = useState('stack return'); // 'stack return' or 'dispatch'
 
   // Fetch client data
   useEffect(() => {
@@ -166,21 +167,29 @@ const History = ({ onTabChange }) => {
     fetchHistory();
   }, [clientData]);
 
-  // Filter data based on search query
+  // Filter data based on search query and active type
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredData(historyData);
-      return;
+    let filtered = historyData;
+
+    // Filter by active type (Stack Return or Dispatch)
+    if (activeType === 'stack return') {
+      filtered = filtered.filter(item => item.type === 'SR');
+    } else if (activeType === 'dispatch') {
+      filtered = filtered.filter(item => item.type === 'DP');
     }
 
-    const query = searchQuery.toLowerCase();
-    const filtered = historyData.filter(item => {
-      const customerLocation = `${item.customerName} - ${item.location}`.toLowerCase();
-      const transactionId = item.transactionId.toLowerCase();
-      return customerLocation.includes(query) || transactionId.includes(query);
-    });
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(item => {
+        const customerLocation = `${item.customerName} - ${item.location}`.toLowerCase();
+        const transactionId = item.transactionId.toLowerCase();
+        return customerLocation.includes(query) || transactionId.includes(query);
+      });
+    }
+
     setFilteredData(filtered);
-  }, [searchQuery, historyData]);
+  }, [searchQuery, historyData, activeType]);
 
   // Format date to show "Today" or actual date
   const formatDate = (dateString) => {
@@ -399,6 +408,89 @@ const History = ({ onTabChange }) => {
     };
   }, [filteredData]);
 
+  // Handle view (for viewing when clicking transaction ID)
+  const handleView = async (item) => {
+    try {
+      // Get the original inventory item data (should already have inventoryItems from originalItem)
+      let inventoryData = item.originalItem || item;
+      
+      // Check if inventoryItems are present in the data
+      const hasInventoryItems = inventoryData?.inventoryItems || inventoryData?.inventory_items;
+      
+      // If inventoryItems are missing, try to fetch them from the backend
+      if (!hasInventoryItems || (Array.isArray(inventoryData?.inventoryItems) && inventoryData.inventoryItems.length === 0) || 
+          (Array.isArray(inventoryData?.inventory_items) && inventoryData.inventory_items.length === 0)) {
+        if (inventoryData?.id) {
+          try {
+            // Try to fetch the inventory record with items by ID
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${inventoryData.id}`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (response.ok) {
+              const detailedData = await response.json();
+              // Merge the detailed data with inventoryItems
+              if (detailedData.inventoryItems || detailedData.inventory_items) {
+                const items = detailedData.inventoryItems || detailedData.inventory_items;
+                inventoryData = {
+                  ...inventoryData,
+                  inventoryItems: items,
+                  inventory_items: items
+                };
+              }
+            }
+          } catch (fetchError) {
+            console.error('Error fetching inventory details:', fetchError);
+            // Continue with existing data even if fetch fails
+          }
+        }
+      }
+      
+      // Ensure inventoryItems are explicitly set (use both field names for compatibility)
+      if (inventoryData?.inventoryItems || inventoryData?.inventory_items) {
+        const items = inventoryData.inventoryItems || inventoryData.inventory_items;
+        inventoryData = {
+          ...inventoryData,
+          inventoryItems: items,
+          inventory_items: items
+        };
+      }
+      
+      // Mark as view mode (not edit mode) - for showing Download button
+      inventoryData.isEditMode = false;
+      // Mark as view mode from History (for showing Download button instead of Stack Return/Dispatch)
+      inventoryData.fromHistory = true;
+      
+      // Store inventory item data in localStorage to load in outgoing tab
+      if (inventoryData) {
+        localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
+      }
+      // Dispatch custom event for outgoing component to listen
+      window.dispatchEvent(new CustomEvent('editInventory', { detail: inventoryData }));
+      // Navigate to outgoing tab for viewing
+      if (onTabChange) {
+        onTabChange('outgoing');
+      }
+      setExpandedItemId(null);
+    } catch (error) {
+      console.error('Error in handleView:', error);
+      // Fallback: still try to pass the data even if there's an error
+      const inventoryData = item.originalItem || item;
+      inventoryData.isEditMode = false;
+      inventoryData.fromHistory = true;
+      localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
+      window.dispatchEvent(new CustomEvent('editInventory', { detail: inventoryData }));
+      if (onTabChange) {
+        onTabChange('outgoing');
+      }
+      setExpandedItemId(null);
+    }
+  };
+
   // Handle edit (for update)
   const handleEdit = async (item) => {
     try {
@@ -453,6 +545,8 @@ const History = ({ onTabChange }) => {
       
       // Mark as edit mode (update, not clone)
       inventoryData.isEditMode = true;
+      // Mark as view mode from History (for showing Download button instead of Stack Return/Dispatch)
+      inventoryData.fromHistory = true;
       
       // Store inventory item data in localStorage to load in outgoing tab
       if (inventoryData) {
@@ -470,6 +564,7 @@ const History = ({ onTabChange }) => {
       // Fallback: still try to pass the data even if there's an error
       const inventoryData = item.originalItem || item;
       inventoryData.isEditMode = true;
+      inventoryData.fromHistory = true;
       localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
       window.dispatchEvent(new CustomEvent('editInventory', { detail: inventoryData }));
       if (onTabChange) {
@@ -571,6 +666,35 @@ const History = ({ onTabChange }) => {
 
   return (
     <div className="flex flex-col h-full bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      {/* Stack Return/Dispatch Toggle */}
+      <div className="flex-shrink-0 px-4 pt-3">
+        <div className="flex items-center gap-2">
+          {/* Stack Return/Dispatch Tabs */}
+          <div className="flex bg-gray-100 items-center h-9 shadow-sm flex-1">
+            <button
+              type="button"
+              onClick={() => setActiveType('stack return')}
+              className={`flex-1 py-1 px-4 ml-1 h-8 rounded text-[14px] font-medium transition-colors ${activeType === 'stack return'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-100 text-gray-600'
+                }`}
+            >
+              Stack Return
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveType('dispatch')}
+              className={`flex-1 py-1 px-4 h-8 rounded-lg text-[14px] font-medium transition-colors ${activeType === 'dispatch'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-100 text-gray-600'
+                }`}
+            >
+              Dispatch
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Search Bar */}
       <div className="px-4 pt-4 pb-3">
         <div className="relative">
@@ -691,6 +815,8 @@ const History = ({ onTabChange }) => {
                     onClick={(e) => {
                       if (!isExpanded && !isCloneExpanded) {
                         e.stopPropagation();
+                        // Navigate to outgoing page (view mode from History)
+                        handleView(item);
                       }
                     }}
                   >
