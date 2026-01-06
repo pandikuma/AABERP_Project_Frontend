@@ -255,7 +255,8 @@ const PurchaseOrder = ({ user, onLogout }) => {
           contact: po.contact || '',
           created_by: po.created_by || (user && user.username) || '',
           paymentStatus: po.paymentStatus || 'Unpaid',
-          originalId: po.id, // Preserve original ID for updating
+          // For clone, don't set originalId so it creates a new PO instead of updating
+          originalId: po.isClone ? undefined : po.id, // Preserve original ID for updating (only if not clone)
           originalCreatedAt: po.createdAt, // Preserve original creation date
           originalClientId: po.client_id || po.clientId || null,
           originalSiteInchargeId: po.site_incharge_id || po.siteInchargeId || null,
@@ -427,7 +428,12 @@ const PurchaseOrder = ({ user, onLogout }) => {
         });
         setItems(itemsWithIds);
         setIsEditMode(true);
-        setIsEditFromHistory(true); // Mark that edit came from History page
+        // Check if this is a clone operation - if so, don't set isEditFromHistory to show "Generate PO" instead of "Update PO"
+        if (po.isClone) {
+          setIsEditFromHistory(false); // Clone should show "Generate PO"
+        } else {
+          setIsEditFromHistory(true); // Edit should show "Update PO"
+        }
         setHasOpenedAdd(po.items && po.items.length > 0);
         setIsPdfGenerated(false);
         setPdfBlob(null);
@@ -481,7 +487,8 @@ const PurchaseOrder = ({ user, onLogout }) => {
           contact: po.contact || '',
           created_by: po.created_by || (user && user.username) || '',
           paymentStatus: po.paymentStatus || 'Unpaid',
-          originalId: po.id,
+          // For clone, don't set originalId so it creates a new PO instead of updating
+          originalId: po.isClone ? undefined : po.id,
           originalCreatedAt: po.createdAt,
           originalClientId: po.client_id || po.clientId || null,
           originalSiteInchargeId: po.site_incharge_id || po.siteInchargeId || null,

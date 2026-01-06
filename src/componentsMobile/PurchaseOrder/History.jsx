@@ -11,6 +11,7 @@ const History = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [poToDelete, setPoToDelete] = useState(null);
   const [expandedPoId, setExpandedPoId] = useState(null);
+  const [cloneExpandedPoId, setCloneExpandedPoId] = useState(null);
   const [isFirstCardClosed, setIsFirstCardClosed] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -33,12 +34,17 @@ const History = () => {
   
   // Refs to track current state values for event handlers
   const expandedPoIdRef = useRef(expandedPoId);
+  const cloneExpandedPoIdRef = useRef(cloneExpandedPoId);
   const isFirstCardClosedRef = useRef(isFirstCardClosed);
   
   // Keep refs in sync with state
   useEffect(() => {
     expandedPoIdRef.current = expandedPoId;
   }, [expandedPoId]);
+  
+  useEffect(() => {
+    cloneExpandedPoIdRef.current = cloneExpandedPoId;
+  }, [cloneExpandedPoId]);
   
   useEffect(() => {
     isFirstCardClosedRef.current = isFirstCardClosed;
@@ -300,6 +306,20 @@ const History = () => {
     // For now, just store the data - parent component can check for it
     window.dispatchEvent(new CustomEvent('editPO', { detail: po }));
   };
+  const handleClone = (po) => {
+    // Clone PO data - remove ID to create new record
+    const clonedPO = { ...po };
+    delete clonedPO.id;
+    // Mark as clone so Create PO component knows to show "Generate PO" instead of "Update PO"
+    clonedPO.isClone = true;
+    // Store cloned PO data in localStorage to load in create tab
+    localStorage.setItem('editingPO', JSON.stringify(clonedPO));
+    // Switch to create tab immediately
+    localStorage.setItem('activeTab', 'create');
+    // Dispatch custom event for create tab to listen
+    window.dispatchEvent(new CustomEvent('editPO', { detail: clonedPO }));
+    setCloneExpandedPoId(null);
+  };
   const handleDelete = (poId) => {
     setPoToDelete(poId);
     setShowDeleteConfirm(true);
@@ -535,8 +555,9 @@ const History = () => {
     const deltaX = touch.clientX - state.startX;
     const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === poId;
     const isExpanded = isFirstCard ? (!isFirstCardClosed || expandedPoId === poId) : expandedPoId === poId;
-    // Allow swiping left to reveal buttons, or swiping right to hide buttons if already expanded
-    if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+    const isCloneExpanded = cloneExpandedPoId === poId;
+    // Allow swiping left to reveal buttons, swiping right to reveal clone, or swiping to hide if already expanded
+    if (deltaX < 0 || (deltaX > 0 && !isExpanded) || (isExpanded && deltaX > 0) || (isCloneExpanded && deltaX < 0)) {
       e.preventDefault();
       setSwipeStates(prev => ({
         ...prev,
@@ -556,26 +577,27 @@ const History = () => {
     const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === poId;
     if (absDeltaX >= minSwipeDistance) {
       if (deltaX < 0) {
-        // Swiped left (reveal buttons)
+        // Swiped left (reveal buttons on right)
         if (isFirstCard) {
           setIsFirstCardClosed(false);
         }
         setExpandedPoId(poId);
+        setCloneExpandedPoId(null);
       } else {
-        // Swiped right (hide buttons)
-        if (isFirstCard) {
-          setIsFirstCardClosed(true);
+        // Swiped right (reveal clone button on left)
+        if (expandedPoId === poId) {
+          // Hide right buttons if they were shown
+          if (isFirstCard) {
+            setIsFirstCardClosed(true);
+          }
+          setExpandedPoId(null);
+        } else {
+          // Show clone button on left
+          setCloneExpandedPoId(poId);
         }
-        setExpandedPoId(null);
       }
     } else {
-      // Small movement - snap back
-      if (expandedPoId === poId) {
-        if (isFirstCard) {
-          setIsFirstCardClosed(true);
-        }
-        setExpandedPoId(null);
-      }
+      // Small movement - snap back (no change needed, buttons stay as they are)
     }
     // Reset swipe state
     setSwipeStates(prev => {
@@ -601,12 +623,14 @@ const History = () => {
           // Use refs to get current values
           const currentIsFirstCardClosed = isFirstCardClosedRef.current;
           const currentExpandedPoId = expandedPoIdRef.current;
+          const currentCloneExpandedPoId = cloneExpandedPoIdRef.current;
           // Check if card is expanded
           const isExpanded = isFirstCard 
             ? (!currentIsFirstCardClosed || currentExpandedPoId === po.id) 
             : currentExpandedPoId === po.id;
+          const isCloneExpanded = currentCloneExpandedPoId === po.id;
           // Only update if dragging horizontally
-          if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+          if (deltaX < 0 || (deltaX > 0 && !isExpanded) || (isExpanded && deltaX > 0) || (isCloneExpanded && deltaX < 0)) {
             newState[po.id] = {
               ...state,
               currentX: e.clientX,
@@ -630,27 +654,28 @@ const History = () => {
           const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === po.id;
           if (absDeltaX >= minSwipeDistance) {
             if (deltaX < 0) {
-              // Swiped left (reveal buttons)
+              // Swiped left (reveal buttons on right)
               if (isFirstCard) {
                 setIsFirstCardClosed(false);
               }
               setExpandedPoId(po.id);
+              setCloneExpandedPoId(null);
             } else {
-              // Swiped right (hide buttons)
-              if (isFirstCard) {
-                setIsFirstCardClosed(true);
+              // Swiped right (reveal clone button on left)
+              const currentExpandedPoId = expandedPoIdRef.current;
+              if (currentExpandedPoId === po.id) {
+                // Hide right buttons if they were shown
+                if (isFirstCard) {
+                  setIsFirstCardClosed(true);
+                }
+                setExpandedPoId(null);
+              } else {
+                // Show clone button on left
+                setCloneExpandedPoId(po.id);
               }
-              setExpandedPoId(null);
             }
           } else {
-            // Small movement - snap back
-            const currentExpandedPoId = expandedPoIdRef.current;
-            if (currentExpandedPoId === po.id) {
-              if (isFirstCard) {
-                setIsFirstCardClosed(true);
-              }
-              setExpandedPoId(null);
-            }
+            // Small movement - snap back (no change needed, buttons stay as they are)
           }
           // Remove swipe state for this card
           delete newState[po.id];
@@ -690,12 +715,14 @@ const History = () => {
           // Use refs to get current values
           const currentIsFirstCardClosed = isFirstCardClosedRef.current;
           const currentExpandedPoId = expandedPoIdRef.current;
+          const currentCloneExpandedPoId = cloneExpandedPoIdRef.current;
           // Check if card is expanded
           const isExpanded = isFirstCard 
             ? (!currentIsFirstCardClosed || currentExpandedPoId === po.id) 
             : currentExpandedPoId === po.id;
+          const isCloneExpanded = currentCloneExpandedPoId === po.id;
           // Only prevent default and update if swiping horizontally
-          if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+          if (deltaX < 0 || (deltaX > 0 && !isExpanded) || (isExpanded && deltaX > 0) || (isCloneExpanded && deltaX < 0)) {
             e.preventDefault();
             return {
               ...prev,
@@ -718,27 +745,28 @@ const History = () => {
           const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === po.id;
           if (absDeltaX >= minSwipeDistance) {
             if (deltaX < 0) {
-              // Swiped left (reveal buttons)
+              // Swiped left (reveal buttons on right)
               if (isFirstCard) {
                 setIsFirstCardClosed(false);
               }
               setExpandedPoId(po.id);
+              setCloneExpandedPoId(null);
             } else {
-              // Swiped right (hide buttons)
-              if (isFirstCard) {
-                setIsFirstCardClosed(true);
+              // Swiped right (reveal clone button on left)
+              const currentExpandedPoId = expandedPoIdRef.current;
+              if (currentExpandedPoId === po.id) {
+                // Hide right buttons if they were shown
+                if (isFirstCard) {
+                  setIsFirstCardClosed(true);
+                }
+                setExpandedPoId(null);
+              } else {
+                // Show clone button on left
+                setCloneExpandedPoId(po.id);
               }
-              setExpandedPoId(null);
             }
           } else {
-            // Small movement - snap back
-            const currentExpandedPoId = expandedPoIdRef.current;
-            if (currentExpandedPoId === po.id) {
-              if (isFirstCard) {
-                setIsFirstCardClosed(true);
-              }
-              setExpandedPoId(null);
-            }
+            // Small movement - snap back (no change needed, buttons stay as they are)
           }
           // Reset swipe state
           const newState = { ...prev };
@@ -773,7 +801,7 @@ const History = () => {
     return () => {
       cleanupFunctions.forEach(cleanup => cleanup());
     };
-  }, [filteredPOs, minSwipeDistance]);
+  }, [filteredPOs, minSwipeDistance, cloneExpandedPoId]);
   // Format date/time for display: "Today • 09:42 AM", "Yesterday • 11:11 AM", or "DD/MM/YYYY • HH:MM AM/PM"
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return '';
@@ -976,7 +1004,10 @@ const History = () => {
       </div>
       {/* Purchase Orders List - Scrollable */}
       <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 mt-1 " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
-        onClick={() => setExpandedPoId(null)}
+        onClick={() => {
+          setExpandedPoId(null);
+          setCloneExpandedPoId(null);
+        }}
       >
         {filteredPOs.length === 0 ? (
           <div className="flex flex-col items-center justify-center ">
@@ -1004,16 +1035,42 @@ const History = () => {
                 return sum + Number(amount);
               }, 0) || 0;
               const swipeState = swipeStates[po.id];
+              const isCloneExpanded = cloneExpandedPoId === po.id;
               let swipeOffset = 0;
               if (swipeState && swipeState.isSwiping) {
-                swipeOffset = Math.max(-110, Math.min(0, swipeState.currentX - swipeState.startX));
+                swipeOffset = Math.max(-110, Math.min(48, swipeState.currentX - swipeState.startX));
               } else if (isExpanded) {
                 swipeOffset = -110;
+              } else if (isCloneExpanded) {
+                swipeOffset = 48;
               } else {
                 swipeOffset = 0;
               }
               return (
                 <div key={po.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-gray-50 rounded-[8px] h-[100px]">
+                  {/* Clone Button - Behind the card on the left, revealed on right swipe */}
+                  <div
+                    className="absolute left-0 top-0 flex gap-2 flex-shrink-0 z-0"
+                    style={{
+                      opacity: isCloneExpanded || (swipeState && swipeState.isSwiping && swipeOffset > 20) ? 1 : 0,
+                      transition: 'opacity 0.2s ease-out',
+                      pointerEvents: isCloneExpanded ? 'auto' : 'none'
+                    }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClone(po);
+                      }}
+                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      title="Clone"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 6.75V3.75C12 3.33579 11.6642 3 11.25 3H3.75C3.33579 3 3 3.33579 3 3.75V11.25C3 11.6642 3.33579 12 3.75 12H6.75" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M15 6.75H7.5C6.67157 6.75 6 7.42157 6 8.25V14.25C6 15.0784 6.67157 15.75 7.5 15.75H14.25C15.0784 15.75 15.75 15.0784 15.75 14.25V8.25C15.75 7.42157 15.0784 6.75 14.25 6.75H15Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
                   {/* PO Card */}
                   <div
                     ref={(el) => {
@@ -1029,7 +1086,7 @@ const History = () => {
                       touchAction: 'pan-y'
                     }}
                     onClick={(e) => {
-                      if (!isExpanded) {
+                      if (!isExpanded && !isCloneExpanded) {
                         e.stopPropagation();
                       }
                     }}
