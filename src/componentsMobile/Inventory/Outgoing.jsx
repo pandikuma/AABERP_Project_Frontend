@@ -7,6 +7,8 @@ import DeleteConfirmModal from '../PurchaseOrder/DeleteConfirmModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import SearchItemsModal from '../PurchaseOrder/SearchItemsModal';
 import editIcon from '../Images/edit.png';
+import SR from '../Images/SR.png';
+import DP from '../Images/DP.png';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -638,7 +640,8 @@ const Outgoing = ({ user }) => {
       finalQuantity = isIncremental ? currentQuantity + quantity : quantity;
     }
 
-    // Check stock availability for this item in the selected stocking location
+    // Check stock availability and get amount for this item in the selected stocking location
+    let itemPrice = 0; // Default price
     if (itemId !== null && itemId !== undefined) {
       try {
         const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
@@ -652,16 +655,37 @@ const Outgoing = ({ user }) => {
             return !recordDeleteStatus && String(recordStockingLocationId) === String(stockingLocationId);
           });
 
-          // Calculate available stock for this item in this location
+          // Calculate available stock and find amount for this item in this location
           let availableStock = 0;
+          const matchingAmounts = []; // Store amounts found for this item
+          
           activeRecords.forEach(record => {
             const inventoryItems = record.inventoryItems || record.inventory_items || [];
             if (Array.isArray(inventoryItems)) {
               inventoryItems.forEach(invItem => {
                 const invItemId = invItem.item_id || invItem.itemId || null;
-                if (String(invItemId) === String(itemId)) {
+                const invCategoryId = invItem.category_id || invItem.categoryId || null;
+                const invModelId = invItem.model_id || invItem.modelId || null;
+                const invBrandId = invItem.brand_id || invItem.brandId || null;
+                const invTypeId = invItem.type_id || invItem.typeId || null;
+                
+                // Match by composite key: itemId + categoryId + modelId + brandId + typeId
+                const matchesItem = String(invItemId) === String(itemId) &&
+                  String(invCategoryId || 'null') === String(item.categoryId || 'null') &&
+                  String(invModelId || 'null') === String(item.modelId || 'null') &&
+                  String(invBrandId || 'null') === String(item.brandId || 'null') &&
+                  String(invTypeId || 'null') === String(item.typeId || 'null');
+                
+                if (matchesItem) {
                   const qty = Number(invItem.quantity) || 0;
                   availableStock += qty;
+                  
+                  // Get amount and calculate price per unit
+                  const amount = Number(invItem.amount) || 0;
+                  if (amount > 0 && qty > 0) {
+                    const pricePerUnit = amount / Math.abs(qty); // Use absolute quantity for price calculation
+                    matchingAmounts.push(pricePerUnit);
+                  }
                 }
               });
             }
@@ -678,6 +702,11 @@ const Outgoing = ({ user }) => {
             alert(`Item "${item.itemName || 'this item'}" has only ${availableStock} qty available in the selected Stocking Location "${outgoingData.stockingLocation}". You requested ${finalQuantity} qty.`);
             return;
           }
+
+          // If multiple amounts exist, use the first one
+          if (matchingAmounts.length > 0) {
+            itemPrice = matchingAmounts[0];
+          }
         }
       } catch (error) {
         console.error('Error checking stock availability:', error);
@@ -687,13 +716,17 @@ const Outgoing = ({ user }) => {
 
     if (existingItemIndex !== -1) {
       // Update existing item quantity (merge quantities)
+      // Update price to the first amount found from inventory
       const updatedItems = [...items];
       const currentQuantity = updatedItems[existingItemIndex].quantity || 0;
       const newQuantity = isIncremental ? currentQuantity + quantity : quantity;
       if (newQuantity > 0) {
+        // Use fetched price if available, otherwise keep existing price
+        const finalPrice = itemPrice > 0 ? itemPrice : (updatedItems[existingItemIndex].price || 0);
         updatedItems[existingItemIndex] = {
           ...updatedItems[existingItemIndex],
-          quantity: newQuantity
+          quantity: newQuantity,
+          price: finalPrice
         };
         setItems(updatedItems);
       } else {
@@ -712,7 +745,7 @@ const Outgoing = ({ user }) => {
         type: item.type,
         category: item.category || '',
         quantity: quantity,
-        price: 0, // Outgoing items don't have a price field in the form, so default to 0
+        price: itemPrice, // Use price fetched from inventory (first amount if multiple exist)
         itemId: item.itemId || null,
         brandId: item.brandId || null,
         modelId: item.modelId || null,
@@ -1256,16 +1289,16 @@ const Outgoing = ({ user }) => {
                   <button
                     type="button"
                     onClick={() => handleSaveOutgoing('stock return')}
-                    className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                    className="flex items-center text-[13px] gap-1 font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
                   >
-                    Stock Return
+                    Stock Return <img src={SR} alt="SR" className="w-[13px] h-[13px]" />
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSaveOutgoing('dispatch')}
-                    className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                    className="flex items-center text-[13px] gap-1 font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
                   >
-                    Dispatch
+                    Dispatch <img src={DP} alt="DP" className="w-[13px] h-[13px]" />
                   </button>
                   {hasOpenedAdd && (
                     <button
@@ -1315,7 +1348,7 @@ const Outgoing = ({ user }) => {
             </div>
           )}
         {/* Project Name Field */}
-        <div className="mb-4 relative">
+        <div className="mb-2 relative">
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
             Project Name<span className="text-[#eb2f8e]">*</span>
           </p>
@@ -1350,7 +1383,7 @@ const Outgoing = ({ user }) => {
         </div>
 
         {/* Project Incharge Field */}
-        <div className="mb-4 relative">
+        <div className="mb-2 relative">
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
             Project Incharge<span className="text-[#eb2f8e]">*</span>
           </p>
@@ -1386,7 +1419,7 @@ const Outgoing = ({ user }) => {
         </div>
 
         {/* Stocking Location Field */}
-        <div className="mb-4 relative">
+        <div className="mb-2 relative">
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
             Stocking Location<span className="text-[#eb2f8e]">*</span>
           </p>
@@ -1713,10 +1746,10 @@ const Outgoing = ({ user }) => {
           );
           return stockingLocationSite?.id || null;
         })()}
+        useInventoryData={true}
       />
     </div>
   );
 };
 
 export default Outgoing;
-

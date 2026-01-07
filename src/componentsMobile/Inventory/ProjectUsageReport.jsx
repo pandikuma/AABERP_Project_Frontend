@@ -549,7 +549,7 @@ const ProjectUsageReport = () => {
       </div>
 
       {/* Report/History Tabs */}
-      <div className="flex-shrink-0 px-4 pt-2 pb-2">
+      <div className="flex-shrink-0 px-4 pt-2">
         <div className="flex bg-gray-100 items-center h-9 shadow-sm flex-1 rounded-md">
           <button
             type="button"
@@ -575,9 +575,9 @@ const ProjectUsageReport = () => {
       </div>
 
       {/* Filters Section */}
-      <div className="flex-shrink-0 px-4 pt-4 pb-2 space-y-3">
+      <div className="flex-shrink-0 px-4 pt-4 mb-2">
         {/* Project Name Filter */}
-        <div>
+        <div className="mb-2">
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
             Project Name
           </p>
@@ -615,7 +615,7 @@ const ProjectUsageReport = () => {
         </div>
 
         {/* Category Filter */}
-        <div>
+        <div className="mb-4">
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
             Category
           </p>
@@ -665,7 +665,7 @@ const ProjectUsageReport = () => {
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-10 pr-3 text-[12px] font-medium bg-white"
+            className="w-full h-[40px] border border-[rgba(0,0,0,0.16)] rounded-full pl-10 pr-3 text-[12px] font-medium bg-white"
           />
         </div>
       </div>

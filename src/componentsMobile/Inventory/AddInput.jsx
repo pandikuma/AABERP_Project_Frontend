@@ -1296,9 +1296,9 @@ const AddInput = () => {
         </div>
 
         {/* Form Fields */}
-        <div className="space-y-3 mb-4">
+        <div className="mb-4">
           {/* Item Name */}
-          <div>
+          <div className="mb-2">
             <p className="text-[12px] font-semibold text-black leading-normal mb-1">
               Item Name<span className="text-[#eb2f8e]">*</span>
             </p>
@@ -1352,7 +1352,7 @@ const AddInput = () => {
           </div>
 
           {/* Model */}
-          <div>
+          <div className="mb-2">
             <p className="text-[12px] font-semibold text-black leading-normal mb-1">
               Model<span className="text-[#eb2f8e]">*</span>
             </p>
@@ -1406,7 +1406,7 @@ const AddInput = () => {
           </div>
 
           {/* Type */}
-          <div>
+          <div className="mb-2">
             <p className="text-[12px] font-semibold text-black leading-normal mb-1">
               Type<span className="text-[#eb2f8e]">*</span>
             </p>
@@ -1459,7 +1459,7 @@ const AddInput = () => {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 mb-2">
             {/* Brand */}
             <div>
               <p className="text-[12px] font-semibold text-black leading-normal mb-1">
