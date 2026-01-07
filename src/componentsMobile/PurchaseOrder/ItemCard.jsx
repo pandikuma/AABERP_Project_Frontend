@@ -51,8 +51,7 @@ const ItemCard = ({
   onSwipeMove,
   onSwipeEnd,
   swipeState,
-  onAmountChange,      // Optional callback when amount changes
-  hideButtons = false  // When true, hide edit/delete buttons
+  onAmountChange      // Optional callback when amount changes
 }) => {
   const [isEditingAmount, setIsEditingAmount] = useState(false);
   const [amountValue, setAmountValue] = useState(item?.price || 0);
@@ -82,7 +81,7 @@ const ItemCard = ({
   // Set up non-passive event listeners using refs
   // Must be called before any conditional returns
   useEffect(() => {
-    if (!item || hideButtons) return;
+    if (!item) return;
     
     const element = cardRef.current;
     if (!element || !onSwipeStart || !onSwipeMove || !onSwipeEnd) return;
@@ -131,7 +130,7 @@ const ItemCard = ({
       element.removeEventListener('touchend', touchEndHandler);
       element.removeEventListener('mousedown', mouseDownHandler);
     };
-  }, [item, item?.id, onSwipeStart, onSwipeMove, onSwipeEnd, hideButtons]);
+  }, [item, item?.id, onSwipeStart, onSwipeMove, onSwipeEnd]);
 
   if (!item) return null;
 
@@ -148,9 +147,8 @@ const ItemCard = ({
   const buttonWidth = 96;
 
   // Calculate swipe offset for smooth animation
-  const swipeOffset = hideButtons
-    ? 0
-    : swipeState && swipeState.isSwiping
+  const swipeOffset =
+    swipeState && swipeState.isSwiping
       ? Math.max(-buttonWidth, swipeState.currentX - swipeState.startX)
       : expanded
         ? -buttonWidth
@@ -208,7 +206,8 @@ const ItemCard = ({
           transform: `translateX(${swipeOffset}px)`,
           touchAction: 'pan-y',
           userSelect: 'none',
-          WebkitUserSelect: 'none'
+          WebkitUserSelect: 'none',
+          minHeight: '66px'
         }}
         onClick={handleCardClick}
       >
@@ -218,7 +217,7 @@ const ItemCard = ({
             <p className="text-[12px] font-semibold text-black leading-snug truncate">
               {item.name && item.name.includes(',') ? item.name.split(',')[0].trim() : item.name}
             </p>
-            <div className="mt-1 space-y-1">
+            <div className="mt-1 space-y-1 min-h-[32px]">
               {item.model && (
                 <p className="text-[11px] font-medium text-[#777777] leading-snug truncate">
                   {item.model}
@@ -279,39 +278,37 @@ const ItemCard = ({
       </div>
 
       {/* Action Buttons - Behind the card on the right, revealed on swipe */}
-      {!hideButtons && (
-        <div
-          className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
-          style={{
-            opacity:
-              expanded ||
-                (swipeState && swipeState.isSwiping && swipeOffset < -20)
-                ? 1
-                : 0,
-            transition: 'opacity 0.2s ease-out',
-            pointerEvents: expanded ? 'auto' : 'none'
+      <div
+        className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
+        style={{
+          opacity:
+            expanded ||
+              (swipeState && swipeState.isSwiping && swipeOffset < -20)
+              ? 1
+              : 0,
+          transition: 'opacity 0.2s ease-out',
+          pointerEvents: expanded ? 'auto' : 'none'
+        }}
+      >
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit && onEdit();
           }}
+          className="action-button w-[40px] h-[66px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
         >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit && onEdit();
-            }}
-            className="action-button w-[40px] h-[66px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
-          >
-            <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete && onDelete();
-            }}
-            className="action-button w-[40px] h-[66px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
-          >
-            <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />
-          </button>
-        </div>
-      )}
+          <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete && onDelete();
+          }}
+          className="action-button w-[40px] h-[66px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+        >
+          <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />
+        </button>
+      </div>
     </div>
   );
 };

@@ -604,6 +604,40 @@ const Outgoing = ({ user }) => {
     const stockingLocationId = stockingLocationSite.id;
     const itemId = item.itemId || item.item_id || null;
 
+    // Normalize values for comparison (used for both stock check and item matching)
+    const normalizeValue = (val) => (val || '').toString().toLowerCase().trim();
+    const newItemName = normalizeValue(item.itemName);
+    const newCategory = normalizeValue(item.category);
+    const newModel = normalizeValue(item.model);
+    const newBrand = normalizeValue(item.brand);
+    const newType = normalizeValue(item.type);
+    
+    // Check if an item with the same properties (including category) already exists
+    const existingItemIndex = items.findIndex(existingItem => {
+      const nameParts = existingItem.name ? existingItem.name.split(',') : [];
+      const existingItemName = normalizeValue(nameParts[0]);
+      const existingCategory = normalizeValue(nameParts[1] || existingItem.category || '');
+      const existingModel = normalizeValue(existingItem.model);
+      const existingBrand = normalizeValue(existingItem.brand);
+      const existingType = normalizeValue(existingItem.type);
+
+      // Match if all properties including category are the same
+      return (
+        existingItemName === newItemName &&
+        existingCategory === newCategory &&
+        existingModel === newModel &&
+        existingBrand === newBrand &&
+        existingType === newType
+      );
+    });
+
+    // Calculate what the final quantity would be (considering merge with existing item)
+    let finalQuantity = quantity;
+    if (existingItemIndex !== -1) {
+      const currentQuantity = items[existingItemIndex].quantity || 0;
+      finalQuantity = isIncremental ? currentQuantity + quantity : quantity;
+    }
+
     // Check stock availability for this item in the selected stocking location
     if (itemId !== null && itemId !== undefined) {
       try {
@@ -638,38 +672,18 @@ const Outgoing = ({ user }) => {
             alert(`Item "${item.itemName || 'this item'}" is not available in the selected Stocking Location "${outgoingData.stockingLocation}". Available stock: ${availableStock}`);
             return;
           }
+
+          // Check if final quantity exceeds available stock
+          if (finalQuantity > availableStock) {
+            alert(`Item "${item.itemName || 'this item'}" has only ${availableStock} qty available in the selected Stocking Location "${outgoingData.stockingLocation}". You requested ${finalQuantity} qty.`);
+            return;
+          }
         }
       } catch (error) {
         console.error('Error checking stock availability:', error);
         // Continue with adding item if API fails (don't block user)
       }
     }
-
-    // Normalize values for comparison
-    const normalizeValue = (val) => (val || '').toString().toLowerCase().trim();
-    const newItemName = normalizeValue(item.itemName);
-    const newCategory = normalizeValue(item.category);
-    const newModel = normalizeValue(item.model);
-    const newBrand = normalizeValue(item.brand);
-    const newType = normalizeValue(item.type);
-    // Check if an item with the same properties (including category) already exists
-    const existingItemIndex = items.findIndex(existingItem => {
-      const nameParts = existingItem.name ? existingItem.name.split(',') : [];
-      const existingItemName = normalizeValue(nameParts[0]);
-      const existingCategory = normalizeValue(nameParts[1] || existingItem.category || '');
-      const existingModel = normalizeValue(existingItem.model);
-      const existingBrand = normalizeValue(existingItem.brand);
-      const existingType = normalizeValue(existingItem.type);
-
-      // Match if all properties including category are the same
-      return (
-        existingItemName === newItemName &&
-        existingCategory === newCategory &&
-        existingModel === newModel &&
-        existingBrand === newBrand &&
-        existingType === newType
-      );
-    });
 
     if (existingItemIndex !== -1) {
       // Update existing item quantity (merge quantities)
@@ -724,14 +738,11 @@ const Outgoing = ({ user }) => {
       setSwipeStates(prev => {
         let hasChanges = false;
         const newState = { ...prev };
-
         items.forEach(item => {
           const state = prev[item.id];
           if (!state) return;
-
           const deltaX = e.clientX - state.startX;
           const isExpanded = expandedItemIdRef.current === item.id;
-
           // Only update if dragging horizontally
           if (deltaX < 0 || (isExpanded && deltaX > 0)) {
             newState[item.id] = {
@@ -1041,10 +1052,20 @@ const Outgoing = ({ user }) => {
                 }
               });
 
+              // Get requested quantity (use absolute value since quantity can be negative for dispatch)
+              const requestedQuantity = Math.abs(item.quantity || 0);
+
               // If item is not available (stock <= 0), show alert and prevent save
               if (availableStock <= 0) {
                 const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
                 alert(`Item "${itemName}" is not available in the selected Stocking Location "${outgoingData.stockingLocation}". Available stock: ${availableStock}`);
+                return;
+              }
+
+              // If requested quantity exceeds available stock, show alert and prevent save
+              if (requestedQuantity > availableStock) {
+                const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
+                alert(`Item "${itemName}" has only ${availableStock} qty available in the selected Stocking Location "${outgoingData.stockingLocation}". You requested ${requestedQuantity} qty.`);
                 return;
               }
             }

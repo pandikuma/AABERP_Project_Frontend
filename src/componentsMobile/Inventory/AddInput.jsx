@@ -1570,7 +1570,6 @@ const AddInput = () => {
           )}
         </button>
       </div>
-
       {/* otherPOEntityList Table - Show when itemName is selected */}
       {formData.itemName && otherPOEntityList.length > 0 && (
         <div className="px-4 pt-3">
@@ -1581,21 +1580,19 @@ const AddInput = () => {
             {/* Table Header */}
             <div className="bg-[#F5F5F5] flex items-center px-3 py-2 border-b border-[#E0E0E0]">
               <div className="w-[24px] text-[11px] font-semibold text-black">#</div>
-              <div className="flex-1 text-[11px] font-semibold text-black px-1">Model</div>
-              <div className="flex-1 text-[11px] font-semibold text-black px-1">Brand</div>
+              <div className="w-[120px] text-[11px] font-semibold text-black px-1">Model</div>
+              <div className="w-[60px] text-[11px] font-semibold text-black px-1">Brand</div>
               <div className="flex-1 text-[11px] font-semibold text-black px-1">Type</div>
             </div>
-
             {/* Table Rows - Scrollable */}
             <div
-              className="divide-y divide-[#E0E0E0] overflow-y-auto"
+              className="divide-y divide-[#E0E0E0] overflow-y-auto no-scrollbar scrollbar-none"
               style={{ maxHeight: 'calc(79vh - 420px)' }}
             >
               {otherPOEntityList.map((entity, index) => {
                 const isExpanded = expandedRowIndex === index;
                 const swipeState = swipeStates[index];
                 let swipeOffset = 0;
-
                 if (swipeState && swipeState.isSwiping) {
                   swipeOffset = Math.max(-110, Math.min(0, swipeState.currentX - swipeState.startX));
                 } else if (isExpanded) {
@@ -1603,7 +1600,6 @@ const AddInput = () => {
                 } else {
                   swipeOffset = 0;
                 }
-
                 return (
                   <div key={index} className="relative overflow-hidden">
                     {/* Row Content */}
@@ -1625,17 +1621,16 @@ const AddInput = () => {
                       }}
                     >
                       <div className="w-[24px] text-[12px] font-medium text-black">{index + 1}</div>
-                      <div className="flex-1 text-[12px] font-medium text-black truncate">
+                      <div className="w-[120px] text-[12px] font-medium text-black truncate">
                         {entity.modelName || ''}
                       </div>
-                      <div className="flex-1 text-[12px] font-medium text-black px-1 truncate">
+                      <div className="w-[60px] text-[12px] font-medium text-black px-1 truncate">
                         {entity.brandName || ''}
                       </div>
                       <div className="flex-1 text-[12px] font-medium text-black truncate">
                         {entity.typeColor || ''}
                       </div>
                     </div>
-
                     {/* Action Buttons - Behind the row on the right, revealed on swipe */}
                     <div
                       className="absolute right-0 top-0 flex gap-2  z-0"
@@ -1673,7 +1668,6 @@ const AddInput = () => {
           </div>
         </div>
       )}
-
       {/* Category Select Modal */}
       <SelectVendorModal
         isOpen={showCategoryModal}
