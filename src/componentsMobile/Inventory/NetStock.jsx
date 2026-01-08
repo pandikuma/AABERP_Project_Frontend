@@ -584,7 +584,7 @@ const NetStock = () => {
         </div>
       </div>
       {/* Product List */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4 scrollbar-hide no-scrollbar scrollbar-none">
+      <div className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-hide no-scrollbar scrollbar-none">
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <p className="text-[14px] text-gray-500">Loading...</p>
@@ -630,7 +630,7 @@ const NetStock = () => {
                     {/* Model */}
                     <div className="mb-1">
                       <p className="text-[13px] font-semibold text-black leading-tight">
-                         {item.model ? `- ${item.model}` : ''}
+                         {item.model ? `${item.model}` : ''}
                       </p>
                     </div>
 
