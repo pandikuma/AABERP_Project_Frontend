@@ -691,17 +691,8 @@ const Outgoing = ({ user }) => {
             }
           });
 
-          // Check if stock is available (must be > 0)
-          if (availableStock <= 0) {
-            alert(`Item "${item.itemName || 'this item'}" is not available in the selected Stocking Location "${outgoingData.stockingLocation}". Available stock: ${availableStock}`);
-            return;
-          }
-
-          // Check if final quantity exceeds available stock
-          if (finalQuantity > availableStock) {
-            alert(`Item "${item.itemName || 'this item'}" has only ${availableStock} qty available in the selected Stocking Location "${outgoingData.stockingLocation}". You requested ${finalQuantity} qty.`);
-            return;
-          }
+          // Do not block adding items here (including items with 0 available stock).
+          // Stock availability validation will be enforced when saving as 'dispatch'.
 
           // If multiple amounts exist, use the first one
           if (matchingAmounts.length > 0) {
@@ -1053,60 +1044,62 @@ const Outgoing = ({ user }) => {
 
       const stockingLocationId = stockingLocationSite.id;
 
-      // Validate that all items are available in the selected stocking location
-      try {
-        const inventoryResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
-        if (inventoryResponse.ok) {
-          const inventoryRecords = await inventoryResponse.json();
-          
-          // Filter records for the selected stocking location and active (not deleted)
-          const locationRecords = inventoryRecords.filter(record => {
-            const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
-            const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
-            return !recordDeleteStatus && String(recordStockingLocationId) === String(stockingLocationId);
-          });
+      // Validate that all items are available in the selected stocking location (only for 'dispatch')
+      if ((outgoingType || '').toLowerCase() === 'dispatch') {
+        try {
+          const inventoryResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
+          if (inventoryResponse.ok) {
+            const inventoryRecords = await inventoryResponse.json();
+            
+            // Filter records for the selected stocking location and active (not deleted)
+            const locationRecords = inventoryRecords.filter(record => {
+              const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
+              const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
+              return !recordDeleteStatus && String(recordStockingLocationId) === String(stockingLocationId);
+            });
 
-          // Check each item in the items array
-          for (const item of items) {
-            const itemId = item.itemId || null;
-            if (itemId !== null && itemId !== undefined) {
-              // Calculate available stock for this item in this location
-              let availableStock = 0;
-              locationRecords.forEach(record => {
-                const inventoryItems = record.inventoryItems || record.inventory_items || [];
-                if (Array.isArray(inventoryItems)) {
-                  inventoryItems.forEach(invItem => {
-                    const invItemId = invItem.item_id || invItem.itemId || null;
-                    if (String(invItemId) === String(itemId)) {
-                      const qty = Number(invItem.quantity) || 0;
-                      availableStock += qty;
-                    }
-                  });
+            // Check each item in the items array
+            for (const item of items) {
+              const itemId = item.itemId || null;
+              if (itemId !== null && itemId !== undefined) {
+                // Calculate available stock for this item in this location
+                let availableStock = 0;
+                locationRecords.forEach(record => {
+                  const inventoryItems = record.inventoryItems || record.inventory_items || [];
+                  if (Array.isArray(inventoryItems)) {
+                    inventoryItems.forEach(invItem => {
+                      const invItemId = invItem.item_id || invItem.itemId || null;
+                      if (String(invItemId) === String(itemId)) {
+                        const qty = Number(invItem.quantity) || 0;
+                        availableStock += qty;
+                      }
+                    });
+                  }
+                });
+
+                // Get requested quantity (use absolute value since quantity can be negative for dispatch)
+                const requestedQuantity = Math.abs(item.quantity || 0);
+
+                // If item is not available (stock <= 0), show alert and prevent save
+                if (availableStock <= 0) {
+                  const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
+                  alert(`Item "${itemName}" is not available in the selected Stocking Location "${outgoingData.stockingLocation}". Available stock: ${availableStock}`);
+                  return;
                 }
-              });
 
-              // Get requested quantity (use absolute value since quantity can be negative for dispatch)
-              const requestedQuantity = Math.abs(item.quantity || 0);
-
-              // If item is not available (stock <= 0), show alert and prevent save
-              if (availableStock <= 0) {
-                const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
-                alert(`Item "${itemName}" is not available in the selected Stocking Location "${outgoingData.stockingLocation}". Available stock: ${availableStock}`);
-                return;
-              }
-
-              // If requested quantity exceeds available stock, show alert and prevent save
-              if (requestedQuantity > availableStock) {
-                const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
-                alert(`Item "${itemName}" has only ${availableStock} qty available in the selected Stocking Location "${outgoingData.stockingLocation}". You requested ${requestedQuantity} qty.`);
-                return;
+                // If requested quantity exceeds available stock, show alert and prevent save
+                if (requestedQuantity > availableStock) {
+                  const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
+                  alert(`Item "${itemName}" has only ${availableStock} qty available in the selected Stocking Location "${outgoingData.stockingLocation}". You requested ${requestedQuantity} qty.`);
+                  return;
+                }
               }
             }
           }
+        } catch (error) {
+          console.error('Error validating item availability:', error);
+          // Continue with save if validation fails (don't block user)
         }
-      } catch (error) {
-        console.error('Error validating item availability:', error);
-        // Continue with save if validation fails (don't block user)
       }
 
       // Find project/client ID from outgoingSiteOptions
@@ -1334,7 +1327,7 @@ const Outgoing = ({ user }) => {
 
       {/* Form Fields - visible while you are selecting the three fields (before first + click) or when hideSummaryCard is true */}
       {(!hasOpenedAdd || hideSummaryCard) && (
-        <div className="flex-shrink-0 px-4 pt-4">
+        <div className="flex-shrink-0 px-4 pt-1">
           {/* Date in empty state */}
           {isEmptyState && (
             <div className="mb-4 border-b border-gray-200 pb-2">

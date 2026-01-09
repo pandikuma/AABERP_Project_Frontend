@@ -345,7 +345,8 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                 if (matches) {
                     // Check if item has available stock in the selected stocking location
                     // Only show items that have stock available
-                    const hasStock = checkItemAvailabilityInLocationHelper({
+                    // Include inventory-based items in results even if they currently have 0 stock in the selected location.
+                    results.push({
                         itemName,
                         category,
                         brand,
@@ -357,22 +358,6 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         modelId: item.modelId || null,
                         typeId: item.typeId || null,
                     });
-                    
-                    // Only add to results if item has stock available
-                    if (hasStock) {
-                        results.push({
-                            itemName,
-                            category,
-                            brand,
-                            model,
-                            type,
-                            itemId: item.itemId || null,
-                            categoryId: item.categoryId || null,
-                            brandId: item.brandId || null,
-                            modelId: item.modelId || null,
-                            typeId: item.typeId || null,
-                        });
-                    }
                 }
             }
 
@@ -444,6 +429,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         });
 
                         if (matches) {
+                            // Include entities even if they currently have 0 stock in the selected location.
                             results.push({
                                 itemName,
                                 brand,
@@ -547,7 +533,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             
             setSearchResults(uniqueResults);
             
-            // Clean up itemQuantities for array format results
+            // Clean up itemQuantities for array format results (preserve only positive existing quantities)
             setItemQuantities(prev => {
                 const cleaned = {};
                 const existingItemsMap = {};
@@ -681,31 +667,12 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         if (disableAvailabilityCheck) {
             return true;
         }
+        // Do not block actions based on availability here - allow selecting/adding items even if stock is 0.
         if (!stockingLocationId) {
-            return true; // If no location selected, allow (will be validated in parent)
+            return true; // If no location selected, allow (parent will validate if needed)
         }
-        
-        let itemKey;
-        if (useInventoryData) {
-            // For inventory-based search: use composite key
-            const itemName = (item.itemName || '').trim();
-            const category = (item.category || '').trim();
-            const brand = (item.brand || '').trim();
-            const model = (item.model || '').trim();
-            const type = (item.type || '').trim();
-            itemKey = `${itemName}_${category}_${brand}_${model}_${type}`;
-        } else {
-            // Original logic: use item_id
-            const itemId = item.itemId || item.item_id || null;
-            if (itemId === null || itemId === undefined) {
-                return false;
-            }
-            itemKey = String(itemId);
-        }
-        
-        const breakdown = stockBreakdown[itemKey] || {};
-        const locationStock = breakdown[String(stockingLocationId)] || 0;
-        return locationStock > 0;
+        // Always allow items to be acted upon regardless of stock
+        return true;
     };
 
     const handleQuantityInputChange = (itemId, value) => {
@@ -718,41 +685,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         if (!isNaN(numValue) && numValue >= 0) {
             // Find the item to check availability
             const item = searchResults.find(r => getItemKey(r) === itemId);
-            if (item && numValue > 0) {
-                // Check if item is available in selected stocking location
-                if (!checkItemAvailabilityInLocation(item)) {
-                    alert(`Item "${item.itemName || 'this item'}" is not available in the selected Stocking Location.`);
-                    // Reset to 0 or previous value
-                    const existingItem = existingItems.find(existing => {
-                        const existingKey = getItemKey(existing);
-                        return existingKey === itemId;
-                    });
-                    const currentQuantity = existingItem ? (existingItem.quantity || 0) : 0;
-                    setItemQuantities(prev => ({ ...prev, [itemId]: currentQuantity }));
-                    return;
-                }
-                
-                // For useInventoryData, check if quantity exceeds available stock
-                if (useInventoryData) {
-                    const availableQty = getAvailableQuantity(item);
-                    // Get current quantity from existingItems
-                    const existingItem = existingItems.find(existing => {
-                        const existingKey = getItemKey(existing);
-                        return existingKey === itemId;
-                    });
-                    const currentQuantity = existingItem ? (existingItem.quantity || 0) : 0;
-                    const requestedQuantity = numValue;
-                    
-                    // Check if requested quantity exceeds available stock
-                    if (requestedQuantity > availableQty) {
-                        alert(`Item "${item.itemName || 'this item'}" has only ${availableQty} qty available in the selected Stocking Location. You requested ${requestedQuantity} qty.`);
-                        // Reset to current quantity or available quantity, whichever is lower
-                        const maxAllowed = Math.min(currentQuantity, availableQty);
-                        setItemQuantities(prev => ({ ...prev, [itemId]: maxAllowed }));
-                        return;
-                    }
-                }
-            }
+
             setItemQuantities(prev => ({ ...prev, [itemId]: numValue }));
         }
     };
@@ -768,28 +701,6 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         
         if (quantity !== currentQuantity) {
             if (quantity > 0) {
-                // Check if item is available in selected stocking location
-                if (!checkItemAvailabilityInLocation(item)) {
-                    alert(`Item "${item.itemName || 'this item'}" is not available in the selected Stocking Location.`);
-                    // Reset to current quantity
-                    setItemQuantities(prev => ({ ...prev, [itemId]: currentQuantity }));
-                    setFocusedInputId(null);
-                    return;
-                }
-                
-                // For useInventoryData, check if quantity exceeds available stock
-                if (useInventoryData) {
-                    const availableQty = getAvailableQuantity(item);
-                    if (quantity > availableQty) {
-                        alert(`Item "${item.itemName || 'this item'}" has only ${availableQty} qty available in the selected Stocking Location. You requested ${quantity} qty.`);
-                        // Reset to current quantity or available quantity, whichever is lower
-                        const maxAllowed = Math.min(currentQuantity, availableQty);
-                        setItemQuantities(prev => ({ ...prev, [itemId]: maxAllowed }));
-                        setFocusedInputId(null);
-                        return;
-                    }
-                }
-                
                 // Calculate the difference to add/subtract
                 const difference = quantity - currentQuantity;
                 // Update quantity (incremental add/subtract)
@@ -1067,33 +978,13 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         if (disableAvailabilityCheck) {
             return true;
         }
+        // Do not block items based on availability here - show 0 qty items as well.
+        // If no stocking location selected, allow results (parent will validate if needed)
         if (!stockingLocationId) {
-            return false; // If no location selected and useInventoryData is true, don't show items
+            return true;
         }
-        
-        if (useInventoryData) {
-            // For inventory-based search: use composite key
-            const itemName = (item.itemName || '').trim();
-            const category = (item.category || '').trim();
-            const brand = (item.brand || '').trim();
-            const model = (item.model || '').trim();
-            const type = (item.type || '').trim();
-            const compositeKey = `${itemName}_${category}_${brand}_${model}_${type}`;
-            
-            const breakdown = stockBreakdown[compositeKey] || {};
-            const locationStock = breakdown[String(stockingLocationId)] || 0;
-            return locationStock > 0;
-        } else {
-            // Original logic: use item_id
-            const itemId = item.itemId || item.item_id || null;
-            if (itemId === null || itemId === undefined) {
-                return false;
-            }
-            const itemKey = String(itemId);
-            const breakdown = stockBreakdown[itemKey] || {};
-            const locationStock = breakdown[String(stockingLocationId)] || 0;
-            return locationStock > 0;
-        }
+        // Always allow items to be shown regardless of stock levels (we still expose available quantity to the user)
+        return true;
     };
 
     // Get available quantity from calculated stock
@@ -1315,14 +1206,14 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                                             {highlightText(item.model, debouncedSearchQuery)}
                                                         </p>
                                                     )}
-                                                    {availableQty > 0 && (
-                                                        <span 
-                                                            onClick={() => handleQuantityClick(item)}
-                                                            className="text-[11px] font-medium text-[#777777] mb-1 ml-auto cursor-pointer hover:text-black underline"
-                                                        >
-                                                            {availableQty}pcs
-                                                        </span>
-                                                    )}
+                                                    <span 
+                                                        onClick={() => { if (availableQty > 0) handleQuantityClick(item); }}
+                                                        className={
+                                                            `text-[11px] font-medium ${availableQty > 0 ? 'text-[#777777] cursor-pointer hover:text-black underline mb-1 ml-auto' : 'text-[#9E9E9E] mb-1 ml-auto'}`
+                                                        }
+                                                    >
+                                                        {availableQty}pcs
+                                                    </span>
                                                 </div>
                                             </div>
                                             {/* Right Side: Category, Available Quantity, Quantity Selector */}
@@ -1396,26 +1287,13 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                                     />
                                                     <button
                                                         onClick={() => {
-                                                            // Check if item is available in selected stocking location
-                                                            if (!checkItemAvailabilityInLocation(item)) {
-                                                                alert(`Item "${item.itemName || 'this item'}" is not available in the selected Stocking Location.`);
-                                                                return;
-                                                            }
                                                             // Get current quantity from existingItems (source of truth)
                                                             const existingItem = existingItems.find(existing => {
                                                                 const existingKey = getItemKey(existing);
                                                                 return existingKey === itemId;
                                                             });
                                                             const current = existingItem ? (existingItem.quantity || 0) : (itemQuantities[itemId] || 0);
-                                                            const newQuantity = current + 1;                                                            
-                                                            // For useInventoryData, check if new quantity exceeds available stock
-                                                            if (useInventoryData) {
-                                                                const availableQty = getAvailableQuantity(item);
-                                                                if (newQuantity > availableQty) {
-                                                                    alert(`Item "${item.itemName || 'this item'}" has only ${availableQty} qty available in the selected Stocking Location.`);
-                                                                    return;
-                                                                }
-                                                            }                                                            
+                                                            const newQuantity = current + 1;
                                                             // Update quantity optimistically for immediate UI feedback
                                                             setItemQuantities(prev => ({ ...prev, [itemId]: newQuantity }));
                                                             // Add 1 item immediately (incremental add) - this updates parent state

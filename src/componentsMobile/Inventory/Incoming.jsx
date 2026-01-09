@@ -1250,7 +1250,7 @@ const Incoming = ({ user }) => {
       )}
       {/* Form Fields - visible while you are selecting the fields (before first + click) */}
       {!showAddItems && !hasOpenedAdd && (
-        <div className="flex-shrink-0 px-4 pt-4">
+        <div className="flex-shrink-0 px-4 pt-2">
           {/* Date in empty state */}
           {isEmptyState && (
             <div className="mb-4 border-b border-gray-200 pb-2">

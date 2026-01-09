@@ -437,7 +437,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
           setIsEditFromHistory(true); // Edit should show "Update PO"
           setHasOpenedAdd(po.items && po.items.length > 0);
         }
-        
+
         setIsPdfGenerated(false);
         setPdfBlob(null);
         // Switch to create tab
@@ -541,7 +541,6 @@ const PurchaseOrder = ({ user, onLogout }) => {
             }
           }
         }
-
         // Process items similar to editPO handler
         const itemsWithIds = (po.items || []).map((item, index) => {
           const rawItemId = item.itemId || item.item_id || item.itemId || null;
@@ -549,17 +548,14 @@ const PurchaseOrder = ({ user, onLogout }) => {
           let itemName = item.name || item.itemName || '';
           let category = '';
           const existingCategoryId = item.categoryId || item.category_id || null;
-
           if (itemName && rawItemId && normalize(itemName) === String(rawItemId)) {
             itemName = '';
           }
-
           if (itemName && itemName.includes(',')) {
             const parts = itemName.split(',');
             itemName = parts[0].trim();
             category = parts[1] ? parts[1].trim() : '';
           }
-
           if (!itemName && rawItemId && poItemName && poItemName.length > 0) {
             itemName = findNameById(poItemName, rawItemId, 'itemName') ||
               findNameById(poItemName, rawItemId, 'name') || '';
@@ -1312,7 +1308,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
       setItems([...items, newItem]);
     }
     if (items.length === 0 && !poData.poNumber) {
-      setPoData({ ...poData, poNumber: '#312' });
+      setPoData({ ...poData, poNumber: '#' });
     }
     setHasOpenedAdd(true);
   };
@@ -1347,11 +1343,11 @@ const PurchaseOrder = ({ user, onLogout }) => {
     }
     previousVendorName.current = poData.vendorName;
   }, [poData.vendorName, isEditMode]);
-  
+
   // Load selected items from NetStock page
   useEffect(() => {
     if (hasLoadedNetStockItems.current) return; // Only run once
-    
+
     const netStockItems = localStorage.getItem('netStockSelectedItems');
     if (netStockItems && items.length === 0 && !isEditMode && !isViewOnlyFromHistory) {
       try {
@@ -1359,7 +1355,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
         if (Array.isArray(selectedItems) && selectedItems.length > 0) {
           // Normalize function for comparison
           const normalizeValue = (val) => (val || '').toString().toLowerCase().trim();
-          
+
           // Process each item and add to items array
           const newItems = [];
           selectedItems.forEach((itemData) => {
@@ -1370,7 +1366,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
             const newType = normalizeValue(itemData.type);
             // Ensure quantity is a number
             const newQuantity = Number(itemData.quantity) || 1;
-            
+
             // Check if item already exists in newItems array
             const existingItemIndex = newItems.findIndex(item => {
               const itemNameParts = item.name ? item.name.split(',') : [];
@@ -1387,7 +1383,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 existingType === newType
               );
             });
-            
+
             if (existingItemIndex !== -1) {
               // Merge with existing item - preserve IDs and add quantities
               const existingItem = newItems[existingItemIndex];
@@ -1421,18 +1417,18 @@ const PurchaseOrder = ({ user, onLogout }) => {
               });
             }
           });
-          
+
           if (newItems.length > 0) {
             setItems(newItems);
             if (!poData.poNumber) {
-              setPoData({ ...poData, poNumber: '#312' });
+              setPoData({ ...poData, poNumber: '#' });
             }
             setHasOpenedAdd(true);
             // Ensure we're on the create tab to show the items
             setActiveTab('create');
             localStorage.setItem('activeTab', 'create');
           }
-          
+
           // Clear the stored items after adding
           localStorage.removeItem('netStockSelectedItems');
           hasLoadedNetStockItems.current = true;
@@ -1447,7 +1443,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
       hasLoadedNetStockItems.current = true;
     }
   }, [items.length, isEditMode, isViewOnlyFromHistory]); // Run when items array is empty
-  
+
   const handleAddItem = (itemData) => {
     if (editingItem) {
       const updatedItems = items.map(item =>
@@ -1530,7 +1526,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
       }
     }
     if (items.length === 0 && !poData.poNumber) {
-      setPoData({ ...poData, poNumber: '#312' });
+      setPoData({ ...poData, poNumber: '#' });
     }
   };
   const handleDeleteItem = (itemId) => {
@@ -1844,30 +1840,30 @@ const PurchaseOrder = ({ user, onLogout }) => {
         { content: `${totalAmount}`, styles: { fontStyle: "bold", halign: "center" } }
       ]);
     }
-    const tableHeaders = isRajaganapathyVendor 
+    const tableHeaders = isRajaganapathyVendor
       ? [["SNO", "BRAND", "ITEM NAME", "MODEL", "TYPE", "QTY", "PRICE"]]
       : [["SNO", "ITEM NAME", "CATEGORY", "MODEL", "BRAND", "TYPE", "QTY", "PRICE"]];
-    
+
     const columnStylesConfig = isRajaganapathyVendor
       ? {
-          0: { cellWidth: 12 }, // SNO
-          1: { cellWidth: 25 }, // BRAND
-          2: { cellWidth: 75 }, // ITEM NAME
-          3: { cellWidth: 28 }, // MODEL
-          4: { cellWidth: 20 }, // TYPE
-          5: { cellWidth: 13 }, // QTY
-          6: { cellWidth: 17 }  // PRICE
-        }
+        0: { cellWidth: 12 }, // SNO
+        1: { cellWidth: 25 }, // BRAND
+        2: { cellWidth: 75 }, // ITEM NAME
+        3: { cellWidth: 28 }, // MODEL
+        4: { cellWidth: 20 }, // TYPE
+        5: { cellWidth: 13 }, // QTY
+        6: { cellWidth: 17 }  // PRICE
+      }
       : {
-          0: { cellWidth: 12 }, // SNO
-          1: { cellWidth: 50 }, // ITEM NAME
-          2: { cellWidth: 30 }, // CATEGORY
-          3: { cellWidth: 28 }, // MODEL
-          4: { cellWidth: 20 }, // BRAND
-          5: { cellWidth: 20 }, // TYPE
-          6: { cellWidth: 13 }, // QTY
-          7: { cellWidth: 17 }  // PRICE
-        };
+        0: { cellWidth: 12 }, // SNO
+        1: { cellWidth: 50 }, // ITEM NAME
+        2: { cellWidth: 30 }, // CATEGORY
+        3: { cellWidth: 28 }, // MODEL
+        4: { cellWidth: 20 }, // BRAND
+        5: { cellWidth: 20 }, // TYPE
+        6: { cellWidth: 13 }, // QTY
+        7: { cellWidth: 17 }  // PRICE
+      };
 
     autoTable(doc, {
       startY: 52,

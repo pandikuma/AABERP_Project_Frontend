@@ -484,7 +484,7 @@ const NetStock = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date Row */}
-      <div className="flex-shrink-0 px-4 pt-2 pb-1 border-b border-gray-100">
+      <div className="flex-shrink-0 px-4 pt-2 pb-1.5 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -515,10 +515,10 @@ const NetStock = () => {
                       categoryId: item.categoryId || null
                     }))
                     .filter(item => item.itemId !== null && item.itemId !== undefined); // Only include items with valid itemId
-                  
+
                   // Store in localStorage
                   localStorage.setItem('netStockSelectedItems', JSON.stringify(selectedItemsData));
-                  
+
                   // Navigate to PurchaseOrder page
                   navigate('/purchaseorder');
                 }}
@@ -531,7 +531,7 @@ const NetStock = () => {
         </div>
       </div>
       {/* Filters Section */}
-      <div className="flex-shrink-0 px-4 pt-4 mb-2">
+      <div className="flex-shrink-0 px-4 pt-2 mb-2">
         <div className="flex justify-end">
           <button
             type="button"
@@ -633,26 +633,47 @@ const NetStock = () => {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[12px] font-medium text-black">Select all</span>
-            <button
-              type="button"
-              onClick={() => {
-                if (selectAll) {
-                  setSelectedCards([]);
-                  setSelectAll(false);
-                } else {
-                  setSelectedCards(filteredData.map(item => item.id));
-                  setSelectAll(true);
-                }
-              }}
-              className={`relative w-10 h-6 rounded-full transition-colors ${selectAll ? 'bg-[#007233]' : 'bg-gray-300'
-                }`}
-            >
-              <div
-                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${selectAll ? 'translate-x-4' : 'translate-x-0.5'
-                  }`}
+            <label className="flex items-center gap-1 cursor-pointer">
+              {/* Hidden native checkbox */}
+              <input
+                type="checkbox"
+                checked={selectAll}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setSelectAll(checked);
+
+                  if (checked) {
+                    setSelectedCards(filteredData.map(item => item.id));
+                  } else {
+                    setSelectedCards([]);
+                  }
+                }}
+                className="hidden"
               />
-            </button>
+
+              {/* Custom checkbox */}
+              <div
+                className={`w-4 h-4 rounded border flex items-center justify-center
+        ${selectAll ? 'bg-[#007233] border-[#007233]' : 'bg-gray-300'}
+      `}
+              >
+                {selectAll && (
+                  <svg
+                    className="w-3 h-3 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+
+              <span className="text-[12px] font-medium">
+                Select all
+              </span>
+            </label>
           </div>
         </div>
       </div>
