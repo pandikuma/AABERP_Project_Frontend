@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 const NetStock = () => {
+  const navigate = useNavigate();
   // Helper function for date
   const getTodayDate = () => {
     const today = new Date();
@@ -28,6 +30,8 @@ const NetStock = () => {
   const [poBrand, setPoBrand] = useState([]);
   const [poModel, setPoModel] = useState([]);
   const [poType, setPoType] = useState([]);
+  const [selectedCards, setSelectedCards] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
   // Fetch category options
   useEffect(() => {
     const fetchCategories = async () => {
@@ -426,6 +430,14 @@ const NetStock = () => {
     }
     setFilteredData(filtered);
   }, [selectedCategory, searchQuery, netStockData, categoryOptions]);
+  // Sync selectAll state with selectedCards
+  useEffect(() => {
+    if (filteredData.length > 0) {
+      setSelectAll(selectedCards.length === filteredData.length && filteredData.length > 0);
+    } else {
+      setSelectAll(false);
+    }
+  }, [selectedCards, filteredData]);
   const handleDateConfirm = (date) => {
     setSelectedDate(date);
     setShowDatePicker(false);
@@ -471,7 +483,7 @@ const NetStock = () => {
   };
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
-      {/* Date and Export PDF Row */}
+      {/* Date Row */}
       <div className="flex-shrink-0 px-4 pt-2 pb-1 border-b border-gray-100">
         <div className="flex items-center justify-between">
           <button
@@ -481,17 +493,54 @@ const NetStock = () => {
           >
             {selectedDate}
           </button>
-          <button
-            type="button"
-            onClick={handleExportPDF}
-            className="text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
-          >
-            Export PDF
-          </button>
+          <div className="flex items-center gap-3">
+            {selectedCards.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  // Get selected items data with all required IDs for PO generation
+                  const selectedItemsData = filteredData
+                    .filter(item => selectedCards.includes(item.id))
+                    .map(item => ({
+                      itemName: item.itemName || '',
+                      category: item.category || '',
+                      model: item.model || '',
+                      brand: item.brand || '',
+                      type: item.type || '',
+                      quantity: String(item.defaultQty || item.minQty || 1),
+                      itemId: item.itemId || null,
+                      brandId: item.brandId || null,
+                      modelId: item.modelId || null,
+                      typeId: item.typeId || null,
+                      categoryId: item.categoryId || null
+                    }))
+                    .filter(item => item.itemId !== null && item.itemId !== undefined); // Only include items with valid itemId
+                  
+                  // Store in localStorage
+                  localStorage.setItem('netStockSelectedItems', JSON.stringify(selectedItemsData));
+                  
+                  // Navigate to PurchaseOrder page
+                  navigate('/purchaseorder');
+                }}
+                className="text-[13px] font-medium text-black leading-normal"
+              >
+                Add to PO
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {/* Filters Section */}
       <div className="flex-shrink-0 px-4 pt-4 mb-2">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="text-[13px] font-medium text-black leading-normal"
+          >
+            Export PDF
+          </button>
+        </div>
         {/* Category Filter */}
         <div className="mb-2">
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -567,20 +616,44 @@ const NetStock = () => {
           </div>
         </div>
         {/* Search Bar */}
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="5.5" stroke="#747474" strokeWidth="1.5" />
-              <path d="M11 11L14 14" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="7" cy="7" r="5.5" stroke="#747474" strokeWidth="1.5" />
+                <path d="M11 11L14 14" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              placeholder="Search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-[40px] border border-[rgba(0,0,0,0.16)] rounded-full pl-10 pr-3 text-[12px] font-medium bg-white"
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-[40px] border border-[rgba(0,0,0,0.16)] rounded-full pl-10 pr-3 text-[12px] font-medium bg-white"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-medium text-black">Select all</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (selectAll) {
+                  setSelectedCards([]);
+                  setSelectAll(false);
+                } else {
+                  setSelectedCards(filteredData.map(item => item.id));
+                  setSelectAll(true);
+                }
+              }}
+              className={`relative w-10 h-6 rounded-full transition-colors ${selectAll ? 'bg-[#007233]' : 'bg-gray-300'
+                }`}
+            >
+              <div
+                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${selectAll ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+              />
+            </button>
+          </div>
         </div>
       </div>
       {/* Product List */}
@@ -595,67 +668,93 @@ const NetStock = () => {
           </div>
         ) : (
           <div className=" shadow-md mt-2">
-            {filteredData.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white border border-gray-200 rounded-[8px] p-3 shadow-sm"
-              >
-                <div className="flex items-start justify-between">
-                  {/* Left side: Item details */}
-                  <div className="flex-1">
-                    {/* Item ID and Favorite */}
-                    <div className="flex items-center gap-1 mb-1">
-                      {item.isFavorite && (
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M6 1L7.545 4.13L11 4.635L8.5 7.07L9.09 10.5L6 8.885L2.91 10.5L3.5 7.07L1 4.635L4.455 4.13L6 1Z" fill="#EF4444" />
-                        </svg>
-                      )}
+            {filteredData.map((item) => {
+              const isSelected = selectedCards.includes(item.id);
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    if (isSelected) {
+                      setSelectedCards(selectedCards.filter(id => id !== item.id));
+                      if (selectedCards.length === filteredData.length) {
+                        setSelectAll(false);
+                      }
+                    } else {
+                      setSelectedCards([...selectedCards, item.id]);
+                      if (selectedCards.length + 1 === filteredData.length) {
+                        setSelectAll(true);
+                      }
+                    }
+                  }}
+                  className={`bg-white border rounded-[8px] p-3 shadow-sm cursor-pointer relative ${isSelected ? 'border-[#007233]' : 'border-gray-200'
+                    }`}
+                  style={isSelected ? { borderWidth: '1px', borderColor: '#007233' } : {}}
+                >
+                  {/* Checkmark icon for selected cards */}
+                  {isSelected && (
+                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-[#007233] rounded-full flex items-center justify-center">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M11.6667 3.5L5.25 10.5L2.33334 7.58333" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     </div>
+                  )}
+                  <div className="flex items-start justify-between">
+                    {/* Left side: Item details */}
+                    <div className="flex-1">
+                      {/* Item ID and Favorite */}
+                      <div className="flex items-center gap-1 mb-1">
+                        {item.isFavorite && (
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 1L7.545 4.13L11 4.635L8.5 7.07L9.09 10.5L6 8.885L2.91 10.5L3.5 7.07L1 4.635L4.455 4.13L6 1Z" fill="#EF4444" />
+                          </svg>
+                        )}
+                      </div>
 
-                    {/* Item Name */}
-                    <div className="mb-1 flex items-center justify-between">
-                      <p className="text-[13px] font-semibold text-black leading-tight">
-                        {item.itemName}
-                      </p>
-                      {item.status === 'Place Order' ? (
-                        <button className="bg-[#007233] text-white text-[11px] font-medium px-3  rounded-[4px]">
-                          Place Order
-                        </button>
-                      ) : (
-                        <div className="bg-[#f7f1c9] text-[#BF9853] text-[11px] font-medium px-3  rounded-[15px] ">
-                          Available
-                        </div>
-                      )}
-                    </div>
-                    {/* Model */}
-                    <div className="mb-1">
-                      <p className="text-[13px] font-semibold text-black leading-tight">
-                         {item.model ? `${item.model}` : ''}
-                      </p>
-                    </div>
+                      {/* Item Name */}
+                      <div className="mb-1 flex items-center justify-between">
+                        <p className="text-[13px] font-semibold text-black leading-tight">
+                          {item.itemName}
+                        </p>
+                        {item.status === 'Place Order' ? (
+                          <button className="bg-[#007233] text-white text-[11px] font-medium px-3  rounded-[4px]">
+                            Place Order
+                          </button>
+                        ) : (
+                          <div className="bg-[#f7f1c9] text-[#BF9853] text-[11px] font-medium px-3  rounded-[15px] ">
+                            Available
+                          </div>
+                        )}
+                      </div>
+                      {/* Model */}
+                      <div className="mb-1">
+                        <p className="text-[13px] font-semibold text-black leading-tight">
+                          {item.model ? `${item.model}` : ''}
+                        </p>
+                      </div>
 
-                    {/* Brand and Type */}
-                    <div className="mb-1 flex items-center justify-between">
-                      <p className="text-[12px] font-medium text-[#616161]">
-                        {item.brand && item.type ? `${item.brand}, ${item.type}` : item.brand || item.type || ''}
-                      </p>
-                      <p className="text-[11px] font-medium text-[#E4572E] pl-3">
-                        Net Stock : {String(item.netStock).padStart(2, '0')}
-                      </p>
+                      {/* Brand and Type */}
+                      <div className="mb-1 flex items-center justify-between">
+                        <p className="text-[12px] font-medium text-[#616161]">
+                          {item.brand && item.type ? `${item.brand}, ${item.type}` : item.brand || item.type || ''}
+                        </p>
+                        <p className="text-[11px] font-medium text-[#E4572E] pl-3">
+                          Net Stock : {String(item.netStock).padStart(2, '0')}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                  {/* Default Qty and Min Qty - Same horizontal line */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-medium text-[#BF9853]">
+                      Default Qty : {item.defaultQty || 'N/A'}
+                    </p>
+                    <p className="text-[11px] font-medium text-[#007233] text-right">
+                      Min Qty : {item.minQty || 'N/A'}
+                    </p>
+                  </div>
                 </div>
-                {/* Default Qty and Min Qty - Same horizontal line */}
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-medium text-[#BF9853]">
-                    Default Qty : {item.defaultQty || 'N/A'}
-                  </p>
-                  <p className="text-[11px] font-medium text-[#007233] text-right">
-                    Min Qty : {item.minQty || 'N/A'}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

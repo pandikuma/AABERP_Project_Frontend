@@ -577,12 +577,10 @@ const ProjectUsageReport = () => {
         return hasChanges ? newState : prev;
       });
     };
-
     const globalMouseUpHandler = () => {
       setSwipeStates(prev => {
         let hasChanges = false;
         const newState = { ...prev };
-
         filteredData.forEach(item => {
           const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${item.projectId}`;
           const state = prev[itemId];
@@ -607,28 +605,23 @@ const ProjectUsageReport = () => {
           delete newState[itemId];
           hasChanges = true;
         });
-
         return hasChanges ? newState : prev;
       });
     };
-
     // Add global mouse event listeners
     document.addEventListener('mousemove', globalMouseMoveHandler);
     document.addEventListener('mouseup', globalMouseUpHandler);
-
     return () => {
       document.removeEventListener('mousemove', globalMouseMoveHandler);
       document.removeEventListener('mouseup', globalMouseUpHandler);
     };
   }, [filteredData]);
-
   // Handle edit
   const handleEdit = (item) => {
     // TODO: Implement edit functionality
     console.log('Edit item:', item);
     setExpandedItemId(null);
   };
-
   // Handle delete
   const handleDelete = (item) => {
     // TODO: Implement delete functionality
@@ -637,7 +630,6 @@ const ProjectUsageReport = () => {
       setExpandedItemId(null);
     }
   };
-
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date Row */}
@@ -650,7 +642,6 @@ const ProjectUsageReport = () => {
           {date}
         </button>
       </div>
-
       {/* Report/History Tabs */}
       <div className="flex-shrink-0 px-4 pt-2">
         <div className="flex bg-gray-100 items-center h-9 shadow-sm flex-1 rounded-md">
@@ -676,7 +667,6 @@ const ProjectUsageReport = () => {
           </button>
         </div>
       </div>
-
       {/* Filters Section */}
       <div className="flex-shrink-0 px-4 pt-4 mb-2">
         {/* Project Name Filter */}
@@ -716,7 +706,6 @@ const ProjectUsageReport = () => {
             )}
           </div>
         </div>
-
         {/* Category Filter */}
         <div className="mb-4">
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -754,7 +743,6 @@ const ProjectUsageReport = () => {
             )}
           </div>
         </div>
-
         {/* Search Bar */}
         <div className="relative">
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
@@ -772,7 +760,6 @@ const ProjectUsageReport = () => {
           />
         </div>
       </div>
-
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 scrollbar-hide no-scrollbar scrollbar-none">
         {activeTab === 'report' ? (
@@ -795,10 +782,8 @@ const ProjectUsageReport = () => {
                 const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${item.projectId}-${index}`;
                 const isExpanded = expandedItemId === itemId;
                 const swipeState = swipeStates[itemId];
-
                 // Width of the combined action buttons (2 * 40px + gap)
                 const buttonWidth = 96;
-
                 // Calculate swipe offset for smooth animation
                 const swipeOffset =
                   swipeState && swipeState.isSwiping
@@ -806,7 +791,6 @@ const ProjectUsageReport = () => {
                     : isExpanded
                       ? -buttonWidth
                       : 0;
-
                 // Format project/incharge display
                 const projectIncharge = item.projectName || '';
                 // Format details: ID, Brand, Type (matching image format)
@@ -815,7 +799,6 @@ const ProjectUsageReport = () => {
                 if (item.brand) detailsParts.push(item.brand);
                 if (item.type) detailsParts.push(item.type);
                 const details = detailsParts.join(', ');
-
                 return (
                   <div key={itemId} className="relative overflow-hidden">
                     {/* Card */}
@@ -1009,7 +992,7 @@ const ProjectUsageReport = () => {
 
                           {/* Model */}
                           <p className="text-[12px] font-medium text-gray-600 mb-1">
-                            {item.itemId || item.model || ''}
+                            {item.model || ''}
                           </p>
 
                           {/* Brand and Type */}
@@ -1097,7 +1080,6 @@ const ProjectUsageReport = () => {
           )
         )}
       </div>
-
       {/* Modals */}
       <DatePickerModal
         isOpen={showDatePicker}

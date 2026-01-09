@@ -75,6 +75,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   const expandedItemIdRef = useRef(expandedItemId); // ref to track current expandedItemId for event handlers
   const previousVendorName = useRef(poData.vendorName); // Track previous vendor name
   const previousVendorId = useRef(null); // Track previous vendor ID to detect actual changes
+  const hasLoadedNetStockItems = useRef(false); // Track if NetStock items have been loaded
   const [isPdfGenerated, setIsPdfGenerated] = useState(false); // track if PDF has been generated
   const [pdfBlob, setPdfBlob] = useState(null); // store generated PDF blob
   const [isGenerating, setIsGenerating] = useState(false); // track if PO is being generated
@@ -756,6 +757,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
     setExpandedItemId(null);
     setSwipeStates({});
     previousVendorId.current = null; // Reset previous vendor ID tracking
+    hasLoadedNetStockItems.current = false; // Reset to allow loading NetStock items
   }, []);
 
   // Get available items function - returns the actual API data structure
@@ -1345,6 +1347,107 @@ const PurchaseOrder = ({ user, onLogout }) => {
     }
     previousVendorName.current = poData.vendorName;
   }, [poData.vendorName, isEditMode]);
+  
+  // Load selected items from NetStock page
+  useEffect(() => {
+    if (hasLoadedNetStockItems.current) return; // Only run once
+    
+    const netStockItems = localStorage.getItem('netStockSelectedItems');
+    if (netStockItems && items.length === 0 && !isEditMode && !isViewOnlyFromHistory) {
+      try {
+        const selectedItems = JSON.parse(netStockItems);
+        if (Array.isArray(selectedItems) && selectedItems.length > 0) {
+          // Normalize function for comparison
+          const normalizeValue = (val) => (val || '').toString().toLowerCase().trim();
+          
+          // Process each item and add to items array
+          const newItems = [];
+          selectedItems.forEach((itemData) => {
+            const newItemName = normalizeValue(itemData.itemName);
+            const newCategory = normalizeValue(itemData.category);
+            const newModel = normalizeValue(itemData.model);
+            const newBrand = normalizeValue(itemData.brand);
+            const newType = normalizeValue(itemData.type);
+            // Ensure quantity is a number
+            const newQuantity = Number(itemData.quantity) || 1;
+            
+            // Check if item already exists in newItems array
+            const existingItemIndex = newItems.findIndex(item => {
+              const itemNameParts = item.name ? item.name.split(',') : [];
+              const existingItemName = normalizeValue(itemNameParts[0]);
+              const existingCategory = normalizeValue(itemNameParts[1] || item.category || '');
+              const existingModel = normalizeValue(item.model);
+              const existingBrand = normalizeValue(item.brand);
+              const existingType = normalizeValue(item.type);
+              return (
+                existingItemName === newItemName &&
+                existingCategory === newCategory &&
+                existingModel === newModel &&
+                existingBrand === newBrand &&
+                existingType === newType
+              );
+            });
+            
+            if (existingItemIndex !== -1) {
+              // Merge with existing item - preserve IDs and add quantities
+              const existingItem = newItems[existingItemIndex];
+              newItems[existingItemIndex] = {
+                ...existingItem,
+                quantity: existingItem.quantity + newQuantity,
+                // Preserve IDs from the new item if existing item doesn't have them
+                itemId: existingItem.itemId || itemData.itemId || null,
+                brandId: existingItem.brandId || itemData.brandId || null,
+                modelId: existingItem.modelId || itemData.modelId || null,
+                typeId: existingItem.typeId || itemData.typeId || null,
+                categoryId: existingItem.categoryId || itemData.categoryId || resolveCategoryId(itemData.category) || null,
+              };
+            } else {
+              // Add new item with all required IDs for PO generation
+              const newItemId = newItems.length > 0 ? Math.max(...newItems.map(i => i.id)) + 1 : 1;
+              newItems.push({
+                id: newItemId,
+                name: `${itemData.itemName}, ${itemData.category}`,
+                brand: itemData.brand || '',
+                model: itemData.model || '',
+                type: itemData.type || '',
+                category: itemData.category || '',
+                quantity: newQuantity,
+                // Ensure all IDs are properly set for PO generation
+                itemId: itemData.itemId || null,
+                brandId: itemData.brandId || null,
+                modelId: itemData.modelId || null,
+                typeId: itemData.typeId || null,
+                categoryId: itemData.categoryId || resolveCategoryId(itemData.category) || null,
+              });
+            }
+          });
+          
+          if (newItems.length > 0) {
+            setItems(newItems);
+            if (!poData.poNumber) {
+              setPoData({ ...poData, poNumber: '#312' });
+            }
+            setHasOpenedAdd(true);
+            // Ensure we're on the create tab to show the items
+            setActiveTab('create');
+            localStorage.setItem('activeTab', 'create');
+          }
+          
+          // Clear the stored items after adding
+          localStorage.removeItem('netStockSelectedItems');
+          hasLoadedNetStockItems.current = true;
+        }
+      } catch (error) {
+        console.error('Error loading NetStock items:', error);
+        localStorage.removeItem('netStockSelectedItems');
+        hasLoadedNetStockItems.current = true;
+      }
+    } else if (!netStockItems) {
+      // If no NetStock items, mark as loaded to prevent future checks
+      hasLoadedNetStockItems.current = true;
+    }
+  }, [items.length, isEditMode, isViewOnlyFromHistory]); // Run when items array is empty
+  
   const handleAddItem = (itemData) => {
     if (editingItem) {
       const updatedItems = items.map(item =>
@@ -1901,6 +2004,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
     setSwipeStates({});
     setSelectedCategory('');
     previousVendorId.current = null;
+    hasLoadedNetStockItems.current = false; // Reset to allow loading NetStock items again
   };
   const shareViaWhatsApp = () => {
     if (pdfBlob) {
@@ -2060,26 +2164,9 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 </div>
               </div>
             )}
-            {/* Input Fields - visible while you are selecting the three fields (before first + click) */}
-            {!showAddItems && !hasOpenedAdd && (
+            {/* Input Fields - visible while you are selecting the three fields (before first + click) or when items exist from NetStock */}
+            {(!showAddItems && !hasOpenedAdd) || (items.length > 0 && hasOpenedAdd && (!poData.vendorName || !poData.projectName || !poData.projectIncharge)) ? (
               <div className="flex-shrink-0 px-4 pt-4">
-                {/* Date and PO Number in empty state (matches design) */}
-                {isEmptyState && (
-                  <div className="mb-4 border-b border-gray-200 pb-2">
-                    <div className="flex items-center gap-2">
-                      {poData.poNumber && (
-                        <p className="text-[12px] font-medium text-black leading-normal">{poData.poNumber}</p>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setShowDatePicker(true)}
-                        className="text-[12px] font-medium text-[#616161] leading-normal underline-offset-2 hover:underline"
-                      >
-                        {poData.date}
-                      </button>
-                    </div>
-                  </div>
-                )}
                 {/* Vendor Name Field */}
                 <div className="mb-4 relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -2192,7 +2279,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
             {/* Summary details card - show after first + click (both under popup and after closing it) */}
             {hasOpenedAdd && !isEmptyState && (poData.vendorName || poData.projectName || poData.projectIncharge) && (
               <div className="flex-shrink-0 mx-2 mb-1 p-2 bg-white border border-[#aaaaaa] rounded-[8px]">
@@ -2233,8 +2320,8 @@ const PurchaseOrder = ({ user, onLogout }) => {
             {/* Filled State extras (items) - Show when fields are filled OR after opening add items OR in edit mode */}
             {(hasOpenedAdd || !isEmptyState || isEditMode) && (
               <>
-                {/* Items Section - Show only when all three fields are filled */}
-                {(!isEmptyState || isEditMode) && poData.vendorName && poData.projectName && poData.projectIncharge && (
+                {/* Items Section - Show when items exist (from NetStock) or when all three fields are filled */}
+                {((items.length > 0 && hasOpenedAdd) || ((!isEmptyState || isEditMode) && poData.vendorName && poData.projectName && poData.projectIncharge)) && (
                   <div className="flex flex-col flex-1 min-h-0 mx-4 mb-4">
                     {/* Items Header - Fixed */}
                     <div className="flex-shrink-0 flex items-center gap-2 mb-2 border-b border-[#E0E0E0] pb-2">
