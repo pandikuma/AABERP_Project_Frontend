@@ -285,7 +285,7 @@ const IncomingTracker = ({ user }) => {
               const stockingLocationId = record.stocking_location_id || record.stockingLocationId;
               const site = siteData.find(s => s.id === stockingLocationId);
               const stockingLocation = site ? site.siteName : 'Unknown Location';
-              // Calculate total items and quantity
+              // Calculate total items and quantity (include items with 0 quantity)
               const inventoryItems = record.inventoryItems || record.inventory_items || [];
               const numberOfItems = inventoryItems.length;
               const totalQuantity = inventoryItems.reduce((sum, item) => {
@@ -363,7 +363,7 @@ const IncomingTracker = ({ user }) => {
           totalMergedQuantity: record.totalQuantity,
           totalMergedItems: record.numberOfItems,
           totalMergedAmount: record.totalAmount,
-          allInventoryItems: [...inventoryItems],
+          allInventoryItems: [...inventoryItems], // Include all items, even with 0 quantity
           earliestDate: record.date || record.created_at || record.createdAt,
           latestDate: record.date || record.created_at || record.createdAt,
         };
@@ -374,7 +374,7 @@ const IncomingTracker = ({ user }) => {
         merged.totalMergedQuantity += record.totalQuantity;
         merged.totalMergedItems += record.numberOfItems;
         merged.totalMergedAmount += record.totalAmount;
-        // Combine inventory items from all merged entries
+        // Combine inventory items from all merged entries (include items with 0 quantity)
         const inventoryItems = record.inventoryItems || record.inventory_items || [];
         merged.allInventoryItems = [...(merged.allInventoryItems || []), ...inventoryItems];
         const recordDate = new Date(record.date || record.created_at || record.createdAt);
@@ -789,6 +789,12 @@ const IncomingTracker = ({ user }) => {
               onClick={() => {
                 setActiveStatus('live');
                 setSelectedLiveCardId(null);
+                setShowDetailView(false);
+                setSelectedRecord(null);
+                setSearchQuery('');
+                setFilterVendorName('');
+                setFilterStockingLocation('');
+                setFilterPONo('');
               }}
               className={`flex-1 py-1 px-4 ml-1 h-8 rounded text-[14px] font-medium transition-colors ${activeStatus === 'live'
                 ? 'bg-white text-black'
@@ -802,6 +808,12 @@ const IncomingTracker = ({ user }) => {
               onClick={() => {
                 setActiveStatus('closed');
                 setSelectedLiveCardId(null);
+                setShowDetailView(false);
+                setSelectedRecord(null);
+                setSearchQuery('');
+                setFilterVendorName('');
+                setFilterStockingLocation('');
+                setFilterPONo('');
               }}
               className={`flex-1 py-1 px-4 h-8 rounded text-[14px] font-medium transition-colors ${activeStatus === 'closed'
                 ? 'bg-white text-black'
@@ -815,6 +827,12 @@ const IncomingTracker = ({ user }) => {
               onClick={() => {
                 setActiveStatus('history');
                 setSelectedLiveCardId(null);
+                setShowDetailView(false);
+                setSelectedRecord(null);
+                setSearchQuery('');
+                setFilterVendorName('');
+                setFilterStockingLocation('');
+                setFilterPONo('');
               }}
               className={`flex-1 py-1 px-4 mr-1 h-8 rounded text-[14px] font-medium transition-colors ${activeStatus === 'history'
                 ? 'bg-white text-black'
@@ -921,10 +939,10 @@ const IncomingTracker = ({ user }) => {
       )}
 
       {/* Records List */}
-      <div className="flex-1 px-4 overflow-hidden flex flex-col">
+      <div className="flex-1 px-4 overflow-hidden  flex flex-col">
         {showDetailView && selectedRecord ? (
           /* Detail View - Inline below search bar */
-          <div className="bg-white flex flex-col flex-1 min-h-0" style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white flex flex-col flex-1" style={{ fontFamily: "'Manrope', sans-serif" }}>
             {/* Purchase Order Info Card */}
             <div className="flex-shrink-0 p-4 bg-white border border-gray-200 rounded-lg mb-2">
               <div className="space-y-2">
@@ -964,26 +982,146 @@ const IncomingTracker = ({ user }) => {
             </div>
 
             {/* Items List */}
-            <div className=" overflow-y-auto min-h-0 space-y-1 no-scrollbar scrollbar-none scrollbar-hide">
+            <div className=" overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide" style={{ maxHeight: '470px' }}>
               {(() => {
-                // Use allInventoryItems if available (for merged records), otherwise use regular inventoryItems
-                const inventoryItems = selectedRecord.allInventoryItems || selectedRecord.inventoryItems || selectedRecord.inventory_items || [];
-                const getCategoryColor = (category) => {
-                  switch (category) {
-                    case 'Electricals':
-                      return 'bg-[#E3F2FD] text-[#1976D2]';
-                    case 'Paint':
-                      return 'bg-[#E8F5E9] text-[#2E7D32]';
-                    case 'Plumbing':
-                      return 'bg-[#FFF3E0] text-[#F57C00]';
-                    case 'Carpentry':
-                      return 'bg-[#F3E5F5] text-[#7B1FA2]';
-                    default:
-                      return 'bg-[#E3F2FD] text-[#1976D2]';
+                // First, try to use allInventoryItems/inventoryItems for received items
+                const receivedItems = selectedRecord.allInventoryItems || selectedRecord.inventoryItems || selectedRecord.inventory_items || [];
+                
+                // Find the matching PO data
+                let poData = null;
+                if (allPurchaseOrders.length > 0) {
+                  const purchaseNo = selectedRecord.purchaseNo || selectedRecord.purchase_no || '';
+                  const poNumberStr = String(purchaseNo).replace('#', '').trim();
+                  const targetEno = getNumericEno(poNumberStr);
+                  const vendorId = selectedRecord.vendor_id || selectedRecord.vendorId;
+                  const vendorPOs = vendorId
+                    ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
+                    : allPurchaseOrders;
+                  const matchingPOs = vendorPOs.filter(p => {
+                    const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
+                    return poEno === targetEno && poEno !== 0;
+                  });
+                  if (matchingPOs.length > 0) {
+                    const posWithItems = matchingPOs.filter(p => {
+                      const items = p.purchaseTable || p.purchase_table || p.items || [];
+                      return items.length > 0;
+                    });
+                    if (posWithItems.length > 0) {
+                      poData = posWithItems.reduce((latest, current) => {
+                        const latestId = parseInt(latest.id || latest._id || 0);
+                        const currentId = parseInt(current.id || current._id || 0);
+                        return currentId > latestId ? current : latest;
+                      });
+                    } else if (matchingPOs.length > 0) {
+                      poData = matchingPOs.reduce((latest, current) => {
+                        const latestId = parseInt(latest.id || latest._id || 0);
+                        const currentId = parseInt(current.id || current._id || 0);
+                        return currentId > latestId ? current : latest;
+                      });
+                    }
                   }
+                }
+
+                // Create a map of received items by composite key
+                const receivedMap = {};
+                receivedItems.forEach(item => {
+                  const itemId = item.item_id || item.itemId || null;
+                  const categoryId = item.category_id || item.categoryId || null;
+                  const modelId = item.model_id || item.modelId || null;
+                  const brandId = item.brand_id || item.brandId || null;
+                  const typeId = item.type_id || item.typeId || null;
+                  if (itemId !== null && itemId !== undefined) {
+                    const compositeKey = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
+                    if (!receivedMap[compositeKey]) {
+                      receivedMap[compositeKey] = [];
+                    }
+                    receivedMap[compositeKey].push(item);
+                  }
+                });
+
+                // Get items to display: from PO if available, otherwise from received items
+                const itemsToDisplay = [];
+                if (poData && (poData.purchaseTable || poData.purchase_table || poData.items)) {
+                  const poItems = poData.purchaseTable || poData.purchase_table || poData.items || [];
+                  poItems.forEach((poItem, index) => {
+                    const itemId = poItem.item_id || poItem.itemId || null;
+                    const categoryId = poItem.category_id || poItem.categoryId || null;
+                    const modelId = poItem.model_id || poItem.modelId || null;
+                    const brandId = poItem.brand_id || poItem.brandId || null;
+                    const typeId = poItem.type_id || poItem.typeId || null;
+                    const compositeKey = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
+                    const receivedItemsList = receivedMap[compositeKey] || [];
+                    
+                    // Get received quantity
+                    let receivedQty = 0;
+                    if (receivedItemsList.length > 0) {
+                      receivedQty = receivedItemsList.reduce((sum, item) => sum + Math.abs(item.quantity || 0), 0);
+                    }
+
+                    // Get PO quantity
+                    const poQuantity = Math.abs(poItem.quantity || 0);
+
+                    // Use received item if available
+                    if (receivedItemsList.length > 0) {
+                      receivedItemsList.forEach(item => {
+                        itemsToDisplay.push({
+                          ...item,
+                          poQuantity: poQuantity // Store PO quantity for comparison
+                        });
+                      });
+                    } else if (activeStatus === 'live') {
+                      // Create item display from PO with 0 quantity only in Live tab
+                      itemsToDisplay.push({
+                        ...poItem,
+                        quantity: 0,
+                        amount: 0,
+                        poQuantity: poQuantity, // Store PO quantity
+                        poItem: true // Mark as PO item without receipt
+                      });
+                    }
+                  });
+                } else {
+                  // No PO data, use received items as fallback
+                  itemsToDisplay.push(...receivedItems);
+                }
+
+                const hashString = (str) => {
+                  let hash = 0;
+                  for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Convert to 32-bit integer
+                  }
+                  return Math.abs(hash);
                 };
 
-                return inventoryItems.map((item, index) => {
+                const getCategoryColor = (category) => {
+                  if (!category) return 'bg-[#E3F2FD] text-[#1976D2]';
+                  
+                  // Define a palette of color combinations
+                  const colorPalette = [
+                    'bg-[#E3F2FD] text-[#1976D2]', // Light blue
+                    'bg-[#E8F5E9] text-[#2E7D32]', // Light green
+                    'bg-[#FFF3E0] text-[#F57C00]', // Light orange
+                    'bg-[#F3E5F5] text-[#7B1FA2]', // Light purple
+                    'bg-[#FCE4EC] text-[#C2185B]', // Light pink
+                    'bg-[#E0F2F1] text-[#00695C]', // Light teal
+                    'bg-[#FFF9C4] text-[#F57F17]', // Light yellow
+                    'bg-[#E1BEE7] text-[#6A1B9A]', // Light lavender
+                    'bg-[#FFE0B2] text-[#E65100]', // Light deep orange
+                    'bg-[#BBDEFB] text-[#0D47A1]', // Light indigo
+                    'bg-[#C8E6C9] text-[#1B5E20]', // Light dark green
+                    'bg-[#FFCCBC] text-[#BF360C]', // Light deep orange red
+                  ];
+                  
+                  // Hash the category name to get a consistent index
+                  const hash = hashString(category.toLowerCase());
+                  const colorIndex = hash % colorPalette.length;
+                  
+                  return colorPalette[colorIndex];
+                };
+
+                return itemsToDisplay.map((item, index) => {
                   const itemId = item.item_id || item.itemId || null;
                   const brandId = item.brand_id || item.brandId || null;
                   const modelId = item.model_id || item.modelId || null;
@@ -1016,9 +1154,10 @@ const IncomingTracker = ({ user }) => {
                   const quantity = Math.abs(item.quantity || 0);
                   const amount = Math.abs(item.amount || 0);
                   const unit = item.unit || '';
+                  const poQuantity = item.poQuantity || 0;
 
-                  // Format details: model, brand, type
-                  const details = [model, brand, type].filter(Boolean).join(', ');
+                  // Check if quantity matches PO quantity (different if they don't match)
+                  const isQuantityDifferent = quantity !== poQuantity;
 
                   return (
                     <div key={index} className="bg-white border border-[#E0E0E0] rounded-[8px] p-3">
@@ -1042,7 +1181,7 @@ const IncomingTracker = ({ user }) => {
                         </div>
                         <div className="flex items-center justify-between">
 
-                          <p className="text-[12px] font-medium text-[#BF9853]">
+                          <p className={`text-[12px] font-medium ${isQuantityDifferent ? 'text-[#FF6B6B]' : 'text-[#BF9853]'}`}>
                             Quantity {quantity}{unit}
                           </p>
                           <p className="text-[14px] font-semibold text-black">
@@ -1154,7 +1293,14 @@ const IncomingTracker = ({ user }) => {
                       <div className="flex justify-between items-start">
                         {/* Left Side */}
                         <div className="flex-1 pr-2">
-                          <div className="flex items-center gap-1 mb-1">
+                          <div
+                            className="flex items-center gap-1 mb-1 cursor-pointer hover:opacity-80"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRecord(record);
+                              setShowDetailView(true);
+                            }}
+                          >
                             <span className="text-[12px] font-semibold text-black">
                               #{record.purchaseNo || record.entryNumber}
                             </span>

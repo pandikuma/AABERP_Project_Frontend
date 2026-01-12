@@ -1693,6 +1693,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
     const clientName = findNameById(siteOptions, payload.client_id, "label");
     const siteInchargeName = findNameById(siteInchargeOptions, payload.site_incharge_id, "label");
     const isRajaganapathyVendor = vendorName === "Rajaganapathy Plywoods";
+    const isVATradersVendor = vendorName === "VA Traders";
     doc.setDrawColor(0);
     doc.setLineWidth(0.5);
     doc.rect(10, 10, 190, 41.8);
@@ -1802,7 +1803,20 @@ const PurchaseOrder = ({ user, onLogout }) => {
           item.quantity || "",
           item.amount || ""
         ];
-      } else {
+      } if (isVATradersVendor) {
+        // For VA Traders: SNO, BRAND, ITEM NAME, TYPE, QTY, WEIGHT, RATE, AMOUNT (no CATEGORY, MODEL)
+        return [
+          index + 1,
+          brand,
+          itemName,
+          type,
+          item.quantity || "",
+          item.weight || "",
+          item.rate || "",
+          item.amount || "",
+        ];
+      }
+      else {
         // Original order: SNO, ITEM NAME, CATEGORY, MODEL, BRAND, TYPE, QTY, PRICE
         return [
           index + 1,
@@ -1819,7 +1833,10 @@ const PurchaseOrder = ({ user, onLogout }) => {
     while (tableBody.length < 24) {
       if (isRajaganapathyVendor) {
         tableBody.push(["", "", "", "", "", "", ""]);
-      } else {
+      } else if (isVATradersVendor) {
+        tableBody.push(["", "", "", "", "", "", "", ""]);
+      } 
+      else {
         tableBody.push(["", "", "", "", "", "", "", ""]);
       }
     }
@@ -1827,12 +1844,21 @@ const PurchaseOrder = ({ user, onLogout }) => {
     const totalAmount = purchaseTableData.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     if (isRajaganapathyVendor) {
       tableBody.push([
-        "", "", "", "",
+        "", "", "", 
         { content: `TOTAL`, styles: { fontStyle: "bold", halign: "center" } },
         { content: `${totalQty}`, styles: { fontStyle: "bold", halign: "center" } },
         { content: `${totalAmount}`, styles: { fontStyle: "bold", halign: "center" } }
       ]);
-    } else {
+    }if (isVATradersVendor) {
+      tableBody.push([
+        "", "", "",
+        { content: `TOTAL`, styles: { fontStyle: "bold", halign: "center" } },
+        { content: `${totalQty}`, styles: { fontStyle: "bold", halign: "center" } },
+        "", "",
+        { content: `${totalAmount}`, styles: { fontStyle: "bold", halign: "center" } }
+      ]);
+    } 
+    else {
       tableBody.push([
         "", "", "", "", "",
         { content: `TOTAL`, styles: { fontStyle: "bold", halign: "center" } },
@@ -1842,8 +1868,9 @@ const PurchaseOrder = ({ user, onLogout }) => {
     }
     const tableHeaders = isRajaganapathyVendor
       ? [["SNO", "BRAND", "ITEM NAME", "MODEL", "TYPE", "QTY", "PRICE"]]
+      : isVATradersVendor
+        ? [["SNO", "BRAND", "ITEM NAME", "TYPE", "QTY", "WEIGHT", "RATE", "AMOUNT"]]
       : [["SNO", "ITEM NAME", "CATEGORY", "MODEL", "BRAND", "TYPE", "QTY", "PRICE"]];
-
     const columnStylesConfig = isRajaganapathyVendor
       ? {
         0: { cellWidth: 12 }, // SNO
@@ -1854,6 +1881,17 @@ const PurchaseOrder = ({ user, onLogout }) => {
         5: { cellWidth: 13 }, // QTY
         6: { cellWidth: 17 }  // PRICE
       }
+      : isVATradersVendor
+        ? {
+          0: { cellWidth: 12 }, // SNO
+          1: { cellWidth: 25 }, // BRAND
+          2: { cellWidth: 75 }, // ITEM NAME
+          3: { cellWidth: 28 }, // TYPE
+          4: { cellWidth: 13 }, // QTY
+          5: { cellWidth: 15 }, // WEIGHT
+          6: { cellWidth: 15 }, // RATE
+          7: { cellWidth: 17 }  // AMOUNT
+        }
       : {
         0: { cellWidth: 12 }, // SNO
         1: { cellWidth: 50 }, // ITEM NAME
@@ -1864,7 +1902,6 @@ const PurchaseOrder = ({ user, onLogout }) => {
         6: { cellWidth: 13 }, // QTY
         7: { cellWidth: 17 }  // PRICE
       };
-
     autoTable(doc, {
       startY: 52,
       margin: { left: 10, right: 10 },
@@ -2092,9 +2129,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                     {poData.poNumber && (
                       <p className="text-[12px] font-medium text-black leading-normal">{poData.poNumber}</p>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setShowDatePicker(true)}
+                    <button type="button" onClick={() => setShowDatePicker(true)}
                       className="text-[12px] font-medium text-[#616161] leading-normal underline-offset-2 hover:underline"
                     >
                       {poData.date}
@@ -2103,11 +2138,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   <div className="flex items-center gap-4">
                     {isPdfGenerated ? (
                       <>
-                        <button
-                          type="button"
-                          onClick={downloadPDF}
-                          className="text-[13px] font-medium text-black leading-normal"
-                        >
+                        <button type="button" onClick={downloadPDF} className="text-[13px] font-medium text-black leading-normal" >
                           Download
                         </button>
 
@@ -2132,7 +2163,6 @@ const PurchaseOrder = ({ user, onLogout }) => {
                           setHasOpenedAdd(false);
                           setIsPdfGenerated(false);
                           setPdfBlob(null);
-
                           // Preserve isEditFromHistory flag - don't clear it if already editing from History
                           // Only clear if we're not already editing from History (editing from Create PO page)
                           if (!isEditFromHistory) {
@@ -2212,8 +2242,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                     Project Name<span className="text-[#eb2f8e]">*</span>
                   </p>
                   <div className="relative">
-                    <div
-                      onClick={() => setShowProjectModal(true)}
+                    <div onClick={() => setShowProjectModal(true)}
                       className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         paddingRight: poData.projectName ? '40px' : '12px',
@@ -2224,8 +2253,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                       {poData.projectName || 'Select Name'}
                     </div>
                     {poData.projectName && (
-                      <button
-                        type="button"
+                      <button type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setPoData({ ...poData, projectName: '' });
@@ -2246,8 +2274,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                     Project Incharge<span className="text-[#eb2f8e]">*</span>
                   </p>
                   <div className="relative">
-                    <div
-                      onClick={() => setShowInchargeModal(true)}
+                    <div onClick={() => setShowInchargeModal(true)}
                       className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         paddingRight: poData.projectIncharge ? '40px' : '12px',
@@ -2258,8 +2285,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                       {poData.projectIncharge || 'Select Name'}
                     </div>
                     {poData.projectIncharge && (
-                      <button
-                        type="button"
+                      <button type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setPoData({ ...poData, projectIncharge: '' });
@@ -2446,9 +2472,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
         )}
         {/* Floating WhatsApp Button - Show after PDF generation (only on create tab) */}
         {activeTab === 'create' && isPdfGenerated && (
-          <button
-            type="button"
-            onClick={shareViaWhatsApp}
+          <button type="button" onClick={shareViaWhatsApp}
             className="fixed bottom-[180px] right-[24px] lg:right-[calc(50%-164px)] w-[48px] h-[48px] rounded-full bg-[#25D366] flex items-center justify-center shadow-lg z-40 hover:bg-[#20BA5A] transition-colors"
             style={{ fontFamily: "'Manrope', sans-serif" }}
           >
@@ -2553,13 +2577,11 @@ const PurchaseOrder = ({ user, onLogout }) => {
               const empName = emp.employeeName || emp.name || emp.fullName || emp.employee_name || '';
               return empName === value;
             });
-
             // If not an employee, check if it's support staff
             const selectedSupportStaff = !selectedEmployee ? supportStaffList.find(staff => {
               const staffName = staff.support_staff_name || staff.supportStaffName || '';
               return staffName === value;
             }) : null;
-
             if (selectedEmployee) {
               setSelectedIncharge({
                 id: selectedEmployee.id,

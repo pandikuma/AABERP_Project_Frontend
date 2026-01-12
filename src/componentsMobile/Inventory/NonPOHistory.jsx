@@ -7,6 +7,13 @@ const NonPOHistory = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [vendorData, setVendorData] = useState([]);
   const [siteData, setSiteData] = useState([]);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [filterData, setFilterData] = useState({
+    projectName: '',
+    stockingLocation: '',
+    date: '',
+    entryNo: ''
+  });
 
   // Fetch vendor data
   useEffect(() => {
@@ -195,6 +202,7 @@ const NonPOHistory = () => {
       {/* Filter Button */}
       <div className="flex-shrink-0 px-4 pb-3">
         <button
+          onClick={() => setShowFilterSheet(true)}
           type="button"
           className="flex items-center gap-2 text-[14px] font-medium text-gray-700"
         >
@@ -266,6 +274,123 @@ const NonPOHistory = () => {
           </div>
         )}
       </div>
+
+      {/* Filter Bottom Sheet */}
+      {showFilterSheet && (
+        <div className="">
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center"
+            onClick={() => setShowFilterSheet(false)}
+          />
+
+          {/* Bottom Sheet */}
+          <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-white rounded-t-2xl justify-center items-center shadow-lg z-50 max-h-[80vh] overflow-y-auto w-9/12">
+            {/* Header */}
+            <div className='flex justify-end mr-4 mt-1'>
+              <button
+                  onClick={() => setShowFilterSheet(false)}
+                  className="text-red-500 hover:text-red-700 text-xl font-bold"
+                >
+                  ✕
+                </button>
+            </div>
+            <div className="flex justify-between items-center px-6">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Select Filters
+              </h2>
+
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-600">Category</span>
+                
+              </div>
+            </div>
+            {/* Filter Form */}
+            <div className="px-6 py-4 space-y-4">
+              {/* Project Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Project Name
+                </label>
+                <select
+                  value={filterData.projectName}
+                  onChange={(e) => setFilterData({ ...filterData, projectName: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white"
+                >
+                  <option value="">Select Project</option>
+                  {siteData.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.siteName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Stocking Location */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Stocking Location
+                </label>
+                <select
+                  value={filterData.stockingLocation}
+                  onChange={(e) => setFilterData({ ...filterData, stockingLocation: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white"
+                >
+                  <option value="">AA Stock Room A</option>
+                  {siteData.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.siteName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date and Entry No */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={filterData.date}
+                    onChange={(e) => setFilterData({ ...filterData, date: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Entry.No
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter"
+                    value={filterData.entryNo}
+                    onChange={(e) => setFilterData({ ...filterData, entryNo: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowFilterSheet(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowFilterSheet(false)}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-900"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

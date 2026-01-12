@@ -38,6 +38,10 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
   const [brandOptions, setBrandOptions] = useState([]);
   const [typeOptions, setTypeOptions] = useState([]); // Default types until API loads
 
+  // Tile specific options (for when category is TILES)
+  const [tileNames, setTileNames] = useState([]);
+  const [tileSizes, setTileSizes] = useState([]);
+
   // Track previous initialData to prevent unnecessary form resets
   const previousInitialDataRef = useRef(null);
 
@@ -128,6 +132,45 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       setPoType([]);
     }
   };
+
+  // Fetch tiles list (tile names) and tile sizes for TILES category
+  useEffect(() => {
+    fetchTiles();
+    fetchTileSizes();
+  }, []);
+
+  const fetchTiles = async () => {
+    try {
+      const response = await fetch('https://backendaab.in/aabuilderDash/api/tiles/all/data');
+      if (response.ok) {
+        const data = await response.json();
+        const names = (data || []).map(t => t.label || t.tileName).filter(Boolean);
+        setTileNames(Array.from(new Set(names)));
+      } else {
+        setTileNames([]);
+      }
+    } catch (error) {
+      console.error('Error fetching tiles:', error);
+      setTileNames([]);
+    }
+  };
+
+  const fetchTileSizes = async () => {
+    try {
+      const response = await fetch('https://backendaab.in/aabuilderDash/api/tile/quantity/size');
+      if (response.ok) {
+        const data = await response.json();
+        // Extract size/name fields depending on API shape
+        const sizes = (data || []).map(s => s.size || s.tileSize || s.label || s.name).filter(Boolean);
+        setTileSizes(Array.from(new Set(sizes)));
+      } else {
+        setTileSizes([]);
+      }
+    } catch (error) {
+      console.error('Error fetching tile sizes:', error);
+      setTileSizes([]);
+    }
+  };
   useEffect(() => {
     const fetchPoCategory = async () => {
       try {
@@ -163,6 +206,17 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
   // Filter options based on selected category
   useEffect(() => {
     const currentCategory = formData.category || selectedCategory || '';
+
+    // If TILES category is selected, show tile names and sizes instead of PO item/model lists
+    const isTilesCategory = currentCategory && currentCategory.toString().toLowerCase() === 'tile';
+    if (isTilesCategory) {
+      // Use fetched tile lists (fall back to empty arrays)
+      setItemNameOptions(tileNames || []);
+      setModelOptions(tileSizes || []);
+      // Keep brand and type filtering behavior same as other categories (do not clear them)
+      // Intentionally continue to the filtering logic so brand/type options are provided.
+    }
+
     // Helper function to extract name from item based on field type
     const extractName = (item, nameFields) => {
       if (typeof item === 'string') return item;
@@ -193,35 +247,38 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         .map(item => extractName(item, nameFields))
         .filter(name => name !== '');
     };
-    // Filter item names
-    if (poItemName && poItemName.length > 0) {
-      const filteredItemNames = filterByCategory(poItemName, ['itemName', 'poItemName', 'name', 'item_name'], 'category');
-      // Merge with saved names from localStorage
-      const savedItemNames = localStorage.getItem('itemNameOptions');
-      const savedNames = savedItemNames ? JSON.parse(savedItemNames) : [];
-      const allItemNames = [...new Set([...filteredItemNames, ...savedNames])];
-      setItemNameOptions(allItemNames);
-    } else {
-      // If no API data, load from localStorage
-      const savedItemNames = localStorage.getItem('itemNameOptions');
-      if (savedItemNames) {
-        setItemNameOptions(JSON.parse(savedItemNames));
+    // Filter item names (skip when TILES category, we already set tile names above)
+    if (!isTilesCategory) {
+      if (poItemName && poItemName.length > 0) {
+        const filteredItemNames = filterByCategory(poItemName, ['itemName', 'poItemName', 'name', 'item_name'], 'category');
+        // Merge with saved names from localStorage
+        const savedItemNames = localStorage.getItem('itemNameOptions');
+        const savedNames = savedItemNames ? JSON.parse(savedItemNames) : [];
+        const allItemNames = [...new Set([...filteredItemNames, ...savedNames])];
+        setItemNameOptions(allItemNames);
+      } else {
+        // If no API data, load from localStorage
+        const savedItemNames = localStorage.getItem('itemNameOptions');
+        if (savedItemNames) {
+          setItemNameOptions(JSON.parse(savedItemNames));
+        }
       }
     }
-    // Filter models
-    if (poModel && poModel.length > 0) {
-      const filteredModels = filterByCategory(poModel, ['model', 'poModel', 'modelName', 'name'], 'category');
-      const savedModels = localStorage.getItem('modelOptions');
-      const savedModelNames = savedModels ? JSON.parse(savedModels) : [];
-      const allModels = [...new Set([...filteredModels, ...savedModelNames])];
-      setModelOptions(allModels);
-    } else {
-      const savedModels = localStorage.getItem('modelOptions');
-      if (savedModels) {
-        setModelOptions(JSON.parse(savedModels));
+    // Filter models (skip when TILES category, we already set tile sizes above)
+    if (!isTilesCategory) {
+      if (poModel && poModel.length > 0) {
+        const filteredModels = filterByCategory(poModel, ['model', 'poModel', 'modelName', 'name'], 'category');
+        const savedModels = localStorage.getItem('modelOptions');
+        const savedModelNames = savedModels ? JSON.parse(savedModels) : [];
+        const allModels = [...new Set([...filteredModels, ...savedModelNames])];
+        setModelOptions(allModels);
+      } else {
+        const savedModels = localStorage.getItem('modelOptions');
+        if (savedModels) {
+          setModelOptions(JSON.parse(savedModels));
+        }
       }
     }
-
     // Filter brands
     if (poBrand && poBrand.length > 0) {
       const filteredBrands = filterByCategory(poBrand, ['brand', 'poBrand', 'brandName', 'name'], 'category');
