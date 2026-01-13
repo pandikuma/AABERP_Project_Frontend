@@ -38,9 +38,11 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
   const [brandOptions, setBrandOptions] = useState([]);
   const [typeOptions, setTypeOptions] = useState([]); // Default types until API loads
 
-  // Tile specific options (for when category is TILES)
+  // Tile specific options (for when category is TILES) - store with IDs
   const [tileNames, setTileNames] = useState([]);
   const [tileSizes, setTileSizes] = useState([]);
+  const [tileData, setTileData] = useState([]); // Store full tile objects with IDs
+  const [tileSizeData, setTileSizeData] = useState([]); // Store full tile size objects with IDs
 
   // Track previous initialData to prevent unnecessary form resets
   const previousInitialDataRef = useRef(null);
@@ -144,13 +146,18 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       const response = await fetch('https://backendaab.in/aabuilderDash/api/tiles/all/data');
       if (response.ok) {
         const data = await response.json();
+        // Store full tile objects with IDs
+        setTileData(data || []);
+        // Extract names for dropdown display
         const names = (data || []).map(t => t.label || t.tileName).filter(Boolean);
         setTileNames(Array.from(new Set(names)));
       } else {
+        setTileData([]);
         setTileNames([]);
       }
     } catch (error) {
       console.error('Error fetching tiles:', error);
+      setTileData([]);
       setTileNames([]);
     }
   };
@@ -160,14 +167,18 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       const response = await fetch('https://backendaab.in/aabuilderDash/api/tile/quantity/size');
       if (response.ok) {
         const data = await response.json();
-        // Extract size/name fields depending on API shape
+        // Store full tile size objects with IDs
+        setTileSizeData(data || []);
+        // Extract size/name fields for dropdown display
         const sizes = (data || []).map(s => s.size || s.tileSize || s.label || s.name).filter(Boolean);
         setTileSizes(Array.from(new Set(sizes)));
       } else {
+        setTileSizeData([]);
         setTileSizes([]);
       }
     } catch (error) {
       console.error('Error fetching tile sizes:', error);
+      setTileSizeData([]);
       setTileSizes([]);
     }
   };
@@ -292,7 +303,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         setBrandOptions(JSON.parse(savedBrands));
       }
     }
-
     // Filter types
     if (poType && poType.length > 0) {
       // Try multiple type field names
@@ -310,7 +320,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       }
     }
   }, [formData.category, selectedCategory, poItemName, poModel, poBrand, poType]);
-
   // Keep form data in sync when an item is opened for editing
   // Only update when initialData actually changes (not just object reference)
   useEffect(() => {
@@ -323,9 +332,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       quantity: initialData?.quantity || '',
       category: initialData?.category || '',
     });
-
     const previousInitialDataStr = previousInitialDataRef.current;
-
     // Only update formData if initialData actually changed
     if (currentInitialDataStr !== previousInitialDataStr) {
       // Check if initialData has any meaningful values (editing mode)
@@ -337,7 +344,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         initialData.quantity ||
         initialData.category
       );
-
       if (hasInitialData) {
         // Editing mode: update formData with initialData values
         setFormData({
@@ -350,11 +356,9 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         });
       }
       // If no initialData (new item mode), don't reset formData - preserve user's input
-
       // Update ref to track current initialData
       previousInitialDataRef.current = currentInitialDataStr;
     }
-
     // Handle category updates separately (only if it actually changed)
     if (selectedCategory) {
       setFormData(prev => {
@@ -374,20 +378,16 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
     initialData?.category,
     selectedCategory
   ]);
-
   if (!isOpen) return null;
-
   const handleQuantityChange = (e) => {
     const value = e.target.value;
     setFormData({ ...formData, quantity: value });
-
     if (value && isNaN(value)) {
       setQuantityError('Please Enter Valid Quantity');
     } else {
       setQuantityError('');
     }
   };
-
   const handleCategorySelect = (category) => {
     setFormData({ ...formData, category });
     // Update parent component to persist category
@@ -396,7 +396,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
     }
     setShowCategoryModal(false);
   };
-
   // Handler for adding new category
   const handleAddNewCategory = async (newCategory) => {
     if (!newCategory || !newCategory.trim()) {
@@ -444,7 +443,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       }
     }
   };
-
   // Helper: find an id from an array of objects by matching any of the provided name fields
   const findIdByLabel = (list, value, nameFields = []) => {
     if (!value || !Array.isArray(list)) return null;
@@ -454,12 +452,10 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
     );
     return match ? (match.id || match._id || null) : null;
   };
-
   const handleFieldSelect = (field, value) => {
     // Check if category is required for this field
     const fieldsRequiringCategory = ['itemName', 'model', 'brand', 'type'];
     const currentCategory = formData.category || selectedCategory;
-
     if (fieldsRequiringCategory.includes(field) && !currentCategory) {
       const fieldNames = {
         itemName: 'Item Name',
@@ -470,9 +466,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       alert(`Please select a category first before selecting ${fieldNames[field]}.`);
       return; // Don't allow selection without category
     }
-
     setFormData({ ...formData, [field]: value });
-
     // Add to options if it's a new value
     const optionSetters = {
       itemName: setItemNameOptions,
@@ -480,32 +474,27 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       brand: setBrandOptions,
       type: setTypeOptions,
     };
-
     const optionArrays = {
       itemName: itemNameOptions,
       model: modelOptions,
       brand: brandOptions,
       type: typeOptions,
     };
-
     if (!optionArrays[field].includes(value)) {
       const newOptions = [...optionArrays[field], value];
       optionSetters[field](newOptions);
       saveOptions(field, newOptions);
     }
   };
-
   // API handlers for saving new items (same as InputData.jsx)
   const handleSubmitItemName = async (itemName, selectedCategory) => {
     const categoryToUse = selectedCategory || formData.category || '';
-
     const payload = {
       itemName: itemName,
       category: categoryToUse,
       groupName: '',
       otherPOEntityList: [], // Always empty when saving new item name
     };
-
     try {
       const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/save', {
         method: 'POST',
@@ -514,7 +503,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         },
         body: JSON.stringify(payload),
       });
-
       if (!response.ok) {
         throw new Error('Failed to submit data');
       }
@@ -530,19 +518,16 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       throw error;
     }
   };
-
   const handleSubmitModel = async (model, selectedCategory) => {
     const categoryToUse = selectedCategory || formData.category || '';
     const categoryOption = categoryOptions.find(cat =>
       cat.label === categoryToUse || cat.value === categoryToUse
     );
     const categoryId = categoryOption?.value || categoryOption?.id || null;
-
     const newModelData = {
       model: model,
       category: categoryId,
     };
-
     try {
       const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/save', {
         method: 'POST',
@@ -551,7 +536,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         },
         body: JSON.stringify(newModelData),
       });
-
       if (response.ok) {
         console.log('Model saved successfully!');
         // Reload models from API
@@ -568,19 +552,16 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       throw error;
     }
   };
-
   const handleSubmitBrand = async (brand, selectedCategory) => {
     const categoryToUse = selectedCategory || formData.category || '';
     const categoryOption = categoryOptions.find(cat =>
       cat.label === categoryToUse || cat.value === categoryToUse
     );
     const categoryId = categoryOption?.value || categoryOption?.id || null;
-
     const newBrandData = {
       brand,
       category: categoryId
     };
-
     try {
       const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/save', {
         method: 'POST',
@@ -589,7 +570,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         },
         body: JSON.stringify(newBrandData),
       });
-
       if (response.ok) {
         console.log('Brand saved successfully!');
         // Reload brands from API
@@ -606,19 +586,16 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       throw error;
     }
   };
-
   const handleSubmitType = async (typeColor, selectedCategory) => {
     const categoryToUse = selectedCategory || formData.category || '';
     const categoryOption = categoryOptions.find(cat =>
       cat.label === categoryToUse || cat.value === categoryToUse
     );
     const categoryId = categoryOption?.value || categoryOption?.id || null;
-
     const newTypeData = {
       typeColor,
       category: categoryId
     };
-
     try {
       const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/save', {
         method: 'POST',
@@ -627,7 +604,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         },
         body: JSON.stringify(newTypeData),
       });
-
       if (response.ok) {
         console.log('Type saved successfully!');
         // Reload types from API
@@ -644,11 +620,9 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       throw error;
     }
   };
-
   const handleFieldAddNew = async (field, value) => {
     // Get current category
     const currentCategory = formData.category || selectedCategory || '';
-
     // Check if category is required for this field
     const fieldsRequiringCategory = ['itemName', 'model', 'brand', 'type'];
     if (fieldsRequiringCategory.includes(field) && !currentCategory) {
@@ -661,7 +635,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       alert(`Please select a category first before adding new ${fieldNames[field]}.`);
       return;
     }
-
     // Map field names to API handlers
     const apiHandlers = {
       itemName: handleSubmitItemName,
@@ -669,7 +642,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       brand: handleSubmitBrand,
       type: handleSubmitType,
     };
-
     // Call API handler if it exists for this field
     const apiHandler = apiHandlers[field];
     if (apiHandler) {
@@ -693,10 +665,16 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       setQuantityError('Please Enter Valid Quantity');
       return;
     }
+    // Check if TILE category is selected (category_id = 10 or category name is "TILE")
+    const currentCategory = formData.category || selectedCategory || '';
+    const isTilesCategory = currentCategory && (
+      currentCategory.toString().toLowerCase() === 'tile' ||
+      currentCategory.toString() === '10'
+    );
+    
     // First, try to resolve IDs with current arrays
     // Check if we're in editing mode
     const isEditingMode = initialData && (initialData.itemId !== undefined || initialData.itemName !== undefined);
-    
     // Check if itemName has changed from initialData
     // If initialData.itemName is empty/missing but we have formData.itemName, consider it changed
     // This handles the case where old item was deleted and only had an ID
@@ -708,14 +686,17 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       (hasInitialItemName && hasFormItemName && 
        initialData.itemName.toLowerCase().trim() !== formData.itemName.toLowerCase().trim()) // Names don't match
     );
-    
     // Always try to resolve ID from the current formData.itemName first
     // This ensures we get the correct ID for newly selected items
     let resolvedItemId = null;
     if (formData.itemName) {
-      resolvedItemId = findIdByLabel(poItemName, formData.itemName, ['itemName', 'poItemName', 'name', 'item_name']);
+      // For TILE category, resolve from tileData instead of poItemName
+      if (isTilesCategory) {
+        resolvedItemId = findIdByLabel(tileData, formData.itemName, ['label', 'tileName', 'name']);
+      } else {
+        resolvedItemId = findIdByLabel(poItemName, formData.itemName, ['itemName', 'poItemName', 'name', 'item_name']);
+      }
     }
-    
     // Only use initialData.itemId as fallback if:
     // 1. We couldn't resolve from formData.itemName AND
     // 2. The itemName hasn't changed (meaning user is editing the same item, not selecting a new one)
@@ -724,7 +705,6 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
     if (!resolvedItemId && !itemNameChanged && initialData && initialData.itemId) {
       resolvedItemId = initialData.itemId;
     }
-    
     // If we're editing and itemName changed but couldn't resolve, log a warning
     if (isEditingMode && itemNameChanged && !resolvedItemId && formData.itemName) {
       console.warn('Could not resolve itemId for changed item:', formData.itemName, 'Initial itemName:', initialData.itemName);
@@ -736,24 +716,26 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       initialData.brand.toLowerCase().trim() !== formData.brand.toLowerCase().trim();
     const typeChanged = isEditingMode && initialData.type && formData.type && 
       initialData.type.toLowerCase().trim() !== formData.type.toLowerCase().trim();
-    
     // Always try to resolve from current formData first
     let resolvedModelId = null;
     if (formData.model) {
-      resolvedModelId = findIdByLabel(poModel, formData.model, ['model', 'poModel', 'modelName', 'name']);
+      // For TILE category, resolve from tileSizeData instead of poModel
+      if (isTilesCategory) {
+        resolvedModelId = findIdByLabel(tileSizeData, formData.model, ['size', 'tileSize', 'label', 'name']);
+      } else {
+        resolvedModelId = findIdByLabel(poModel, formData.model, ['model', 'poModel', 'modelName', 'name']);
+      }
     }
     if (!resolvedModelId && !modelChanged && initialData.modelId) {
       resolvedModelId = initialData.modelId;
     }
-    
     let resolvedBrandId = null;
     if (formData.brand) {
       resolvedBrandId = findIdByLabel(poBrand, formData.brand, ['brand', 'poBrand', 'brandName', 'name']);
     }
     if (!resolvedBrandId && !brandChanged && initialData.brandId) {
       resolvedBrandId = initialData.brandId;
-    }
-    
+    }    
     let resolvedTypeId = null;
     if (formData.type) {
       resolvedTypeId = findIdByLabel(poType, formData.type, ['type', 'poType', 'typeName', 'name', 'typeColor']);
@@ -769,15 +751,23 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       // Refresh all arrays that need refreshing
       const refreshPromises = [];
       if (!resolvedItemId && formData.itemName) {
-        refreshPromises.push(fetchPoItemName());
-        if (onRefreshItemName) {
-          refreshPromises.push(onRefreshItemName());
+        if (isTilesCategory) {
+          refreshPromises.push(fetchTiles());
+        } else {
+          refreshPromises.push(fetchPoItemName());
+          if (onRefreshItemName) {
+            refreshPromises.push(onRefreshItemName());
+          }
         }
       }
       if (!resolvedModelId && formData.model) {
-        refreshPromises.push(fetchPoModel());
-        if (onRefreshModel) {
-          refreshPromises.push(onRefreshModel());
+        if (isTilesCategory) {
+          refreshPromises.push(fetchTileSizes());
+        } else {
+          refreshPromises.push(fetchPoModel());
+          if (onRefreshModel) {
+            refreshPromises.push(onRefreshModel());
+          }
         }
       }
       if (!resolvedBrandId && formData.brand) {
@@ -797,20 +787,34 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       // Fetch fresh data directly from API to resolve IDs
       let freshItemName = poItemName;
       let freshModel = poModel;
+      let freshTileData = tileData;
+      let freshTileSizeData = tileSizeData;
       let freshBrand = poBrand;
       let freshType = poType;
       // If still not resolved, fetch directly
       if (!resolvedItemId && formData.itemName) {
         try {
-          const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
-          if (response.ok) {
-            freshItemName = await response.json();
-            // Update poItemName state with fresh data
-            setPoItemName(freshItemName);
-            resolvedItemId = findIdByLabel(freshItemName, formData.itemName, ['itemName', 'poItemName', 'name', 'item_name']);
-            // Debug logging
-            if (!resolvedItemId) {
-              console.warn('Could not find itemId for:', formData.itemName, 'in fresh data. Available items:', freshItemName.slice(0, 5).map(i => i.itemName || i.name));
+          if (isTilesCategory) {
+            const response = await fetch('https://backendaab.in/aabuilderDash/api/tiles/all/data');
+            if (response.ok) {
+              freshTileData = await response.json();
+              setTileData(freshTileData);
+              resolvedItemId = findIdByLabel(freshTileData, formData.itemName, ['label', 'tileName', 'name']);
+              if (!resolvedItemId) {
+                console.warn('Could not find tile ID for:', formData.itemName);
+              }
+            }
+          } else {
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+            if (response.ok) {
+              freshItemName = await response.json();
+              // Update poItemName state with fresh data
+              setPoItemName(freshItemName);
+              resolvedItemId = findIdByLabel(freshItemName, formData.itemName, ['itemName', 'poItemName', 'name', 'item_name']);
+              // Debug logging
+              if (!resolvedItemId) {
+                console.warn('Could not find itemId for:', formData.itemName, 'in fresh data. Available items:', freshItemName.slice(0, 5).map(i => i.itemName || i.name));
+              }
             }
           }
         } catch (error) {
@@ -819,10 +823,22 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       }
       if (!resolvedModelId && formData.model) {
         try {
-          const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
-          if (response.ok) {
-            freshModel = await response.json();
-            resolvedModelId = findIdByLabel(freshModel, formData.model, ['model', 'poModel', 'modelName', 'name']);
+          if (isTilesCategory) {
+            const response = await fetch('https://backendaab.in/aabuilderDash/api/tile/quantity/size');
+            if (response.ok) {
+              freshTileSizeData = await response.json();
+              setTileSizeData(freshTileSizeData);
+              resolvedModelId = findIdByLabel(freshTileSizeData, formData.model, ['size', 'tileSize', 'label', 'name']);
+              if (!resolvedModelId) {
+                console.warn('Could not find tile size ID for:', formData.model);
+              }
+            }
+          } else {
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
+            if (response.ok) {
+              freshModel = await response.json();
+              resolvedModelId = findIdByLabel(freshModel, formData.model, ['model', 'poModel', 'modelName', 'name']);
+            }
           }
         } catch (error) {
           console.error('Error fetching models:', error);
@@ -854,6 +870,10 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
     let resolvedCategoryId =
       initialData.categoryId ||
       findIdByLabel(categoryOptions, formData.category, ['label', 'name', 'categoryName', 'category']);
+    // If category is "TILE" (case-insensitive), ensure it resolves to category_id = 10
+    if (!resolvedCategoryId && formData.category && formData.category.toString().toLowerCase() === 'tile') {
+      resolvedCategoryId = 10;
+    }
     if (!resolvedCategoryId && categoryOptions.length > 0) {
       resolvedCategoryId = categoryOptions[0].id || null;
     }

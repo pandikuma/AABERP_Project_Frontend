@@ -96,6 +96,9 @@ const PurchaseOrder = ({ user, onLogout }) => {
   const [poBrand, setPoBrand] = useState([]);
   const [poType, setPoType] = useState([]);
   const [categoryOptions, setCategoryOptions] = useState([]);
+  // State for tile data (for TILE category with category_id = 10)
+  const [tileData, setTileData] = useState([]);
+  const [tileSizeData, setTileSizeData] = useState([]);
 
   // Check if we're in empty/home state
   const isEmptyState = !poData.vendorName && !poData.projectName && !poData.projectIncharge && items.length === 0 && !isEditMode;
@@ -332,17 +335,38 @@ const PurchaseOrder = ({ user, onLogout }) => {
             category = parts[1] ? parts[1].trim() : '';
           }
 
-          // If name is empty but we have itemId, look it up from poItemName API data
-          if (!itemName && rawItemId && poItemName && poItemName.length > 0) {
-            itemName = findNameById(poItemName, rawItemId, 'itemName') ||
-              findNameById(poItemName, rawItemId, 'name') || '';
+          // Check if this is TILE category (category_id = 10)
+          const isTileCategory = existingCategoryId === 10 || String(existingCategoryId) === '10';
+          
+          // If name is empty but we have itemId, look it up from appropriate API data
+          if (!itemName && rawItemId) {
+            if (isTileCategory && tileData && tileData.length > 0) {
+              // For TILE category, look up from tileData
+              itemName = findNameById(tileData, rawItemId, 'label') ||
+                findNameById(tileData, rawItemId, 'tileName') ||
+                findNameById(tileData, rawItemId, 'name') || '';
+            } else if (poItemName && poItemName.length > 0) {
+              // For other categories, look up from poItemName
+              itemName = findNameById(poItemName, rawItemId, 'itemName') ||
+                findNameById(poItemName, rawItemId, 'name') || '';
+            }
           }
-          if (!itemId && itemName && poItemName && poItemName.length > 0) {
-            const foundItem = poItemName.find(i => {
-              const label = (i.itemName || i.name || '').toLowerCase().trim();
-              return label === itemName.toLowerCase().trim();
-            });
-            itemId = foundItem ? (foundItem.id || foundItem._id) : null;
+          if (!itemId && itemName) {
+            if (isTileCategory && tileData && tileData.length > 0) {
+              // For TILE category, find ID from tileData
+              const foundItem = tileData.find(i => {
+                const label = (i.label || i.tileName || i.name || '').toLowerCase().trim();
+                return label === itemName.toLowerCase().trim();
+              });
+              itemId = foundItem ? (foundItem.id || foundItem._id) : null;
+            } else if (poItemName && poItemName.length > 0) {
+              // For other categories, find ID from poItemName
+              const foundItem = poItemName.find(i => {
+                const label = (i.itemName || i.name || '').toLowerCase().trim();
+                return label === itemName.toLowerCase().trim();
+              });
+              itemId = foundItem ? (foundItem.id || foundItem._id) : null;
+            }
           }
 
           // Look up category from categoryId if not already extracted
@@ -378,10 +402,19 @@ const PurchaseOrder = ({ user, onLogout }) => {
           // Handle model - check multiple possible fields and look up from API if needed
           let model = item.model || item.modelName || '';
           let modelId = item.modelId || item.model_id || null;
-          if (!model && item.modelId && poModel && poModel.length > 0) {
-            model = findNameById(poModel, item.modelId, 'model') ||
-              findNameById(poModel, item.modelId, 'modelName') ||
-              findNameById(poModel, item.modelId, 'name') || '';
+          if (!model && item.modelId) {
+            if (isTileCategory && tileSizeData && tileSizeData.length > 0) {
+              // For TILE category, look up size from tileSizeData
+              model = findNameById(tileSizeData, item.modelId, 'size') ||
+                findNameById(tileSizeData, item.modelId, 'tileSize') ||
+                findNameById(tileSizeData, item.modelId, 'label') ||
+                findNameById(tileSizeData, item.modelId, 'name') || '';
+            } else if (poModel && poModel.length > 0) {
+              // For other categories, look up from poModel
+              model = findNameById(poModel, item.modelId, 'model') ||
+                findNameById(poModel, item.modelId, 'modelName') ||
+                findNameById(poModel, item.modelId, 'name') || '';
+            }
           }
 
           // Handle type - check multiple possible fields and look up from API if needed
@@ -449,7 +482,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
     return () => {
       window.removeEventListener('editPO', handleEditPO);
     };
-  }, [user, vendorNameOptions, siteOptions, employeeList, supportStaffList, poItemName, poBrand, poModel, poType, categoryOptions]);
+  }, [user, vendorNameOptions, siteOptions, employeeList, supportStaffList, poItemName, poBrand, poModel, poType, categoryOptions, tileData, tileSizeData]);
 
   // Listen for viewPO event from History component (view mode with PDF generation)
   useEffect(() => {
@@ -556,16 +589,37 @@ const PurchaseOrder = ({ user, onLogout }) => {
             itemName = parts[0].trim();
             category = parts[1] ? parts[1].trim() : '';
           }
-          if (!itemName && rawItemId && poItemName && poItemName.length > 0) {
-            itemName = findNameById(poItemName, rawItemId, 'itemName') ||
-              findNameById(poItemName, rawItemId, 'name') || '';
+          // Check if this is TILE category (category_id = 10)
+          const isTileCategory = existingCategoryId === 10 || String(existingCategoryId) === '10';
+          
+          if (!itemName && rawItemId) {
+            if (isTileCategory && tileData && tileData.length > 0) {
+              // For TILE category, look up from tileData
+              itemName = findNameById(tileData, rawItemId, 'label') ||
+                findNameById(tileData, rawItemId, 'tileName') ||
+                findNameById(tileData, rawItemId, 'name') || '';
+            } else if (poItemName && poItemName.length > 0) {
+              // For other categories, look up from poItemName
+              itemName = findNameById(poItemName, rawItemId, 'itemName') ||
+                findNameById(poItemName, rawItemId, 'name') || '';
+            }
           }
-          if (!itemId && itemName && poItemName && poItemName.length > 0) {
-            const foundItem = poItemName.find(i => {
-              const label = (i.itemName || i.name || '').toLowerCase().trim();
-              return label === itemName.toLowerCase().trim();
-            });
-            itemId = foundItem ? (foundItem.id || foundItem._id) : null;
+          if (!itemId && itemName) {
+            if (isTileCategory && tileData && tileData.length > 0) {
+              // For TILE category, find ID from tileData
+              const foundItem = tileData.find(i => {
+                const label = (i.label || i.tileName || i.name || '').toLowerCase().trim();
+                return label === itemName.toLowerCase().trim();
+              });
+              itemId = foundItem ? (foundItem.id || foundItem._id) : null;
+            } else if (poItemName && poItemName.length > 0) {
+              // For other categories, find ID from poItemName
+              const foundItem = poItemName.find(i => {
+                const label = (i.itemName || i.name || '').toLowerCase().trim();
+                return label === itemName.toLowerCase().trim();
+              });
+              itemId = foundItem ? (foundItem.id || foundItem._id) : null;
+            }
           }
 
           let resolvedCategoryId = existingCategoryId;
@@ -596,10 +650,19 @@ const PurchaseOrder = ({ user, onLogout }) => {
 
           let model = item.model || item.modelName || '';
           let modelId = item.modelId || item.model_id || null;
-          if (!model && item.modelId && poModel && poModel.length > 0) {
-            model = findNameById(poModel, item.modelId, 'model') ||
-              findNameById(poModel, item.modelId, 'modelName') ||
-              findNameById(poModel, item.modelId, 'name') || '';
+          if (!model && item.modelId) {
+            if (isTileCategory && tileSizeData && tileSizeData.length > 0) {
+              // For TILE category, look up size from tileSizeData
+              model = findNameById(tileSizeData, item.modelId, 'size') ||
+                findNameById(tileSizeData, item.modelId, 'tileSize') ||
+                findNameById(tileSizeData, item.modelId, 'label') ||
+                findNameById(tileSizeData, item.modelId, 'name') || '';
+            } else if (poModel && poModel.length > 0) {
+              // For other categories, look up from poModel
+              model = findNameById(poModel, item.modelId, 'model') ||
+                findNameById(poModel, item.modelId, 'modelName') ||
+                findNameById(poModel, item.modelId, 'name') || '';
+            }
           }
 
           let type = item.type || item.typeName || item.typeColor || '';
@@ -655,7 +718,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
     return () => {
       window.removeEventListener('viewPO', handleViewPO);
     };
-  }, [user, vendorNameOptions, siteOptions, employeeList, supportStaffList, poItemName, poBrand, poModel, poType, categoryOptions]);
+  }, [user, vendorNameOptions, siteOptions, employeeList, supportStaffList, poItemName, poBrand, poModel, poType, categoryOptions, tileData, tileSizeData]);
 
   // Auto-generate PDF when in view-only mode and all required data is available
   useEffect(() => {
@@ -1013,6 +1076,40 @@ const PurchaseOrder = ({ user, onLogout }) => {
     };
     fetchPoCategory();
   }, []);
+
+  // Fetch tiles data (for TILE category)
+  const fetchTiles = useCallback(async () => {
+    try {
+      const response = await fetch('https://backendaab.in/aabuilderDash/api/tiles/all/data');
+      if (response.ok) {
+        const data = await response.json();
+        setTileData(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching tiles:', error);
+      setTileData([]);
+    }
+  }, []);
+
+  // Fetch tile sizes data (for TILE category)
+  const fetchTileSizes = useCallback(async () => {
+    try {
+      const response = await fetch('https://backendaab.in/aabuilderDash/api/tile/quantity/size');
+      if (response.ok) {
+        const data = await response.json();
+        setTileSizeData(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching tile sizes:', error);
+      setTileSizeData([]);
+    }
+  }, []);
+
+  // Initial fetch for tiles and tile sizes
+  useEffect(() => {
+    fetchTiles();
+    fetchTileSizes();
+  }, [fetchTiles, fetchTileSizes]);
 
   // Helper function to extract numeric value from eno
   const getNumericEno = (order) => {
@@ -1762,8 +1859,20 @@ const PurchaseOrder = ({ user, onLogout }) => {
       let model = '';
       let brand = '';
       let type = '';
+      
+      // Check if this is TILE category (category_id = 10)
+      const isTileCategory = item.category_id === 10 || String(item.category_id) === '10';
+      
       if (item.item_id) {
-        itemName = findNameById(poItemName, item.item_id, "itemName") || findNameById(poItemName, item.item_id, "name") || '';
+        if (isTileCategory && tileData && tileData.length > 0) {
+          // For TILE category, look up from tileData
+          itemName = findNameById(tileData, item.item_id, "label") ||
+            findNameById(tileData, item.item_id, "tileName") ||
+            findNameById(tileData, item.item_id, "name") || '';
+        } else {
+          // For other categories, look up from poItemName
+          itemName = findNameById(poItemName, item.item_id, "itemName") || findNameById(poItemName, item.item_id, "name") || '';
+        }
       }
       if (!itemName && item._itemName) {
         itemName = item._itemName;
@@ -1775,7 +1884,16 @@ const PurchaseOrder = ({ user, onLogout }) => {
         category = item._category;
       }
       if (item.model_id) {
-        model = findNameById(poModel, item.model_id, "model") || findNameById(poModel, item.model_id, "name") || '';
+        if (isTileCategory && tileSizeData && tileSizeData.length > 0) {
+          // For TILE category, look up size from tileSizeData
+          model = findNameById(tileSizeData, item.model_id, "size") ||
+            findNameById(tileSizeData, item.model_id, "tileSize") ||
+            findNameById(tileSizeData, item.model_id, "label") ||
+            findNameById(tileSizeData, item.model_id, "name") || '';
+        } else {
+          // For other categories, look up from poModel
+          model = findNameById(poModel, item.model_id, "model") || findNameById(poModel, item.model_id, "name") || '';
+        }
       }
       if (!model && item._model) {
         model = item._model;

@@ -727,23 +727,29 @@ const History = ({ onTabChange }) => {
     setExpandedItemId(null);
   };
 
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toLocaleDateString('en-GB'); // DD/MM/YYYY
+  };
+
   return (
     <div className="flex flex-col h-full bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      {/* Date and Category Section */}
+      <div className="flex-shrink-0 px-4 pt-2">
+        <div className="flex items-center justify-between flex-1">
+          <p className="text-[12px] font-medium text-black leading-normal">
+            {getTodayDate()}
+          </p>
+          <p className="text-[12px] font-medium text-black leading-normal">
+            Category
+          </p>
+        </div>
+      </div>
       {/* Stack Return/Dispatch Toggle */}
       <div className="flex-shrink-0 px-4 pt-3">
         <div className="flex items-center gap-2">
           {/* Stack Return/Dispatch Tabs */}
           <div className="flex bg-gray-100 items-center h-9 shadow-sm flex-1">
-            <button
-              type="button"
-              onClick={() => setActiveType('dispatch')}
-              className={`flex-1 py-1 px-4 mr-1 h-8 rounded-lg text-[14px] font-medium transition-colors ${activeType === 'dispatch'
-                ? 'bg-white text-black'
-                : 'bg-gray-100 text-gray-600'
-                }`}
-            >
-              Dispatch
-            </button>
             <button
               type="button"
               onClick={() => setActiveType('stack return')}
@@ -753,6 +759,16 @@ const History = ({ onTabChange }) => {
                 }`}
             >
               Stock Return
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveType('dispatch')}
+              className={`flex-1 py-1 px-4 mr-1 h-8 rounded-lg text-[14px] font-medium transition-colors ${activeType === 'dispatch'
+                ? 'bg-white text-black'
+                : 'bg-gray-100 text-gray-600'
+                }`}
+            >
+              Dispatch
             </button>
           </div>
         </div>

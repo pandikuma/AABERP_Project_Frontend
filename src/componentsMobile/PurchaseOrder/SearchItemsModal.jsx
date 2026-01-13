@@ -80,7 +80,7 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
 
     const itemName = item.itemName || '';
     const breakdown = stockBreakdown || {};
-    
+
     // Convert breakdown object to array and sort by location name
     const breakdownArray = Object.entries(breakdown)
         .map(([locationId, quantity]) => ({
@@ -145,7 +145,7 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
     );
 };
 
-const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingItems = [], onRefreshData, stockingLocationId = null, disableAvailabilityCheck = false, useInventoryData = false }) => {
+const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingItems = [], onRefreshData, stockingLocationId = null, disableAvailabilityCheck = false, useInventoryData = false, isFromUpdate = false }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
@@ -161,6 +161,9 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
     const [poModels, setPoModels] = useState([]);
     const [poTypes, setPoTypes] = useState([]);
     const [poCategories, setPoCategories] = useState([]);
+    const [showMoveProjectModal, setShowMoveProjectModal] = useState(false);
+    const [moveProject, setMoveProject] = useState('');
+    const [moveProjectId, setMoveProjectId] = useState(null);
 
     // Refresh data when modal opens
     useEffect(() => {
@@ -264,10 +267,10 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             setSearchResults([]);
             return;
         }
-        
+
         // Clear results immediately when query changes to show loading state
         setSearchResults([]);
-        
+
         const timer = setTimeout(() => {
             // Keep the original searchQuery with spaces for better search matching
             // Don't trim here - let the search logic handle spaces
@@ -280,6 +283,52 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         // Only clear results if debouncedSearchQuery is truly empty (no non-whitespace characters)
         const trimmedQuery = debouncedSearchQuery ? debouncedSearchQuery.trim() : '';
         if (!debouncedSearchQuery || trimmedQuery.length === 0) {
+            // If a stocking location is selected, show items available at that location by default
+            if (stockingLocationId && !disableAvailabilityCheck) {
+                const results = [];
+
+                if (useInventoryData && Array.isArray(inventoryItems) && inventoryItems.length > 0) {
+                    // Include inventory items that have positive stock at the selected location
+                    inventoryItems.forEach(item => {
+                        const qty = Number(getAvailableQuantity(item)) || 0;
+                        if (qty > 0) results.push(item);
+                    });
+                } else {
+                    // For non-inventory mode, derive items from stockBreakdown keys where the selected location has stock
+                    Object.keys(stockBreakdown || {}).forEach(key => {
+                        const breakdown = stockBreakdown[key] || {};
+                        const qty = Number(breakdown[String(stockingLocationId)] || 0);
+                        if (qty > 0) {
+                            // Resolve item name if possible
+                            const itemName = resolveItemName(key) || '';
+                            results.push({ itemId: key, itemName });
+                        }
+                    });
+                }
+
+                // Initialize quantities from existingItems for items in results
+                setItemQuantities(prev => {
+                    const cleaned = {};
+                    const existingItemsMap = {};
+                    existingItems.forEach(item => {
+                        const key = getItemKey(item);
+                        if (key && item.quantity > 0) existingItemsMap[key] = item.quantity;
+                    });
+                    results.forEach(item => {
+                        const itemKey = getItemKey(item);
+                        if (existingItemsMap[itemKey] !== undefined) {
+                            cleaned[itemKey] = existingItemsMap[itemKey];
+                        } else if (prev[itemKey] !== undefined && prev[itemKey] > 0) {
+                            cleaned[itemKey] = prev[itemKey];
+                        }
+                    });
+                    return cleaned;
+                });
+
+                setSearchResults(results);
+                return;
+            }
+
             setSearchResults([]);
             // Keep only quantities from existing items when search is cleared
             setItemQuantities(prev => {
@@ -290,7 +339,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     const brand = (item.brand || '').trim();
                     const model = (item.model || '').trim();
                     const type = (item.type || '').trim();
-                    const itemKey = useInventoryData 
+                    const itemKey = useInventoryData
                         ? `${itemName}_${category}_${brand}_${model}_${type}`
                         : `${itemName}_${brand}_${model}_${type}`;
                     if (itemName && item.quantity > 0 && prev[itemKey] !== undefined) {
@@ -301,11 +350,11 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             });
             return;
         }
-        
+
         // Perform search when debouncedSearchQuery has content
         // Clear results at start of search to prevent stale results
         setSearchResults([]);
-        
+
         const query = trimmedQuery.toLowerCase();
 
         // Split query into individual words/numbers
@@ -362,7 +411,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             }
 
             setSearchResults(results);
-            
+
             // Clean up itemQuantities for inventory-based results
             setItemQuantities(prev => {
                 const cleaned = {};
@@ -373,7 +422,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         existingItemsMap[itemKey] = item.quantity;
                     }
                 });
-                
+
                 results.forEach(item => {
                     const itemId = getItemKey(item);
                     if (existingItemsMap[itemId] !== undefined) {
@@ -382,12 +431,12 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         cleaned[itemId] = prev[itemId];
                     }
                 });
-                
+
                 return cleaned;
             });
             return;
         }
-        
+
         const data = getAvailableItems();
 
         // Check if using nested structure from API (with otherPOEntityList)
@@ -469,7 +518,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             }
 
             setSearchResults(results);
-            
+
             // Clean up itemQuantities for nested structure results
             setItemQuantities(prev => {
                 const cleaned = {};
@@ -480,7 +529,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         existingItemsMap[itemKey] = item.quantity;
                     }
                 });
-                
+
                 results.forEach(item => {
                     const itemId = getItemKey(item);
                     if (existingItemsMap[itemId] !== undefined) {
@@ -489,7 +538,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         cleaned[itemId] = prev[itemId];
                     }
                 });
-                
+
                 return cleaned;
             });
             return;
@@ -504,7 +553,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
 
         // If it's the old format (array of items), filter and remove duplicates
         if (Array.isArray(data)) {
-                const filtered = data.filter(item => {
+            const filtered = data.filter(item => {
                 const itemNameLower = item.itemName?.toLowerCase() || '';
                 const brandLower = item.brand?.toLowerCase() || '';
                 const modelLower = item.model?.toLowerCase() || '';
@@ -519,20 +568,20 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     );
                 });
             });
-            
+
             // Remove duplicates based on itemName only (show unique item names)
             const seenItemNames = new Set();
             const uniqueResults = [];
-            
+
             for (const item of filtered) {
                 if (seenItemNames.has(item.itemName)) continue;
                 seenItemNames.add(item.itemName);
                 uniqueResults.push(item);
                 if (uniqueResults.length >= MAX_RESULTS) break;
             }
-            
+
             setSearchResults(uniqueResults);
-            
+
             // Clean up itemQuantities for array format results (preserve only positive existing quantities)
             setItemQuantities(prev => {
                 const cleaned = {};
@@ -543,7 +592,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         existingItemsMap[itemKey] = item.quantity;
                     }
                 });
-                
+
                 uniqueResults.forEach(item => {
                     const itemId = getItemKey(item);
                     if (existingItemsMap[itemId] !== undefined) {
@@ -552,23 +601,23 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         cleaned[itemId] = prev[itemId];
                     }
                 });
-                
+
                 return cleaned;
             });
             return;
         }
 
         // Fallback: Generate combinations from separate arrays
-        const matchingItemNames = itemNames.filter(name => 
-                searchTerms.some(term => name.toLowerCase().includes(term))
-            );
-        const matchingBrands = brands.filter(brand => 
+        const matchingItemNames = itemNames.filter(name =>
+            searchTerms.some(term => name.toLowerCase().includes(term))
+        );
+        const matchingBrands = brands.filter(brand =>
             searchTerms.some(term => brand.toLowerCase().includes(term))
         );
-        const matchingModels = models.filter(model => 
+        const matchingModels = models.filter(model =>
             searchTerms.some(term => model.toLowerCase().includes(term))
         );
-        const matchingTypes = types.filter(type => 
+        const matchingTypes = types.filter(type =>
             searchTerms.some(term => type.toLowerCase().includes(term))
         );
 
@@ -588,10 +637,10 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     if (count >= MAX_RESULTS) break;
                     for (const type of typesToUse) {
                         if (count >= MAX_RESULTS) break;
-                        
+
                         const combinationKey = `${itemName}|${brand}|${model}|${type}`;
                         if (seenCombinations.has(combinationKey)) continue;
-                        
+
                         const itemNameLower = itemName.toLowerCase();
                         const brandLower = brand.toLowerCase();
                         const modelLower = model.toLowerCase();
@@ -614,7 +663,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                 type,
                                 category
                             });
-                            
+
                             seenCombinations.add(combinationKey);
                             count++;
                         }
@@ -624,11 +673,11 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         }
 
         setSearchResults(results);
-        
+
         // Clean up itemQuantities and initialize from existingItems for items in current search results
         setItemQuantities(prev => {
             const cleaned = {};
-            
+
             // First, build a map of existing items for quick lookup
             const existingItemsMap = {};
             existingItems.forEach(item => {
@@ -637,7 +686,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     existingItemsMap[itemKey] = item.quantity;
                 }
             });
-            
+
             // For items in current search results, use existing item quantity if available, otherwise keep user-set quantity
             results.forEach(item => {
                 const itemId = getItemKey(item);
@@ -648,7 +697,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     cleaned[itemId] = prev[itemId];
                 }
             });
-            
+
             return cleaned;
         });
     }, [debouncedSearchQuery, getAvailableItems, existingItems, useInventoryData, inventoryItems, stockingLocationId, stockBreakdown]);
@@ -698,7 +747,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             return existingKey === itemId;
         });
         const currentQuantity = existingItem ? (existingItem.quantity || 0) : 0;
-        
+
         if (quantity !== currentQuantity) {
             if (quantity > 0) {
                 // Calculate the difference to add/subtract
@@ -833,7 +882,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                 }
 
                 const inventoryRecords = await response.json();
-                
+
                 // Filter out deleted records only (don't filter by stocking location - we want ALL locations)
                 const activeRecords = inventoryRecords.filter(record => {
                     const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
@@ -845,11 +894,11 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     const stockMap = {}; // Total quantity per composite key
                     const breakdownMap = {}; // Breakdown by location per composite key
                     const itemsMap = {}; // Store unique items with their details
-                    
+
                     activeRecords.forEach(record => {
                         const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
                         const inventoryItems = record.inventoryItems || record.inventory_items || [];
-                        
+
                         if (Array.isArray(inventoryItems)) {
                             inventoryItems.forEach(invItem => {
                                 const itemId = invItem.item_id || invItem.itemId || null;
@@ -857,7 +906,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                 const modelId = invItem.model_id || invItem.modelId || null;
                                 const brandId = invItem.brand_id || invItem.brandId || null;
                                 const typeId = invItem.type_id || invItem.typeId || null;
-                                
+
                                 if (itemId !== null && itemId !== undefined) {
                                     // Resolve names from IDs
                                     const itemName = resolveItemName(itemId);
@@ -865,14 +914,14 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                     const model = resolveModelName(modelId);
                                     const brand = resolveBrandName(brandId);
                                     const type = resolveTypeName(typeId);
-                                    
+
                                     // Only process items that have at least one of category/model/brand/type
                                     const hasOtherData = category || model || brand || type;
-                                    
+
                                     if (hasOtherData && itemName) {
                                         // Create composite key: itemName + category + model + brand + type
                                         const compositeKey = `${itemName}_${category || ''}_${brand || ''}_${model || ''}_${type || ''}`;
-                                        
+
                                         // Initialize if not exists
                                         if (!stockMap[compositeKey]) {
                                             stockMap[compositeKey] = 0;
@@ -894,23 +943,45 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                                 typeId
                                             };
                                         }
-                                        
-                                        // Convert quantity to number and sum
+
+                                        // Convert quantity to number
                                         const quantity = Number(invItem.quantity) || 0;
-                                        stockMap[compositeKey] += quantity;
-                                        
-                                        // Store breakdown by location
-                                        const locationKey = String(recordStockingLocationId);
-                                        if (!breakdownMap[compositeKey][locationKey]) {
-                                            breakdownMap[compositeKey][locationKey] = 0;
+
+                                        // Detect transfer records (move stock from one location to another)
+                                        const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
+                                        const toStockingLocationId = record.to_stocking_location_id || record.toStockingLocationId || null;
+
+                                        if (inventoryType === 'transfer' && toStockingLocationId) {
+                                            // For transfers: subtract from the source location and add to the destination location.
+                                            // Total stock across locations does not change for a transfer.
+                                            const fromKey = String(recordStockingLocationId);
+                                            const toKey = String(toStockingLocationId);
+
+                                            if (!breakdownMap[compositeKey][fromKey]) {
+                                                breakdownMap[compositeKey][fromKey] = 0;
+                                            }
+                                            breakdownMap[compositeKey][fromKey] -= quantity;
+
+                                            if (!breakdownMap[compositeKey][toKey]) {
+                                                breakdownMap[compositeKey][toKey] = 0;
+                                            }
+                                            breakdownMap[compositeKey][toKey] += quantity;
+                                        } else {
+                                            // Non-transfer behavior: add to total and to the location breakdown
+                                            stockMap[compositeKey] += quantity;
+
+                                            const locationKey = String(recordStockingLocationId);
+                                            if (!breakdownMap[compositeKey][locationKey]) {
+                                                breakdownMap[compositeKey][locationKey] = 0;
+                                            }
+                                            breakdownMap[compositeKey][locationKey] += quantity;
                                         }
-                                        breakdownMap[compositeKey][locationKey] += quantity;
                                     }
                                 }
                             });
                         }
                     });
-                    
+
                     // Convert itemsMap to array for search results
                     setInventoryItems(Object.values(itemsMap));
                     setStockQuantities(stockMap);
@@ -919,20 +990,20 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     // Original logic: Calculate net stock for each item_id across ALL locations
                     const stockMap = {}; // Total quantity per item_id
                     const breakdownMap = {}; // Breakdown by location per item_id
-                    
+
                     activeRecords.forEach(record => {
                         const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
                         const inventoryItems = record.inventoryItems || record.inventory_items || [];
-                        
+
                         if (Array.isArray(inventoryItems)) {
                             inventoryItems.forEach(invItem => {
                                 // Use only item_id to group and sum quantities
                                 const itemId = invItem.item_id || invItem.itemId || null;
-                                
+
                                 if (itemId !== null && itemId !== undefined) {
                                     // Use item_id as the key (convert to string for consistency)
                                     const itemKey = String(itemId);
-                                    
+
                                     // Initialize if not exists
                                     if (!stockMap[itemKey]) {
                                         stockMap[itemKey] = 0;
@@ -940,17 +1011,38 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                     if (!breakdownMap[itemKey]) {
                                         breakdownMap[itemKey] = {};
                                     }
-                                    
-                                    // Convert quantity to number and sum (incoming is positive, outgoing dispatch is negative, stock return is positive)
+
+                                    // Convert quantity to number
                                     const quantity = Number(invItem.quantity) || 0;
-                                    stockMap[itemKey] += quantity;
-                                    
-                                    // Store breakdown by location
-                                    const locationKey = String(recordStockingLocationId);
-                                    if (!breakdownMap[itemKey][locationKey]) {
-                                        breakdownMap[itemKey][locationKey] = 0;
+
+                                    // Detect transfer records and handle moves between locations
+                                    const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
+                                    const toStockingLocationId = record.to_stocking_location_id || record.toStockingLocationId || null;
+
+                                    if (inventoryType === 'transfer' && toStockingLocationId) {
+                                        // Transfer: subtract from source and add to destination; total remains unchanged
+                                        const fromKey = String(recordStockingLocationId);
+                                        const toKey = String(toStockingLocationId);
+
+                                        if (!breakdownMap[itemKey][fromKey]) {
+                                            breakdownMap[itemKey][fromKey] = 0;
+                                        }
+                                        breakdownMap[itemKey][fromKey] -= quantity;
+
+                                        if (!breakdownMap[itemKey][toKey]) {
+                                            breakdownMap[itemKey][toKey] = 0;
+                                        }
+                                        breakdownMap[itemKey][toKey] += quantity;
+                                    } else {
+                                        // Normal behaviour: add to total and to the location breakdown
+                                        stockMap[itemKey] += quantity;
+
+                                        const locationKey = String(recordStockingLocationId);
+                                        if (!breakdownMap[itemKey][locationKey]) {
+                                            breakdownMap[itemKey][locationKey] = 0;
+                                        }
+                                        breakdownMap[itemKey][locationKey] += quantity;
                                     }
-                                    breakdownMap[itemKey][locationKey] += quantity;
                                 }
                             });
                         }
@@ -996,38 +1088,38 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             const brand = (item.brand || '').trim();
             const model = (item.model || '').trim();
             const type = (item.type || '').trim();
-            
+
             // Only show quantity if item has at least one of category/model/brand/type
             const hasOtherData = category || model || brand || type;
             if (!hasOtherData) {
                 return 0; // Don't show quantity if no other data
             }
-            
+
             const compositeKey = `${itemName}_${category}_${brand}_${model}_${type}`;
-            
+
             // If stocking location is selected, return stock for that location only
             if (stockingLocationId) {
                 const breakdown = stockBreakdown[compositeKey] || {};
                 const locationStock = breakdown[String(stockingLocationId)] || 0;
                 return Math.max(0, locationStock);
             }
-            
+
             // Otherwise return total stock across all locations
             const availableQty = stockQuantities[compositeKey] || 0;
             return Math.max(0, availableQty);
         } else {
             // Original logic: Use only item_id to get the quantity
             const itemId = item.itemId || item.item_id || null;
-            
+
             if (itemId === null || itemId === undefined) {
                 return 0; // Return 0 if item_id is not available
             }
 
             // Use item_id as the key (same as in stockMap)
             const itemKey = String(itemId);
-            
+
             const availableQty = stockQuantities[itemKey] || 0;
-            
+
             // Return max of 0 (can't have negative stock)
             return Math.max(0, availableQty);
         }
@@ -1054,6 +1146,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             return stockBreakdown[itemKey] || {};
         }
     };
+
 
     // Fetch location names mapping
     const [locationNamesMap, setLocationNamesMap] = useState({});
@@ -1099,7 +1192,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end" onClick={onClose} style={{ fontFamily: "'Manrope', sans-serif" }} >
             <div
                 className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] flex flex-col"
-                style={{ 
+                style={{
                     maxHeight: 'calc(100vh - 100px)',
                     height: 'auto',
                     minHeight: '600px'
@@ -1118,6 +1211,31 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         </svg>
                     </button>
                 </div>
+                {/* Project Name Dropdown - ONLY for Update → Other Returns */}
+                {isFromUpdate && (
+                    <div className="relative mt-2 px-4">
+                        <p className="text-[12px] font-semibold text-black leading-normal mb-1">Project Name</p>
+                        <div
+                            onClick={() => setShowMoveProjectModal(true)}
+                            className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-3 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                            style={{ color: moveProject ? '#000' : '#9E9E9E', paddingRight: moveProject ? '40px' : '12px' }}
+                        >
+                            {moveProject || 'Select Project'}
+                        </div>
+                        {moveProject && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setMoveProject(''); setMoveProjectId(null); }}
+                                className="absolute top-2/3 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                                style={{ right: '12px' }}
+                            >
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                )}
                 {/* Search Input */}
                 <div className="px-6 pt-4 pb-4 border-b border-[#E0E0E0]">
                     <div className="relative">
@@ -1163,7 +1281,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                     const existingKey = getItemKey(existing);
                                     return existingKey === itemId;
                                 });
-                                
+
                                 // Determine quantity to display:
                                 // 1. If input is focused, show what user is typing (from itemQuantities)
                                 // 2. Otherwise, show from existingItems (source of truth)
@@ -1182,7 +1300,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                         quantity = 0;
                                     }
                                 }
-                                
+
                                 const availableQty = getAvailableQuantity(item);
                                 return (
                                     <div key={itemId} className="bg-white border border-[#E0E0E0] rounded-[8px] p-2" >
@@ -1192,7 +1310,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                                 <div className="flex items-center justify-between">
                                                     {/* Item Name */}
                                                     <p className="text-[12px] font-semibold text-black leading-normal mb-1">
-                                                        {highlightText(item.itemName, debouncedSearchQuery)}
+                                                        {highlightText(item.itemName || '', debouncedSearchQuery)}
                                                     </p>
                                                     {/* Category Tag */}
                                                     <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full mb-1.5 whitespace-nowrap ${getCategoryColor(item.category || 'Electricals')}`}>
@@ -1206,7 +1324,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                                             {highlightText(item.model, debouncedSearchQuery)}
                                                         </p>
                                                     )}
-                                                    <span 
+                                                    <span
                                                         onClick={() => { if (availableQty > 0) handleQuantityClick(item); }}
                                                         className={
                                                             `text-[11px] font-medium ${availableQty > 0 ? 'text-[#777777] cursor-pointer hover:text-black underline mb-1 ml-auto' : 'text-[#9E9E9E] mb-1 ml-auto'}`
@@ -1240,7 +1358,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                                                 return existingKey === itemId;
                                                             });
                                                             const current = existingItem ? (existingItem.quantity || 0) : (itemQuantities[itemId] || 0);
-                                                            
+
                                                             if (current > 0) {
                                                                 const newQuantity = current - 1;
                                                                 // Update quantity optimistically for immediate UI feedback
@@ -1312,8 +1430,23 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         </div>
                     )}
                 </div>
+                {/* Sticky Footer - Update Button */}
+                {isFromUpdate && (
+                    <div className="sticky bottom-0 bg-white border-t border-[#E0E0E0] px-4 py-3 flex justify-end">
+                        <button
+                            onClick={() => {
+                                // 🔹 call your update logic here
+                                // example: handleUpdate()
+                                onClose();
+                            }}
+                            className="h-[36px] px-6 rounded border border-[#BF9853] text-[#BF9853] text-[14px] font-semibold hover:opacity-90 transition"
+                        >
+                            Update
+                        </button>
+                    </div>
+                )}
             </div>
-            
+
             {/* Stock Summary Modal */}
             <StockSummaryModal
                 isOpen={showStockSummary}

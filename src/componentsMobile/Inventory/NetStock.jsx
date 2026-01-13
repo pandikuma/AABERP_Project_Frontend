@@ -32,6 +32,8 @@ const NetStock = () => {
   const [poType, setPoType] = useState([]);
   const [selectedCards, setSelectedCards] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [selectionFilter, setSelectionFilter] = useState('All'); // 'All' | 'Minimum' | 'Default' | 'Excess' - controls dropdown selection
+  const [selectAllFiltered, setSelectAllFiltered] = useState(false); // toggle: select all filtered items when true
   // Fetch category options
   useEffect(() => {
     const fetchCategories = async () => {
@@ -161,20 +163,16 @@ const NetStock = () => {
       return !recordDeleteStatus;
     });
 
-    // Filter by stocking location if selected
-    let filteredRecords = activeRecords;
-    if (selectedLocationId) {
-      filteredRecords = activeRecords.filter(record => {
-        const recordLocationId = record.stocking_location_id || record.stockingLocationId;
-        return String(recordLocationId) === String(selectedLocationId);
-      });
-    }
-
     // Group by composite key: item_id-category_id-model_id-brand_id-type_id
-    // Calculate net stock for each unique combination
+    // Calculate net stock for each unique combination. For transfer records we treat them specially:
+    // - When viewing a specific location: subtract from source (stocking_location_id) and add to destination (to_stocking_location_id)
+    // - When viewing across all locations (selectedLocationId is falsy): transfer is neutral (no net change)
     const stockMap = {}; // Key: composite key, Value: net stock quantity
 
-    filteredRecords.forEach(record => {
+    activeRecords.forEach(record => {
+      const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
+      const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
+      const toStockingLocationId = record.to_stocking_location_id || record.toStockingLocationId || null;
       const inventoryItems = record.inventoryItems || record.inventory_items || [];
 
       if (Array.isArray(inventoryItems)) {
@@ -200,15 +198,47 @@ const NetStock = () => {
               };
             }
 
-            // Convert quantity to number and sum (incoming is positive, outgoing dispatch is negative, stock return is positive)
+            // Convert quantity to number
             const quantity = Number(invItem.quantity) || 0;
-            stockMap[compositeKey].quantity += quantity;
+
+            let delta = 0;
+
+            if (!selectedLocationId) {
+              // Viewing across all locations: transfers are neutral (they move stock between locations)
+              if (inventoryType === 'transfer' && toStockingLocationId) {
+                delta = 0;
+              } else {
+                delta = quantity;
+              }
+            } else {
+              // Viewing a specific location: adjust based on whether the record is source or destination of a transfer
+              if (inventoryType === 'transfer' && toStockingLocationId) {
+                if (String(recordStockingLocationId) === String(selectedLocationId)) {
+                  // stock moved out from this location
+                  delta = -quantity;
+                } else if (String(toStockingLocationId) === String(selectedLocationId)) {
+                  // stock moved into this location
+                  delta = quantity;
+                } else {
+                  delta = 0; // transfer unrelated to this location
+                }
+              } else {
+                // Non-transfer and belongs to this location
+                if (String(recordStockingLocationId) === String(selectedLocationId)) {
+                  delta = quantity;
+                } else {
+                  delta = 0;
+                }
+              }
+            }
+
+            stockMap[compositeKey].quantity += delta;
           }
         });
       }
     });
 
-    // Convert to array format for processing
+    // Convert to array format for processing and ensure non-negative net stock
     return Object.values(stockMap).map(item => ({
       ...item,
       netStock: Math.max(0, item.quantity) // Ensure non-negative
@@ -276,7 +306,7 @@ const NetStock = () => {
       if (itemId) {
         itemNameMap[String(itemId)] = item;
 
-        // Map entities by composite key
+        // Map entities by composite key, include qty info if present
         const otherPOEntityList = item.otherPOEntityList || [];
         otherPOEntityList.forEach(entity => {
           const entityItemId = entity.itemId || itemId;
@@ -286,11 +316,15 @@ const NetStock = () => {
           const categoryId = item.categoryId || item.category_id || null;
 
           const entityKey = `${entityItemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
+          const defaultQtyFromEntity = entity.defaultQty || entity.default_qty || '25';
+          const minQtyFromEntity = entity.minimumQty || entity.minimum_qty || entity.minQty || entity.min_qty || '5';
           entityMap[entityKey] = {
             ...entity,
             itemName: item.itemName || item.poItemName || item.name || '',
             categoryId: categoryId,
-            itemId: entityItemId
+            itemId: entityItemId,
+            defaultQty: defaultQtyFromEntity,
+            minimumQty: minQtyFromEntity
           };
         });
       }
@@ -314,9 +348,13 @@ const NetStock = () => {
         const brand = matchedEntity.brandName || '';
         const model = matchedEntity.modelName || '';
         const type = matchedEntity.typeColor || '';
-        const minQty = matchedEntity.minimumQty || matchedEntity.minQty || '';
+        const minQty = matchedEntity.minimumQty || matchedEntity.minQty || '5';
         const defaultQty = matchedEntity.defaultQty || '';
         const categoryIdFromEntity = matchedEntity.categoryId || categoryId;
+        // Log resolved qtys for items that will be displayed (from entityMap)
+        try {
+          console.log('Displayed item (entityMap)', compositeKey, { itemName, defaultQty, minQty });
+        } catch (e) { /* ignore */ }
         // Resolve category name
         let categoryName = '';
         if (categoryIdFromEntity) {
@@ -326,7 +364,7 @@ const NetStock = () => {
           categoryName = categoryOption?.label || categoryOption?.value || '';
         }
         // Determine status based on net stock and min qty
-        const minQtyNum = Number(minQty) || 0;
+        const minQtyNum = Number(minQty) || 5;
         let status = 'Available';
         if (minQtyNum > 0 && netStock < minQtyNum) {
           status = 'Place Order';
@@ -372,6 +410,47 @@ const NetStock = () => {
           const brandName = brandId ? findNameById(poBrand, brandId, 'brand') : '';
           const modelName = modelId ? findNameById(poModel, modelId, 'model') : '';
           const typeName = typeId ? findNameById(poType, typeId, 'typeColor') || findNameById(poType, typeId, 'type') : '';
+
+          // Extract qty info from itemData when available. Prefer matching entry in otherPOEntityList when possible
+          let defaultQtyFromItem = itemData.defaultQty || itemData.default_qty || '25';
+          let minQtyFromItem = itemData.minimumQuantity || itemData.minimumQty || itemData.minimum_qty || itemData.minQty || itemData.min_qty || itemData.minimum || '5';
+
+          if (Array.isArray(itemData.otherPOEntityList) && itemData.otherPOEntityList.length) {
+            const matchEntity = itemData.otherPOEntityList.find(ent => {
+              // Try to match by brand/model/type when available
+              const eBrand = ent.brandId || ent.brand_id || ent.brandName || '';
+              const eModel = ent.modelId || ent.model_id || ent.modelName || '';
+              const eType = ent.typeId || ent.type_id || ent.typeColor || '';
+
+              const brandMatch = !brandId || String(eBrand) === String(brandId) || String(eBrand) === String(ent.brandName) || String(ent.brandName) === String(brandId);
+              const modelMatch = !modelId || String(eModel) === String(modelId) || String(eModel) === String(ent.modelName) || String(ent.modelName) === String(modelId);
+              const typeMatch = !typeId || String(eType) === String(typeId) || String(eType) === String(ent.typeColor) || String(ent.typeColor) === String(typeId);
+
+              // Also allow matching by category if provided
+              const categoryMatch = !categoryIdFromItem || String(ent.categoryId || ent.category_id) === String(categoryIdFromItem);
+
+              return brandMatch && modelMatch && typeMatch && categoryMatch;
+            });
+            if (matchEntity) {
+              defaultQtyFromItem = defaultQtyFromItem || matchEntity.defaultQty || matchEntity.default_qty || '25';
+              minQtyFromItem = minQtyFromItem || matchEntity.minimumQty || matchEntity.minimum_qty || matchEntity.minQty || matchEntity.min_qty || '5';
+            } else {
+              // No exact match - pick any entry with qtys as a fallback
+              const fallbackEntity = itemData.otherPOEntityList.find(ent => ent.defaultQty || ent.default_qty || ent.minimumQty || ent.minimum_qty || ent.minQty || ent.min_qty);
+              if (fallbackEntity) {
+                defaultQtyFromItem = defaultQtyFromItem || fallbackEntity.defaultQty || fallbackEntity.default_qty || '25';
+                minQtyFromItem = minQtyFromItem || fallbackEntity.minimumQty || fallbackEntity.minimum_qty || fallbackEntity.minQty || fallbackEntity.min_qty || '5';
+              } else {
+                try { console.log('No matching or fallback otherPOEntityList entry for', compositeKey, { defaultQtyFromItem, minQtyFromItem }); } catch (e) { }
+              }
+            }
+          }
+          // Determine status based on minQty and net stock
+          const minQtyNum = Number(minQtyFromItem) || 5;
+          let status = 'Available';
+          if (minQtyNum > 0 && netStock < minQtyNum) {
+            status = 'Place Order';
+          }
           processedData.push({
             id: compositeKey,
             itemId: itemId,
@@ -380,10 +459,10 @@ const NetStock = () => {
             brand: brandName,
             type: typeName,
             category: categoryName,
-            defaultQty: '',
-            minQty: '',
+            defaultQty: defaultQtyFromItem,
+            minQty: minQtyFromItem,
             netStock: netStock,
-            status: 'Available',
+            status: status,
             isFavorite: false,
             brandId: brandId,
             modelId: modelId,
@@ -428,8 +507,31 @@ const NetStock = () => {
         (item.category || '').toLowerCase().includes(query)
       );
     }
+
+    // Apply dropdown selectionFilter to the displayed list
+    if (selectionFilter) {
+      if (selectionFilter === 'Minimum') {
+        // Minimum -> items with Place Order status
+        filtered = filtered.filter(i => String(i.status) === 'Place Order');
+      } else if (selectionFilter === 'Default') {
+        // Default -> Available items where netStock < defaultQty (defaultQty must be > 0)
+        filtered = filtered.filter(i => {
+          const defaultNum = Number(i.defaultQty) || 25;
+          return i.status === 'Available' && defaultNum > 0 && Number(i.netStock) < defaultNum;
+        });
+      } else if (selectionFilter === 'Excess') {
+        // Excess -> Available items where netStock >= defaultQty (defaultQty must be > 0)
+        filtered = filtered.filter(i => {
+          const defaultNum = Number(i.defaultQty) || 25;
+          return i.status === 'Available' && defaultNum > 0 && Number(i.netStock) >= defaultNum;
+        });
+      } else if (selectionFilter === 'All') {
+        // All -> no additional filtering
+      }
+    }
+
     setFilteredData(filtered);
-  }, [selectedCategory, searchQuery, netStockData, categoryOptions]);
+  }, [selectedCategory, searchQuery, netStockData, categoryOptions, selectionFilter]);
   // Sync selectAll state with selectedCards
   useEffect(() => {
     if (filteredData.length > 0) {
@@ -438,6 +540,21 @@ const NetStock = () => {
       setSelectAll(false);
     }
   }, [selectedCards, filteredData]);
+
+  // Keep the toggle state in sync: if ALL filtered items are currently selected, show toggle ON.
+  useEffect(() => {
+    if (!filteredData || filteredData.length === 0) {
+      setSelectAllFiltered(false);
+      return;
+    }
+    const allSelected = filteredData.every(i => selectedCards.includes(i.id));
+    if (allSelected !== selectAllFiltered) setSelectAllFiltered(allSelected);
+  }, [selectedCards, filteredData]);
+
+  // Selection of items is controlled only by the toggle button now.
+  // Changing the dropdown filter will NOT auto-select items.
+
+
   const handleDateConfirm = (date) => {
     setSelectedDate(date);
     setShowDatePicker(false);
@@ -498,16 +615,21 @@ const NetStock = () => {
               <button
                 type="button"
                 onClick={() => {
-                  // Get selected items data with all required IDs for PO generation
-                  const selectedItemsData = filteredData
-                    .filter(item => selectedCards.includes(item.id))
+                  // Get selected items data (include items selected even if currently filtered out)
+                  const selectedItemsData = selectedCards
+                    .map(selId => netStockData.find(item => item.id === selId))
+                    .filter(Boolean)
                     .map(item => ({
                       itemName: item.itemName || '',
                       category: item.category || '',
                       model: item.model || '',
                       brand: item.brand || '',
                       type: item.type || '',
-                      quantity: String(item.defaultQty || item.minQty || 1),
+                      quantity: String(
+                        item.status === 'Available' ? (item.defaultQty || item.minQty || 1)
+                          : item.status === 'Place Order' ? (item.minQty || item.defaultQty || 1)
+                            : (item.defaultQty || item.minQty || 1)
+                      ),
                       itemId: item.itemId || null,
                       brandId: item.brandId || null,
                       modelId: item.modelId || null,
@@ -515,10 +637,8 @@ const NetStock = () => {
                       categoryId: item.categoryId || null
                     }))
                     .filter(item => item.itemId !== null && item.itemId !== undefined); // Only include items with valid itemId
-
                   // Store in localStorage
                   localStorage.setItem('netStockSelectedItems', JSON.stringify(selectedItemsData));
-
                   // Navigate to PurchaseOrder page
                   navigate('/purchaseorder');
                 }}
@@ -532,20 +652,23 @@ const NetStock = () => {
       </div>
       {/* Filters Section */}
       <div className="flex-shrink-0 px-4 pt-2 mb-2">
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={handleExportPDF}
-            className="text-[13px] font-medium text-black leading-normal"
-          >
-            Export PDF
-          </button>
-        </div>
+
         {/* Category Filter */}
         <div className="mb-2">
-          <p className="text-[12px] font-semibold text-black leading-normal mb-1">
-            Category
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-[12px] font-semibold text-black leading-normal">
+              Category
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                className="text-[12px] font-semibold text-black leading-normal"
+              >
+                Export PDF
+              </button>
+            </div>
+          </div>
           <div className="relative">
             <div
               onClick={() => setShowCategoryModal(true)}
@@ -633,47 +756,87 @@ const NetStock = () => {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1 cursor-pointer">
-              {/* Hidden native checkbox */}
-              <input
-                type="checkbox"
-                checked={selectAll}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setSelectAll(checked);
-
-                  if (checked) {
-                    setSelectedCards(filteredData.map(item => item.id));
-                  } else {
-                    setSelectedCards([]);
-                  }
-                }}
-                className="hidden"
-              />
-
-              {/* Custom checkbox */}
-              <div
-                className={`w-4 h-4 rounded border flex items-center justify-center
-        ${selectAll ? 'bg-[#007233] border-[#007233]' : 'bg-gray-300'}
-      `}
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] border border-[rgba(0,0,0,0.16)] rounded-full px-2 py-1 font-semibold text-black">{selectedCards.length}</span>
+            </div>
+            <div className="flex flex-col">
+              <select
+                value={selectionFilter || 'All'}
+                onChange={(e) => setSelectionFilter(e.target.value)}
+                className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-1 pr-1 text-[12px] font-medium bg-white"
+                style={{ minWidth: '100px' }}
               >
-                {selectAll && (
-                  <svg
-                    className="w-3 h-3 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
+                <option value="All">All</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Default">Default</option>
+                <option value="Excess">Excess</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        {/* Filter Count Display */}
 
-              <span className="text-[12px] font-medium">
-                Select all
-              </span>
-            </label>
+        {/* Toggle switch matching provided image (adds/removes only filtered items) */}
+        <div className="flex items-center justify-between">
+          {selectionFilter && (
+            <div className="mt-2">
+              <div className="flex items-center">
+                <span className="text-[12px] font-medium text-black">
+                  {selectionFilter}:
+                </span>
+                <span className={`text-[12px] font-semibold ${selectionFilter === 'Minimum' ? 'text-[#E4572E]' :
+                    selectionFilter === 'Default' ? 'text-[#BF9853]' :
+                      selectionFilter === 'Excess' ? 'text-[#007233]' :
+                        'text-black'
+                  }`}>
+                  {filteredData.length}
+                </span>
+              </div>
+            </div>
+          )}
+          <div
+            role="switch"
+            tabIndex={0}
+            aria-checked={selectAllFiltered}
+            aria-disabled={filteredData.length === 0}
+            onKeyDown={(e) => {
+              if (filteredData.length === 0) return;
+              if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                // Toggle selection: add filtered items (union) or remove filtered items
+                if (!selectAllFiltered) {
+                  setSelectedCards(prev => {
+                    const s = new Set(prev || []);
+                    filteredData.forEach(i => s.add(i.id));
+                    return Array.from(s);
+                  });
+                  setSelectAllFiltered(true);
+                } else {
+                  const filteredSet = new Set(filteredData.map(i => i.id));
+                  setSelectedCards(prev => (prev || []).filter(id => !filteredSet.has(id)));
+                  setSelectAllFiltered(false);
+                }
+              }
+            }}
+            onClick={() => {
+              if (filteredData.length === 0) return;
+              if (!selectAllFiltered) {
+                setSelectedCards(prev => {
+                  const s = new Set(prev || []);
+                  filteredData.forEach(i => s.add(i.id));
+                  return Array.from(s);
+                });
+                setSelectAllFiltered(true);
+              } else {
+                const filteredSet = new Set(filteredData.map(i => i.id));
+                setSelectedCards(prev => (prev || []).filter(id => !filteredSet.has(id)));
+                setSelectAllFiltered(false);
+              }
+            }}
+            className={`w-14 h-5 rounded-full mt- p-1 flex items-center transition-colors ${filteredData.length === 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${selectAllFiltered ? 'bg-[#BEE6CC]' : 'bg-[#cfd4d8]'}`}
+            title={filteredData.length === 0 ? 'No items to select' : (selectAllFiltered ? 'Unselect filtered items' : 'Select all filtered items')}
+          >
+            <div className={`bg-white w-5 h-4 rounded-full shadow transform transition-transform duration-200 ease-in-out ${selectAllFiltered ? 'translate-x-6' : 'translate-x-0'}`}></div>
           </div>
         </div>
       </div>
@@ -688,7 +851,7 @@ const NetStock = () => {
             <p className="text-[14px] text-gray-500">No items found</p>
           </div>
         ) : (
-          <div className=" shadow-md mt-2">
+          <div className=" shadow-md">
             {filteredData.map((item) => {
               const isSelected = selectedCards.includes(item.id);
               return (
@@ -730,18 +893,17 @@ const NetStock = () => {
                           </svg>
                         )}
                       </div>
-
                       {/* Item Name */}
                       <div className="mb-1 flex items-center justify-between">
                         <p className="text-[13px] font-semibold text-black leading-tight">
                           {item.itemName}
                         </p>
                         {item.status === 'Place Order' ? (
-                          <button className="bg-[#007233] text-white text-[11px] font-medium px-3  rounded-[4px]">
+                          <button className="bg-[#007233] text-white text-[11px] font-medium px-3 rounded-[4px]">
                             Place Order
                           </button>
                         ) : (
-                          <div className="bg-[#f7f1c9] text-[#BF9853] text-[11px] font-medium px-3  rounded-[15px] ">
+                          <div className="bg-[#f7f1c9] text-[#BF9853] text-[11px] font-medium px-3 rounded-[15px] ">
                             Available
                           </div>
                         )}
@@ -752,7 +914,6 @@ const NetStock = () => {
                           {item.model ? `${item.model}` : ''}
                         </p>
                       </div>
-
                       {/* Brand and Type */}
                       <div className="mb-1 flex items-center justify-between">
                         <p className="text-[12px] font-medium text-[#616161]">
@@ -767,10 +928,10 @@ const NetStock = () => {
                   {/* Default Qty and Min Qty - Same horizontal line */}
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] font-medium text-[#BF9853]">
-                      Default Qty : {item.defaultQty || 'N/A'}
+                      Default Qty : {item.defaultQty || '25'}
                     </p>
                     <p className="text-[11px] font-medium text-[#007233] text-right">
-                      Min Qty : {item.minQty || 'N/A'}
+                      Min Qty : {item.minQty || '5'}
                     </p>
                   </div>
                 </div>

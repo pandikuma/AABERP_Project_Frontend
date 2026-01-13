@@ -1603,7 +1603,7 @@ const Incoming = ({ user }) => {
         stockingLocationId={(() => {
           const stockingLocationSite = siteOptions.find(
             site => site.value === incomingData.stockingLocation && site.markedAsStockingLocation === true
-          );
+          );console.log("stockingLocationId", stockingLocationSite?.id);
           return stockingLocationSite?.id || null;
         })()}
         disableAvailabilityCheck={true}

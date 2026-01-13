@@ -1052,26 +1052,43 @@ const Outgoing = ({ user }) => {
             const inventoryRecords = await inventoryResponse.json();
             
             // Filter records for the selected stocking location and active (not deleted)
-            const locationRecords = inventoryRecords.filter(record => {
+            // Consider all active records (do not restrict by record stocking location so transfers are counted correctly)
+            const activeRecords = inventoryRecords.filter(record => {
               const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
-              const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
-              return !recordDeleteStatus && String(recordStockingLocationId) === String(stockingLocationId);
+              return !recordDeleteStatus;
             });
 
             // Check each item in the items array
             for (const item of items) {
               const itemId = item.itemId || null;
               if (itemId !== null && itemId !== undefined) {
-                // Calculate available stock for this item in this location
+                // Calculate available stock for this item in this location, taking transfers into account
                 let availableStock = 0;
-                locationRecords.forEach(record => {
+                activeRecords.forEach(record => {
+                  const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId || null;
+                  const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
+                  const toStockingLocationId = record.to_stocking_location_id || record.toStockingLocationId || null;
+
                   const inventoryItems = record.inventoryItems || record.inventory_items || [];
                   if (Array.isArray(inventoryItems)) {
                     inventoryItems.forEach(invItem => {
                       const invItemId = invItem.item_id || invItem.itemId || null;
                       if (String(invItemId) === String(itemId)) {
                         const qty = Number(invItem.quantity) || 0;
-                        availableStock += qty;
+
+                        if (inventoryType === 'transfer' && toStockingLocationId) {
+                          // Subtract from source, add to destination
+                          if (String(recordStockingLocationId) === String(stockingLocationId)) {
+                            availableStock -= qty;
+                          } else if (String(toStockingLocationId) === String(stockingLocationId)) {
+                            availableStock += qty;
+                          }
+                        } else {
+                          // Non-transfer: only count if record belongs to this location
+                          if (String(recordStockingLocationId) === String(stockingLocationId)) {
+                            availableStock += qty;
+                          }
+                        }
                       }
                     });
                   }
