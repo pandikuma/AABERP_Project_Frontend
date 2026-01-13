@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import SearchItemsModal from '../PurchaseOrder/SearchItemsModal';
 import Edit from '../Images/edit.png'
@@ -22,7 +22,69 @@ const EditStock = () => {
   const [poCategoryOptions, setPoCategoryOptions] = useState([]);
   const [stockRoomOptions, setStockRoomOptions] = useState([]);
   const [categoryOptions, setCategoryOptions] = useState([]);
-const [swipeStates, setSwipeStates] = useState({});
+  const [swipeStates, setSwipeStates] = useState({});
+
+  const mouseSwipeRef = useRef({
+    isDown: false,
+    itemId: null
+  });
+  const blockClickRef = useRef(false);
+  const lastMouseXRef = useRef(0);
+
+
+
+  const handleMouseDownDesktop = (e, itemId) => {
+    if (e.button !== 0) return; // left click only
+
+    mouseSwipeRef.current = {
+      isDown: true,
+      itemId
+    };
+
+    handleTouchStart(
+      { touches: [{ clientX: e.clientX }] },
+      itemId
+    );
+
+    document.addEventListener('mousemove', handleMouseMoveDesktop);
+    document.addEventListener('mouseup', handleMouseUpDesktop);
+  };
+
+  const handleMouseMoveDesktop = (e) => {
+    const { isDown, itemId } = mouseSwipeRef.current;
+    if (!isDown || !itemId) return;
+    lastMouseXRef.current = e.clientX;
+    handleTouchMove(
+      { touches: [{ clientX: e.clientX }], preventDefault: () => { } },
+      itemId
+    );
+  };
+
+  const handleMouseUpDesktop = () => {
+    const { isDown, itemId } = mouseSwipeRef.current;
+    if (!isDown || !itemId) return;
+
+    const state = swipeStates[itemId];
+    if (state) {
+      const deltaX = state.currentX - state.startX;
+
+      if (Math.abs(deltaX) >= minSwipeDistance) {
+        if (deltaX < 0) {
+          setExpandedItemId(itemId); // ✅ HOLD OPEN
+        } else {
+          setExpandedItemId(null);   // ✅ CLOSE
+        }
+      }
+    }
+
+    mouseSwipeRef.current = {
+      isDown: false,
+      itemId: null
+    };
+
+    document.removeEventListener('mousemove', handleMouseMoveDesktop);
+    document.removeEventListener('mouseup', handleMouseUpDesktop);
+  };
   // Swipe handlers for desktop
   const handleMouseDown = (index, e) => {
     e.preventDefault();
@@ -69,7 +131,7 @@ const [swipeStates, setSwipeStates] = useState({});
   const [inventoryData, setInventoryData] = useState([]);
   const [itemNamesData, setItemNamesData] = useState([]);
   const [locationNamesMap, setLocationNamesMap] = useState({});
-  
+
   const [expandedItemId, setExpandedItemId] = useState(null);
   const [showMoveStockModal, setShowMoveStockModal] = useState(false);
   const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
@@ -300,20 +362,17 @@ const [swipeStates, setSwipeStates] = useState({});
                 quantity: 0
               };
             }
-
             const quantity = Number(invItem.quantity) || 0;
             stockMap[compositeKey].quantity += quantity;
           }
         });
       }
     });
-
     return Object.values(stockMap).map(item => ({
       ...item,
       netStock: Math.max(0, item.quantity)
     }));
   }, []);
-
   // Fetch inventory data for Update tab
   useEffect(() => {
     const fetchInventory = async () => {
@@ -335,7 +394,6 @@ const [swipeStates, setSwipeStates] = useState({});
     };
     fetchInventory();
   }, []);
-
   // Process inventory items for Update tab (similar to NetStock)
   useEffect(() => {
     if (inventoryData.length === 0 || itemNamesData.length === 0 || poBrand.length === 0 || poModel.length === 0 || poType.length === 0) {
@@ -344,19 +402,15 @@ const [swipeStates, setSwipeStates] = useState({});
       }
       return;
     }
-
     const selectedLocationOption = stockRoomOptions.find(loc =>
       (loc.value || loc) === updateSelectedLocation || (loc.label || loc) === updateSelectedLocation
     );
     const selectedLocationId = selectedLocationOption?.id || null;
-
     const stockQuantities = calculateNetStock(inventoryData, selectedLocationId);
     setUpdateLoading(true);
-
     const processedData = [];
     const itemNameMap = {};
     const entityMap = {};
-
     itemNamesData.forEach(item => {
       const itemId = item.id || item._id || null;
       if (itemId) {
@@ -562,21 +616,27 @@ const [swipeStates, setSwipeStates] = useState({});
   const handleTouchEnd = (itemId) => {
     const state = swipeStates[itemId];
     if (!state) return;
+
     const deltaX = state.currentX - state.startX;
     const absDeltaX = Math.abs(deltaX);
+
     if (absDeltaX >= minSwipeDistance) {
+      blockClickRef.current = true; // 👈 BLOCK CLICK AFTER SWIPE
+
       if (deltaX < 0) {
-        setExpandedItemId(itemId);
+        setExpandedItemId(itemId);   // hold open
       } else {
-        setExpandedItemId(null);
+        setExpandedItemId(null);     // close
       }
     }
+
     setSwipeStates(prev => {
       const newState = { ...prev };
       delete newState[itemId];
       return newState;
     });
   };
+
 
   // Set up non-passive touch event listeners
   useEffect(() => {
@@ -650,14 +710,107 @@ const [swipeStates, setSwipeStates] = useState({});
     setExpandedItemId(null);
   };
 
-  // Handle move stock submit
+  // Handle move stock submit (modal edit for a single item)
   const handleMoveStockSubmit = () => {
-    // TODO: Implement API call to update stock
-    console.log('Moving stock:', selectedItemForEdit, 'New count:', newCount);
+    // For individual item edit we just close modal and reset; backend handling is done via the transfer action
+    console.log('Moving stock (modal edit):', selectedItemForEdit, 'New count:', newCount);
     setShowMoveStockModal(false);
     setSelectedItemForEdit(null);
     setCurrentStock('');
     setNewCount('');
+  };
+
+  const [transferLoading, setTransferLoading] = useState(false);
+
+  // Handle transfer (Move Stock) submit for Transfer tab
+  const handleTransferSubmit = async () => {
+    // Basic validation
+    if (!fromLocation || !toLocation) {
+      alert('Please select both From and To locations.');
+      return;
+    }
+    if (fromLocation === toLocation) {
+      alert('From and To locations cannot be the same.');
+      return;
+    }
+    if (!items || items.length === 0) {
+      alert('Please add items to transfer.');
+      return;
+    }
+
+    // Find IDs for stocking locations
+    const fromOption = stockRoomOptions.find(loc => (loc.value || loc.label || loc) === fromLocation);
+    const toOption = stockRoomOptions.find(loc => (loc.value || loc.label || loc) === toLocation);
+    const fromStockingLocationId = fromOption?.id || null;
+    const toStockingLocationId = toOption?.id || null;
+
+    if (!fromStockingLocationId || !toStockingLocationId) {
+      alert('Unable to resolve stocking location IDs. Please select valid locations.');
+      return;
+    }
+
+    setTransferLoading(true);
+    try {
+      // Attempt to fetch a new ENO (similar to incoming flow); if it fails we'll send empty string
+      let eno = '';
+      try {
+        const countRes = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/transferCount?stockingLocationId=${fromStockingLocationId}`);
+        if (countRes.ok) {
+          const count = await countRes.json();
+          eno = String((count || 0) + 1);
+        }
+      } catch (e) {
+        // ignore and leave eno as empty
+      }
+
+      const formattedDate = new Date().toISOString().split('T')[0];
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+
+      const inventoryItems = items.map(item => ({
+        item_id: item.itemId || item.id || null,
+        category_id: item.categoryId || item.category_id || null,
+        model_id: item.modelId || item.model_id || null,
+        brand_id: item.brandId || item.brand_id || null,
+        type_id: item.typeId || item.type_id || null,
+        quantity: Math.abs(item.quantity || 0),
+        amount: Math.abs((item.price || 0) * (item.quantity || 0))
+      }));
+
+      const payload = {
+        stocking_location_id: fromStockingLocationId,
+        to_stocking_location_id: toStockingLocationId,
+        inventory_type: 'Transfer',
+        date: formattedDate,
+        eno: eno,
+        purchase_no: '',
+        created_by: (user && user.username) || '',
+        inventoryItems: inventoryItems
+      };
+
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to save transfer');
+      }
+
+      await response.json();
+      alert('Transfer saved successfully!');
+      // Clear items
+      setItems([]);
+      setItemsCount(0);
+    } catch (error) {
+      console.error('Error saving transfer:', error);
+      alert(error.message || 'Error saving transfer');
+    } finally {
+      setTransferLoading(false);
+    }
   };
 
   // Get stocking location options for Update tab
@@ -688,9 +841,11 @@ const [swipeStates, setSwipeStates] = useState({});
             <div className="flex items-center">
               <button
                 type="button"
-                className="text-black px-4 py-2 rounded-full text-[12px] font-medium"
+                onClick={handleTransferSubmit}
+                disabled={transferLoading}
+                className={`text-black px-4 py-2 rounded-full text-[12px] font-medium ${transferLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
-                Move Stock
+                {transferLoading ? 'Moving...' : 'Move Stock'}
               </button>
               <button
                 type="button"
@@ -702,7 +857,6 @@ const [swipeStates, setSwipeStates] = useState({});
           )}
         </div>
       )}
-
       {/* Sub-navigation Tabs: Transfer, Update, History */}
       <div className="flex-shrink-0 px-4 pb-3">
         <div className="flex bg-gray-100 items-center h-9 shadow-sm flex-1">
@@ -981,15 +1135,15 @@ const [swipeStates, setSwipeStates] = useState({});
                           onTouchStart={(e) => handleTouchStart(e, itemId)}
                           onTouchMove={(e) => handleTouchMove(e, itemId)}
                           onTouchEnd={() => handleTouchEnd(itemId)}
-                          onMouseDown={(e) => {
-                            if (e.button !== 0) return;
-                            const syntheticEvent = {
-                              touches: [{ clientX: e.clientX }],
-                              preventDefault: () => e.preventDefault()
-                            };
-                            handleTouchStart(syntheticEvent, itemId);
-                          }}
+                          onMouseDown={(e) => handleMouseDownDesktop(e, itemId)}
                           onClick={(e) => {
+                            if (blockClickRef.current) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              blockClickRef.current = false;
+                              return;
+                            }
+
                             if (e.target.closest('.action-button')) {
                               return;
                             }
@@ -1011,16 +1165,16 @@ const [swipeStates, setSwipeStates] = useState({});
                                 )}
                               </div>
                               <div className="flex items-center justify-between">
-                              {/* Item ID */}
-                              <p className="text-[12px] font-medium text-gray-600 mb-1">
-                                {item.itemId || 'N/A'}
-                              </p>
+                                {/* Item ID */}
+                                <p className="text-[12px] font-medium text-gray-600 mb-1">
+                                  {item.itemId || 'N/A'}
+                                </p>
                               </div>
                               <div className="flex items-center justify-between">
-                              {/* Brand and Type */}
-                              <p className="text-[12px] font-medium text-gray-600 mb-1">
-                                {item.brand && item.type ? `${item.brand}, ${item.type}` : item.brand || item.type || ''}
-                              </p>
+                                {/* Brand and Type */}
+                                <p className="text-[12px] font-medium text-gray-600 mb-1">
+                                  {item.brand && item.type ? `${item.brand}, ${item.type}` : item.brand || item.type || ''}
+                                </p>
                               </div>
                               {/* Right Side - Category Tag and Current Count */}
                               <div className="flex items-center justify-between">
