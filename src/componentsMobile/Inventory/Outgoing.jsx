@@ -1044,6 +1044,18 @@ const Outgoing = ({ user }) => {
 
       const stockingLocationId = stockingLocationSite.id;
 
+      // Find project/client ID from outgoingSiteOptions (needed for stock return validation)
+      const projectSite = outgoingSiteOptions.find(
+        site => site.value === outgoingData.projectName
+      );
+      
+      if (!projectSite || !projectSite.id) {
+        alert('Project ID not found. Please select a valid project.');
+        return;
+      }
+
+      const clientId = projectSite.id;
+
       // Validate that all items are available in the selected stocking location (only for 'dispatch')
       if ((outgoingType || '').toLowerCase() === 'dispatch') {
         try {
@@ -1119,17 +1131,113 @@ const Outgoing = ({ user }) => {
         }
       }
 
-      // Find project/client ID from outgoingSiteOptions
-      const projectSite = outgoingSiteOptions.find(
-        site => site.value === outgoingData.projectName
-      );
-      
-      if (!projectSite || !projectSite.id) {
-        alert('Project ID not found. Please select a valid project.');
-        return;
-      }
+      // Validate stock return: check if return quantity exceeds dispatch quantity for this client_id
+      if ((outgoingType || '').toLowerCase() === 'stock return' || (outgoingType || '').toLowerCase() === 'stockreturn') {
+        try {
+          const inventoryResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
+          if (inventoryResponse.ok) {
+            const inventoryRecords = await inventoryResponse.json();
+            
+            // Filter for outgoing records for this client_id (not deleted)
+            const clientOutgoingRecords = inventoryRecords.filter(record => {
+              const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
+              const recordClientId = record.client_id || record.clientId;
+              const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
+              return !recordDeleteStatus && 
+                     String(recordClientId) === String(clientId) && 
+                     inventoryType === 'outgoing';
+            });
 
-      const clientId = projectSite.id;
+            // Check if this is an update (edit mode) - we need to exclude current record from calculations
+            const isUpdate = isEditMode && editingInventoryId;
+
+            // Check each item being returned
+            for (const item of items) {
+              const itemId = item.itemId || null;
+              const categoryId = item.categoryId || null;
+              const modelId = item.modelId || null;
+              const brandId = item.brandId || null;
+              const typeId = item.typeId || null;
+              const returnQuantity = Math.abs(item.quantity || 0);
+
+              if (itemId === null || itemId === undefined) {
+                continue; // Skip items without itemId
+              }
+
+              // Calculate total dispatched quantity and total already returned quantity for this item
+              let totalDispatched = 0;
+              let totalReturned = 0;
+
+              clientOutgoingRecords.forEach(record => {
+                // Skip current record if editing (to exclude it from calculations)
+                if (isUpdate && (record.id === editingInventoryId || record._id === editingInventoryId)) {
+                  return;
+                }
+
+                const outgoingType = (record.outgoing_type || record.outgoingType || '').toString().toLowerCase();
+                const inventoryItems = record.inventoryItems || record.inventory_items || [];
+                
+                if (Array.isArray(inventoryItems)) {
+                  inventoryItems.forEach(invItem => {
+                    const invItemId = invItem.item_id || invItem.itemId || null;
+                    const invCategoryId = invItem.category_id || invItem.categoryId || null;
+                    const invModelId = invItem.model_id || invItem.modelId || null;
+                    const invBrandId = invItem.brand_id || invItem.brandId || null;
+                    const invTypeId = invItem.type_id || invItem.typeId || null;
+                    
+                    // Match by composite key: itemId + categoryId + modelId + brandId + typeId
+                    const matchesItem = String(invItemId) === String(itemId) &&
+                      String(invCategoryId || 'null') === String(categoryId || 'null') &&
+                      String(invModelId || 'null') === String(modelId || 'null') &&
+                      String(invBrandId || 'null') === String(brandId || 'null') &&
+                      String(invTypeId || 'null') === String(typeId || 'null');
+                    
+                    if (matchesItem) {
+                      const qty = Number(invItem.quantity) || 0;
+                      
+                      if (outgoingType === 'dispatch') {
+                        // Dispatch has negative quantity, so we add the absolute value
+                        totalDispatched += Math.abs(qty);
+                      } else if (outgoingType === 'stock return' || outgoingType === 'stockreturn') {
+                        // Stock return has positive quantity
+                        totalReturned += Math.abs(qty);
+                      }
+                    }
+                  });
+                }
+              });
+
+              // Calculate maximum returnable quantity
+              const maxReturnable = totalDispatched - totalReturned;
+
+              // Check if item was ever dispatched
+              if (totalDispatched === 0) {
+                const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
+                alert(`Cannot return item "${itemName}". This item was never dispatched to "${outgoingData.projectName}". Only dispatched items can be returned.`);
+                return;
+              }
+
+              // Check if return quantity exceeds maximum returnable
+              if (returnQuantity > maxReturnable) {
+                const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
+                alert(
+                  `Cannot return ${returnQuantity} qty of "${itemName}".\n\n` +
+                  `For client "${outgoingData.projectName}":\n` +
+                  `- Total dispatched: ${totalDispatched} qty\n` +
+                  `- Already returned: ${totalReturned} qty\n` +
+                  `- Maximum returnable: ${maxReturnable} qty\n\n` +
+                  `Please reduce the return quantity to ${maxReturnable} qty or less.`
+                );
+                return;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error validating stock return:', error);
+          alert('Error validating stock return. Please try again.');
+          return;
+        }
+      }
       const siteInchargeId = selectedIncharge.id;
       const siteInchargeMobileNumber = outgoingData.contact || selectedIncharge.mobileNumber || '';
 

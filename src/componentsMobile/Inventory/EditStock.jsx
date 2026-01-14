@@ -890,6 +890,13 @@ const EditStock = () => {
       alert('Unable to resolve stocking location IDs. Please select valid locations.');
       return;
     }
+    
+    // Find project IDs from allProjectNames for client_id and to_client_id (project to project transfer)
+    const fromProjectOption = allProjectNames.find(proj => (proj.value || proj.label || proj) === fromLocation);
+    const toProjectOption = allProjectNames.find(proj => (proj.value || proj.label || proj) === toLocation);
+    const fromProjectId = fromProjectOption?.id || null;
+    const toProjectId = toProjectOption?.id || null;
+    
     setTransferLoading(true);
     try {
       // Attempt to fetch a new ENO (similar to incoming flow); if it fails we'll send empty string
@@ -924,6 +931,14 @@ const EditStock = () => {
         created_by: (user && user.username) || '',
         inventoryItems: inventoryItems
       };
+      
+      // Add client_id and to_client_id for project to project transfers
+      if (fromProjectId) {
+        payload.client_id = fromProjectId;
+      }
+      if (toProjectId) {
+        payload.to_client_id = toProjectId;
+      }
       const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
         method: 'POST',
         headers: {
@@ -983,6 +998,10 @@ const EditStock = () => {
     (loc.value || loc.label || loc) === fromLocation
   );
   const fromStockingLocationId = fromSelectedOption?.id || null;
+  
+  // Resolve the ID for the selected 'From' project to pass into SearchItemsModal
+  const fromProjectOption = allProjectNames.find(proj => (proj.value || proj.label || proj) === fromLocation);
+  const fromProjectId = fromProjectOption?.id || null;
   // Memoized map of net stock per composite key for the selected From location
   const stockQuantitiesMap = useMemo(() => {
     const list = calculateNetStock(inventoryData, fromStockingLocationId);
@@ -1737,7 +1756,7 @@ const EditStock = () => {
       )}
       {/* History Tab Content */}
       {activeSubTab === 'history' && (
-        <div className="flex-1 overflow-y-auto mt-4 px-3 no-scrollbar scrollbar-hide scrollbar-none">
+        <div className="flex-1 overflow-y-auto mt-4 px-3 pb-">
           {filteredHistoryList.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-[14px] text-gray-500">No history records found</p>
@@ -1909,6 +1928,7 @@ const EditStock = () => {
         onRefreshData={fetchPoItemName}
         stockingLocationId={fromStockingLocationId}
         useInventoryData={true}
+        fromProjectId={fromProjectId}
       />
       {/* Move Stock Bottom Sheet */}
       {showMoveStockModal && (

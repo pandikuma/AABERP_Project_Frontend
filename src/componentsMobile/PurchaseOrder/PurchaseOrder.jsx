@@ -2002,13 +2002,13 @@ const PurchaseOrder = ({ user, onLogout }) => {
       : isVATradersVendor
         ? {
           0: { cellWidth: 12 }, // SNO
-          1: { cellWidth: 25 }, // BRAND
-          2: { cellWidth: 75 }, // ITEM NAME
-          3: { cellWidth: 28 }, // TYPE
+          1: { cellWidth: 23 }, // BRAND
+          2: { cellWidth: 65 }, // ITEM NAME
+          3: { cellWidth: 20 }, // TYPE
           4: { cellWidth: 13 }, // QTY
-          5: { cellWidth: 15 }, // WEIGHT
-          6: { cellWidth: 15 }, // RATE
-          7: { cellWidth: 17 }  // AMOUNT
+          5: { cellWidth: 19 }, // WEIGHT
+          6: { cellWidth: 17 }, // RATE
+          7: { cellWidth: 21 }  // AMOUNT
         }
       : {
         0: { cellWidth: 12 }, // SNO
