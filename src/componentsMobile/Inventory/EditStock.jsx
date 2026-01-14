@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import SearchItemsModal from '../PurchaseOrder/SearchItemsModal';
 import Edit from '../Images/edit.png'
+import Change1 from '../Images/right-left.png'
+import Change2 from '../Images/two-arrow.png'
 import { to } from 'mathjs';
 
 const EditStock = () => {
@@ -26,9 +28,31 @@ const EditStock = () => {
   const [swipeStates, setSwipeStates] = useState({});
   const [allProjectNames, setAllProjectNames] = useState([]);
   const [isFromUpdate, setIsFromUpdate] = useState(false);
+  const [showProjects, setShowProjects] = useState(false);
+  const [selectedEno, setSelectedEno] = useState('');
+  const [showEnoModal, setShowEnoModal] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [filterData, setFilterData] = useState({
+    stockingLocation: '',
+    itemName: '',
+    transfer: '',
+    update: ''
+  });
+  const [stockingLocationFilterOpen, setStockingLocationFilterOpen] = useState(false);
+  const [itemNameFilterOpen, setItemNameFilterOpen] = useState(false);
+  const [transferFilterOpen, setTransferFilterOpen] = useState(false);
+  const [updateFilterOpen, setUpdateFilterOpen] = useState(false);
+  const [stockingLocationFilterSearch, setStockingLocationFilterSearch] = useState('');
+  const [itemNameFilterSearch, setItemNameFilterSearch] = useState('');
+  const [transferFilterSearch, setTransferFilterSearch] = useState('');
+  const [updateFilterSearch, setUpdateFilterSearch] = useState('');
 
 
   const blockClickRef = useRef(false);
+  const filterTagsContainerRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
   // Swipe handlers for desktop
   const handleMouseDown = (index, e) => {
     e.preventDefault();
@@ -930,6 +954,30 @@ const EditStock = () => {
     { value: 'Stock Room A', label: 'Stock Room A', id: null },
     { value: 'Stock Room B', label: 'Stock Room B', id: null }
   ];
+
+  // Helper function to get display value for location
+  const getDisplayValue = (location) => {
+    if (!location) return '';
+    if (showProjects) {
+      if (location === 'Stock Room A') return 'Project A';
+      if (location === 'Stock Room B') return 'Project B';
+      return location;
+    }
+    return location;
+  };
+
+  // Helper function to get options for dropdowns
+  const getLocationOptions = () => {
+    if (showProjects) {
+      return allProjectNames.length > 0
+        ? allProjectNames.map(loc => loc.value || loc.label || loc)
+        : [];
+    }
+    return stockRoomOptions.length > 0
+      ? stockRoomOptions.map(loc => loc.value || loc.label || loc)
+      : ['Stock Room A', 'Stock Room B'];
+  };
+
   // Resolve the ID for the selected 'From' stocking location to pass into SearchItemsModal
   const fromSelectedOption = stockRoomOptions.find(loc =>
     (loc.value || loc.label || loc) === fromLocation
@@ -969,6 +1017,7 @@ const EditStock = () => {
           const item = array.find(i => String(i.id || i._id) === String(id));
           return item ? (item[fieldName] || item.name || '') : '';
         };
+        const eno = rec.eno || rec.ENO || rec.entry_number || rec.entryNumber || '';
         if (!inventoryItems || inventoryItems.length === 0) {
           entries.push({
             id: rec.id || rec._id || `${rec.stocking_location_id || ''}-${dateVal || ''}`,
@@ -981,7 +1030,8 @@ const EditStock = () => {
             locationName,
             type: rec.inventory_type || rec.inventoryType || '',
             dateValue: dateVal,
-            formattedDate
+            formattedDate,
+            eno
           });
         } else {
           inventoryItems.forEach(ii => {
@@ -1013,7 +1063,8 @@ const EditStock = () => {
               locationName,
               type: rec.inventory_type || rec.inventoryType || '',
               dateValue: dateVal,
-              formattedDate
+              formattedDate,
+              eno
             });
           });
         }
@@ -1022,6 +1073,101 @@ const EditStock = () => {
     return entries.sort((a, b) => new Date(b.dateValue || 0) - new Date(a.dateValue || 0));
   }, [inventoryData, itemNamesData, allProjectNames, locationNamesMap, poCategoryOptions, poBrand, poModel, poType]);
 
+  // Get unique eno values from historyList
+  const enoOptions = useMemo(() => {
+    const enos = [...new Set(historyList.map(record => record.eno).filter(eno => eno && eno !== ''))];
+    return enos.sort((a, b) => {
+      const numA = parseInt(a) || 0;
+      const numB = parseInt(b) || 0;
+      return numB - numA; // Sort descending
+    });
+  }, [historyList]);
+
+  // Filter historyList based on selected eno and filterData
+  const filteredHistoryList = useMemo(() => {
+    let filtered = historyList;
+
+    // Filter by eno
+    if (selectedEno) {
+      filtered = filtered.filter(record => record.eno === selectedEno);
+    }
+
+    // Filter by stocking location
+    if (filterData.stockingLocation) {
+      filtered = filtered.filter(record => record.locationName === filterData.stockingLocation);
+    }
+
+    // Filter by item name
+    if (filterData.itemName) {
+      filtered = filtered.filter(record => record.itemsText === filterData.itemName);
+    }
+
+    // Filter by transfer
+    if (filterData.transfer) {
+      filtered = filtered.filter(record => {
+        const recordType = (record.type || '').toLowerCase();
+        return recordType === 'transfer';
+      });
+    }
+
+    // Filter by update
+    if (filterData.update) {
+      filtered = filtered.filter(record => {
+        const recordType = (record.type || '').toLowerCase();
+        return recordType === 'update';
+      });
+    }
+
+    return filtered;
+  }, [historyList, selectedEno, filterData]);
+
+  // Close dropdowns when filter sheet closes
+  useEffect(() => {
+    if (!showFilterSheet) {
+      setStockingLocationFilterOpen(false);
+      setItemNameFilterOpen(false);
+      setTransferFilterOpen(false);
+      setUpdateFilterOpen(false);
+      setStockingLocationFilterSearch('');
+      setItemNameFilterSearch('');
+      setTransferFilterSearch('');
+      setUpdateFilterSearch('');
+    }
+  }, [showFilterSheet]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!showFilterSheet) return;
+
+      const target = event.target;
+      const isStockingLocationDropdown = target.closest('[data-dropdown="stockingLocationFilter"]');
+      const isItemNameDropdown = target.closest('[data-dropdown="itemNameFilter"]');
+      const isTransferDropdown = target.closest('[data-dropdown="transferFilter"]');
+      const isUpdateDropdown = target.closest('[data-dropdown="updateFilter"]');
+
+      if (stockingLocationFilterOpen && !isStockingLocationDropdown) {
+        setStockingLocationFilterOpen(false);
+      }
+      if (itemNameFilterOpen && !isItemNameDropdown) {
+        setItemNameFilterOpen(false);
+      }
+      if (transferFilterOpen && !isTransferDropdown) {
+        setTransferFilterOpen(false);
+      }
+      if (updateFilterOpen && !isUpdateDropdown) {
+        setUpdateFilterOpen(false);
+      }
+    };
+
+    if (showFilterSheet) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [stockingLocationFilterOpen, itemNameFilterOpen, transferFilterOpen, updateFilterOpen, showFilterSheet]);
+
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden bg-white">
       {/* Category Text */}
@@ -1029,7 +1175,7 @@ const EditStock = () => {
         <div className="flex-shrink-0 px-4 pt-4 pb-2">
           <div className="flex items-center justify-between flex-1">
             <p className="text-[12px] font-medium text-black leading-normal">
-              #312
+              #
             </p>
             <button
               onClick={() => setShowCategoryModal(true)}
@@ -1043,15 +1189,23 @@ const EditStock = () => {
       {activeSubTab === 'history' && (
         <div className="flex-shrink-0 px-4 pt-4 pb-2">
           <div className="flex items-center justify-between flex-1">
-            <p className="text-[12px] font-medium text-black leading-normal">
-              #312
-            </p>
-            <button
-              onClick={() => setShowCategoryModal(true)}
-              className="text-[12px] font-medium text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
+            <div
+              onClick={() => setShowEnoModal(true)}
+              className="text-[12px] font-medium text-black leading-normal cursor-pointer flex items-center gap-1"
             >
-              Category
-            </button>
+              {selectedEno ? `#${selectedEno}` : 'Eno'}
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowCategoryModal(true)}
+                className="text-[12px] font-medium text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
+              >
+                Category
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1124,14 +1278,132 @@ const EditStock = () => {
           </button>
         </div>
       </div>
+      {activeSubTab === 'history' && (
+        <div 
+          ref={filterTagsContainerRef}
+          className="flex items-center justify-start mt-3 mb-0 px-5 gap-2 overflow-x-auto scrollbar-hide no-scrollbar scrollbar-none" 
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch', cursor: isDragging ? 'grabbing' : 'grab' }}
+          onMouseDown={(e) => {
+            if (e.target.closest('button')) return;
+            setIsDragging(true);
+            setStartX(e.pageX - filterTagsContainerRef.current.offsetLeft);
+            setScrollLeft(filterTagsContainerRef.current.scrollLeft);
+          }}
+          onMouseMove={(e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            const x = e.pageX - filterTagsContainerRef.current.offsetLeft;
+            const walk = (x - startX) * 2;
+            filterTagsContainerRef.current.scrollLeft = scrollLeft - walk;
+          }}
+          onMouseUp={() => {
+            setIsDragging(false);
+          }}
+          onMouseLeave={() => {
+            setIsDragging(false);
+          }}
+        >
+          <button
+            onClick={() => setShowFilterSheet(true)}
+            className="flex items-center gap-2 text-[12px] font-medium text-gray-700"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 4H14M4 8H12M6 12H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            {!(filterData.stockingLocation || filterData.itemName || filterData.transfer || filterData.update) && (
+              <span className="text-[12px] font-medium text-black">Filter</span>
+            )}
+          </button>
+          {filterData.stockingLocation && (
+            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full flex-shrink-0">
+              <span className="text-[12px] font-medium text-black">Stocking Location</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterData({ ...filterData, stockingLocation: '' });
+                }}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.5 2.5L2.5 7.5M2.5 2.5L7.5 7.5" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          )}
+          {filterData.itemName && (
+            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full flex-shrink-0">
+              <span className="text-[12px] font-medium text-black">Item Name</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterData({ ...filterData, itemName: '' });
+                }}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.5 2.5L2.5 7.5M2.5 2.5L7.5 7.5" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          )}
+          {filterData.transfer && (
+            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full flex-shrink-0">
+              <span className="text-[12px] font-medium text-black">Transfer</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterData({ ...filterData, transfer: '' });
+                }}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.5 2.5L2.5 7.5M2.5 2.5L7.5 7.5" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          )}
+          {filterData.update && (
+            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full flex-shrink-0">
+              <span className="text-[12px] font-medium text-black">Update</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterData({ ...filterData, update: '' });
+                }}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7.5 2.5L2.5 7.5M2.5 2.5L7.5 7.5" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {/* Transfer Form Fields (shown when Transfer tab is active) */}
       {activeSubTab === 'transfer' && (
         <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
           {/* From Field */}
           <div className="mt-2">
-            <p className="text-[12px] font-semibold text-black leading-normal mb-1">
-              From
-            </p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[12px] font-semibold text-black leading-normal">
+                From
+              </p>
+              <button
+                onClick={() => setShowProjects(!showProjects)}
+                className="flex items-center justify-center"
+              >
+                <img
+                  src={showProjects ? Change2 : Change1}
+                  alt="change"
+                  className="w-5 h-5"
+                />
+              </button>
+            </div>
             <div className="relative">
               <div
                 onClick={() => setShowFromModal(true)}
@@ -1140,7 +1412,7 @@ const EditStock = () => {
                   color: fromLocation ? '#000' : '#9E9E9E'
                 }}
               >
-                <span>{fromLocation || 'Select Location'}</span>
+                <span>{getDisplayValue(fromLocation) || 'Select Location'}</span>
                 <svg
                   width="12"
                   height="12"
@@ -1167,7 +1439,7 @@ const EditStock = () => {
                   color: toLocation ? '#000' : '#9E9E9E'
                 }}
               >
-                <span>{toLocation || 'Select Location'}</span>
+                <span>{getDisplayValue(toLocation) || 'Select Location'}</span>
                 <svg
                   width="12"
                   height="12"
@@ -1465,14 +1737,14 @@ const EditStock = () => {
       )}
       {/* History Tab Content */}
       {activeSubTab === 'history' && (
-        <div className="flex-1 overflow-y-auto mt-4 px-3 pb-">
-          {historyList.length === 0 ? (
+        <div className="flex-1 overflow-y-auto mt-4 px-3 no-scrollbar scrollbar-hide scrollbar-none">
+          {filteredHistoryList.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-[14px] text-gray-500">No history records found</p>
             </div>
           ) : (
             <div className="">
-              {historyList.map(record => (
+              {filteredHistoryList.map(record => (
                 <div key={record.id} className="bg-white border border-[rgba(0,0,0,0.08)] rounded-[8px] p-2">
                   <div className="flex items-start justify-between mb-1">
                     <div className="flex-1 pr-2">
@@ -1522,6 +1794,17 @@ const EditStock = () => {
         fieldName="Category"
       />
       <SelectVendorModal
+        isOpen={showEnoModal}
+        onClose={() => setShowEnoModal(false)}
+        onSelect={(value) => {
+          setSelectedEno(value === 'All' ? '' : value);
+          setShowEnoModal(false);
+        }}
+        selectedValue={selectedEno || 'All'}
+        options={['All', ...enoOptions.map(eno => String(eno))]}
+        fieldName="ENO"
+      />
+      <SelectVendorModal
         isOpen={showFromModal}
         onClose={() => setShowFromModal(false)}
         onSelect={(value) => {
@@ -1534,7 +1817,7 @@ const EditStock = () => {
           setShowFromModal(false);
         }}
         selectedValue={fromLocation}
-        options={stockRoomOptions.length > 0 ? stockRoomOptions.map(loc => loc.value || loc.label || loc).filter(v => v !== toLocation) : ['Stock Room A', 'Stock Room B'].filter(v => v !== toLocation)}
+        options={getLocationOptions().filter(v => v !== toLocation)}
         fieldName="From"
       />
       <SelectVendorModal
@@ -1550,7 +1833,7 @@ const EditStock = () => {
           setShowToModal(false);
         }}
         selectedValue={toLocation}
-        options={stockRoomOptions.length > 0 ? stockRoomOptions.map(loc => loc.value || loc.label || loc).filter(v => v !== fromLocation) : ['Stock Room A', 'Stock Room B'].filter(v => v !== fromLocation)}
+        options={getLocationOptions().filter(v => v !== fromLocation)}
         fieldName="To"
       />
       <SelectVendorModal
@@ -1768,6 +2051,378 @@ const EditStock = () => {
         options={updateStockingLocationOptions.map(loc => (loc.value || loc.label || loc))}
         fieldName="Stocking Location"
       />
+
+      {/* Filter Bottom Sheet */}
+      {showFilterSheet && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setShowFilterSheet(false)}
+          />
+
+          {/* Bottom Sheet */}
+          <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-[360px] bg-white rounded-t-[20px] z-50 shadow-lg">
+            {/* Header */}
+            <div className="flex-shrink-0">
+              <div className='flex justify-end mr-4 mt-1'>
+                <button
+                  onClick={() => setShowFilterSheet(false)}
+                  className="text-red-500 hover:text-red-700 text-xl font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex justify-between items-center px-6">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Select Filters
+                </h2>
+              </div>
+            </div>
+            {/* Filter Form */}
+            <div className="px-6 py-4 space-y-4 overflow-y-hidden overflow-x-hidden flex-1" style={{ maxHeight: 'calc(80vh - 140px)' }}>
+              {/* Stocking Location */}
+              <div className="relative" data-dropdown="stockingLocationFilter">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Stocking Location
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Select Stocking Location"
+                    value={stockingLocationFilterOpen ? stockingLocationFilterSearch : (filterData.stockingLocation || '')}
+                    onChange={(e) => {
+                      setStockingLocationFilterSearch(e.target.value);
+                      setStockingLocationFilterOpen(true);
+                      setItemNameFilterOpen(false);
+                      setTransferFilterOpen(false);
+                      setUpdateFilterOpen(false);
+                    }}
+                    onFocus={() => {
+                      setStockingLocationFilterOpen(true);
+                      setItemNameFilterOpen(false);
+                      setTransferFilterOpen(false);
+                      setUpdateFilterOpen(false);
+                      if (!stockingLocationFilterOpen) {
+                        setStockingLocationFilterSearch('');
+                      }
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white pr-10"
+                  />
+                  <svg
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStockingLocationFilterOpen(!stockingLocationFilterOpen);
+                      if (!stockingLocationFilterOpen) {
+                        setStockingLocationFilterSearch('');
+                      }
+                    }}
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 cursor-pointer transition-transform ${stockingLocationFilterOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  {stockingLocationFilterOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-hidden">
+                      <div className="overflow-y-auto max-h-48">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterData({ ...filterData, stockingLocation: '' });
+                            setStockingLocationFilterOpen(false);
+                            setStockingLocationFilterSearch('');
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${!filterData.stockingLocation ? 'bg-gray-100' : ''}`}
+                        >
+                          All Locations
+                        </button>
+                        {[...new Set(historyList.map(r => r.locationName).filter(Boolean))]
+                          .filter(loc =>
+                            loc.toLowerCase().includes(stockingLocationFilterSearch.toLowerCase())
+                          )
+                          .map((location) => (
+                            <button
+                              key={location}
+                              type="button"
+                              onClick={() => {
+                                setFilterData({ ...filterData, stockingLocation: location });
+                                setStockingLocationFilterOpen(false);
+                                setStockingLocationFilterSearch('');
+                              }}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${filterData.stockingLocation === location ? 'bg-gray-100' : ''}`}
+                            >
+                              {location}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Item Name */}
+              <div className="relative" data-dropdown="itemNameFilter">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Item Name
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Select Item Name"
+                    value={itemNameFilterOpen ? itemNameFilterSearch : (filterData.itemName || '')}
+                    onChange={(e) => {
+                      setItemNameFilterSearch(e.target.value);
+                      setItemNameFilterOpen(true);
+                      setStockingLocationFilterOpen(false);
+                      setTransferFilterOpen(false);
+                      setUpdateFilterOpen(false);
+                    }}
+                    onFocus={() => {
+                      setItemNameFilterOpen(true);
+                      setStockingLocationFilterOpen(false);
+                      setTransferFilterOpen(false);
+                      setUpdateFilterOpen(false);
+                      if (!itemNameFilterOpen) {
+                        setItemNameFilterSearch('');
+                      }
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white pr-10"
+                  />
+                  <svg
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setItemNameFilterOpen(!itemNameFilterOpen);
+                      if (!itemNameFilterOpen) {
+                        setItemNameFilterSearch('');
+                      }
+                    }}
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 cursor-pointer transition-transform ${itemNameFilterOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  {itemNameFilterOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-hidden">
+                      <div className="overflow-y-auto max-h-24">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterData({ ...filterData, itemName: '' });
+                            setItemNameFilterOpen(false);
+                            setItemNameFilterSearch('');
+                          }}
+                          className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${!filterData.itemName ? 'bg-gray-100' : ''}`}
+                        >
+                          All Items
+                        </button>
+                        {[...new Set(historyList.map(r => r.itemsText).filter(Boolean))]
+                          .filter(item =>
+                            item.toLowerCase().includes(itemNameFilterSearch.toLowerCase())
+                          )
+                          .map((item) => (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => {
+                                setFilterData({ ...filterData, itemName: item });
+                                setItemNameFilterOpen(false);
+                                setItemNameFilterSearch('');
+                              }}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${filterData.itemName === item ? 'bg-gray-100' : ''}`}
+                            >
+                              {item}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Transfer */}
+                <div className="relative" data-dropdown="transferFilter">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Transfer
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Select Transfer"
+                      value={transferFilterOpen ? transferFilterSearch : (filterData.transfer || '')}
+                      onChange={(e) => {
+                        setTransferFilterSearch(e.target.value);
+                        setTransferFilterOpen(true);
+                        setStockingLocationFilterOpen(false);
+                        setItemNameFilterOpen(false);
+                        setUpdateFilterOpen(false);
+                      }}
+                      onFocus={() => {
+                        setTransferFilterOpen(true);
+                        setStockingLocationFilterOpen(false);
+                        setItemNameFilterOpen(false);
+                        setUpdateFilterOpen(false);
+                        if (!transferFilterOpen) {
+                          setTransferFilterSearch('');
+                        }
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white pr-10"
+                    />
+                    <svg
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTransferFilterOpen(!transferFilterOpen);
+                        if (!transferFilterOpen) {
+                          setTransferFilterSearch('');
+                        }
+                      }}
+                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 cursor-pointer transition-transform ${transferFilterOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    {transferFilterOpen && (
+                      <div className="absolute z-50 w-full bottom-full mb-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-hidden">
+                        <div className="overflow-y-auto max-h-48">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFilterData({ ...filterData, transfer: '' });
+                              setTransferFilterOpen(false);
+                              setTransferFilterSearch('');
+                            }}
+                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${!filterData.transfer ? 'bg-gray-100' : ''}`}
+                          >
+                            All
+                          </button>
+                          {['Transfer'].filter(opt =>
+                            opt.toLowerCase().includes(transferFilterSearch.toLowerCase())
+                          ).map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => {
+                                setFilterData({ ...filterData, transfer: option });
+                                setTransferFilterOpen(false);
+                                setTransferFilterSearch('');
+                              }}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${filterData.transfer === option ? 'bg-gray-100' : ''}`}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Update */}
+                <div className="relative" data-dropdown="updateFilter">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Update
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Select Update"
+                      value={updateFilterOpen ? updateFilterSearch : (filterData.update || '')}
+                      onChange={(e) => {
+                        setUpdateFilterSearch(e.target.value);
+                        setUpdateFilterOpen(true);
+                        setStockingLocationFilterOpen(false);
+                        setItemNameFilterOpen(false);
+                        setTransferFilterOpen(false);
+                      }}
+                      onFocus={() => {
+                        setUpdateFilterOpen(true);
+                        setStockingLocationFilterOpen(false);
+                        setItemNameFilterOpen(false);
+                        setTransferFilterOpen(false);
+                        if (!updateFilterOpen) {
+                          setUpdateFilterSearch('');
+                        }
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white pr-10"
+                    />
+                    <svg
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUpdateFilterOpen(!updateFilterOpen);
+                        if (!updateFilterOpen) {
+                          setUpdateFilterSearch('');
+                        }
+                      }}
+                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 cursor-pointer transition-transform ${updateFilterOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    {updateFilterOpen && (
+                      <div className="absolute z-50 w-full bottom-full mb-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-hidden">
+                        <div className="overflow-y-auto max-h-48">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFilterData({ ...filterData, update: '' });
+                              setUpdateFilterOpen(false);
+                              setUpdateFilterSearch('');
+                            }}
+                            className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${!filterData.update ? 'bg-gray-100' : ''}`}
+                          >
+                            All
+                          </button>
+                          {['Update'].filter(opt =>
+                            opt.toLowerCase().includes(updateFilterSearch.toLowerCase())
+                          ).map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => {
+                                setFilterData({ ...filterData, update: option });
+                                setUpdateFilterOpen(false);
+                                setUpdateFilterSearch('');
+                              }}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${filterData.update === option ? 'bg-gray-100' : ''}`}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex-shrink-0 flex gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setFilterData({ stockingLocation: '', itemName: '', transfer: '', update: '' });
+                  setShowFilterSheet(false);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowFilterSheet(false)}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-900"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
