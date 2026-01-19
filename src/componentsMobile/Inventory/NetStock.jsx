@@ -197,7 +197,6 @@ const NetStock = () => {
                 quantity: 0
               };
             }
-
             // Convert quantity to number
             const quantity = Number(invItem.quantity) || 0;
 
@@ -231,13 +230,11 @@ const NetStock = () => {
                 }
               }
             }
-
             stockMap[compositeKey].quantity += delta;
           }
         });
       }
     });
-
     // Convert to array format for processing and ensure non-negative net stock
     return Object.values(stockMap).map(item => ({
       ...item,

@@ -56,12 +56,32 @@ const EditStock = () => {
   // Swipe handlers for desktop
   const handleMouseDown = (index, e) => {
     e.preventDefault();
-    setSwipeStates(prev => ({
-      ...prev,
-      [index]: { startX: e.clientX, isSwiping: false }
-    }));
-    document.addEventListener('mousemove', (e) => handleMouseMove(index, e));
-    document.addEventListener('mouseup', () => handleMouseUp(index));
+    const startX = e.clientX;
+    let hasMoved = false;
+    let translateX = 0;
+
+    const mouseMoveHandler = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      if (Math.abs(deltaX) > 10) {
+        hasMoved = true;
+        translateX = deltaX;
+      }
+    };
+
+    const mouseUpHandler = () => {
+      // Only delete if there was actual movement and significant swipe left
+      if (hasMoved && translateX < -100) {
+        // Swipe left to delete
+        setItems(prev => prev.filter((_, i) => i !== index));
+        setItemsCount(prev => prev - 1);
+      }
+      // Clean up event listeners
+      document.removeEventListener('mousemove', mouseMoveHandler);
+      document.removeEventListener('mouseup', mouseUpHandler);
+    };
+
+    document.addEventListener('mousemove', mouseMoveHandler);
+    document.addEventListener('mouseup', mouseUpHandler);
   };
 
   const handleMouseMove = useCallback((index, e) => {
@@ -112,6 +132,7 @@ const EditStock = () => {
   const [showMoveProjectModal, setShowMoveProjectModal] = useState(false);
   const cardRefs = React.useRef({});
   const expandedItemIdRef = React.useRef(null);
+  const swipeCleanupRef = React.useRef([]);
 
   // Fetch category options
   useEffect(() => {
@@ -295,23 +316,26 @@ const EditStock = () => {
   }, []);
 
   // Calculate net stock from inventory data based on selected location (similar to NetStock)
+  // Handles transfer items properly: subtract from source and add to destination
   const calculateNetStock = useCallback((inventoryRecords, selectedLocationId) => {
+    // Filter out deleted records
     const activeRecords = inventoryRecords.filter(record => {
       const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
       return !recordDeleteStatus;
     });
 
-    let filteredRecords = activeRecords;
-    if (selectedLocationId) {
-      filteredRecords = activeRecords.filter(record => {
-        const recordLocationId = record.stocking_location_id || record.stockingLocationId;
-        return String(recordLocationId) === String(selectedLocationId);
-      });
-    }
+    // Group by composite key: item_id-category_id-model_id-brand_id-type_id
+    // Calculate net stock for each unique combination. For transfer records we treat them specially:
+    // - When viewing a specific location: subtract from source (stocking_location_id) and add to destination (to_stocking_location_id)
+    // - When viewing across all locations (selectedLocationId is falsy): transfer is neutral (no net change)
+    const stockMap = {}; // Key: composite key, Value: net stock quantity
 
-    const stockMap = {};
-    filteredRecords.forEach(record => {
+    activeRecords.forEach(record => {
+      const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
+      const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
+      const toStockingLocationId = record.to_stocking_location_id || record.toStockingLocationId || null;
       const inventoryItems = record.inventoryItems || record.inventory_items || [];
+
       if (Array.isArray(inventoryItems)) {
         inventoryItems.forEach(invItem => {
           const itemId = invItem.item_id || invItem.itemId || null;
@@ -321,6 +345,7 @@ const EditStock = () => {
           const typeId = invItem.type_id || invItem.typeId || null;
 
           if (itemId !== null && itemId !== undefined) {
+            // Create composite key for unique combination
             const compositeKey = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
 
             if (!stockMap[compositeKey]) {
@@ -333,15 +358,48 @@ const EditStock = () => {
                 quantity: 0
               };
             }
+            // Convert quantity to number
             const quantity = Number(invItem.quantity) || 0;
-            stockMap[compositeKey].quantity += quantity;
+
+            let delta = 0;
+
+            if (!selectedLocationId) {
+              // Viewing across all locations: transfers are neutral (they move stock between locations)
+              if (inventoryType === 'transfer' && toStockingLocationId) {
+                delta = 0;
+              } else {
+                delta = quantity;
+              }
+            } else {
+              // Viewing a specific location: adjust based on whether the record is source or destination of a transfer
+              if (inventoryType === 'transfer' && toStockingLocationId) {
+                if (String(recordStockingLocationId) === String(selectedLocationId)) {
+                  // stock moved out from this location
+                  delta = -quantity;
+                } else if (String(toStockingLocationId) === String(selectedLocationId)) {
+                  // stock moved into this location
+                  delta = quantity;
+                } else {
+                  delta = 0; // transfer unrelated to this location
+                }
+              } else {
+                // Non-transfer and belongs to this location
+                if (String(recordStockingLocationId) === String(selectedLocationId)) {
+                  delta = quantity;
+                } else {
+                  delta = 0;
+                }
+              }
+            }
+            stockMap[compositeKey].quantity += delta;
           }
         });
       }
     });
+    // Convert to array format for processing and ensure non-negative net stock
     return Object.values(stockMap).map(item => ({
       ...item,
-      netStock: Math.max(0, item.quantity)
+      netStock: Math.max(0, item.quantity) // Ensure non-negative
     }));
   }, []);
   // Fetch inventory data for Update tab
@@ -556,175 +614,183 @@ const EditStock = () => {
 
   // Set up swipe event listeners (matching PurchaseOrder History pattern)
   useEffect(() => {
-    if (activeSubTab !== 'update' || filteredUpdateData.length === 0) return;
+    if (activeSubTab !== 'update' || filteredUpdateData.length === 0) {
+      // Clean up when not on update tab
+      swipeCleanupRef.current.forEach(cleanup => cleanup());
+      swipeCleanupRef.current = [];
+      return;
+    }
 
-    const cleanupFunctions = [];
-
-    // Global mouse event handlers for desktop support
-    const globalMouseMoveHandler = (e) => {
-      setSwipeStates(prev => {
-        let hasChanges = false;
-        const newState = { ...prev };
-
-        filteredUpdateData.forEach((item, index) => {
-          const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${index}`;
-          const state = prev[itemId];
-          if (!state) return;
-
-          const deltaX = e.clientX - state.startX;
-          const isExpanded = expandedItemIdRef.current === itemId;
-
-          // Only update if dragging horizontally
-          if (deltaX < 0 || (isExpanded && deltaX > 0)) {
-            newState[itemId] = {
-              ...state,
-              currentX: e.clientX,
-              isSwiping: true
-            };
-            hasChanges = true;
-          }
-        });
-
-        return hasChanges ? newState : prev;
-      });
-    };
-
-    const globalMouseUpHandler = () => {
-      setSwipeStates(prev => {
-        let hasChanges = false;
-        const newState = { ...prev };
-
-        filteredUpdateData.forEach((item, index) => {
-          const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${index}`;
-          const state = prev[itemId];
-          if (!state) return;
-
-          const deltaX = state.currentX - state.startX;
-          const absDeltaX = Math.abs(deltaX);
-
-          if (absDeltaX >= minSwipeDistance) {
-            blockClickRef.current = true;
-            if (deltaX < 0) {
-              setExpandedItemId(itemId);
-            } else {
-              setExpandedItemId(null);
-            }
-          } else {
-            if (expandedItemIdRef.current === itemId) {
-              setExpandedItemId(null);
-            }
-          }
-
-          delete newState[itemId];
-          hasChanges = true;
-        });
-
-        return hasChanges ? newState : prev;
-      });
-    };
-
-    // Add global mouse event listeners
-    document.addEventListener('mousemove', globalMouseMoveHandler);
-    document.addEventListener('mouseup', globalMouseUpHandler);
-    cleanupFunctions.push(() => {
-      document.removeEventListener('mousemove', globalMouseMoveHandler);
-      document.removeEventListener('mouseup', globalMouseUpHandler);
-    });
-
-    // Set up event listeners for each card
-    filteredUpdateData.forEach((item, index) => {
-      const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${index}`;
-      const element = cardRefs.current[itemId];
-      if (!element) return;
-
-      const touchStartHandler = (e) => {
-        const touch = e.touches[0];
-        e.preventDefault();
-        setSwipeStates(prev => ({
-          ...prev,
-          [itemId]: {
-            startX: touch.clientX,
-            currentX: touch.clientX,
-            isSwiping: false
-          }
-        }));
-      };
-
-      const touchMoveHandler = (e) => {
-        const touch = e.touches[0];
+    // Delay to ensure refs are set after render
+    const timeoutId = setTimeout(() => {
+      // Global mouse event handlers for desktop support
+      const globalMouseMoveHandler = (e) => {
         setSwipeStates(prev => {
-          const state = prev[itemId];
-          if (!state) return prev;
-          const deltaX = touch.clientX - state.startX;
-          const isExpanded = expandedItemIdRef.current === itemId;
-          if (deltaX < 0 || (isExpanded && deltaX > 0)) {
-            e.preventDefault();
-            return {
-              ...prev,
-              [itemId]: {
-                ...prev[itemId],
-                currentX: touch.clientX,
-                isSwiping: true
-              }
-            };
-          }
-          return prev;
-        });
-      };
-
-      const touchEndHandler = () => {
-        setSwipeStates(prev => {
-          const state = prev[itemId];
-          if (!state) return prev;
-          const deltaX = state.currentX - state.startX;
-          const absDeltaX = Math.abs(deltaX);
-          if (absDeltaX >= minSwipeDistance) {
-            blockClickRef.current = true;
-            if (deltaX < 0) {
-              setExpandedItemId(itemId);
-            } else {
-              setExpandedItemId(null);
-            }
-          } else {
-            if (expandedItemIdRef.current === itemId) {
-              setExpandedItemId(null);
-            }
-          }
+          let hasChanges = false;
           const newState = { ...prev };
-          delete newState[itemId];
-          return newState;
+
+          filteredUpdateData.forEach((item, index) => {
+            const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${index}`;
+            const state = prev[itemId];
+            if (!state) return;
+
+            const deltaX = e.clientX - state.startX;
+            const isExpanded = expandedItemIdRef.current === itemId;
+
+            // Only update if dragging horizontally
+            if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+              newState[itemId] = {
+                ...state,
+                currentX: e.clientX,
+                isSwiping: true
+              };
+              hasChanges = true;
+            }
+          });
+
+          return hasChanges ? newState : prev;
         });
       };
 
-      const mouseDownHandler = (e) => {
-        e.preventDefault();
-        setSwipeStates(prev => ({
-          ...prev,
-          [itemId]: {
-            startX: e.clientX,
-            currentX: e.clientX,
-            isSwiping: false
-          }
-        }));
+      const globalMouseUpHandler = () => {
+        setSwipeStates(prev => {
+          let hasChanges = false;
+          const newState = { ...prev };
+
+          filteredUpdateData.forEach((item, index) => {
+            const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${index}`;
+            const state = prev[itemId];
+            if (!state) return;
+
+            const deltaX = state.currentX - state.startX;
+            const absDeltaX = Math.abs(deltaX);
+
+            if (absDeltaX >= minSwipeDistance) {
+              blockClickRef.current = true;
+              if (deltaX < 0) {
+                setExpandedItemId(itemId);
+              } else {
+                setExpandedItemId(null);
+              }
+            } else {
+              if (expandedItemIdRef.current === itemId) {
+                setExpandedItemId(null);
+              }
+            }
+
+            delete newState[itemId];
+            hasChanges = true;
+          });
+
+          return hasChanges ? newState : prev;
+        });
       };
 
-      // Add event listeners
-      element.addEventListener('touchstart', touchStartHandler, { passive: false });
-      element.addEventListener('touchmove', touchMoveHandler, { passive: false });
-      element.addEventListener('touchend', touchEndHandler, { passive: false });
-      element.addEventListener('mousedown', mouseDownHandler);
-      cleanupFunctions.push(() => {
-        element.removeEventListener('touchstart', touchStartHandler);
-        element.removeEventListener('touchmove', touchMoveHandler);
-        element.removeEventListener('touchend', touchEndHandler);
-        element.removeEventListener('mousedown', mouseDownHandler);
+      // Add global mouse event listeners
+      document.addEventListener('mousemove', globalMouseMoveHandler);
+      document.addEventListener('mouseup', globalMouseUpHandler);
+      swipeCleanupRef.current.push(() => {
+        document.removeEventListener('mousemove', globalMouseMoveHandler);
+        document.removeEventListener('mouseup', globalMouseUpHandler);
       });
-    });
+
+      // Set up event listeners for each card
+      filteredUpdateData.forEach((item, index) => {
+        const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${index}`;
+        const element = cardRefs.current[itemId];
+        if (!element) return;
+
+        const touchStartHandler = (e) => {
+          const touch = e.touches[0];
+          e.preventDefault();
+          setSwipeStates(prev => ({
+            ...prev,
+            [itemId]: {
+              startX: touch.clientX,
+              currentX: touch.clientX,
+              isSwiping: false
+            }
+          }));
+        };
+
+        const touchMoveHandler = (e) => {
+          const touch = e.touches[0];
+          setSwipeStates(prev => {
+            const state = prev[itemId];
+            if (!state) return prev;
+            const deltaX = touch.clientX - state.startX;
+            const isExpanded = expandedItemIdRef.current === itemId;
+            if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+              e.preventDefault();
+              return {
+                ...prev,
+                [itemId]: {
+                  ...prev[itemId],
+                  currentX: touch.clientX,
+                  isSwiping: true
+                }
+              };
+            }
+            return prev;
+          });
+        };
+
+        const touchEndHandler = () => {
+          setSwipeStates(prev => {
+            const state = prev[itemId];
+            if (!state) return prev;
+            const deltaX = state.currentX - state.startX;
+            const absDeltaX = Math.abs(deltaX);
+            if (absDeltaX >= minSwipeDistance) {
+              blockClickRef.current = true;
+              if (deltaX < 0) {
+                setExpandedItemId(itemId);
+              } else {
+                setExpandedItemId(null);
+              }
+            } else {
+              if (expandedItemIdRef.current === itemId) {
+                setExpandedItemId(null);
+              }
+            }
+            const newState = { ...prev };
+            delete newState[itemId];
+            return newState;
+          });
+        };
+
+        const mouseDownHandler = (e) => {
+          e.preventDefault();
+          setSwipeStates(prev => ({
+            ...prev,
+            [itemId]: {
+              startX: e.clientX,
+              currentX: e.clientX,
+              isSwiping: false
+            }
+          }));
+        };
+
+        // Add event listeners
+        element.addEventListener('touchstart', touchStartHandler, { passive: false });
+        element.addEventListener('touchmove', touchMoveHandler, { passive: false });
+        element.addEventListener('touchend', touchEndHandler, { passive: false });
+        element.addEventListener('mousedown', mouseDownHandler);
+        swipeCleanupRef.current.push(() => {
+          element.removeEventListener('touchstart', touchStartHandler);
+          element.removeEventListener('touchmove', touchMoveHandler);
+          element.removeEventListener('touchend', touchEndHandler);
+          element.removeEventListener('mousedown', mouseDownHandler);
+        });
+      });
+    }, 0);
 
     return () => {
-      cleanupFunctions.forEach(cleanup => cleanup());
+      clearTimeout(timeoutId);
+      swipeCleanupRef.current.forEach(cleanup => cleanup());
+      swipeCleanupRef.current = [];
     };
-  }, [filteredUpdateData, minSwipeDistance]);
+  }, [activeSubTab, filteredUpdateData, minSwipeDistance]);
 
   const hashString = (str) => {
     let hash = 0;
@@ -962,6 +1028,16 @@ const EditStock = () => {
     { value: 'Stock Room A', label: 'Stock Room A', id: null },
     { value: 'Stock Room B', label: 'Stock Room B', id: null }
   ];
+  // Resolve the ID for the selected 'From' stocking location to pass into SearchItemsModal
+  const fromSelectedOption = stockRoomOptions.find(loc =>
+    (loc.value || loc.label || loc) === fromLocation
+  );
+  const fromStockingLocationId = fromSelectedOption?.id || null;
+  // Resolve the ID for the selected Update location to pass into SearchItemsModal when isFromUpdate
+  const updateSelectedOption = stockRoomOptions.find(loc =>
+    (loc.value || loc.label) === updateSelectedLocation
+  );
+  const updateStockingLocationId = updateSelectedOption?.id || null;
 
   // Helper function to get display value for location
   const getDisplayValue = (location) => {
@@ -985,13 +1061,6 @@ const EditStock = () => {
       ? stockRoomOptions.map(loc => loc.value || loc.label || loc)
       : ['Stock Room A', 'Stock Room B'];
   };
-
-  // Resolve the ID for the selected 'From' stocking location to pass into SearchItemsModal
-  const fromSelectedOption = stockRoomOptions.find(loc =>
-    (loc.value || loc.label || loc) === fromLocation
-  );
-  const fromStockingLocationId = fromSelectedOption?.id || null;
-
   // Resolve the ID for the selected 'From' project to pass into SearchItemsModal
   const fromProjectOption = allProjectNames.find(proj => (proj.value || proj.label || proj) === fromLocation);
   const fromProjectId = fromProjectOption?.id || null;
@@ -1026,6 +1095,7 @@ const EditStock = () => {
         const toLocationName = isTransfer ? toName : null;
         const dateVal = rec.created_date_time || rec.created_at || rec.createdAt;
         const formattedDate = dateVal ? new Date(dateVal).toLocaleString() : '';
+        const eno = rec.eno || rec.eno_number || '';
         const findNameById = (array, id, fieldName) => {
           if (!id || !array || array.length === 0) return ''
           const item = array.find(i => String(i.id || i._id) === String(id));
@@ -1045,7 +1115,8 @@ const EditStock = () => {
             toLocationName,
             type: rec.inventory_type || rec.inventoryType || '',
             dateValue: dateVal,
-            formattedDate
+            formattedDate,
+            eno: eno
           });
         } else {
           inventoryItems.forEach(ii => {
@@ -1087,7 +1158,8 @@ const EditStock = () => {
               brandId: brandId,
               typeId: typeId,
               stockingLocationId: rec.stocking_location_id || rec.stockingLocationId,
-              toStockingLocationId: rec.to_stocking_location_id || rec.toStockingLocationId
+              toStockingLocationId: rec.to_stocking_location_id || rec.toStockingLocationId,
+              eno: eno
             });
           });
         }
@@ -1456,7 +1528,7 @@ const EditStock = () => {
       )}
       {/* Transfer Form Fields (shown when Transfer tab is active) */}
       {activeSubTab === 'transfer' && (
-        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+        <div className="flex-1 px-4 pb-4 space-y-2">
           {/* From Field */}
           <div className="mt-2">
             <div className="flex items-center justify-between mb-1">
@@ -1561,11 +1633,7 @@ const EditStock = () => {
                     <div
                       key={index}
                       className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer select-none"
-                      style={{
-                        transform: swipeStates[index]?.isSwiping ? `translateX(${swipeStates[index].translateX}px)` : 'translateX(0)',
-                        transition: swipeStates[index]?.isSwiping ? 'none' : 'transform 0.3s ease'
-                      }}
-                      onMouseDown={(e) => handleMouseDown(index, e)}
+
                     >
                       <div className=" ">
                         <div className="flex items-center justify-between">
@@ -1807,7 +1875,7 @@ const EditStock = () => {
       )}
       {/* History Tab Content */}
       {activeSubTab === 'history' && (
-        <div className="flex-1 overflow-y-auto mt-4 px-3 pb-">
+        <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mt-4 px-3 pb-">
           {filteredHistoryList.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-[14px] text-gray-500">No history records found</p>
@@ -1839,13 +1907,18 @@ const EditStock = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <p className="text-[10px] text-gray-400 mt-1">{record.formattedDate}</p>
-                        {String(record.type || '').toLowerCase() === 'transfer' ? null : (
-                          <p className="text-[10px] text-gray-400 mt-1">Old Count: <span className="font-semibold text-black">{(() => {
-                            const newCountAtRecord = getLocationStockAtTime(record.itemId, record.categoryId, record.modelId, record.brandId, record.typeId, record.stockingLocationId, record.dateValue);
-                            const qty = Number(record.quantity || 0);
-                            return Math.max(0, newCountAtRecord - qty);
-                          })()}</span></p>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {record.eno && (
+                            <p className="text-[10px] text-gray-400 mt-1">ENO: <span className="font-semibold text-black">{record.eno}</span></p>
+                          )}
+                          {String(record.type || '').toLowerCase() === 'transfer' ? null : (
+                            <p className="text-[10px] text-gray-400 mt-1">Old Count: <span className="font-semibold text-black">{(() => {
+                              const newCountAtRecord = getLocationStockAtTime(record.itemId, record.categoryId, record.modelId, record.brandId, record.typeId, record.stockingLocationId, record.dateValue);
+                              const qty = Number(record.quantity || 0);
+                              return Math.max(0, newCountAtRecord - qty);
+                            })()}</span></p>
+                          )}
+                        </div>
                       </div>
                       <div className={`flex ${String(record.type || '').toLowerCase() === 'transfer' ? 'items-start' : 'items-center'} justify-between`}>
                         {String(record.type || '').toLowerCase() === 'transfer' ? (
@@ -1855,7 +1928,7 @@ const EditStock = () => {
                             {record.toLocationName && <p className="text-[10px] text-gray-500 truncate">{record.toLocationName}</p>}
                           </div>
                         ) : (
-                          <p className="text-[10px] text-gray-500 mt-1 truncate">{record.projectName || record.locationName}</p>
+                          <p className="text-[10px] text-gray-500 mt-1 truncate">{record.fromLocationName || record.locationName}</p>
                         )}
                         {String(record.type || '').toLowerCase() === 'transfer' ? (
                           <p className="text-[10px] text-[#007323] mt-1">Transfer Count: <span className="font-semibold text-[#007323]">{record.quantity || 0}</span></p>
@@ -1997,9 +2070,8 @@ const EditStock = () => {
         getAvailableItems={getAvailableItems}
         existingItems={items}
         onRefreshData={fetchPoItemName}
-        stockingLocationId={fromStockingLocationId}
+        stockingLocationId={isFromUpdate ? updateStockingLocationId : fromStockingLocationId}
         useInventoryData={true}
-        fromProjectId={fromProjectId}
       />
       {/* Move Stock Bottom Sheet */}
       {showMoveStockModal && (

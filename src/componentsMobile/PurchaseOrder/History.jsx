@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import SearchableDropdown from './SearchableDropdown';
 import DateRangePickerModal from './DateRangePickerModal';
@@ -7,7 +7,15 @@ import Edit from '../Images/edit1.png'
 import Delete from '../Images/delete.png'
 const History = () => {
   const [purchaseOrders, setPurchaseOrders] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  // Initialize searchQuery from localStorage if available
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try {
+      const saved = localStorage.getItem('purchaseOrderHistorySearchQuery');
+      return saved || '';
+    } catch (error) {
+      return '';
+    }
+  });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [poToDelete, setPoToDelete] = useState(null);
   const [expandedPoId, setExpandedPoId] = useState(null);
@@ -16,14 +24,25 @@ const History = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showBranchModal, setShowBranchModal] = useState(false);
-  const [filters, setFilters] = useState({
-    vendorName: '',
-    clientName: '',
-    siteIncharge: '',
-    startDate: '',
-    endDate: '',
-    poNumber: '',
-    branch: ''
+  // Initialize filters from localStorage if available
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('purchaseOrderHistoryFilters');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Error loading filters from localStorage:', error);
+    }
+    return {
+      vendorName: '',
+      clientName: '',
+      siteIncharge: '',
+      startDate: '',
+      endDate: '',
+      poNumber: '',
+      branch: ''
+    };
   });
 
   // Swipe detection state - track per card
@@ -36,6 +55,7 @@ const History = () => {
   const expandedPoIdRef = useRef(expandedPoId);
   const cloneExpandedPoIdRef = useRef(cloneExpandedPoId);
   const isFirstCardClosedRef = useRef(isFirstCardClosed);
+  const isInitialMount = useRef(true);
   
   // Keep refs in sync with state
   useEffect(() => {
@@ -55,6 +75,31 @@ const History = () => {
   const [allProjects, setAllProjects] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
   const [allSupportStaff, setAllSupportStaff] = useState([]);
+
+  // Mark initial mount as complete after first render
+  useEffect(() => {
+    isInitialMount.current = false;
+  }, []);
+
+  // Save filters to localStorage whenever they change (skip initial mount)
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    try {
+      localStorage.setItem('purchaseOrderHistoryFilters', JSON.stringify(filters));
+    } catch (error) {
+      console.error('Error saving filters to localStorage:', error);
+    }
+  }, [filters]);
+
+  // Save searchQuery to localStorage whenever it changes (skip initial mount)
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    try {
+      localStorage.setItem('purchaseOrderHistorySearchQuery', searchQuery);
+    } catch (error) {
+      console.error('Error saving searchQuery to localStorage:', error);
+    }
+  }, [searchQuery]);
 
   // Fetch all vendors, projects, employees, and support staff from APIs
   useEffect(() => {
@@ -131,11 +176,38 @@ const History = () => {
   };
 
   // Load purchase orders from API
-  const loadPurchaseOrders = async () => {
+  const loadPurchaseOrders = useCallback(async (skipCache = false) => {
+    // Don't load if vendors/projects aren't ready yet
+    if (allVendors.length === 0 && allProjects.length === 0) {
+      return;
+    }
+    
+    // Check if any filters are active
+    const hasActiveFilters = searchQuery || filters.vendorName || filters.clientName || filters.siteIncharge || filters.startDate || filters.endDate || filters.poNumber || filters.branch;
+    
+    // If filters are active and we have cached data, load from cache first for instant display
+    if (!skipCache && hasActiveFilters) {
+      try {
+        const cachedData = localStorage.getItem('purchaseOrdersHistoryCache');
+        if (cachedData) {
+          const cachedPOs = JSON.parse(cachedData);
+          if (cachedPOs.length > 0) {
+            // Sort cached data
+            const sorted = cachedPOs.sort((a, b) => {
+              const idA = parseInt(a.id) || 0;
+              const idB = parseInt(b.id) || 0;
+              return idB - idA;
+            });
+            setPurchaseOrders(sorted);
+            // Continue to fetch fresh data in background (don't return early)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading from cache:', error);
+      }
+    }
+    
     try {
-      // Check if any filters are active
-      const hasActiveFilters = searchQuery || filters.vendorName || filters.clientName || filters.siteIncharge || filters.startDate || filters.endDate || filters.poNumber || filters.branch;
-      
       // Use /get/latest for faster initial load (last 250 records)
       // Use /getAll only when filters are applied
       const apiUrl = hasActiveFilters 
@@ -158,7 +230,7 @@ const History = () => {
         .map((po) => {
         // Fetch vendor name if we have vendor_id
         let vendorName = '';
-        if (po.vendor_id) {
+        if (po.vendor_id && allVendors.length > 0) {
           const vendorMatch = allVendors.find(v => v.id === po.vendor_id);
           vendorName = vendorMatch?.vendorName || '';
         }
@@ -166,7 +238,7 @@ const History = () => {
         // Fetch project/site name if we have client_id
         let projectName = '';
         let projectBranch = '';
-        if (po.client_id) {
+        if (po.client_id && allProjects.length > 0) {
           const projectMatch = allProjects.find(p => p.id === po.client_id);
           projectName = projectMatch?.siteName || projectMatch?.projectName || '';
           projectBranch = projectMatch?.branch || '';
@@ -177,11 +249,15 @@ const History = () => {
         if (po.site_incharge_id) {
           const inchargeType = po.site_incharge_type || po.siteInchargeType;
           if (inchargeType === 'support staff' || inchargeType === 'support_staff') {
-            const supportStaffMatch = allSupportStaff.find(s => s.id === po.site_incharge_id);
-            projectIncharge = supportStaffMatch?.support_staff_name || supportStaffMatch?.supportStaffName || '';
+            if (allSupportStaff.length > 0) {
+              const supportStaffMatch = allSupportStaff.find(s => s.id === po.site_incharge_id);
+              projectIncharge = supportStaffMatch?.support_staff_name || supportStaffMatch?.supportStaffName || '';
+            }
           } else {
-            const inchargeMatch = allEmployees.find(e => e.id === po.site_incharge_id);
-            projectIncharge = inchargeMatch?.employeeName || inchargeMatch?.name || inchargeMatch?.fullName || inchargeMatch?.employee_name || '';
+            if (allEmployees.length > 0) {
+              const inchargeMatch = allEmployees.find(e => e.id === po.site_incharge_id);
+              projectIncharge = inchargeMatch?.employeeName || inchargeMatch?.name || inchargeMatch?.fullName || inchargeMatch?.employee_name || '';
+            }
           }
         }
 
@@ -258,28 +334,39 @@ const History = () => {
         return idB - idA; // Descending order (highest ID first)
       });
       setPurchaseOrders(sorted);
+      
+      // Cache the transformed data for fast loading next time
+      try {
+        localStorage.setItem('purchaseOrdersHistoryCache', JSON.stringify(sorted));
+      } catch (error) {
+        console.error('Error caching purchase orders:', error);
+      }
     } catch (error) {
       console.error('Error loading purchase orders:', error);
-      // Fallback to localStorage if API fails
-      try {
-        const savedPOs = localStorage.getItem('purchaseOrders');
-        if (savedPOs) {
-          const parsed = JSON.parse(savedPOs);
-          const sorted = parsed.sort((a, b) => {
-            const idA = parseInt(a.id) || 0;
-            const idB = parseInt(b.id) || 0;
-            return idB - idA; // Descending order (highest ID first)
-          });
-          setPurchaseOrders(sorted);
+      // Fallback to localStorage cache if API fails
+      if (!hasActiveFilters) {
+        try {
+          const cachedData = localStorage.getItem('purchaseOrdersHistoryCache');
+          if (cachedData) {
+            const cachedPOs = JSON.parse(cachedData);
+            const sorted = cachedPOs.sort((a, b) => {
+              const idA = parseInt(a.id) || 0;
+              const idB = parseInt(b.id) || 0;
+              return idB - idA;
+            });
+            setPurchaseOrders(sorted);
+          }
+        } catch (localError) {
+          console.error('Error loading from cache:', localError);
         }
-      } catch (localError) {
-        console.error('Error loading from localStorage:', localError);
       }
     }
-  };
+  }, [allVendors, allProjects, allEmployees, allSupportStaff, searchQuery, filters]);
 
   useEffect(() => {
-    loadPurchaseOrders();
+    if (allVendors.length > 0 || allProjects.length > 0) {
+      loadPurchaseOrders();
+    }
     // Also listen for custom event when PO is updated
     const handlePOUpdate = () => {
       loadPurchaseOrders();
@@ -297,8 +384,7 @@ const History = () => {
         clearInterval(interval);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allVendors.length, allProjects.length, allEmployees.length, searchQuery, filters]);
+  }, [allVendors, allProjects, allEmployees, allSupportStaff, searchQuery, filters, loadPurchaseOrders]);
   const handleEdit = (po) => {
     // Store PO data in localStorage to load in create tab
     localStorage.setItem('editingPO', JSON.stringify(po));
@@ -377,6 +463,13 @@ const History = () => {
       poNumber: '',
       branch: ''
     });
+    // Clear localStorage
+    try {
+      localStorage.removeItem('purchaseOrderHistoryFilters');
+      localStorage.removeItem('purchaseOrderHistorySearchQuery');
+    } catch (error) {
+      console.error('Error clearing filters from localStorage:', error);
+    }
   };
   const filteredPOs = purchaseOrders.filter(po => {
     // Search query filter

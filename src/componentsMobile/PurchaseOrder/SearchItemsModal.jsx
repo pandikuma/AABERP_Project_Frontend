@@ -146,7 +146,7 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
     );
 };
 
-const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingItems = [], onRefreshData, stockingLocationId = null, disableAvailabilityCheck = false, useInventoryData = false, isFromUpdate = false }) => {
+const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingItems = [], onRefreshData, stockingLocationId = null, disableAvailabilityCheck = false, useInventoryData = false, isFromUpdate = false, fromProjectId = null }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
