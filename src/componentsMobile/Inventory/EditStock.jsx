@@ -779,13 +779,6 @@ const EditStock = () => {
   // Handle move stock submit (modal edit for a single item)
   const handleMoveStockSubmit = async () => {
     if (!selectedItemForEdit) return;
-
-    // Validation
-    if (!moveProjectId) {
-      alert('Please select a Project');
-      return;
-    }
-
     // Decide which stocking location id to use: if Update tab is active, use the selected Update location
     const updateSelectedOption = stockRoomOptions.find(loc => (loc.value || loc.label) === updateSelectedLocation);
     const updateStockingLocationId = updateSelectedOption?.id || null;
@@ -821,7 +814,7 @@ const EditStock = () => {
     const formattedDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     const payload = {
       stocking_location_id: stockingLocationId,
-      client_id: moveProjectId,
+      client_id: 0,
       description: moveDescription,
       inventory_type: 'Update',
       date: formattedDate,
@@ -890,13 +883,13 @@ const EditStock = () => {
       alert('Unable to resolve stocking location IDs. Please select valid locations.');
       return;
     }
-    
+
     // Find project IDs from allProjectNames for client_id and to_client_id (project to project transfer)
     const fromProjectOption = allProjectNames.find(proj => (proj.value || proj.label || proj) === fromLocation);
     const toProjectOption = allProjectNames.find(proj => (proj.value || proj.label || proj) === toLocation);
     const fromProjectId = fromProjectOption?.id || null;
     const toProjectId = toProjectOption?.id || null;
-    
+
     setTransferLoading(true);
     try {
       // Attempt to fetch a new ENO (similar to incoming flow); if it fails we'll send empty string
@@ -931,7 +924,7 @@ const EditStock = () => {
         created_by: (user && user.username) || '',
         inventoryItems: inventoryItems
       };
-      
+
       // Add client_id and to_client_id for project to project transfers
       if (fromProjectId) {
         payload.client_id = fromProjectId;
@@ -998,7 +991,7 @@ const EditStock = () => {
     (loc.value || loc.label || loc) === fromLocation
   );
   const fromStockingLocationId = fromSelectedOption?.id || null;
-  
+
   // Resolve the ID for the selected 'From' project to pass into SearchItemsModal
   const fromProjectOption = allProjectNames.find(proj => (proj.value || proj.label || proj) === fromLocation);
   const fromProjectId = fromProjectOption?.id || null;
@@ -1029,6 +1022,8 @@ const EditStock = () => {
         const toName = locationNamesMap[rec.to_stocking_location_id || rec.toStockingLocationId] || '';
         const isTransfer = ((rec.inventory_type || rec.inventoryType || '') || '').toString().toLowerCase() === 'transfer';
         const locationName = isTransfer ? (fromName && toName ? `${fromName} to ${toName}` : (fromName || toName)) : (fromName || '');
+        const fromLocationName = isTransfer ? fromName : null;
+        const toLocationName = isTransfer ? toName : null;
         const dateVal = rec.created_date_time || rec.created_at || rec.createdAt;
         const formattedDate = dateVal ? new Date(dateVal).toLocaleString() : '';
         const findNameById = (array, id, fieldName) => {
@@ -1036,7 +1031,6 @@ const EditStock = () => {
           const item = array.find(i => String(i.id || i._id) === String(id));
           return item ? (item[fieldName] || item.name || '') : '';
         };
-        const eno = rec.eno || rec.ENO || rec.entry_number || rec.entryNumber || '';
         if (!inventoryItems || inventoryItems.length === 0) {
           entries.push({
             id: rec.id || rec._id || `${rec.stocking_location_id || ''}-${dateVal || ''}`,
@@ -1047,10 +1041,11 @@ const EditStock = () => {
             category: '',
             projectName,
             locationName,
+            fromLocationName,
+            toLocationName,
             type: rec.inventory_type || rec.inventoryType || '',
             dateValue: dateVal,
-            formattedDate,
-            eno
+            formattedDate
           });
         } else {
           inventoryItems.forEach(ii => {
@@ -1080,10 +1075,19 @@ const EditStock = () => {
               category: categoryName,
               projectName,
               locationName,
+              fromLocationName,
+              toLocationName,
               type: rec.inventory_type || rec.inventoryType || '',
               dateValue: dateVal,
               formattedDate,
-              eno
+              quantity: Number(ii.quantity || 0),
+              itemId: itemId,
+              categoryId: categoryId,
+              modelId: modelId,
+              brandId: brandId,
+              typeId: typeId,
+              stockingLocationId: rec.stocking_location_id || rec.stockingLocationId,
+              toStockingLocationId: rec.to_stocking_location_id || rec.toStockingLocationId
             });
           });
         }
@@ -1091,6 +1095,53 @@ const EditStock = () => {
 
     return entries.sort((a, b) => new Date(b.dateValue || 0) - new Date(a.dateValue || 0));
   }, [inventoryData, itemNamesData, allProjectNames, locationNamesMap, poCategoryOptions, poBrand, poModel, poType]);
+
+  // Calculate overall stock (all locations) for history display
+  const overallStockMap = useMemo(() => {
+    const list = calculateNetStock(inventoryData, null); // null = all locations
+    return (list || []).reduce((acc, cur) => {
+      const key = `${cur.itemId || 'null'}-${cur.categoryId || 'null'}-${cur.modelId || 'null'}-${cur.brandId || 'null'}-${cur.typeId || 'null'}`;
+      acc[key] = Number(cur.netStock || 0);
+      return acc;
+    }, {});
+  }, [inventoryData, calculateNetStock]);
+
+  // Helper function to get location-specific stock for a record
+  const getLocationStock = useCallback((itemId, categoryId, modelId, brandId, typeId, locationId) => {
+    const list = calculateNetStock(inventoryData, locationId);
+    const compositeKey = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
+    const item = list.find(cur =>
+      String(cur.itemId || 'null') === String(itemId || 'null') &&
+      String(cur.categoryId || 'null') === String(categoryId || 'null') &&
+      String(cur.modelId || 'null') === String(modelId || 'null') &&
+      String(cur.brandId || 'null') === String(brandId || 'null') &&
+      String(cur.typeId || 'null') === String(typeId || 'null')
+    );
+    return item ? Number(item.netStock || 0) : 0;
+  }, [inventoryData, calculateNetStock]);
+
+  // Compute the stock for a specific item at a given timestamp (i.e., as of that inventory record)
+  const getLocationStockAtTime = useCallback((itemId, categoryId, modelId, brandId, typeId, locationId, dateValue) => {
+    if (!dateValue) return 0;
+    // filter inventory records to those on or before the provided date
+    const cutoff = new Date(dateValue);
+    const recordsUpToDate = (inventoryData || []).filter(rec => {
+      const recDate = rec.created_date_time || rec.created_at || rec.createdAt;
+      if (!recDate) return false;
+      const r = new Date(recDate);
+      return r <= cutoff;
+    });
+
+    const list = calculateNetStock(recordsUpToDate, locationId);
+    const item = list.find(cur =>
+      String(cur.itemId || 'null') === String(itemId || 'null') &&
+      String(cur.categoryId || 'null') === String(categoryId || 'null') &&
+      String(cur.modelId || 'null') === String(modelId || 'null') &&
+      String(cur.brandId || 'null') === String(brandId || 'null') &&
+      String(cur.typeId || 'null') === String(typeId || 'null')
+    );
+    return item ? Number(item.netStock || 0) : 0;
+  }, [inventoryData, calculateNetStock]);
 
   // Get unique eno values from historyList
   const enoOptions = useMemo(() => {
@@ -1298,9 +1349,9 @@ const EditStock = () => {
         </div>
       </div>
       {activeSubTab === 'history' && (
-        <div 
+        <div
           ref={filterTagsContainerRef}
-          className="flex items-center justify-start mt-3 mb-0 px-5 gap-2 overflow-x-auto scrollbar-hide no-scrollbar scrollbar-none" 
+          className="flex items-center justify-start mt-3 mb-0 px-5 gap-2 overflow-x-auto scrollbar-hide no-scrollbar scrollbar-none"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch', cursor: isDragging ? 'grabbing' : 'grab' }}
           onMouseDown={(e) => {
             if (e.target.closest('button')) return;
@@ -1771,26 +1822,46 @@ const EditStock = () => {
                         <p className="text-[11px] font-semibold text-black truncate">{record.itemsText || 'No items'}</p>
                         <p>
                           {record.category && (
-                            <span className={`px-2 py-1 rounded-full text-[10px] font-medium ${getCategoryColor(record.category)} mb-2`}>
+                            <span className={`px-2 py-1 rounded-full text-[11px] font-medium ${getCategoryColor(record.category)} mb-2`}>
                               {record.category.toUpperCase()}
                             </span>
                           )}
                         </p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <p className="text-[11px] text-gray-400 mt-1">{record.model}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">{record.model}</p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <p className="text-[11px] text-gray-400 mt-1">{record.brand},{record.typeName}</p>
-
+                        <p className="text-[10px] text-gray-400 mt-1">{record.brand && record.typeName ? `${record.brand}, ${record.typeName}` : (record.brand || record.typeName || '')}</p>
+                        {String(record.type || '').toLowerCase() === 'transfer' ? null : (
+                          <p className="text-[10px] text-gray-400 mt-1">Changed Count: <span className="font-semibold text-black">{Number(record.quantity || 0)}</span></p>
+                        )}
                       </div>
                       <div className="flex items-center justify-between">
                         <p className="text-[10px] text-gray-400 mt-1">{record.formattedDate}</p>
-                        <p className="text-[10px] text-gray-400 mt-1">Current Count:</p>
+                        {String(record.type || '').toLowerCase() === 'transfer' ? null : (
+                          <p className="text-[10px] text-gray-400 mt-1">Old Count: <span className="font-semibold text-black">{(() => {
+                            const newCountAtRecord = getLocationStockAtTime(record.itemId, record.categoryId, record.modelId, record.brandId, record.typeId, record.stockingLocationId, record.dateValue);
+                            const qty = Number(record.quantity || 0);
+                            return Math.max(0, newCountAtRecord - qty);
+                          })()}</span></p>
+                        )}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-[9px] text-gray-500 mt-1 truncate">{String(record.type || '').toLowerCase() === 'transfer' ? record.locationName : (record.projectName || record.locationName)}</p>
-                        <p className="text-[9px] text-[#007323] mt-1">Transfer Count:</p>
+                      <div className={`flex ${String(record.type || '').toLowerCase() === 'transfer' ? 'items-start' : 'items-center'} justify-between`}>
+                        {String(record.type || '').toLowerCase() === 'transfer' ? (
+                          <div className="flex flex-col">
+                            {record.fromLocationName && <p className="text-[10px] text-gray-500 truncate"> {record.fromLocationName}</p>}
+                            <p className="text-[9px] text-gray-500 text-center">to</p>
+                            {record.toLocationName && <p className="text-[10px] text-gray-500 truncate">{record.toLocationName}</p>}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-gray-500 mt-1 truncate">{record.projectName || record.locationName}</p>
+                        )}
+                        {String(record.type || '').toLowerCase() === 'transfer' ? (
+                          <p className="text-[10px] text-[#007323] mt-1">Transfer Count: <span className="font-semibold text-[#007323]">{record.quantity || 0}</span></p>
+                        ) : (
+                          <p className="text-[10px] text-[#007323] mt-1">New Count: <span className="font-semibold text-[#007323]">{getLocationStockAtTime(record.itemId, record.categoryId, record.modelId, record.brandId, record.typeId, record.stockingLocationId, record.dateValue)}</span></p>
+                        )}
                       </div>
                     </div>
                   </div>
