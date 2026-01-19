@@ -1908,9 +1908,6 @@ const EditStock = () => {
                       <div className="flex items-center justify-between">
                         <p className="text-[10px] text-gray-400 mt-1">{record.formattedDate}</p>
                         <div className="flex items-center gap-2">
-                          {record.eno && (
-                            <p className="text-[10px] text-gray-400 mt-1">ENO: <span className="font-semibold text-black">{record.eno}</span></p>
-                          )}
                           {String(record.type || '').toLowerCase() === 'transfer' ? null : (
                             <p className="text-[10px] text-gray-400 mt-1">Old Count: <span className="font-semibold text-black">{(() => {
                               const newCountAtRecord = getLocationStockAtTime(record.itemId, record.categoryId, record.modelId, record.brandId, record.typeId, record.stockingLocationId, record.dateValue);
