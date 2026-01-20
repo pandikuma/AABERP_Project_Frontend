@@ -632,6 +632,9 @@ const History = () => {
   const minSwipeDistance = 50;
   const handleTouchStart = (e, poId) => {
     const touch = e.touches[0];
+    const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === poId;
+    const wasExpanded = isFirstCard ? (!isFirstCardClosed || expandedPoId === poId) : expandedPoId === poId;
+    const wasCloneExpanded = cloneExpandedPoId === poId;
     // Don't prevent default here - wait to see if it's a horizontal swipe
     setSwipeStates(prev => ({
       ...prev,
@@ -640,7 +643,9 @@ const History = () => {
         startY: touch.clientY,
         currentX: touch.clientX,
         currentY: touch.clientY,
-        isSwiping: false
+        isSwiping: false,
+        wasExpanded: wasExpanded,
+        wasCloneExpanded: wasCloneExpanded
       }
     }));
   };
@@ -687,7 +692,9 @@ const History = () => {
           ...prev[poId],
           currentX: touch.clientX,
           currentY: touch.clientY,
-          isSwiping: true
+          isSwiping: true,
+          wasExpanded: prev[poId].wasExpanded,
+          wasCloneExpanded: prev[poId].wasCloneExpanded
         }
       }));
     }
@@ -699,25 +706,34 @@ const History = () => {
     const absDeltaX = Math.abs(deltaX);
     const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === poId;
     const isExpanded = isFirstCard ? (!isFirstCardClosed || expandedPoId === poId) : expandedPoId === poId;
+    const wasCloneExpanded = state.wasCloneExpanded || false;
+    const wasExpanded = state.wasExpanded || false;
+    
     if (absDeltaX >= minSwipeDistance) {
       if (deltaX < 0) {
-        // Swiped left (reveal buttons on right) - close clone button first
-        setCloneExpandedPoId(null);
-        if (isFirstCard) {
-          setIsFirstCardClosed(false);
+        // Swiped left
+        if (wasCloneExpanded) {
+          // If clone was expanded, only close clone button - don't show edit/delete buttons
+          setCloneExpandedPoId(null);
+        } else {
+          // If clone was NOT expanded, reveal edit/delete buttons on right
+          setCloneExpandedPoId(null);
+          if (isFirstCard) {
+            setIsFirstCardClosed(false);
+          }
+          setExpandedPoId(poId);
         }
-        setExpandedPoId(poId);
       } else {
         // Swiped right
-        if (isExpanded) {
-          // If Edit/Delete buttons are visible, just hide them (don't show Clone)
+        if (wasExpanded) {
+          // If Edit/Delete buttons were visible, just hide them (don't show Clone)
           setExpandedPoId(null);
           if (isFirstCard) {
             setIsFirstCardClosed(true);
           }
           setCloneExpandedPoId(null);
         } else {
-          // If Edit/Delete buttons are NOT visible, show Clone button
+          // If Edit/Delete buttons were NOT visible, show Clone button
           setCloneExpandedPoId(poId);
         }
       }
@@ -768,7 +784,9 @@ const History = () => {
             newState[po.id] = {
               ...state,
               currentX: e.clientX,
-              isSwiping: true
+              isSwiping: true,
+              wasExpanded: state.wasExpanded,
+              wasCloneExpanded: state.wasCloneExpanded
             };
             hasChanges = true;
           }
@@ -791,25 +809,34 @@ const History = () => {
           const isExpanded = isFirstCard 
             ? (!currentIsFirstCardClosed || currentExpandedPoId === po.id) 
             : currentExpandedPoId === po.id;
+          const wasCloneExpanded = state.wasCloneExpanded || false;
+          const wasExpanded = state.wasExpanded || false;
+          
           if (absDeltaX >= minSwipeDistance) {
             if (deltaX < 0) {
-              // Swiped left (reveal buttons on right) - close clone button first
-              setCloneExpandedPoId(null);
-              if (isFirstCard) {
-                setIsFirstCardClosed(false);
+              // Swiped left
+              if (wasCloneExpanded) {
+                // If clone was expanded, only close clone button - don't show edit/delete buttons
+                setCloneExpandedPoId(null);
+              } else {
+                // If clone was NOT expanded, reveal edit/delete buttons on right
+                setCloneExpandedPoId(null);
+                if (isFirstCard) {
+                  setIsFirstCardClosed(false);
+                }
+                setExpandedPoId(po.id);
               }
-              setExpandedPoId(po.id);
             } else {
               // Swiped right
-              if (isExpanded) {
-                // If Edit/Delete buttons are visible, just hide them (don't show Clone)
+              if (wasExpanded) {
+                // If Edit/Delete buttons were visible, just hide them (don't show Clone)
                 setExpandedPoId(null);
                 if (isFirstCard) {
                   setIsFirstCardClosed(true);
                 }
                 setCloneExpandedPoId(null);
               } else {
-                // If Edit/Delete buttons are NOT visible, show Clone button
+                // If Edit/Delete buttons were NOT visible, show Clone button
                 setCloneExpandedPoId(po.id);
               }
             }
@@ -835,6 +862,15 @@ const History = () => {
       if (!element) return;
       const touchStartHandler = (e) => {
         const touch = e.touches[0];
+        const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === po.id;
+        // Use refs to get current values
+        const currentIsFirstCardClosed = isFirstCardClosedRef.current;
+        const currentExpandedPoId = expandedPoIdRef.current;
+        const currentCloneExpandedPoId = cloneExpandedPoIdRef.current;
+        const wasExpanded = isFirstCard 
+          ? (!currentIsFirstCardClosed || currentExpandedPoId === po.id) 
+          : currentExpandedPoId === po.id;
+        const wasCloneExpanded = currentCloneExpandedPoId === po.id;
         // Don't prevent default here - wait to see if it's a horizontal swipe
         setSwipeStates(prev => ({
           ...prev,
@@ -843,7 +879,9 @@ const History = () => {
             startY: touch.clientY,
             currentX: touch.clientX,
             currentY: touch.clientY,
-            isSwiping: false
+            isSwiping: false,
+            wasExpanded: wasExpanded,
+            wasCloneExpanded: wasCloneExpanded
           }
         }));
       };
@@ -894,7 +932,9 @@ const History = () => {
                 ...prev[po.id],
                 currentX: touch.clientX,
                 currentY: touch.clientY,
-                isSwiping: true
+                isSwiping: true,
+                wasExpanded: prev[po.id].wasExpanded,
+                wasCloneExpanded: prev[po.id].wasCloneExpanded
               }
             };
           }
@@ -913,25 +953,34 @@ const History = () => {
           const isExpanded = isFirstCard 
             ? (!currentIsFirstCardClosed || currentExpandedPoId === po.id) 
             : currentExpandedPoId === po.id;
+          const wasCloneExpanded = state.wasCloneExpanded || false;
+          const wasExpanded = state.wasExpanded || false;
+          
           if (absDeltaX >= minSwipeDistance) {
             if (deltaX < 0) {
-              // Swiped left (reveal buttons on right) - close clone button first
-              setCloneExpandedPoId(null);
-              if (isFirstCard) {
-                setIsFirstCardClosed(false);
+              // Swiped left
+              if (wasCloneExpanded) {
+                // If clone was expanded, only close clone button - don't show edit/delete buttons
+                setCloneExpandedPoId(null);
+              } else {
+                // If clone was NOT expanded, reveal edit/delete buttons on right
+                setCloneExpandedPoId(null);
+                if (isFirstCard) {
+                  setIsFirstCardClosed(false);
+                }
+                setExpandedPoId(po.id);
               }
-              setExpandedPoId(po.id);
             } else {
               // Swiped right
-              if (isExpanded) {
-                // If Edit/Delete buttons are visible, just hide them (don't show Clone)
+              if (wasExpanded) {
+                // If Edit/Delete buttons were visible, just hide them (don't show Clone)
                 setExpandedPoId(null);
                 if (isFirstCard) {
                   setIsFirstCardClosed(true);
                 }
                 setCloneExpandedPoId(null);
               } else {
-                // If Edit/Delete buttons are NOT visible, show Clone button
+                // If Edit/Delete buttons were NOT visible, show Clone button
                 setCloneExpandedPoId(po.id);
               }
             }
@@ -948,12 +997,23 @@ const History = () => {
       const mouseDownHandler = (e) => {
         // Prevent text selection during swipe
         e.preventDefault();
+        const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === po.id;
+        // Use refs to get current values
+        const currentIsFirstCardClosed = isFirstCardClosedRef.current;
+        const currentExpandedPoId = expandedPoIdRef.current;
+        const currentCloneExpandedPoId = cloneExpandedPoIdRef.current;
+        const wasExpanded = isFirstCard 
+          ? (!currentIsFirstCardClosed || currentExpandedPoId === po.id) 
+          : currentExpandedPoId === po.id;
+        const wasCloneExpanded = currentCloneExpandedPoId === po.id;
         setSwipeStates(prev => ({
           ...prev,
           [po.id]: {
             startX: e.clientX,
             currentX: e.clientX,
-            isSwiping: false
+            isSwiping: false,
+            wasExpanded: wasExpanded,
+            wasCloneExpanded: wasCloneExpanded
           }
         }));
       };
