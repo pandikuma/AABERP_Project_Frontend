@@ -227,6 +227,14 @@ const PurchaseOrder = ({ user, onLogout }) => {
     const handleEditPO = (event) => {
       const po = event.detail;
       if (po) {
+        // Reset state first to ensure clean slate for subsequent clones
+        setItems([]);
+        setSelectedSite(null);
+        setSelectedIncharge(null);
+        setHasOpenedAdd(false);
+        setIsPdfGenerated(false);
+        setPdfBlob(null);
+        
         // Find vendor by name to set selectedVendor
         const vendorOption = vendorNameOptions.find(opt => opt.value === po.vendorName);
         if (vendorOption) {
@@ -234,6 +242,8 @@ const PurchaseOrder = ({ user, onLogout }) => {
           // This ensures the useEffect doesn't update PO number when loading from History
           previousVendorId.current = vendorOption.id;
           setSelectedVendor({ id: vendorOption.id, name: po.vendorName });
+        } else {
+          setSelectedVendor(null);
         }
 
         // Extract eno and display as #eno format (this event only fires when editing from History)
@@ -274,6 +284,18 @@ const PurchaseOrder = ({ user, onLogout }) => {
           const siteOpt = siteOptions.find(s => String(s.id) === String(clientId));
           if (siteOpt) {
             setSelectedSite({ id: siteOpt.id, name: siteOpt.value });
+          } else {
+            // If site not found by ID, try to find by name
+            const siteByName = siteOptions.find(s => s.value === po.projectName);
+            if (siteByName) {
+              setSelectedSite({ id: siteByName.id, name: siteByName.value });
+            }
+          }
+        } else if (po.projectName && siteOptions && siteOptions.length > 0) {
+          // Fallback: try to find site by name if ID not available
+          const siteByName = siteOptions.find(s => s.value === po.projectName);
+          if (siteByName) {
+            setSelectedSite({ id: siteByName.id, name: siteByName.value });
           }
         }
 
@@ -282,6 +304,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
         const inchargeType = po.site_incharge_type || po.siteInchargeType || null;
 
         if (inchargeId) {
+          let inchargeFound = false;
           if (inchargeType === 'support staff' || inchargeType === 'support_staff') {
             // Look for support staff
             if (supportStaffList && supportStaffList.length > 0) {
@@ -293,6 +316,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   mobileNumber: staff.mobile_number || staff.mobileNumber || '',
                   type: 'support staff'
                 });
+                inchargeFound = true;
               }
             }
           } else {
@@ -305,6 +329,39 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   name: emp.employeeName || emp.name || emp.fullName || emp.employee_name || '',
                   mobileNumber: emp.employee_mobile_number || emp.mobileNumber || emp.mobile_number || emp.contact || '',
                   type: 'employee'
+                });
+                inchargeFound = true;
+              }
+            }
+          }
+          // If incharge not found by ID, try to find by name
+          if (!inchargeFound && po.projectIncharge) {
+            if (employeeList && employeeList.length > 0) {
+              const empByName = employeeList.find(e => {
+                const name = e.employeeName || e.name || e.fullName || e.employee_name || '';
+                return name === po.projectIncharge;
+              });
+              if (empByName) {
+                setSelectedIncharge({
+                  id: empByName.id,
+                  name: empByName.employeeName || empByName.name || empByName.fullName || empByName.employee_name || '',
+                  mobileNumber: empByName.employee_mobile_number || empByName.mobileNumber || empByName.mobile_number || empByName.contact || '',
+                  type: 'employee'
+                });
+                inchargeFound = true;
+              }
+            }
+            if (!inchargeFound && supportStaffList && supportStaffList.length > 0) {
+              const staffByName = supportStaffList.find(s => {
+                const name = s.support_staff_name || s.supportStaffName || '';
+                return name === po.projectIncharge;
+              });
+              if (staffByName) {
+                setSelectedIncharge({
+                  id: staffByName.id,
+                  name: staffByName.support_staff_name || staffByName.supportStaffName || '',
+                  mobileNumber: staffByName.mobile_number || staffByName.mobileNumber || '',
+                  type: 'support staff'
                 });
               }
             }

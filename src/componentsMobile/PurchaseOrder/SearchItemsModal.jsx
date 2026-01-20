@@ -1420,29 +1420,27 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                 </div>
                 {/* Project Name Dropdown - ONLY for Update → Other Returns */}
                 {isFromUpdate && (
-                    <div className="mt-2 px-4">
+                    <div className="relative mt-2 px-4">
                         <p className="text-[12px] font-semibold text-black leading-normal mb-1">Project Name</p>
-                        <div className="relative">
-                            <div
-                                onClick={() => setShowMoveProjectModal(true)}
-                                className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-3 text-[12px] font-medium bg-white flex items-center cursor-pointer"
-                                style={{ color: moveProject ? '#000' : '#9E9E9E', paddingRight: moveProject ? '40px' : '12px' }}
-                            >
-                                {moveProject || 'Select Project'}
-                            </div>
-                            {moveProject && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); setMoveProject(''); setMoveProjectId(null); }}
-                                    className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                                    style={{ right: '12px' }}
-                                >
-                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                </button>
-                            )}
+                        <div
+                            onClick={() => setShowMoveProjectModal(true)}
+                            className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-3 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                            style={{ color: moveProject ? '#000' : '#9E9E9E', paddingRight: moveProject ? '40px' : '12px' }}
+                        >
+                            {moveProject || 'Select Project'}
                         </div>
+                        {moveProject && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setMoveProject(''); setMoveProjectId(null); }}
+                                className="absolute top-2/3 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                                style={{ right: '12px' }}
+                            >
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </button>
+                        )}
                         {/* Description Field */}
                         <div className="mt-2">
                             <p className="text-[12px] font-semibold text-black leading-normal mb-1">Description</p>

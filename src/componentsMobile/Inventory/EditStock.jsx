@@ -46,8 +46,6 @@ const EditStock = () => {
   const [itemNameFilterSearch, setItemNameFilterSearch] = useState('');
   const [transferFilterSearch, setTransferFilterSearch] = useState('');
   const [updateFilterSearch, setUpdateFilterSearch] = useState('');
-
-
   const blockClickRef = useRef(false);
   const filterTagsContainerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -59,7 +57,6 @@ const EditStock = () => {
     const startX = e.clientX;
     let hasMoved = false;
     let translateX = 0;
-
     const mouseMoveHandler = (moveEvent) => {
       const deltaX = moveEvent.clientX - startX;
       if (Math.abs(deltaX) > 10) {
@@ -67,7 +64,6 @@ const EditStock = () => {
         translateX = deltaX;
       }
     };
-
     const mouseUpHandler = () => {
       // Only delete if there was actual movement and significant swipe left
       if (hasMoved && translateX < -100) {
@@ -79,11 +75,9 @@ const EditStock = () => {
       document.removeEventListener('mousemove', mouseMoveHandler);
       document.removeEventListener('mouseup', mouseUpHandler);
     };
-
     document.addEventListener('mousemove', mouseMoveHandler);
     document.addEventListener('mouseup', mouseUpHandler);
   };
-
   const handleMouseMove = useCallback((index, e) => {
     if (!swipeStates[index]) return;
     const deltaX = e.clientX - swipeStates[index].startX;
@@ -94,7 +88,6 @@ const EditStock = () => {
       }));
     }
   }, [swipeStates]);
-
   const handleMouseUp = useCallback((index) => {
     if (!swipeStates[index]) return;
     const { translateX } = swipeStates[index];
@@ -119,7 +112,6 @@ const EditStock = () => {
   const [inventoryData, setInventoryData] = useState([]);
   const [itemNamesData, setItemNamesData] = useState([]);
   const [locationNamesMap, setLocationNamesMap] = useState({});
-
   const [expandedItemId, setExpandedItemId] = useState(null);
   const [showMoveStockModal, setShowMoveStockModal] = useState(false);
   const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
@@ -133,7 +125,6 @@ const EditStock = () => {
   const cardRefs = React.useRef({});
   const expandedItemIdRef = React.useRef(null);
   const swipeCleanupRef = React.useRef([]);
-
   // Fetch category options
   useEffect(() => {
     const fetchCategories = async () => {
@@ -154,7 +145,6 @@ const EditStock = () => {
     };
     fetchCategories();
   }, []);
-
   // Fetch stock room locations from project names (marked as stocking locations)
   useEffect(() => {
     const fetchStockRooms = async () => {
@@ -196,7 +186,6 @@ const EditStock = () => {
     };
     fetchStockRooms();
   }, []);
-
   // Fetch PO item names, brands, models, types, and categories
   useEffect(() => {
     const fetchPOData = async () => {
@@ -208,7 +197,6 @@ const EditStock = () => {
           fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll'),
           fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll')
         ]);
-
         if (itemNamesRes.ok) {
           const data = await itemNamesRes.json();
           setPoItemName(data);
@@ -240,7 +228,6 @@ const EditStock = () => {
     };
     fetchPOData();
   }, []);
-
   // Get available items function - returns the actual API data structure
   const getAvailableItems = useCallback(() => {
     // Return the actual API data structure with nested otherPOEntityList
@@ -257,7 +244,6 @@ const EditStock = () => {
       useNestedStructure: false
     };
   }, [poItemName]);
-
   // Fetch function for refreshing data
   const fetchPoItemName = useCallback(async () => {
     try {
@@ -270,7 +256,6 @@ const EditStock = () => {
       console.error('Error fetching PO item names:', error);
     }
   }, []);
-
   // Fetch location names mapping for Update tab
   useEffect(() => {
     const fetchLocationNames = async () => {
@@ -298,7 +283,6 @@ const EditStock = () => {
     };
     fetchLocationNames();
   }, []);
-
   // Fetch item names from API for Update tab
   useEffect(() => {
     const fetchItemNames = async () => {
@@ -314,7 +298,6 @@ const EditStock = () => {
     };
     fetchItemNames();
   }, []);
-
   // Calculate net stock from inventory data based on selected location (similar to NetStock)
   // Handles transfer items properly: subtract from source and add to destination
   const calculateNetStock = useCallback((inventoryRecords, selectedLocationId) => {
@@ -323,19 +306,16 @@ const EditStock = () => {
       const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
       return !recordDeleteStatus;
     });
-
     // Group by composite key: item_id-category_id-model_id-brand_id-type_id
     // Calculate net stock for each unique combination. For transfer records we treat them specially:
     // - When viewing a specific location: subtract from source (stocking_location_id) and add to destination (to_stocking_location_id)
     // - When viewing across all locations (selectedLocationId is falsy): transfer is neutral (no net change)
     const stockMap = {}; // Key: composite key, Value: net stock quantity
-
     activeRecords.forEach(record => {
       const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
       const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
       const toStockingLocationId = record.to_stocking_location_id || record.toStockingLocationId || null;
       const inventoryItems = record.inventoryItems || record.inventory_items || [];
-
       if (Array.isArray(inventoryItems)) {
         inventoryItems.forEach(invItem => {
           const itemId = invItem.item_id || invItem.itemId || null;
@@ -343,11 +323,9 @@ const EditStock = () => {
           const modelId = invItem.model_id || invItem.modelId || null;
           const brandId = invItem.brand_id || invItem.brandId || null;
           const typeId = invItem.type_id || invItem.typeId || null;
-
           if (itemId !== null && itemId !== undefined) {
             // Create composite key for unique combination
             const compositeKey = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
-
             if (!stockMap[compositeKey]) {
               stockMap[compositeKey] = {
                 itemId: itemId,
@@ -360,9 +338,7 @@ const EditStock = () => {
             }
             // Convert quantity to number
             const quantity = Number(invItem.quantity) || 0;
-
             let delta = 0;
-
             if (!selectedLocationId) {
               // Viewing across all locations: transfers are neutral (they move stock between locations)
               if (inventoryType === 'transfer' && toStockingLocationId) {
@@ -461,7 +437,6 @@ const EditStock = () => {
         });
       }
     });
-
     stockQuantities.forEach(invItem => {
       const itemId = invItem.itemId;
       const categoryId = invItem.categoryId;
@@ -471,14 +446,12 @@ const EditStock = () => {
       const netStock = invItem.netStock;
       const compositeKey = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
       const matchedEntity = entityMap[compositeKey];
-
       if (matchedEntity) {
         const itemName = matchedEntity.itemName || '';
         const brand = matchedEntity.brandName || '';
         const model = matchedEntity.modelName || '';
         const type = matchedEntity.typeColor || '';
         const categoryIdFromEntity = matchedEntity.categoryId || categoryId;
-
         let categoryName = '';
         if (categoryIdFromEntity) {
           const categoryOption = poCategoryOptions.find(cat =>
@@ -486,10 +459,8 @@ const EditStock = () => {
           );
           categoryName = categoryOption?.label || categoryOption?.value || '';
         }
-
         const locationId = selectedLocationId;
         const locationName = locationId ? (locationNamesMap[String(locationId)] || updateSelectedLocation || '') : '';
-
         processedData.push({
           id: compositeKey,
           itemId: itemId,
@@ -511,7 +482,6 @@ const EditStock = () => {
         if (itemData) {
           const itemName = itemData.itemName || itemData.poItemName || itemData.name || '';
           const categoryIdFromItem = itemData.categoryId || itemData.category_id || categoryId;
-
           let categoryName = '';
           if (categoryIdFromItem) {
             const categoryOption = poCategoryOptions.find(cat =>
@@ -519,20 +489,16 @@ const EditStock = () => {
             );
             categoryName = categoryOption?.label || categoryOption?.value || '';
           }
-
           const findNameById = (array, id, fieldName) => {
             if (!id || !array || array.length === 0) return '';
             const item = array.find(i => String(i.id || i._id) === String(id));
             return item ? (item[fieldName] || item.name || '') : '';
           };
-
           const brandName = brandId ? findNameById(poBrand, brandId, 'brand') : '';
           const modelName = modelId ? findNameById(poModel, modelId, 'model') : '';
           const typeName = typeId ? findNameById(poType, typeId, 'typeColor') || findNameById(poType, typeId, 'type') : '';
-
           const locationId = selectedLocationId;
           const locationName = locationId ? (locationNamesMap[String(locationId)] || updateSelectedLocation || '') : '';
-
           processedData.push({
             id: compositeKey,
             itemId: itemId,
@@ -552,15 +518,12 @@ const EditStock = () => {
         }
       }
     });
-
     setUpdateStockData(processedData);
     setUpdateLoading(false);
   }, [inventoryData, itemNamesData, poBrand, poModel, poType, poCategoryOptions, updateSelectedLocation, stockRoomOptions, locationNamesMap, calculateNetStock, updateLoading]);
-
   // Filter update data based on category and search
   useEffect(() => {
     let filtered = [...updateStockData];
-
     if (selectedCategory) {
       filtered = filtered.filter(item => {
         const itemCategory = item.category || '';
@@ -575,7 +538,6 @@ const EditStock = () => {
           (selectedCategoryId && String(item.categoryId) === String(selectedCategoryId));
       });
     }
-
     if (updateSearchQuery.trim()) {
       const query = updateSearchQuery.toLowerCase();
       filtered = filtered.filter(item =>
@@ -587,10 +549,8 @@ const EditStock = () => {
         (item.category || '').toLowerCase().includes(query)
       );
     }
-
     setFilteredUpdateData(filtered);
   }, [selectedCategory, updateSearchQuery, updateStockData, categoryOptions]);
-
   // Recalculate when location changes
   useEffect(() => {
     if (inventoryData.length === 0) return;
@@ -603,15 +563,12 @@ const EditStock = () => {
     setUpdateLoading(true);
     setTimeout(() => setUpdateLoading(false), 100);
   }, [updateSelectedLocation, inventoryData, stockRoomOptions, calculateNetStock]);
-
   // Update ref when expandedItemId changes
   useEffect(() => {
     expandedItemIdRef.current = expandedItemId;
   }, [expandedItemId]);
-
   // Swipe handlers for Update tab
   const minSwipeDistance = 50;
-
   // Set up swipe event listeners (matching PurchaseOrder History pattern)
   useEffect(() => {
     if (activeSubTab !== 'update' || filteredUpdateData.length === 0) {
@@ -620,7 +577,6 @@ const EditStock = () => {
       swipeCleanupRef.current = [];
       return;
     }
-
     // Delay to ensure refs are set after render
     const timeoutId = setTimeout(() => {
       // Global mouse event handlers for desktop support
@@ -628,15 +584,12 @@ const EditStock = () => {
         setSwipeStates(prev => {
           let hasChanges = false;
           const newState = { ...prev };
-
           filteredUpdateData.forEach((item, index) => {
             const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${index}`;
             const state = prev[itemId];
             if (!state) return;
-
             const deltaX = e.clientX - state.startX;
             const isExpanded = expandedItemIdRef.current === itemId;
-
             // Only update if dragging horizontally
             if (deltaX < 0 || (isExpanded && deltaX > 0)) {
               newState[itemId] = {
@@ -647,24 +600,19 @@ const EditStock = () => {
               hasChanges = true;
             }
           });
-
           return hasChanges ? newState : prev;
         });
       };
-
       const globalMouseUpHandler = () => {
         setSwipeStates(prev => {
           let hasChanges = false;
           const newState = { ...prev };
-
           filteredUpdateData.forEach((item, index) => {
             const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${index}`;
             const state = prev[itemId];
             if (!state) return;
-
             const deltaX = state.currentX - state.startX;
             const absDeltaX = Math.abs(deltaX);
-
             if (absDeltaX >= minSwipeDistance) {
               blockClickRef.current = true;
               if (deltaX < 0) {
@@ -677,15 +625,12 @@ const EditStock = () => {
                 setExpandedItemId(null);
               }
             }
-
             delete newState[itemId];
             hasChanges = true;
           });
-
           return hasChanges ? newState : prev;
         });
       };
-
       // Add global mouse event listeners
       document.addEventListener('mousemove', globalMouseMoveHandler);
       document.addEventListener('mouseup', globalMouseUpHandler);
@@ -693,13 +638,11 @@ const EditStock = () => {
         document.removeEventListener('mousemove', globalMouseMoveHandler);
         document.removeEventListener('mouseup', globalMouseUpHandler);
       });
-
       // Set up event listeners for each card
       filteredUpdateData.forEach((item, index) => {
         const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${index}`;
         const element = cardRefs.current[itemId];
         if (!element) return;
-
         const touchStartHandler = (e) => {
           const touch = e.touches[0];
           e.preventDefault();
@@ -712,7 +655,6 @@ const EditStock = () => {
             }
           }));
         };
-
         const touchMoveHandler = (e) => {
           const touch = e.touches[0];
           setSwipeStates(prev => {
@@ -734,7 +676,6 @@ const EditStock = () => {
             return prev;
           });
         };
-
         const touchEndHandler = () => {
           setSwipeStates(prev => {
             const state = prev[itemId];
@@ -758,7 +699,6 @@ const EditStock = () => {
             return newState;
           });
         };
-
         const mouseDownHandler = (e) => {
           e.preventDefault();
           setSwipeStates(prev => ({
@@ -770,7 +710,6 @@ const EditStock = () => {
             }
           }));
         };
-
         // Add event listeners
         element.addEventListener('touchstart', touchStartHandler, { passive: false });
         element.addEventListener('touchmove', touchMoveHandler, { passive: false });
@@ -784,14 +723,12 @@ const EditStock = () => {
         });
       });
     }, 0);
-
     return () => {
       clearTimeout(timeoutId);
       swipeCleanupRef.current.forEach(cleanup => cleanup());
       swipeCleanupRef.current = [];
     };
   }, [activeSubTab, filteredUpdateData, minSwipeDistance]);
-
   const hashString = (str) => {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -801,11 +738,9 @@ const EditStock = () => {
     }
     return Math.abs(hash);
   };
-
   // Category color helper
   const getCategoryColor = (category) => {
     if (!category) return 'bg-[#E3F2FD] text-[#1976D2]';
-
     // Define a palette of color combinations
     const colorPalette = [
       'bg-[#E3F2FD] text-[#1976D2]', // Light blue
@@ -821,14 +756,11 @@ const EditStock = () => {
       'bg-[#C8E6C9] text-[#1B5E20]', // Light dark green
       'bg-[#FFCCBC] text-[#BF360C]', // Light deep orange red
     ];
-
     // Hash the category name to get a consistent index
     const hash = hashString(category.toLowerCase());
     const colorIndex = hash % colorPalette.length;
-
     return colorPalette[colorIndex];
   };
-
   // Handle edit button click
   const handleEditClick = (item) => {
     setSelectedItemForEdit(item);
@@ -841,7 +773,6 @@ const EditStock = () => {
     setShowMoveStockModal(true);
     setExpandedItemId(null);
   };
-
   // Handle move stock submit (modal edit for a single item)
   const handleMoveStockSubmit = async () => {
     if (!selectedItemForEdit) return;
@@ -851,7 +782,6 @@ const EditStock = () => {
     const stockingLocationId = activeSubTab === 'update'
       ? (updateStockingLocationId || selectedItemForEdit.stocking_location_id || selectedItemForEdit.stockingLocationId || selectedItemForEdit.stocking_location || null)
       : (selectedItemForEdit.stocking_location_id || selectedItemForEdit.stockingLocationId || selectedItemForEdit.stocking_location || null);
-
     const qtyDelta = (Number(newCount) || 0) - (Number(currentStock) || 0);
     let eno = '';
     try {
@@ -863,7 +793,6 @@ const EditStock = () => {
     } catch (e) {
       // ignore and leave eno as empty
     }
-
     const inventoryItems = [
       {
         item_id: selectedItemForEdit.itemId || selectedItemForEdit.item_id || selectedItemForEdit.id || null,
@@ -876,7 +805,6 @@ const EditStock = () => {
       }
     ];
     const user = JSON.parse(localStorage.getItem('user') || 'null');
-
     const formattedDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     const payload = {
       stocking_location_id: stockingLocationId,
@@ -889,7 +817,6 @@ const EditStock = () => {
       created_by: (user && user.username) || '',
       inventoryItems: inventoryItems
     };
-
     try {
       const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
         method: 'POST',
@@ -898,18 +825,14 @@ const EditStock = () => {
         },
         body: JSON.stringify(payload)
       });
-
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.message || 'Failed to save update');
       }
-
       const data = await response.json();
       alert('Stock updated successfully');
-
       // update local item quantity/netStock so UI reflects change
       setItems(prev => prev.map(it => it.id === selectedItemForEdit.id ? { ...it, netStock: Number(newCount) } : it));
-
       setShowMoveStockModal(false);
       setSelectedItemForEdit(null);
       setCurrentStock('');
@@ -922,9 +845,7 @@ const EditStock = () => {
       alert(`Error updating stock: ${error.message}`);
     }
   };
-
   const [transferLoading, setTransferLoading] = useState(false);
-
   // Handle transfer (Move Stock) submit for Transfer tab
   const handleTransferSubmit = async () => {
     // Basic validation
@@ -949,13 +870,11 @@ const EditStock = () => {
       alert('Unable to resolve stocking location IDs. Please select valid locations.');
       return;
     }
-
     // Find project IDs from allProjectNames for client_id and to_client_id (project to project transfer)
     const fromProjectOption = allProjectNames.find(proj => (proj.value || proj.label || proj) === fromLocation);
     const toProjectOption = allProjectNames.find(proj => (proj.value || proj.label || proj) === toLocation);
     const fromProjectId = fromProjectOption?.id || null;
     const toProjectId = toProjectOption?.id || null;
-
     setTransferLoading(true);
     try {
       // Attempt to fetch a new ENO (similar to incoming flow); if it fails we'll send empty string
@@ -990,7 +909,6 @@ const EditStock = () => {
         created_by: (user && user.username) || '',
         inventoryItems: inventoryItems
       };
-
       // Add client_id and to_client_id for project to project transfers
       if (fromProjectId) {
         payload.client_id = fromProjectId;
@@ -1005,12 +923,10 @@ const EditStock = () => {
         },
         body: JSON.stringify(payload)
       });
-
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.message || 'Failed to save transfer');
       }
-
       await response.json();
       alert('Transfer saved successfully!');
       // Clear items
@@ -1038,7 +954,6 @@ const EditStock = () => {
     (loc.value || loc.label) === updateSelectedLocation
   );
   const updateStockingLocationId = updateSelectedOption?.id || null;
-
   // Helper function to get display value for location
   const getDisplayValue = (location) => {
     if (!location) return '';
@@ -1049,7 +964,6 @@ const EditStock = () => {
     }
     return location;
   };
-
   // Helper function to get options for dropdowns
   const getLocationOptions = () => {
     if (showProjects) {
@@ -1073,7 +987,6 @@ const EditStock = () => {
       return acc;
     }, {});
   }, [inventoryData, calculateNetStock, fromStockingLocationId]);
-
   const historyList = useMemo(() => {
     if (!inventoryData || inventoryData.length === 0) return [];
     const entries = [];
@@ -1164,10 +1077,8 @@ const EditStock = () => {
           });
         }
       });
-
     return entries.sort((a, b) => new Date(b.dateValue || 0) - new Date(a.dateValue || 0));
   }, [inventoryData, itemNamesData, allProjectNames, locationNamesMap, poCategoryOptions, poBrand, poModel, poType]);
-
   // Calculate overall stock (all locations) for history display
   const overallStockMap = useMemo(() => {
     const list = calculateNetStock(inventoryData, null); // null = all locations
@@ -1177,7 +1088,6 @@ const EditStock = () => {
       return acc;
     }, {});
   }, [inventoryData, calculateNetStock]);
-
   // Helper function to get location-specific stock for a record
   const getLocationStock = useCallback((itemId, categoryId, modelId, brandId, typeId, locationId) => {
     const list = calculateNetStock(inventoryData, locationId);
@@ -1191,7 +1101,6 @@ const EditStock = () => {
     );
     return item ? Number(item.netStock || 0) : 0;
   }, [inventoryData, calculateNetStock]);
-
   // Compute the stock for a specific item at a given timestamp (i.e., as of that inventory record)
   const getLocationStockAtTime = useCallback((itemId, categoryId, modelId, brandId, typeId, locationId, dateValue) => {
     if (!dateValue) return 0;
@@ -1203,7 +1112,6 @@ const EditStock = () => {
       const r = new Date(recDate);
       return r <= cutoff;
     });
-
     const list = calculateNetStock(recordsUpToDate, locationId);
     const item = list.find(cur =>
       String(cur.itemId || 'null') === String(itemId || 'null') &&
@@ -1214,7 +1122,6 @@ const EditStock = () => {
     );
     return item ? Number(item.netStock || 0) : 0;
   }, [inventoryData, calculateNetStock]);
-
   // Get unique eno values from historyList
   const enoOptions = useMemo(() => {
     const enos = [...new Set(historyList.map(record => record.eno).filter(eno => eno && eno !== ''))];
@@ -1224,26 +1131,21 @@ const EditStock = () => {
       return numB - numA; // Sort descending
     });
   }, [historyList]);
-
   // Filter historyList based on selected eno and filterData
   const filteredHistoryList = useMemo(() => {
     let filtered = historyList;
-
     // Filter by eno
     if (selectedEno) {
       filtered = filtered.filter(record => record.eno === selectedEno);
     }
-
     // Filter by stocking location
     if (filterData.stockingLocation) {
       filtered = filtered.filter(record => record.locationName === filterData.stockingLocation);
     }
-
     // Filter by item name
     if (filterData.itemName) {
       filtered = filtered.filter(record => record.itemsText === filterData.itemName);
     }
-
     // Filter by transfer
     if (filterData.transfer) {
       filtered = filtered.filter(record => {
@@ -1251,7 +1153,6 @@ const EditStock = () => {
         return recordType === 'transfer';
       });
     }
-
     // Filter by update
     if (filterData.update) {
       filtered = filtered.filter(record => {
@@ -1259,10 +1160,8 @@ const EditStock = () => {
         return recordType === 'update';
       });
     }
-
     return filtered;
   }, [historyList, selectedEno, filterData]);
-
   // Close dropdowns when filter sheet closes
   useEffect(() => {
     if (!showFilterSheet) {
@@ -1276,18 +1175,15 @@ const EditStock = () => {
       setUpdateFilterSearch('');
     }
   }, [showFilterSheet]);
-
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!showFilterSheet) return;
-
       const target = event.target;
       const isStockingLocationDropdown = target.closest('[data-dropdown="stockingLocationFilter"]');
       const isItemNameDropdown = target.closest('[data-dropdown="itemNameFilter"]');
       const isTransferDropdown = target.closest('[data-dropdown="transferFilter"]');
       const isUpdateDropdown = target.closest('[data-dropdown="updateFilter"]');
-
       if (stockingLocationFilterOpen && !isStockingLocationDropdown) {
         setStockingLocationFilterOpen(false);
       }
@@ -1301,7 +1197,6 @@ const EditStock = () => {
         setUpdateFilterOpen(false);
       }
     };
-
     if (showFilterSheet) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
@@ -1309,7 +1204,6 @@ const EditStock = () => {
       };
     }
   }, [stockingLocationFilterOpen, itemNameFilterOpen, transferFilterOpen, updateFilterOpen, showFilterSheet]);
-
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden bg-white">
       {/* Category Text */}
@@ -1355,7 +1249,7 @@ const EditStock = () => {
         <div className="flex-shrink-0 px-4 pt-4 pb-2 flex items-center justify-between">
           <div className="flex items-center justify-between flex-1">
             <p className="text-[12px] font-medium text-black leading-normal">
-              #312
+              #
             </p>
             <button
               onClick={() => setShowCategoryModal(true)}
@@ -1633,7 +1527,6 @@ const EditStock = () => {
                     <div
                       key={index}
                       className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm cursor-pointer select-none"
-
                     >
                       <div className=" ">
                         <div className="flex items-center justify-between">
@@ -1713,7 +1606,6 @@ const EditStock = () => {
                 )}
               </div>
             </div>
-
             <div className='flex items-center '>
               {/* Search Bar - Only show after Stocking Location is selected */}
               {updateSelectedLocation && updateSelectedLocation !== 'Select Project' && (
@@ -2018,7 +1910,6 @@ const EditStock = () => {
           // Handle adding/updating item quantities from the modal
           setItems(prev => {
             const updated = [...prev];
-
             const matchIndex = updated.findIndex(p => {
               const pId = p.itemId || p.id || null;
               const iId = item.itemId || item.id || null;
@@ -2032,9 +1923,7 @@ const EditStock = () => {
                 (p.type || '') === (item.type || '')
               );
             });
-
             const delta = Number(quantity || 0);
-
             if (isIncremental) {
               // Incremental update (called by + / - buttons or blur difference)
               if (matchIndex !== -1) {
@@ -2056,10 +1945,8 @@ const EditStock = () => {
                 updated.push({ ...item, quantity: delta });
               }
             }
-
             // Update itemsCount to reflect the number of line items
             setItemsCount(updated.length);
-
             return updated;
           });
           // Do NOT auto-close the modal; allow users to add multiple items before closing manually
@@ -2109,7 +1996,6 @@ const EditStock = () => {
                 </svg>
               </button>
             </div>
-
             {/* Content */}
             <div className="px-4 py-4 space-y-4">
               {/* Current Stock */}
@@ -2124,7 +2010,6 @@ const EditStock = () => {
                   className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-3 text-[12px] font-medium bg-gray-100 text-gray-600 cursor-not-allowed"
                 />
               </div>
-
               {/* New Count */}
               <div>
                 <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -2138,10 +2023,6 @@ const EditStock = () => {
                   placeholder="Enter new count"
                 />
               </div>
-
-              {/* Project Dropdown */}
-
-
               {/* Description */}
               <div>
                 <p className="text-[12px] font-semibold text-black leading-normal mb-1">Description</p>
@@ -2154,7 +2035,6 @@ const EditStock = () => {
                 />
               </div>
             </div>
-
             {/* Action Buttons */}
             <div className="px-4 pb-4 pt-2 flex gap-3">
               <button
@@ -2183,7 +2063,6 @@ const EditStock = () => {
           </div>
         </>
       )}
-
       {/* Project Select for Move Stock Modal */}
       <SelectVendorModal
         isOpen={showMoveProjectModal}
@@ -2198,7 +2077,6 @@ const EditStock = () => {
         options={allProjectNames.map(o => o.value)}
         fieldName="Project"
       />
-
       {/* Update Location Modal */}
       <SelectVendorModal
         isOpen={showUpdateLocationModal}
@@ -2211,7 +2089,6 @@ const EditStock = () => {
         options={updateStockingLocationOptions.map(loc => (loc.value || loc.label || loc))}
         fieldName="Stocking Location"
       />
-
       {/* Filter Bottom Sheet */}
       {showFilterSheet && (
         <>
@@ -2220,16 +2097,12 @@ const EditStock = () => {
             className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setShowFilterSheet(false)}
           />
-
           {/* Bottom Sheet */}
           <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-[360px] bg-white rounded-t-[20px] z-50 shadow-lg">
             {/* Header */}
             <div className="flex-shrink-0">
               <div className='flex justify-end mr-4 mt-1'>
-                <button
-                  onClick={() => setShowFilterSheet(false)}
-                  className="text-red-500 hover:text-red-700 text-xl font-bold"
-                >
+                <button onClick={() => setShowFilterSheet(false)} className="text-red-500 hover:text-red-700 text-xl font-bold">
                   ✕
                 </button>
               </div>
@@ -2321,7 +2194,6 @@ const EditStock = () => {
                   )}
                 </div>
               </div>
-
               {/* Item Name */}
               <div className="relative" data-dropdown="itemNameFilter">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2561,7 +2433,6 @@ const EditStock = () => {
                 </div>
               </div>
             </div>
-
             {/* Action Buttons */}
             <div className="flex-shrink-0 flex gap-3 px-6 py-4 border-t border-gray-200">
               <button
@@ -2573,10 +2444,7 @@ const EditStock = () => {
               >
                 Cancel
               </button>
-              <button
-                onClick={() => setShowFilterSheet(false)}
-                className="flex-1 px-4 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-900"
-              >
+              <button onClick={() => setShowFilterSheet(false)} className="flex-1 px-4 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-900">
                 Save
               </button>
             </div>
@@ -2586,6 +2454,4 @@ const EditStock = () => {
     </div>
   );
 };
-
 export default EditStock;
-

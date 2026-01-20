@@ -632,13 +632,14 @@ const History = () => {
   const minSwipeDistance = 50;
   const handleTouchStart = (e, poId) => {
     const touch = e.touches[0];
-    // Prevent text selection during swipe
-    e.preventDefault();
+    // Don't prevent default here - wait to see if it's a horizontal swipe
     setSwipeStates(prev => ({
       ...prev,
       [poId]: {
         startX: touch.clientX,
+        startY: touch.clientY,
         currentX: touch.clientX,
+        currentY: touch.clientY,
         isSwiping: false
       }
     }));
@@ -648,6 +649,22 @@ const History = () => {
     const state = swipeStates[poId];
     if (!state) return;
     const deltaX = touch.clientX - state.startX;
+    const deltaY = touch.clientY - state.startY;
+    const absDeltaX = Math.abs(deltaX);
+    const absDeltaY = Math.abs(deltaY);
+    
+    // Only handle horizontal swipe if horizontal movement is greater than vertical
+    // This allows vertical scrolling to work normally
+    if (absDeltaX <= absDeltaY) {
+      // Vertical scroll - don't interfere, clear swipe state
+      setSwipeStates(prev => {
+        const newState = { ...prev };
+        delete newState[poId];
+        return newState;
+      });
+      return;
+    }
+    
     const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === poId;
     const isExpanded = isFirstCard ? (!isFirstCardClosed || expandedPoId === poId) : expandedPoId === poId;
     const isCloneExpanded = cloneExpandedPoId === poId;
@@ -669,6 +686,7 @@ const History = () => {
         [poId]: {
           ...prev[poId],
           currentX: touch.clientX,
+          currentY: touch.clientY,
           isSwiping: true
         }
       }));
@@ -817,13 +835,14 @@ const History = () => {
       if (!element) return;
       const touchStartHandler = (e) => {
         const touch = e.touches[0];
-        // Prevent text selection during swipe
-        e.preventDefault();
+        // Don't prevent default here - wait to see if it's a horizontal swipe
         setSwipeStates(prev => ({
           ...prev,
           [po.id]: {
             startX: touch.clientX,
+            startY: touch.clientY,
             currentX: touch.clientX,
+            currentY: touch.clientY,
             isSwiping: false
           }
         }));
@@ -834,6 +853,19 @@ const History = () => {
           const state = prev[po.id];
           if (!state) return prev;
           const deltaX = touch.clientX - state.startX;
+          const deltaY = touch.clientY - state.startY;
+          const absDeltaX = Math.abs(deltaX);
+          const absDeltaY = Math.abs(deltaY);
+          
+          // Only handle horizontal swipe if horizontal movement is greater than vertical
+          // This allows vertical scrolling to work normally
+          if (absDeltaX <= absDeltaY) {
+            // Vertical scroll - don't interfere, clear swipe state
+            const newState = { ...prev };
+            delete newState[po.id];
+            return newState;
+          }
+          
           const isFirstCard = filteredPOs.length > 0 && filteredPOs[0].id === po.id;
           // Use refs to get current values
           const currentIsFirstCardClosed = isFirstCardClosedRef.current;
@@ -861,6 +893,7 @@ const History = () => {
               [po.id]: {
                 ...prev[po.id],
                 currentX: touch.clientX,
+                currentY: touch.clientY,
                 isSwiping: true
               }
             };
@@ -1327,7 +1360,10 @@ const History = () => {
                     className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
                     style={{
                       opacity: isExpanded || (swipeState && swipeState.isSwiping && swipeOffset < -20) ? 1 : 0,
-                      transition: 'opacity 0.2s ease-out',
+                      transform: swipeOffset < 0 
+                        ? `translateX(${Math.max(0, 110 + swipeOffset)}px)` 
+                        : 'translateX(110px)',
+                        transition: 'opacity 0.2s ease-out',
                       pointerEvents: isExpanded ? 'auto' : 'none'
                     }}
                   >
