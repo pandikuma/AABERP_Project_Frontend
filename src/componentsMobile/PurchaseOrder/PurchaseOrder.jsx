@@ -100,7 +100,6 @@ const PurchaseOrder = ({ user, onLogout }) => {
   const [supportStaffList, setSupportStaffList] = useState(() => {
     return supportStaffCache.data || [];
   });
-
   // State for PO item options from API (with IDs for lookup)
   const [poItemName, setPoItemName] = useState([]);
   const [poModel, setPoModel] = useState([]);
@@ -2084,8 +2083,30 @@ const PurchaseOrder = ({ user, onLogout }) => {
       return match[key] || match.label || match.name || '';
     };
     const vendorName = findNameById(vendorNameOptions, payload.vendor_id, "label");
-    const clientName = findNameById(siteOptions, payload.client_id, "label");
-    const siteInchargeName = findNameById(siteInchargeOptions, payload.site_incharge_id, "label");
+    const clientName = findNameById(siteOptions, payload.client_id, "label");    
+    // Find site incharge name based on site_incharge_type
+    let siteInchargeName = '';
+    const siteInchargeType = payload.site_incharge_type || payload.siteInchargeType;
+    const siteInchargeId = payload.site_incharge_id;    
+    if (siteInchargeId) {
+      if (siteInchargeType === 'support staff' || siteInchargeType === 'support_staff') {
+        // Look up from supportStaffList
+        if (supportStaffList && supportStaffList.length > 0) {
+          const staff = supportStaffList.find(s => String(s.id) === String(siteInchargeId));
+          if (staff) {
+            siteInchargeName = staff.support_staff_name || staff.supportStaffName || '';
+          }
+        }
+      } else if (siteInchargeType === 'employee' || !siteInchargeType) {
+        // Look up from employeeList (default to employee if type is not specified)
+        if (employeeList && employeeList.length > 0) {
+          const emp = employeeList.find(e => String(e.id) === String(siteInchargeId));
+          if (emp) {
+            siteInchargeName = emp.employeeName || emp.name || emp.fullName || emp.employee_name || '';
+          }
+        }
+      }
+    }
     const isRajaganapathyVendor = vendorName === "Rajaganapathy Plywoods";
     const isVATradersVendor = vendorName === "VA Traders";
     doc.setDrawColor(0);
@@ -2508,6 +2529,9 @@ const PurchaseOrder = ({ user, onLogout }) => {
     } else if (page === 'inventory') {
       setCurrentPage('inventory');
       navigate('/inventory');
+    } else if (page === 'tools-tracker') {
+      setCurrentPage('tools-tracker');
+      navigate('/toolsTracker');
     }
     // Other pages can be handled here when implemented
   };
