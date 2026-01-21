@@ -857,7 +857,7 @@ const Table = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         // Check if payment mode requires bank details
-        if (["GPay", "PhonePe", "Net Banking", "Cheque","Gpay"].includes(rentFormData.paymentMode)) {
+        if (["GPay", "PhonePe", "Net Banking", "Cheque", "Gpay"].includes(rentFormData.paymentMode)) {
             // Show payment modal if not already shown
             if (!showPaymentModal) {
                 setPaymentModalData({
@@ -1592,26 +1592,28 @@ const Table = () => {
                                             <td className="text-xs sm:text-sm text-left px-1 sm:px-2 font-semibold">{rent.paymentMode}</td>
                                             <td className="text-xs sm:text-sm text-left px-1 sm:px-2 font-semibold">{rent.formType}</td>
                                             <td className="flex w-[100px] justify-between py-2">
-                                                <button
-                                                    onClick={() => handleEditClick(rent)}
-                                                    disabled={rent.formType === 'Shop Closure' || rent.formType === 'Refund'}
-                                                    className={`rounded-full transition duration-200 ml-2 mr-3 ${rent.formType === 'Shop Closure' || rent.formType === 'Refund'
+                                                <div>
+                                                    <button
+                                                        onClick={() => handleEditClick(rent)}
+                                                        disabled={rent.formType === 'Shop Closure' || rent.formType === 'Refund'}
+                                                        className={`rounded-full transition duration-200 ml-2 mr-3 ${rent.formType === 'Shop Closure' || rent.formType === 'Refund'
                                                             ? 'opacity-50 cursor-not-allowed'
                                                             : ''
-                                                        }`}
-                                                    title={rent.formType === 'Shop Closure' || rent.formType === 'Refund'
-                                                        ? 'Cannot edit Shop Closure or Refund forms'
-                                                        : ''}
-                                                >
-                                                    <img
-                                                        src={edit}
-                                                        alt="Edit"
-                                                        className={`w-4 h-6 transition duration-200 ${rent.formType === 'Shop Closure' || rent.formType === 'Refund'
-                                                                ? ''
-                                                                : 'transform hover:scale-110 hover:brightness-110'
                                                             }`}
-                                                    />
-                                                </button>
+                                                        title={rent.formType === 'Shop Closure' || rent.formType === 'Refund'
+                                                            ? 'Cannot edit Shop Closure or Refund forms'
+                                                            : ''}
+                                                    >
+                                                        <img
+                                                            src={edit}
+                                                            alt="Edit"
+                                                            className={`w-4 h-6 transition duration-200 ${rent.formType === 'Shop Closure' || rent.formType === 'Refund'
+                                                                ? ''
+                                                                : ''
+                                                                }`}
+                                                        />
+                                                    </button>
+                                                </div>
                                             </td>
                                             <td className="text-xs sm:text-sm text-left px-1 sm:px-2 py-2 font-semibold">
                                                 <button className="text-blue-600 underline text-xs sm:text-sm" onClick={() => handlePrint(rent)}>
@@ -1777,7 +1779,7 @@ const Table = () => {
                                                 const newPaymentMode = selectedOption?.value || '';
                                                 setRentFormData({ ...rentFormData, paymentMode: newPaymentMode });
                                                 // Check if payment mode requires bank details
-                                                if (["GPay", "PhonePe", "Net Banking", "Cheque","Gpay"].includes(newPaymentMode)) {
+                                                if (["GPay", "PhonePe", "Net Banking", "Cheque", "Gpay"].includes(newPaymentMode)) {
                                                     setPaymentModalData({
                                                         date: rentFormData.paidOnDate || new Date().toISOString().split('T')[0],
                                                         amount: rentFormData.amount || "",
