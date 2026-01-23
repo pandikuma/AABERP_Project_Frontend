@@ -192,7 +192,7 @@ const History = ({ user }) => {
       </div>
 
       {/* History Entries List */}
-      <div className="flex-1 px-4 h-full max-h-[520px] overflow-y-auto">
+      <div className="flex-1 px-4 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <p className="text-[12px] text-gray-500">Loading...</p>
