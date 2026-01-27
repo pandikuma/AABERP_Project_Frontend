@@ -1179,9 +1179,9 @@ const Transfer = ({ user }) => {
         className="fixed bottom-[110px] right-[24px] lg:right-[calc(50%-164px)] z-30 cursor-pointer"
         onClick={handleAddItem}
       >
-        <div className="w-[48px] h-[43px] rounded-full flex items-center justify-center bg-[#E0E0E0]">
+        <div className="w-[48px] h-[43px] rounded-full flex items-center justify-center bg-black">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 5V19M5 12H19" stroke="#000" strokeWidth="2" strokeLinecap="round" />
+            <path d="M12 5V19M5 12H19" stroke="white" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </div>
       </div>
