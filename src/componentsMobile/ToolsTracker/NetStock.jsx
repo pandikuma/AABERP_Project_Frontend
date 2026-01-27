@@ -30,7 +30,7 @@ const NetStock = ({ user }) => {
   return (
     <div className="flex flex-col bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Category and Brand Section */}
-        <div className="flex justify-between mb-2 mt-2">
+        <div className="flex justify-between mb-2 mt-2 px-4">
           <p className="text-[12px] text-[#848484] leading-normal mb-2">Category</p>
           <p className="text-[12px] text-[#848484] leading-normal mb-2">Brand</p>
         </div>
@@ -59,7 +59,7 @@ const NetStock = ({ user }) => {
         </div>
 
         {/* Item Name and Item ID Dropdowns */}
-        <div className="flex gap-3 mt-4">
+        <div className="flex gap-3 mt-4 px-4">
           {/* Item Name Dropdown */}
           <div className="flex-1 relative dropdown-container">
             <p className="text-[12px] font-medium text-black mb-1 leading-normal">Item Name</p>
