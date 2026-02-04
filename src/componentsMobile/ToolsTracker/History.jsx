@@ -1,198 +1,489 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import EditIcon from '../Images/edit1.png';
+import DeleteIcon from '../Images/delete.png';
 
-const History = ({ user }) => {
+const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
+const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
+const VENDOR_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/vendor_Names';
+const EMPLOYEE_DETAILS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/employee_details';
+const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
+const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
+const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
+
+const History = ({ user, onTabChange }) => {
   const [historyData, setHistoryData] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [categoryOptions, setCategoryOptions] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Fetch categories
+  const [fullEntriesData, setFullEntriesData] = useState([]); // Store full entries before flattening
+  const [projectsMap, setProjectsMap] = useState({});
+  const [vendorsMap, setVendorsMap] = useState({});
+  const [employeesMap, setEmployeesMap] = useState({});
+  const [itemNamesMap, setItemNamesMap] = useState({});
+  const [brandsMap, setBrandsMap] = useState({});
+  const [itemIdsMap, setItemIdsMap] = useState({});
+  // Image viewer state
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [imageViewerData, setImageViewerData] = useState({
+    images: [],
+    currentIndex: 0,
+    itemName: '',
+    itemId: '',
+    machineStatus: ''
+  });
+  // Swipe detection state - track per card
+  const [swipeStates, setSwipeStates] = useState({});
+  const [expandedEntryId, setExpandedEntryId] = useState(null);
+  const expandedEntryIdRef = useRef(expandedEntryId);
+  
+  // Keep ref in sync with state
   useEffect(() => {
-    const fetchCategories = async () => {
+    expandedEntryIdRef.current = expandedEntryId;
+  }, [expandedEntryId]);
+  // Fetch lookup data for mapping IDs to names
+  useEffect(() => {
+    const fetchLookupData = async () => {
       try {
-        const response = await fetch('https:///api/po_category/getAll');
-        if (response.ok) {
-          const data = await response.json();
-          const options = data.map(item => ({
-            value: item.category,
-            label: item.category,
-            id: item.id,
-          }));
-          setCategoryOptions(options);
+        // Fetch projects (using siteName field like Transfer.jsx)
+        const projectsRes = await fetch(`${PROJECT_NAMES_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (projectsRes.ok) {
+          const data = await projectsRes.json();
+          const map = {};
+          (Array.isArray(data) ? data : []).forEach(p => {
+            map[p.id] = p.siteName || p.site_name || p.projectName || p.project_name || '';
+          });
+          setProjectsMap(map);
+        }
+        // Fetch vendors (using vendorName field like Transfer.jsx)
+        const vendorsRes = await fetch(`${VENDOR_NAMES_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (vendorsRes.ok) {
+          const data = await vendorsRes.json();
+          const map = {};
+          (Array.isArray(data) ? data : []).forEach(v => {
+            map[v.id] = v.vendorName || v.vendor_name || '';
+          });
+          setVendorsMap(map);
+        }
+        // Fetch employees
+        const employeesRes = await fetch(`${EMPLOYEE_DETAILS_BASE_URL}/site_engineers`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (employeesRes.ok) {
+          const data = await employeesRes.json();
+          const map = {};
+          (Array.isArray(data) ? data : []).forEach(e => {
+            map[e.id] = e.employee_name || e.employeeName || '';
+          });
+          setEmployeesMap(map);
+        }
+        // Fetch item names
+        const itemNamesRes = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (itemNamesRes.ok) {
+          const data = await itemNamesRes.json();
+          const map = {};
+          (Array.isArray(data) ? data : []).forEach(i => {
+            map[i.id] = i.item_name || i.itemName || '';
+          });
+          setItemNamesMap(map);
+        }
+        // Fetch brands
+        const brandsRes = await fetch(`${TOOLS_BRAND_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (brandsRes.ok) {
+          const data = await brandsRes.json();
+          const map = {};
+          (Array.isArray(data) ? data : []).forEach(b => {
+            map[b.id] = b.tools_brand || b.toolsBrand || '';
+          });
+          setBrandsMap(map);
+        }
+        // Fetch item IDs
+        const itemIdsRes = await fetch(`${TOOLS_ITEM_ID_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (itemIdsRes.ok) {
+          const data = await itemIdsRes.json();
+          const map = {};
+          (Array.isArray(data) ? data : []).forEach(i => {
+            const toolsId = i.item_id || i.itemId || '';
+            // Store with both string and number keys for flexible lookup
+            map[i.id] = toolsId;
+            map[String(i.id)] = toolsId;
+          });
+          console.log('ItemIds Map:', map);
+          setItemIdsMap(map);
         }
       } catch (error) {
-        console.error('Error fetching categories:', error);
+        console.error('Error fetching lookup data:', error);
       }
     };
-    fetchCategories();
+    fetchLookupData();
   }, []);
-
-  // Fetch history data
+  // Fetch history data from tools tracker management API
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         setLoading(true);
-        // TODO: Replace with actual tools tracker history API
-        const response = await fetch('https:///api/tools_tracker/history');
+        const response = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });        
         if (response.ok) {
           const data = await response.json();
-          setHistoryData(data);
-        } else {
-          // Sample data for now
-          setHistoryData([
-            {
-              id: 1,
-              entryNo: 236,
-              itemName: 'Drilling Machine',
-              from: 'Ramar Krishnankovil',
-              to: 'Rafiq Ashok Nagar',
-              date: '15/04/2025',
-              time: '09:06 AM',
-              itemId: 'AA DM 01',
-              machineNumber: '5411117822223',
-              status: 'Working',
-              personName: 'Mani Kandan K'
-            },
-            {
-              id: 2,
-              entryNo: 236,
-              itemName: 'Cutting Machine',
-              from: 'Moorthi RKPM',
-              to: 'Stock Room A',
-              date: '15/04/2025',
-              time: '09:06 AM',
-              itemId: 'AA CM 01',
-              machineNumber: '5411117822223',
-              status: 'Working',
-              personName: 'Vinoth Kumar K'
-            },
-            {
-              id: 3,
-              entryNo: 236,
-              itemName: 'Drilling Machine',
-              from: 'Ramar Krishnankovil',
-              to: 'Rafiq Ashok Nagar',
-              date: '12/04/2025',
-              time: '09:06 AM',
-              itemId: '5',
-              machineNumber: '',
-              status: 'Working',
-              personName: 'Prabhu J'
-            },
-            {
-              id: 4,
-              entryNo: 233,
-              itemName: 'Drilling Machine',
-              from: 'Stock Room B',
-              to: 'Ramar Krishnan Kovil',
-              date: '10/04/2025',
-              time: '09:06 AM',
-              itemId: 'AA DM 01',
-              machineNumber: '247700001899',
-              status: 'Not Working',
-              personName: 'Vinoth M'
-            },
-            {
-              id: 5,
-              entryNo: 232,
-              itemName: 'Mixer Machine',
-              from: 'Stock Room A',
-              to: 'Ganesh Valaikulam Street',
-              date: '05/04/2025',
-              time: '09:06 AM',
-              itemId: 'AA MM 05',
-              machineNumber: '5411117822223',
-              status: 'Working',
-              personName: 'Vinoth Kumar K'
+          // Store full entries data for edit functionality
+          const fullEntries = (Array.isArray(data) ? data : []).filter(entry => {
+            const entryType = entry.tools_entry_type || entry.toolsEntryType || 'Entry';
+            return entryType.toLowerCase() === 'entry';
+          });
+          setFullEntriesData(fullEntries);
+          
+          // Flatten the data - create separate entries for each item
+          const flattenedData = [];
+          fullEntries.forEach(entry => {
+            const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];            
+            if (entryItems.length === 0) {
+              // If no items, still show the entry
+              flattenedData.push({
+                id: `${entry.id}-0`,
+                entryId: entry.id,
+                eno: entry.eno || '',
+                toolsEntryType: entry.tools_entry_type || entry.toolsEntryType || 'Entry',
+                fromProjectId: entry.from_project_id || entry.fromProjectId || '',
+                toProjectId: entry.to_project_id || entry.toProjectId || '',
+                serviceStoreId: entry.service_store_id || entry.serviceStoreId || '',
+                projectInchargeId: entry.project_incharge_id || entry.projectInchargeId || '',
+                createdDateTime: entry.created_date_time || entry.createdDateTime || entry.timestamp || '',
+                createdBy: entry.created_by || entry.createdBy || '',
+                itemNameId: '',
+                brandId: '',
+                itemIdsId: '',
+                machineNumber: '',
+                machineStatus: '',
+                quantity: 0,
+                description: '',
+                images: []
+              });
+            } else {
+              // Create separate entry for each item
+              entryItems.forEach((item, index) => {
+                // Process images - convert base64 to data URLs if needed
+                const rawImages = item.tools_item_live_images || item.toolsItemLiveImages || [];
+                const processedImages = rawImages.map(img => {
+                  // If tools_image exists (byte array as base64), convert to data URL
+                  if (img.tools_image || img.toolsImage) {
+                    const base64Data = img.tools_image || img.toolsImage;
+                    return `data:image/jpeg;base64,${base64Data}`;
+                  }
+                  // Fallback to URL if exists
+                  if (img.tools_image_url || img.toolsImageUrl) {
+                    return img.tools_image_url || img.toolsImageUrl;
+                  }
+                  return null;
+                }).filter(Boolean);
+                flattenedData.push({
+                  id: `${entry.id}-${index}`,
+                  entryId: entry.id,
+                  eno: entry.eno || '',
+                  toolsEntryType: entry.tools_entry_type || entry.toolsEntryType || 'Entry',
+                  fromProjectId: entry.from_project_id || entry.fromProjectId || '',
+                  toProjectId: entry.to_project_id || entry.toProjectId || '',
+                  serviceStoreId: entry.service_store_id || entry.serviceStoreId || '',
+                  projectInchargeId: entry.project_incharge_id || entry.projectInchargeId || '',
+                  createdDateTime: entry.created_date_time || entry.createdDateTime || entry.timestamp || '',
+                  createdBy: entry.created_by || entry.createdBy || '',
+                  itemNameId: item.item_name_id || item.itemNameId || '',
+                  brandId: item.brand_id || item.brandId || '',
+                  itemIdsId: item.item_ids_id || item.itemIdsId || '',
+                  machineNumber: item.machine_number || item.machineNumber || '',
+                  machineStatus: item.machine_status || item.machineStatus || 'Working',
+                  quantity: item.quantity || 0,
+                  description: item.description || '',
+                  images: processedImages
+                });
+              });
             }
-          ]);
+          });          
+          // Sort by created_date_time (newest first)
+          flattenedData.sort((a, b) => {
+            const dateA = new Date(a.createdDateTime);
+            const dateB = new Date(b.createdDateTime);
+            return dateB - dateA;
+          });          
+          // Filter to only show 'Entry' type data (exclude Service and other types)
+          const filteredData = flattenedData.filter(entry => entry.toolsEntryType === 'entry');
+          setHistoryData(filteredData);
+        } else {
+          console.error('Failed to fetch history data');
+          setHistoryData([]);
         }
       } catch (error) {
         console.error('Error fetching history:', error);
-        // Use sample data on error
-        setHistoryData([
-          {
-            id: 1,
-            entryNo: 236,
-            itemName: 'Drilling Machine',
-            from: 'Ramar Krishnankovil',
-            to: 'Rafiq Ashok Nagar',
-            date: '15/04/2025',
-            time: '09:06 AM',
-            itemId: 'AA DM 01',
-            machineNumber: '5411117822223',
-            status: 'Working',
-            personName: 'Mani Kandan K'
-          },
-          {
-            id: 2,
-            entryNo: 236,
-            itemName: 'Cutting Machine',
-            from: 'Moorthi RKPM',
-            to: 'Stock Room A',
-            date: '15/04/2025',
-            time: '09:06 AM',
-            itemId: 'AA CM 01',
-            machineNumber: '5411117822223',
-            status: 'Working',
-            personName: 'Vinoth Kumar K'
-          },
-          {
-            id: 3,
-            entryNo: 236,
-            itemName: 'Drilling Machine',
-            from: 'Ramar Krishnankovil',
-            to: 'Rafiq Ashok Nagar',
-            date: '12/04/2025',
-            time: '09:06 AM',
-            itemId: '5',
-            machineNumber: '',
-            status: 'Working',
-            personName: 'Prabhu J'
-          },
-          {
-            id: 4,
-            entryNo: 233,
-            itemName: 'Drilling Machine',
-            from: 'Stock Room B',
-            to: 'Ramar Krishnan Kovil',
-            date: '10/04/2025',
-            time: '09:06 AM',
-            itemId: 'AA DM 01',
-            machineNumber: '247700001899',
-            status: 'Not Working',
-            personName: 'Vinoth M'
-          },
-          {
-            id: 5,
-            entryNo: 232,
-            itemName: 'Mixer Machine',
-            from: 'Stock Room A',
-            to: 'Ganesh Valaikulam Street',
-            date: '05/04/2025',
-            time: '09:06 AM',
-            itemId: 'AA MM 05',
-            machineNumber: '5411117822223',
-            status: 'Working',
-            personName: 'Vinoth Kumar K'
-          }
-        ]);
+        setHistoryData([]);
       } finally {
         setLoading(false);
       }
     };
     fetchHistory();
-  }, [selectedCategory]);
+  }, []);
+  // Format timestamp to date and time
+  const formatDateTime = (timestamp) => {
+    if (!timestamp) return { date: '', time: '' };
+    try {
+      const date = new Date(timestamp);
+      const formattedDate = date.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      const formattedTime = date.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      return { date: formattedDate, time: formattedTime };
+    } catch {
+      return { date: '', time: '' };
+    }
+  };
+  // Get location name (project or vendor)
+  const getLocationName = (id, checkVendorsFirst = false) => {
+    if (!id) return '-';    
+    // Convert to string for comparison
+    const idStr = String(id);    
+    if (checkVendorsFirst) {
+      // Check vendors first (for service stores)
+      if (vendorsMap[idStr]) {
+        return vendorsMap[idStr];
+      }
+      if (vendorsMap[id]) {
+        return vendorsMap[id];
+      }
+    }    
+    // Check projects
+    if (projectsMap[idStr]) {
+      return projectsMap[idStr];
+    }
+    if (projectsMap[id]) {
+      return projectsMap[id];
+    }    
+    // Check vendors
+    if (vendorsMap[idStr]) {
+      return vendorsMap[idStr];
+    }
+    if (vendorsMap[id]) {
+      return vendorsMap[id];
+    }    
+    return '-';
+  };
+  // Image viewer handlers
+  const handleOpenImageViewer = (entry, itemName, itemId) => {
+    if (entry.images.length === 0) {
+      alert('No images available for this item');
+      return;
+    }    
+    setImageViewerData({
+      images: entry.images,
+      currentIndex: 0,
+      itemName: itemName,
+      itemId: itemId,
+      machineStatus: entry.machineStatus
+    });
+    setShowImageViewer(true);
+  };
+  const handleCloseImageViewer = () => {
+    setShowImageViewer(false);
+  };
+  const handlePrevImage = () => {
+    setImageViewerData(prev => ({
+      ...prev,
+      currentIndex: prev.currentIndex === 0 ? prev.images.length - 1 : prev.currentIndex - 1
+    }));
+  };
+  const handleNextImage = () => {
+    setImageViewerData(prev => ({
+      ...prev,
+      currentIndex: prev.currentIndex === prev.images.length - 1 ? 0 : prev.currentIndex + 1
+    }));
+  };
 
+  // Swipe handlers
+  const minSwipeDistance = 50;
+  const handleTouchStart = (e, entryId) => {
+    const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
+    setSwipeStates(prev => ({
+      ...prev,
+      [entryId]: {
+        startX: touch.clientX,
+        currentX: touch.clientX,
+        isSwiping: false
+      }
+    }));
+  };
+
+  const handleTouchMove = (e, entryId) => {
+    e.preventDefault();
+    const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
+    setSwipeStates(prev => {
+      const state = prev[entryId];
+      if (!state) return prev;
+      const deltaX = touch.clientX - state.startX;
+      const isExpanded = expandedEntryIdRef.current === entryId;
+      // Only allow left swipe (negative deltaX)
+      if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+        return {
+          ...prev,
+          [entryId]: {
+            ...state,
+            currentX: touch.clientX,
+            isSwiping: true
+          }
+        };
+      }
+      return prev;
+    });
+  };
+
+  const handleTouchEnd = (entryId) => {
+    setSwipeStates(prev => {
+      const state = prev[entryId];
+      if (!state) return prev;
+      const deltaX = state.currentX - state.startX;
+      const absDeltaX = Math.abs(deltaX);
+      
+      if (absDeltaX >= minSwipeDistance) {
+        if (deltaX < 0) {
+          // Swiped left (reveal buttons)
+          setExpandedEntryId(entryId);
+        } else {
+          // Swiped right (hide buttons)
+          setExpandedEntryId(null);
+        }
+      } else {
+        // Small movement - snap back
+        if (expandedEntryIdRef.current === entryId) {
+          setExpandedEntryId(null);
+        }
+      }
+      
+      // Remove swipe state
+      const newState = { ...prev };
+      delete newState[entryId];
+      return newState;
+    });
+  };
+
+  const handleMouseDown = (e, entryId) => {
+    if (e.button !== 0) return; // Only handle left mouse button
+    const syntheticEvent = {
+      touches: [{ clientX: e.clientX }],
+      preventDefault: () => e.preventDefault()
+    };
+    handleTouchStart(syntheticEvent, entryId);
+  };
+
+  const handleCardClick = (e) => {
+    // Don't trigger if clicking on the action buttons
+    if (e.target.closest('.action-button')) {
+      return;
+    }
+    // Close expanded card if clicking elsewhere
+    if (expandedEntryId) {
+      setExpandedEntryId(null);
+    }
+  };
+
+  // Global mouse handlers for desktop support
+  useEffect(() => {
+    if (historyData.length === 0) return;
+
+    const globalMouseMoveHandler = (e) => {
+      setSwipeStates(prev => {
+        let hasChanges = false;
+        const newState = { ...prev };
+        historyData.forEach(entry => {
+          const state = prev[entry.id];
+          if (!state) return;
+          const deltaX = e.clientX - state.startX;
+          const isExpanded = expandedEntryIdRef.current === entry.id;
+          // Only update if dragging horizontally
+          if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+            newState[entry.id] = {
+              ...state,
+              currentX: e.clientX,
+              isSwiping: true
+            };
+            hasChanges = true;
+          }
+        });
+        return hasChanges ? newState : prev;
+      });
+    };
+
+    const globalMouseUpHandler = () => {
+      setSwipeStates(prev => {
+        let hasChanges = false;
+        const newState = { ...prev };
+        historyData.forEach(entry => {
+          const state = prev[entry.id];
+          if (!state) return;
+          const deltaX = state.currentX - state.startX;
+          const absDeltaX = Math.abs(deltaX);
+          if (absDeltaX >= minSwipeDistance) {
+            if (deltaX < 0) {
+              // Swiped left (reveal buttons)
+              setExpandedEntryId(entry.id);
+            } else {
+              // Swiped right (hide buttons)
+              setExpandedEntryId(null);
+            }
+          } else {
+            // Small movement - snap back
+            if (expandedEntryIdRef.current === entry.id) {
+              setExpandedEntryId(null);
+            }
+          }
+          // Remove swipe state for this card
+          delete newState[entry.id];
+          hasChanges = true;
+        });
+        return hasChanges ? newState : prev;
+      });
+    };
+
+    // Add global mouse event listeners
+    document.addEventListener('mousemove', globalMouseMoveHandler);
+    document.addEventListener('mouseup', globalMouseUpHandler);
+    return () => {
+      document.removeEventListener('mousemove', globalMouseMoveHandler);
+      document.removeEventListener('mouseup', globalMouseUpHandler);
+    };
+  }, [historyData]);
   return (
-    <div className="flex flex-col bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      {/* Category Filter */}
-      <div className="flex-shrink-0 px-4 pt-4 pb-2 border-b border-gray-200 mb-2">
-        <p className="text-[12px] text-[#848484] leading-normal">Category</p>
+    <div className="flex flex-col bg-white min-h-[calc(100vh-90px-80px)]" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      {/* Category Header */}
+      <div className="flex-shrink-0 px-4 pt-4 pb-2 border-b border-gray-200">
+        <p className="text-[12px] text-black font-medium">Category</p>
       </div>
-
       {/* History Entries List */}
-      <div className="flex-1 px-4 overflow-y-auto">
+      <div className="flex-1 px-4 overflow-y-auto pb-4">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <p className="text-[12px] text-gray-500">Loading...</p>
@@ -202,64 +493,253 @@ const History = ({ user }) => {
             <p className="text-[12px] text-gray-500">No history entries found.</p>
           </div>
         ) : (
-          <div className="shadow-lg rounded-[8px] ">
-            {historyData.map((entry) => (
-              <div
-                key={entry.id}
-                className="border-2 rounded-lg border-gray-200 p-4"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  {/* Left side - Entry number and item name */}
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-black leading-normal mb-1">
-                      #{entry.entryNo}, {entry.itemName}
+          <div className="mt-3 shadow-lg rounded-lg">
+            {historyData.map((entry) => {
+              const { date, time } = formatDateTime(entry.createdDateTime);
+              const fromLocation = getLocationName(entry.fromProjectId, false);              
+              // For "To" location - check based on entry type
+              let toLocation = '-';
+              if (entry.toolsEntryType === 'Entry') {
+                // Entry type: check toProjectId first, then serviceStoreId
+                toLocation = getLocationName(entry.toProjectId, false);
+                if (toLocation === '-') {
+                  toLocation = getLocationName(entry.serviceStoreId, true);
+                }
+              } else {
+                // Service type: check serviceStoreId first (vendors), then toProjectId
+                toLocation = getLocationName(entry.serviceStoreId, true);
+                if (toLocation === '-') {
+                  toLocation = getLocationName(entry.toProjectId, false);
+                }
+              }              
+              const inchargeName = employeesMap[entry.projectInchargeId] || employeesMap[String(entry.projectInchargeId)] || '-';
+              const itemName = itemNamesMap[entry.itemNameId] || itemNamesMap[String(entry.itemNameId)] || entry.itemNameId || '-';              
+              // Get item ID name (like "AA DM 01") from the map using item_ids_id
+              const itemIdName = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
+              const hasImages = entry.images.length > 0;              
+              // Determine what to show: itemIdName (like "AA DM 01") or quantity
+              const displayValue = itemIdName || (entry.quantity > 0 ? String(entry.quantity) : '');
+              
+              // Swipe state and offset calculation
+              const entryId = entry.id;
+              const swipeState = swipeStates[entryId];
+              const isExpanded = expandedEntryId === entryId;
+              const buttonWidth = 96; // 2 * 40px + gap
+              const swipeOffset =
+                swipeState && swipeState.isSwiping
+                  ? Math.max(-buttonWidth, swipeState.currentX - swipeState.startX)
+                  : isExpanded
+                    ? -buttonWidth
+                    : 0;
+
+              return (
+                <div key={entry.id} className="relative overflow-hidden">
+                  {/* Card */}
+                  <div
+                    className="bg-white border-2 border-[#E0E0E0] rounded-[8px] px-3 py-2 cursor-pointer transition-transform duration-300 ease-out select-none"
+                    style={{
+                      transform: `translateX(${swipeOffset}px)`,
+                      touchAction: 'pan-y',
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none'
+                    }}
+                    onTouchStart={(e) => handleTouchStart(e, entryId)}
+                    onTouchMove={(e) => handleTouchMove(e, entryId)}
+                    onTouchEnd={() => handleTouchEnd(entryId)}
+                    onMouseDown={(e) => handleMouseDown(e, entryId)}
+                    onClick={handleCardClick}
+                  >
+                  {/* Row 1: Entry number + Item Name | Item ID Name or Quantity */}
+                  <div className="flex items-start justify-between mb-1">
+                    <p className="text-[12px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
+                      #{entry.eno}, {itemName}
                     </p>
-                    <p className="text-[11px] text-[#848484] leading-normal mb-1">
-                      From - {entry.from}
-                    </p>
-                    <p className="text-[11px] text-[#BF9853] leading-normal mb-1">
-                      To - {entry.to}
-                    </p>
-                    <p className="text-[11px] text-[#848484] leading-normal">
-                      {entry.date} • {entry.time}
-                    </p>
+                    <div className="flex flex-col items-end flex-shrink-0 ml-2">
+                      {displayValue ? (
+                        <p 
+                          className={`text-[12px] font-semibold leading-snug ${hasImages ? 'text-[#E4572E] cursor-pointer underline' : 'text-black'}`}
+                          onClick={() => hasImages && handleOpenImageViewer(entry, itemName, displayValue)}
+                        >
+                          {displayValue}
+                        </p>
+                      ) : hasImages ? (
+                        <p 
+                          className="text-[12px] font-semibold leading-snug text-[#E4572E] cursor-pointer underline"
+                          onClick={() => handleOpenImageViewer(entry, itemName, 'View')}
+                        >
+                          📷 Image
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  {/* Right side - Item ID, Machine Number, Status, Person */}
-                  <div className="flex flex-col items-end ml-4">
-                    {entry.itemId && (
-                      <p className="text-[12px] font-semibold text-black leading-normal mb-1">
-                        {entry.itemId}
-                      </p>
-                    )}
+                  {/* Row 2: From | Machine Number */}
+                  <div className="flex items-start justify-between mb-1">
+                    <p className="text-[11px] text-[#848484] leading-snug truncate flex-1 min-w-0">
+                      From - {fromLocation}
+                    </p>
                     {entry.machineNumber && (
-                      <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+                      <p className="text-[12px] leading-snug text-black flex-shrink-0 ml-2">
                         {entry.machineNumber}
                       </p>
                     )}
-                    <div className="flex items-center gap-1 mb-1">
+                  </div>
+                  {/* Row 3: To | Status */}
+                  <div className="flex items-start justify-between mb-1">
+                    <p className="text-[11px] text-[#BF9853] leading-snug truncate flex-1 min-w-0">
+                      To - {toLocation}
+                    </p>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                       <span
-                        className={`w-2 h-2 rounded-full ${
-                          entry.status === 'Working' ? 'bg-[#4CAF50]' : 'bg-[#F44336]'
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          entry.machineStatus === 'Working' ? 'bg-[#4CAF50]' : 
+                          entry.machineStatus === 'Not Working' ? 'bg-[#F44336]' :
+                          entry.machineStatus === 'Under Repair' ? 'bg-[#FF9800]' :
+                          'bg-[#9E9E9E]'
                         }`}
                       ></span>
                       <p
-                        className={`text-[11px] font-medium leading-normal ${
-                          entry.status === 'Working' ? 'text-[#4CAF50]' : 'text-[#F44336]'
+                        className={`text-[11px] font-medium leading-snug ${
+                          entry.machineStatus === 'Working' ? 'text-[#4CAF50]' : 
+                          entry.machineStatus === 'Not Working' ? 'text-[#F44336]' :
+                          entry.machineStatus === 'Under Repair' ? 'text-[#FF9800]' :
+                          'text-[#9E9E9E]'
                         }`}
                       >
-                        • {entry.status}
+                        {entry.machineStatus}
                       </p>
                     </div>
-                    <p className="text-[12px] font-semibold text-black leading-normal">
-                      {entry.personName}
+                  </div>
+                  {/* Row 4: Date/Time | Person Name */}
+                  <div className="flex items-start justify-between">
+                    <p className="text-[11px] text-[#848484] leading-snug truncate flex-1 min-w-0">
+                      {date} • {time}
+                    </p>
+                    <p className="text-[12px] font-medium text-black leading-snug flex-shrink-0 ml-2">
+                      {inchargeName}
                     </p>
                   </div>
+                  </div>
+
+                  {/* Action Buttons - Behind the card on the right, revealed on swipe */}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 flex gap-2 flex-shrink-0 z-0"
+                    style={{
+                      opacity:
+                        isExpanded ||
+                          (swipeState && swipeState.isSwiping && swipeOffset < -20)
+                          ? 1
+                          : 0,
+                      transition: 'opacity 0.2s ease-out',
+                      pointerEvents: isExpanded ? 'auto' : 'none'
+                    }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedEntryId(null);
+                        // Handle edit - store only entry ID to avoid localStorage quota issues
+                        // The Transfer page will fetch the full entry data using this ID
+                        localStorage.setItem('editingToolsTrackerEntryId', String(entry.entryId));
+                        // Switch to Transfer tab
+                        if (onTabChange) {
+                          onTabChange('transfer');
+                        }
+                      }}
+                      className="action-button w-[40px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+                    >
+                      <img src={EditIcon} alt="Edit" className="w-[18px] h-[18px]" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedEntryId(null);
+                        // Handle delete - you can add delete functionality here
+                        console.log('Delete entry:', entry);
+                      }}
+                      className="action-button w-[40px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+                    >
+                      <img src={DeleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+      {/* Image Viewer Modal - Floating style */}
+      {showImageViewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleCloseImageViewer} style={{ fontFamily: "'Manrope', sans-serif" }} >
+          {/* Semi-transparent overlay */}
+          <div className="absolute inset-0 bg-black bg-opacity-40"></div>          
+          {/* Image Container */}
+          <div className="relative z-10 w-full max-w-[90%] mx-4" onClick={(e) => e.stopPropagation()} >
+            {/* Image */}
+            <div className="relative">
+              <img
+                src={imageViewerData.images[imageViewerData.currentIndex]}
+                alt={`${imageViewerData.itemName} - ${imageViewerData.currentIndex + 1}`}
+                className="w-full h-auto max-h-[60vh] object-contain rounded-lg shadow-2xl"
+              />              
+              {/* Close Button - Inside image at top right */}
+              <button onClick={handleCloseImageViewer} className="absolute -top-7 -right-1 w-8 h-8 rounded-full flex items-center justify-center z-20 ">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M18 6L6 18M6 6L18 18" stroke="#E4572E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>              
+              {/* Previous Button */}
+              {imageViewerData.images.length > 1 && (
+                <button onClick={handlePrevImage}
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 18L9 12L15 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              )}
+              {/* Next Button */}
+              {imageViewerData.images.length > 1 && (
+                <button onClick={handleNextImage}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 18L15 12L9 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              )}
+              {/* Image Counter */}
+              {imageViewerData.images.length > 1 && (
+                <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full">
+                  <span className="text-[12px] text-white">
+                    {imageViewerData.currentIndex + 1} / {imageViewerData.images.length}
+                  </span>
+                </div>
+              )}
+            </div>
+            {/* Status indicator below image */}
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  imageViewerData.machineStatus === 'Working' ? 'bg-[#4CAF50]' : 
+                  imageViewerData.machineStatus === 'Not Working' ? 'bg-[#F44336]' :
+                  imageViewerData.machineStatus === 'Under Repair' ? 'bg-[#FF9800]' :
+                  'bg-[#9E9E9E]'
+                }`}
+              ></span>
+              <p
+                className={`text-[12px] font-medium ${
+                  imageViewerData.machineStatus === 'Working' ? 'text-[#4CAF50]' : 
+                  imageViewerData.machineStatus === 'Not Working' ? 'text-[#F44336]' :
+                  imageViewerData.machineStatus === 'Under Repair' ? 'text-[#FF9800]' :
+                  'text-[#9E9E9E]'
+                }`}
+              >
+                {imageViewerData.machineStatus}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

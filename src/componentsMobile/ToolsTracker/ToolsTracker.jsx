@@ -20,15 +20,12 @@ const ToolsTracker = ({ user, onLogout }) => {
     const savedTab = localStorage.getItem('toolsTrackerActiveTab');
     return savedTab || 'Transfer';
   });
-
   const handleMenuClick = () => {
     setSidebarOpen(true);
   };
-
   const handleSidebarClose = () => {
     setSidebarOpen(false);
   };
-
   const handleNavigate = (page) => {
     if (page === 'purchase-order') {
       setCurrentPage('purchase-order');
@@ -41,18 +38,17 @@ const ToolsTracker = ({ user, onLogout }) => {
       navigate('/toolsTracker');
     }
   };
-
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     localStorage.setItem('toolsTrackerActiveTab', tab);
   };
-
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Transfer':
+      case 'transfer':
         return <Transfer user={user} />;
       case 'history':
-        return <History user={user} />;
+        return <History user={user} onTabChange={handleTabChange} />;
       case 'pending-items':
         return <PendingItems user={user} />;
       case 'add-input':
@@ -62,12 +58,11 @@ const ToolsTracker = ({ user, onLogout }) => {
       case 'tools-history':
         return <ToolsHistory user={user} />;
       case 'service-history':
-        return <ServiceHistory user={user} />;
+        return <ServiceHistory user={user} onTabChange={handleTabChange} />;
       default:
         return <Transfer user={user} />;
     }
   };
-
   return (
     <div className="relative w-full bg-white max-w-[360px] mx-auto" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Sidebar */}
@@ -96,5 +91,4 @@ const ToolsTracker = ({ user, onLogout }) => {
     </div>
   );
 };
-
 export default ToolsTracker;

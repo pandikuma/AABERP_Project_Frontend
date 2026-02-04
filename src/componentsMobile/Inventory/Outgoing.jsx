@@ -18,12 +18,10 @@ const Outgoing = ({ user }) => {
     const today = new Date();
     return today.toLocaleDateString('en-GB'); // DD/MM/YYYY
   };
-
   const formatDate = (date) => {
     const d = new Date(date);
     return d.toLocaleDateString('en-GB'); // DD/MM/YYYY
   };
-
   // Outgoing page state
   const [outgoingData, setOutgoingData] = useState({
     projectName: '',
@@ -61,7 +59,6 @@ const Outgoing = ({ user }) => {
   const [editingInventoryId, setEditingInventoryId] = useState(null);
   const [pendingItemsFromClone, setPendingItemsFromClone] = useState([]);
   const [fromHistory, setFromHistory] = useState(false);
-  
   // Outgoing page options (same as PurchaseOrder but independent)
   const [outgoingSiteOptions, setOutgoingSiteOptions] = useState([]);
   const [outgoingProjectOptions, setOutgoingProjectOptions] = useState([]);
@@ -69,7 +66,6 @@ const Outgoing = ({ user }) => {
   const [outgoingInchargeOptions, setOutgoingInchargeOptions] = useState([]);
   const [stockingLocationOptions, setStockingLocationOptions] = useState([]);
   const [allSiteData, setAllSiteData] = useState([]); // Store full site data including markedAsStockingLocation
-
   // Fetch project names (sites) from API for Outgoing page (same as PurchaseOrder)
   useEffect(() => {
     const fetchOutgoingSites = async () => {
@@ -101,12 +97,10 @@ const Outgoing = ({ user }) => {
     };
     fetchOutgoingSites();
   }, []);
-
   // Extract project names as strings for the dropdown
   useEffect(() => {
     setOutgoingProjectOptions(outgoingSiteOptions.map(option => option.value));
   }, [outgoingSiteOptions]);
-
   // Fetch employee list from API for Outgoing page (same as PurchaseOrder)
   useEffect(() => {
     const fetchOutgoingEmployeeList = async () => {
@@ -125,7 +119,6 @@ const Outgoing = ({ user }) => {
     };
     fetchOutgoingEmployeeList();
   }, []);
-
   // Extract employee names as strings for the dropdown
   useEffect(() => {
     const extracted = outgoingEmployeeList.map(employee => {
@@ -133,7 +126,6 @@ const Outgoing = ({ user }) => {
     }).filter(name => name !== '');
     setOutgoingInchargeOptions(extracted);
   }, [outgoingEmployeeList]);
-
   // Fetch stocking locations with markedAsStockingLocation=true for all sites
   const fetchStockingLocations = async () => {
     try {
@@ -142,7 +134,6 @@ const Outgoing = ({ user }) => {
         .filter(site => site.markedAsStockingLocation === true)
         .map(site => site.value || site.label || '')
         .filter(Boolean);
-      
       // Remove duplicates
       const uniqueLocations = [...new Set(stockingLocations)];
       setStockingLocationOptions(uniqueLocations);
@@ -151,25 +142,20 @@ const Outgoing = ({ user }) => {
       setStockingLocationOptions([]);
     }
   };
-
   // Fetch stocking locations when site options are available
   useEffect(() => {
     if (outgoingSiteOptions.length > 0) {
       fetchStockingLocations();
     }
   }, [outgoingSiteOptions]);
-
   // Check if all required fields are filled (for enabling AddButton)
   const areOutgoingFieldsFilled = outgoingData.projectName && outgoingData.projectIncharge && outgoingData.stockingLocation;
-
   // Check if we're in empty/home state
   const isEmptyState = !outgoingData.projectName && !outgoingData.projectIncharge && !outgoingData.stockingLocation && items.length === 0 && !isEditMode;
-
   const handleDateConfirm = (date) => {
     setOutgoingData({ ...outgoingData, date });
     setShowDatePicker(false);
   };
-
   // Fetch PO item names from API
   const fetchPoItemName = useCallback(async () => {
     try {
@@ -182,7 +168,6 @@ const Outgoing = ({ user }) => {
       console.error('Error fetching PO item names:', error);
     }
   }, []);
-
   // Fetch PO brand from API
   const fetchPoBrand = useCallback(async () => {
     try {
@@ -195,7 +180,6 @@ const Outgoing = ({ user }) => {
       console.error('Error fetching PO brand:', error);
     }
   }, []);
-
   // Fetch PO model from API
   const fetchPoModel = useCallback(async () => {
     try {
@@ -208,7 +192,6 @@ const Outgoing = ({ user }) => {
       console.error('Error fetching PO model:', error);
     }
   }, []);
-
   // Fetch PO type from API
   const fetchPoType = useCallback(async () => {
     try {
@@ -221,7 +204,6 @@ const Outgoing = ({ user }) => {
       console.error('Error fetching PO type:', error);
     }
   }, []);
-
   // Fetch category options from API
   const fetchCategoryOptions = useCallback(async () => {
     try {
@@ -234,7 +216,6 @@ const Outgoing = ({ user }) => {
       console.error('Error fetching category options:', error);
     }
   }, []);
-
   // Initial fetch on mount
   useEffect(() => {
     fetchPoItemName();
@@ -243,7 +224,6 @@ const Outgoing = ({ user }) => {
     fetchPoType();
     fetchCategoryOptions();
   }, [fetchPoItemName, fetchPoBrand, fetchPoModel, fetchPoType, fetchCategoryOptions]);
-
   // Helper functions to resolve IDs to names
   const findNameById = (array, id, fieldName) => {
     if (!array || !id || id === 0) return '';
@@ -257,32 +237,26 @@ const Outgoing = ({ user }) => {
     }
     return item[fieldName] || item.name || item.label || '';
   };
-
   const resolveItemName = (itemId) => {
     if (!itemId) return '';
     return findNameById(poItemName, itemId, 'itemName') || findNameById(poItemName, itemId, 'name') || '';
   };
-
   const resolveBrandName = (brandId) => {
     if (!brandId) return '';
     return findNameById(poBrand, brandId, 'brand') || findNameById(poBrand, brandId, 'brandName') || findNameById(poBrand, brandId, 'name') || '';
   };
-
   const resolveModelName = (modelId) => {
     if (!modelId) return '';
     return findNameById(poModel, modelId, 'model') || findNameById(poModel, modelId, 'modelName') || findNameById(poModel, modelId, 'name') || '';
   };
-
   const resolveTypeName = (typeId) => {
     if (!typeId) return '';
     return findNameById(poType, typeId, 'typeColor') || findNameById(poType, typeId, 'type') || findNameById(poType, typeId, 'typeName') || findNameById(poType, typeId, 'name') || '';
   };
-
   const resolveCategoryName = (categoryId) => {
     if (!categoryId) return '';
     return findNameById(categoryOptions, categoryId, 'category') || findNameById(categoryOptions, categoryId, 'name') || findNameById(categoryOptions, categoryId, 'label') || '';
   };
-
   // Helper function to resolve category ID
   const resolveCategoryId = (categoryName) => {
     if (!categoryName || !categoryOptions.length) return null;
@@ -292,17 +266,12 @@ const Outgoing = ({ user }) => {
     });
     return category ? (category.id || category._id || null) : null;
   };
-
   // Listen for editInventory event from History component
   useEffect(() => {
     const handleEditInventory = async (event) => {
       const inventoryItem = event.detail;
       if (!inventoryItem) return;
-
-      // Only wait for essential data (site options and employee list)
-      // Don't wait for item/brand/model/type APIs - resolve names as they become available
       if (outgoingSiteOptions.length === 0 || outgoingEmployeeList.length === 0) {
-        // Store in localStorage and retry when dependencies are ready
         localStorage.setItem('editingInventory', JSON.stringify(inventoryItem));
         return;
       }
@@ -313,8 +282,8 @@ const Outgoing = ({ user }) => {
       const clientId = inventoryItem.client_id || inventoryItem.clientId;
       let projectName = '';
       if (clientId && outgoingSiteOptions.length > 0) {
-        const projectSite = outgoingSiteOptions.find(site => 
-          site.id === clientId || 
+        const projectSite = outgoingSiteOptions.find(site =>
+          site.id === clientId ||
           String(site.id) === String(clientId)
         );
         projectName = projectSite ? (projectSite.value || projectSite.label || '') : '';
@@ -329,8 +298,8 @@ const Outgoing = ({ user }) => {
       const stockingLocationId = inventoryItem.stocking_location_id || inventoryItem.stockingLocationId;
       let stockingLocation = '';
       if (stockingLocationId && outgoingSiteOptions.length > 0) {
-        const stockingLocationSite = outgoingSiteOptions.find(site => 
-          (site.id === stockingLocationId || String(site.id) === String(stockingLocationId)) && 
+        const stockingLocationSite = outgoingSiteOptions.find(site =>
+          (site.id === stockingLocationId || String(site.id) === String(stockingLocationId)) &&
           site.markedAsStockingLocation === true
         );
         stockingLocation = stockingLocationSite ? (stockingLocationSite.value || stockingLocationSite.label || '') : '';
@@ -343,7 +312,7 @@ const Outgoing = ({ user }) => {
       const inchargeId = inventoryItem.site_incharge_id || inventoryItem.siteInchargeId || null;
       let projectInchargeName = inventoryItem.project_incharge || inventoryItem.projectIncharge || '';
       if (inchargeId && outgoingEmployeeList.length > 0) {
-        const employee = outgoingEmployeeList.find(emp => 
+        const employee = outgoingEmployeeList.find(emp =>
           String(emp.id) === String(inchargeId)
         );
         if (employee) {
@@ -393,8 +362,6 @@ const Outgoing = ({ user }) => {
           let model = invItem.modelName || invItem.model_name || invItem.model || '';
           let type = invItem.typeName || invItem.type_name || invItem.type || '';
           let category = invItem.categoryName || invItem.category_name || invItem.category || '';
-          // If names are missing, resolve from IDs using API data (if available)
-          // This will work even if APIs are still loading - names will resolve as APIs load
           if (!itemName && itemId && poItemName.length > 0) {
             itemName = resolveItemName(itemId);
           }
@@ -407,8 +374,6 @@ const Outgoing = ({ user }) => {
           if (!type && typeId && typeId !== 0 && poType.length > 0) {
             type = resolveTypeName(typeId);
           }
-          // Always try to resolve category from categoryId if available (even if category is already set)
-          // This ensures category is resolved when categoryOptions loads
           if (categoryId && categoryOptions.length > 0) {
             const resolvedCategory = resolveCategoryName(categoryId);
             if (resolvedCategory) {
@@ -467,8 +432,6 @@ const Outgoing = ({ user }) => {
       }
       // Set edit mode fields
       setEditTransactionId(transactionId);
-      // Check if this is edit mode (update) or clone mode (create new)
-      // Only set to true if isEditMode is explicitly true (edit button), false otherwise (clone button)
       const isEditModeFlag = inventoryItem.isEditMode === true;
       setIsEditMode(isEditModeFlag);
       // Check if coming from History (view mode)
@@ -496,8 +459,6 @@ const Outgoing = ({ user }) => {
       window.removeEventListener('editInventory', handleEditInventory);
     };
   }, [outgoingEmployeeList, outgoingSiteOptions, poItemName, poBrand, poModel, poType, categoryOptions]);
-  // Check localStorage on mount and when essential dependencies are loaded
-  // Items will be shown immediately, names will resolve as APIs load
   useEffect(() => {
     const editingInventory = localStorage.getItem('editingInventory');
     if (editingInventory && outgoingSiteOptions.length > 0 && outgoingEmployeeList.length > 0) {
@@ -538,8 +499,6 @@ const Outgoing = ({ user }) => {
         if (!type && item.typeId && item.typeId !== 0 && poType.length > 0) {
           type = resolveTypeName(item.typeId);
         }
-        // Always try to resolve category from categoryId if available (even if category is already set)
-        // This ensures category is resolved when categoryOptions loads
         if (item.categoryId && categoryOptions.length > 0) {
           const resolvedCategory = resolveCategoryName(item.categoryId);
           if (resolvedCategory) {
@@ -558,11 +517,11 @@ const Outgoing = ({ user }) => {
       // Only update if names actually changed
       const hasChanges = updatedItems.some((updatedItem, index) => {
         const original = items[index];
-        return updatedItem.name !== original.name || 
-               updatedItem.brand !== original.brand || 
-               updatedItem.model !== original.model || 
-               updatedItem.type !== original.type ||
-               updatedItem.category !== original.category;
+        return updatedItem.name !== original.name ||
+          updatedItem.brand !== original.brand ||
+          updatedItem.model !== original.model ||
+          updatedItem.type !== original.type ||
+          updatedItem.category !== original.category;
       });
       if (hasChanges) {
         setItems(updatedItems);
@@ -571,8 +530,6 @@ const Outgoing = ({ user }) => {
   }, [poItemName, poBrand, poModel, poType, categoryOptions, isEditMode]);
   // Get available items function - returns the actual API data structure
   const getAvailableItems = useCallback(() => {
-    // Return the actual API data structure with nested otherPOEntityList
-    // This contains the real relationships between itemName, brand, model, and type
     if (poItemName && poItemName.length > 0) {
       return {
         items: poItemName, // Array of items with otherPOEntityList
@@ -592,20 +549,16 @@ const Outgoing = ({ user }) => {
       alert('Please select a Stocking Location first');
       return;
     }
-
     // Get stocking location ID
     const stockingLocationSite = outgoingSiteOptions.find(
       site => site.value === outgoingData.stockingLocation && site.markedAsStockingLocation === true
     );
-    
     if (!stockingLocationSite || !stockingLocationSite.id) {
       alert('Stocking location ID not found. Please select a valid stocking location.');
       return;
     }
-
     const stockingLocationId = stockingLocationSite.id;
     const itemId = item.itemId || item.item_id || null;
-
     // Normalize values for comparison (used for both stock check and item matching)
     const normalizeValue = (val) => (val || '').toString().toLowerCase().trim();
     const newItemName = normalizeValue(item.itemName);
@@ -613,7 +566,6 @@ const Outgoing = ({ user }) => {
     const newModel = normalizeValue(item.model);
     const newBrand = normalizeValue(item.brand);
     const newType = normalizeValue(item.type);
-    
     // Check if an item with the same properties (including category) already exists
     const existingItemIndex = items.findIndex(existingItem => {
       const nameParts = existingItem.name ? existingItem.name.split(',') : [];
@@ -622,7 +574,6 @@ const Outgoing = ({ user }) => {
       const existingModel = normalizeValue(existingItem.model);
       const existingBrand = normalizeValue(existingItem.brand);
       const existingType = normalizeValue(existingItem.type);
-
       // Match if all properties including category are the same
       return (
         existingItemName === newItemName &&
@@ -632,14 +583,12 @@ const Outgoing = ({ user }) => {
         existingType === newType
       );
     });
-
     // Calculate what the final quantity would be (considering merge with existing item)
     let finalQuantity = quantity;
     if (existingItemIndex !== -1) {
       const currentQuantity = items[existingItemIndex].quantity || 0;
       finalQuantity = isIncremental ? currentQuantity + quantity : quantity;
     }
-
     // Check stock availability and get amount for this item in the selected stocking location
     let itemPrice = 0; // Default price
     if (itemId !== null && itemId !== undefined) {
@@ -647,18 +596,15 @@ const Outgoing = ({ user }) => {
         const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
         if (response.ok) {
           const inventoryRecords = await response.json();
-          
           // Filter out deleted records and filter by stocking location
           const activeRecords = inventoryRecords.filter(record => {
             const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
             const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
             return !recordDeleteStatus && String(recordStockingLocationId) === String(stockingLocationId);
           });
-
           // Calculate available stock and find amount for this item in this location
           let availableStock = 0;
-          const matchingAmounts = []; // Store amounts found for this item
-          
+          const matchingAmounts = []; // Store amounts found for this item          
           activeRecords.forEach(record => {
             const inventoryItems = record.inventoryItems || record.inventory_items || [];
             if (Array.isArray(inventoryItems)) {
@@ -668,18 +614,15 @@ const Outgoing = ({ user }) => {
                 const invModelId = invItem.model_id || invItem.modelId || null;
                 const invBrandId = invItem.brand_id || invItem.brandId || null;
                 const invTypeId = invItem.type_id || invItem.typeId || null;
-                
                 // Match by composite key: itemId + categoryId + modelId + brandId + typeId
                 const matchesItem = String(invItemId) === String(itemId) &&
                   String(invCategoryId || 'null') === String(item.categoryId || 'null') &&
                   String(invModelId || 'null') === String(item.modelId || 'null') &&
                   String(invBrandId || 'null') === String(item.brandId || 'null') &&
                   String(invTypeId || 'null') === String(item.typeId || 'null');
-                
                 if (matchesItem) {
                   const qty = Number(invItem.quantity) || 0;
                   availableStock += qty;
-                  
                   // Get amount and calculate price per unit
                   const amount = Number(invItem.amount) || 0;
                   if (amount > 0 && qty > 0) {
@@ -690,10 +633,6 @@ const Outgoing = ({ user }) => {
               });
             }
           });
-
-          // Do not block adding items here (including items with 0 available stock).
-          // Stock availability validation will be enforced when saving as 'dispatch'.
-
           // If multiple amounts exist, use the first one
           if (matchingAmounts.length > 0) {
             itemPrice = matchingAmounts[0];
@@ -704,10 +643,7 @@ const Outgoing = ({ user }) => {
         // Continue with adding item if API fails (don't block user)
       }
     }
-
     if (existingItemIndex !== -1) {
-      // Update existing item quantity (merge quantities)
-      // Update price to the first amount found from inventory
       const updatedItems = [...items];
       const currentQuantity = updatedItems[existingItemIndex].quantity || 0;
       const newQuantity = isIncremental ? currentQuantity + quantity : quantity;
@@ -747,16 +683,13 @@ const Outgoing = ({ user }) => {
     }
     setHasOpenedAdd(true);
   };
-
   // Update ref when expandedItemId changes
   useEffect(() => {
     expandedItemIdRef.current = expandedItemId;
   }, [expandedItemId]);
-
   // Global mouse handlers for desktop support (like PurchaseOrder)
   useEffect(() => {
     if (items.length === 0) return;
-
     const minSwipeDistance = 50;
     const globalMouseMoveHandler = (e) => {
       setSwipeStates(prev => {
@@ -777,23 +710,18 @@ const Outgoing = ({ user }) => {
             hasChanges = true;
           }
         });
-
         return hasChanges ? newState : prev;
       });
     };
-
     const globalMouseUpHandler = () => {
       setSwipeStates(prev => {
         let hasChanges = false;
         const newState = { ...prev };
-
         items.forEach(item => {
           const state = prev[item.id];
           if (!state) return;
-
           const deltaX = state.currentX - state.startX;
           const absDeltaX = Math.abs(deltaX);
-
           if (absDeltaX >= minSwipeDistance) {
             if (deltaX < 0) {
               // Swiped left (reveal buttons)
@@ -808,44 +736,39 @@ const Outgoing = ({ user }) => {
               setExpandedItemId(null);
             }
           }
-
           // Remove swipe state for this card
           delete newState[item.id];
           hasChanges = true;
         });
-
         return hasChanges ? newState : prev;
       });
     };
-
     // Add global mouse event listeners
     document.addEventListener('mousemove', globalMouseMoveHandler);
     document.addEventListener('mouseup', globalMouseUpHandler);
-
     return () => {
       document.removeEventListener('mousemove', globalMouseMoveHandler);
       document.removeEventListener('mouseup', globalMouseUpHandler);
     };
   }, [items]);
-
   const handleAddItem = (itemData) => {
     if (editingItem) {
       const updatedItems = items.map(item =>
         item.id === editingItem.id
           ? {
-              ...item,
-              name: `${itemData.itemName}, ${itemData.category}`,
-              brand: itemData.brand,
-              model: itemData.model,
-              type: itemData.type,
-              quantity: parseInt(itemData.quantity),
-              category: itemData.category || '',
-              itemId: itemData.itemId || item.itemId || null,
-              brandId: itemData.brandId || item.brandId || null,
-              modelId: itemData.modelId || item.modelId || null,
-              typeId: itemData.typeId || item.typeId || null,
-              categoryId: itemData.categoryId || item.categoryId || resolveCategoryId(itemData.category) || null,
-            }
+            ...item,
+            name: `${itemData.itemName}, ${itemData.category}`,
+            brand: itemData.brand,
+            model: itemData.model,
+            type: itemData.type,
+            quantity: parseInt(itemData.quantity),
+            category: itemData.category || '',
+            itemId: itemData.itemId || item.itemId || null,
+            brandId: itemData.brandId || item.brandId || null,
+            modelId: itemData.modelId || item.modelId || null,
+            typeId: itemData.typeId || item.typeId || null,
+            categoryId: itemData.categoryId || item.categoryId || resolveCategoryId(itemData.category) || null,
+          }
           : item
       );
       setItems(updatedItems);
@@ -853,14 +776,12 @@ const Outgoing = ({ user }) => {
     } else {
       // Normalize values for comparison
       const normalizeValue = (val) => (val || '').toString().toLowerCase().trim();
-
       const newItemName = normalizeValue(itemData.itemName);
       const newCategory = normalizeValue(itemData.category);
       const newModel = normalizeValue(itemData.model);
       const newBrand = normalizeValue(itemData.brand);
       const newType = normalizeValue(itemData.type);
       const newQuantity = parseInt(itemData.quantity) || 0;
-
       // Check if an item with the same properties exists
       const existingItemIndex = items.findIndex(item => {
         const itemNameParts = item.name ? item.name.split(',') : [];
@@ -869,7 +790,6 @@ const Outgoing = ({ user }) => {
         const existingModel = normalizeValue(item.model);
         const existingBrand = normalizeValue(item.brand);
         const existingType = normalizeValue(item.type);
-
         // Match if all properties are the same
         return (
           existingItemName === newItemName &&
@@ -879,7 +799,6 @@ const Outgoing = ({ user }) => {
           existingType === newType
         );
       });
-
       if (existingItemIndex !== -1) {
         // Merge with existing item by adding quantities
         const updatedItems = items.map((item, index) => {
@@ -913,12 +832,10 @@ const Outgoing = ({ user }) => {
       }
     }
   };
-
   const handleDeleteItem = (itemId) => {
     setItemToDelete(itemId);
     setShowDeleteConfirm(true);
   };
-
   const confirmDelete = () => {
     if (itemToDelete) {
       setItems(items.filter(item => item.id !== itemToDelete));
@@ -926,24 +843,20 @@ const Outgoing = ({ user }) => {
     }
     setShowDeleteConfirm(false);
   };
-
   // Download PDF function
   const handleDownloadPDF = () => {
     if (items.length === 0) {
       alert('No items to download');
       return;
     }
-
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPos = 20;
-
     // Title
     doc.setFontSize(16);
     doc.text(editTransactionId || 'Outgoing Inventory', pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
-
     // Project Information
     doc.setFontSize(12);
     yPos += 5;
@@ -955,7 +868,6 @@ const Outgoing = ({ user }) => {
     yPos += 7;
     doc.text(`Date: ${outgoingData.date || ''}`, 14, yPos);
     yPos += 10;
-
     // Items Table
     const tableData = items.map((item, index) => {
       const itemNameParts = item.name ? item.name.split(',') : [];
@@ -971,7 +883,6 @@ const Outgoing = ({ user }) => {
         item.quantity || 0
       ];
     });
-
     doc.autoTable({
       head: [['S.No', 'Item Name', 'Category', 'Model', 'Brand', 'Type', 'Quantity']],
       body: tableData,
@@ -992,18 +903,15 @@ const Outgoing = ({ user }) => {
       },
       margin: { left: 14, right: 14 }
     });
-
     // Total Quantity
     const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
     const finalY = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(12);
     doc.text(`Total Quantity: ${totalQuantity}`, 14, finalY);
-
     // Save PDF
     const fileName = editTransactionId ? `${editTransactionId}.pdf` : `Outgoing_${outgoingData.date || 'Inventory'}.pdf`;
     doc.save(fileName);
   };
-
   // Save outgoing inventory data (for both dispatch and stock return)
   const handleSaveOutgoing = async (outgoingType) => {
     // Validate required fields
@@ -1016,7 +924,6 @@ const Outgoing = ({ user }) => {
       alert('Please add at least one item');
       return;
     }
-
     // Validate that all items have a category
     for (const item of items) {
       if (!item.categoryId && !item.category) {
@@ -1025,51 +932,38 @@ const Outgoing = ({ user }) => {
         return;
       }
     }
-
     if (!selectedIncharge || !selectedIncharge.id) {
       alert('Project Incharge ID not found. Please select a valid project incharge.');
       return;
     }
-
     try {
       // Find stocking location ID from outgoingSiteOptions
       const stockingLocationSite = outgoingSiteOptions.find(
         site => site.value === outgoingData.stockingLocation && site.markedAsStockingLocation === true
       );
-      
       if (!stockingLocationSite || !stockingLocationSite.id) {
         alert('Stocking location ID not found. Please select a valid stocking location.');
         return;
       }
-
       const stockingLocationId = stockingLocationSite.id;
-
       // Find project/client ID from outgoingSiteOptions (needed for stock return validation)
       const projectSite = outgoingSiteOptions.find(
         site => site.value === outgoingData.projectName
       );
-      
       if (!projectSite || !projectSite.id) {
         alert('Project ID not found. Please select a valid project.');
         return;
       }
-
       const clientId = projectSite.id;
-
-      // Validate that all items are available in the selected stocking location (only for 'dispatch')
-      if ((outgoingType || '').toLowerCase() === 'dispatch') {
+      if ((outgoingType || '').toLowerCase() === 'dispatch' && !isEditMode) {
         try {
           const inventoryResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
           if (inventoryResponse.ok) {
             const inventoryRecords = await inventoryResponse.json();
-            
-            // Filter records for the selected stocking location and active (not deleted)
-            // Consider all active records (do not restrict by record stocking location so transfers are counted correctly)
             const activeRecords = inventoryRecords.filter(record => {
               const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
               return !recordDeleteStatus;
             });
-
             // Check each item in the items array
             for (const item of items) {
               const itemId = item.itemId || null;
@@ -1080,14 +974,12 @@ const Outgoing = ({ user }) => {
                   const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId || null;
                   const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
                   const toStockingLocationId = record.to_stocking_location_id || record.toStockingLocationId || null;
-
                   const inventoryItems = record.inventoryItems || record.inventory_items || [];
                   if (Array.isArray(inventoryItems)) {
                     inventoryItems.forEach(invItem => {
                       const invItemId = invItem.item_id || invItem.itemId || null;
                       if (String(invItemId) === String(itemId)) {
                         const qty = Number(invItem.quantity) || 0;
-
                         if (inventoryType === 'transfer' && toStockingLocationId) {
                           // Subtract from source, add to destination
                           if (String(recordStockingLocationId) === String(stockingLocationId)) {
@@ -1105,17 +997,14 @@ const Outgoing = ({ user }) => {
                     });
                   }
                 });
-
                 // Get requested quantity (use absolute value since quantity can be negative for dispatch)
                 const requestedQuantity = Math.abs(item.quantity || 0);
-
                 // If item is not available (stock <= 0), show alert and prevent save
                 if (availableStock <= 0) {
                   const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
                   alert(`Item "${itemName}" is not available in the selected Stocking Location "${outgoingData.stockingLocation}". Available stock: ${availableStock}`);
                   return;
                 }
-
                 // If requested quantity exceeds available stock, show alert and prevent save
                 if (requestedQuantity > availableStock) {
                   const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
@@ -1130,27 +1019,23 @@ const Outgoing = ({ user }) => {
           // Continue with save if validation fails (don't block user)
         }
       }
-
       // Validate stock return: check if return quantity exceeds dispatch quantity for this client_id
       if ((outgoingType || '').toLowerCase() === 'stock return' || (outgoingType || '').toLowerCase() === 'stockreturn') {
         try {
           const inventoryResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
           if (inventoryResponse.ok) {
             const inventoryRecords = await inventoryResponse.json();
-            
             // Filter for outgoing records for this client_id (not deleted)
             const clientOutgoingRecords = inventoryRecords.filter(record => {
               const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
               const recordClientId = record.client_id || record.clientId;
               const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
-              return !recordDeleteStatus && 
-                     String(recordClientId) === String(clientId) && 
-                     inventoryType === 'outgoing';
+              return !recordDeleteStatus &&
+                String(recordClientId) === String(clientId) &&
+                inventoryType === 'outgoing';
             });
-
             // Check if this is an update (edit mode) - we need to exclude current record from calculations
             const isUpdate = isEditMode && editingInventoryId;
-
             // Check each item being returned
             for (const item of items) {
               const itemId = item.itemId || null;
@@ -1159,24 +1044,19 @@ const Outgoing = ({ user }) => {
               const brandId = item.brandId || null;
               const typeId = item.typeId || null;
               const returnQuantity = Math.abs(item.quantity || 0);
-
               if (itemId === null || itemId === undefined) {
                 continue; // Skip items without itemId
               }
-
               // Calculate total dispatched quantity and total already returned quantity for this item
               let totalDispatched = 0;
               let totalReturned = 0;
-
               clientOutgoingRecords.forEach(record => {
                 // Skip current record if editing (to exclude it from calculations)
                 if (isUpdate && (record.id === editingInventoryId || record._id === editingInventoryId)) {
                   return;
                 }
-
                 const outgoingType = (record.outgoing_type || record.outgoingType || '').toString().toLowerCase();
                 const inventoryItems = record.inventoryItems || record.inventory_items || [];
-                
                 if (Array.isArray(inventoryItems)) {
                   inventoryItems.forEach(invItem => {
                     const invItemId = invItem.item_id || invItem.itemId || null;
@@ -1184,17 +1064,14 @@ const Outgoing = ({ user }) => {
                     const invModelId = invItem.model_id || invItem.modelId || null;
                     const invBrandId = invItem.brand_id || invItem.brandId || null;
                     const invTypeId = invItem.type_id || invItem.typeId || null;
-                    
                     // Match by composite key: itemId + categoryId + modelId + brandId + typeId
                     const matchesItem = String(invItemId) === String(itemId) &&
                       String(invCategoryId || 'null') === String(categoryId || 'null') &&
                       String(invModelId || 'null') === String(modelId || 'null') &&
                       String(invBrandId || 'null') === String(brandId || 'null') &&
                       String(invTypeId || 'null') === String(typeId || 'null');
-                    
                     if (matchesItem) {
                       const qty = Number(invItem.quantity) || 0;
-                      
                       if (outgoingType === 'dispatch') {
                         // Dispatch has negative quantity, so we add the absolute value
                         totalDispatched += Math.abs(qty);
@@ -1206,17 +1083,14 @@ const Outgoing = ({ user }) => {
                   });
                 }
               });
-
               // Calculate maximum returnable quantity
               const maxReturnable = totalDispatched - totalReturned;
-
               // Check if item was ever dispatched
               if (totalDispatched === 0) {
                 const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
                 alert(`Cannot return item "${itemName}". This item was never dispatched to "${outgoingData.projectName}". Only dispatched items can be returned.`);
                 return;
               }
-
               // Check if return quantity exceeds maximum returnable
               if (returnQuantity > maxReturnable) {
                 const itemName = item.name ? item.name.split(',')[0].trim() : 'this item';
@@ -1240,38 +1114,28 @@ const Outgoing = ({ user }) => {
       }
       const siteInchargeId = selectedIncharge.id;
       const siteInchargeMobileNumber = outgoingData.contact || selectedIncharge.mobileNumber || '';
-
       // Check if this is an update (edit mode) or create new (clone mode)
       const isUpdate = isEditMode && editingInventoryId;
-
       let eno = '';
       if (!isUpdate) {
         // Get outgoing count for ENO only for new records
         const countResponse = await fetch(
           `https://backendaab.in/aabuildersDash/api/inventory/outgoingCount?stockingLocationId=${stockingLocationId}`
         );
-        
         if (!countResponse.ok) {
           throw new Error('Failed to fetch outgoing count');
         }
-        
         const outgoingCount = await countResponse.json();
         eno = String(outgoingCount + 1 || 0);
       }
-
       // Convert date from DD/MM/YYYY to YYYY-MM-DD format for backend
       const dateParts = outgoingData.date.split('/');
-      const formattedDate = dateParts.length === 3 
-        ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}` 
+      const formattedDate = dateParts.length === 3
+        ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
         : outgoingData.date;
-
-      // Prepare inventory items
-      // For dispatch: negative quantity (-qty)
-      // For stock return: positive quantity (+qty)
       const inventoryItems = items.map(item => {
         const baseQuantity = Math.abs(item.quantity || 0);
         const quantity = outgoingType === 'dispatch' ? -baseQuantity : baseQuantity;
-        
         // Resolve categoryId if not already present
         let categoryId = item.categoryId || null;
         if (!categoryId && item.category && categoryOptions.length > 0) {
@@ -1282,13 +1146,11 @@ const Outgoing = ({ user }) => {
           });
           categoryId = categoryOption ? (categoryOption.id || categoryOption._id || null) : null;
         }
-        
         // Category is mandatory - throw error if still missing
         if (!categoryId) {
           const itemName = item.name ? item.name.split(',')[0].trim() : 'item';
           throw new Error(`Category is required for "${itemName}". Please select a category.`);
         }
-        
         return {
           item_id: item.itemId || null,
           category_id: categoryId, // Category is now mandatory
@@ -1299,7 +1161,6 @@ const Outgoing = ({ user }) => {
           amount: Math.abs((item.price || 0) * baseQuantity)
         };
       });
-
       // Prepare payload
       const payload = {
         client_id: clientId,
@@ -1313,18 +1174,15 @@ const Outgoing = ({ user }) => {
         created_by: (user && user.username) || '',
         inventoryItems: inventoryItems
       };
-
       // Add eno only for new records
       if (!isUpdate) {
         payload.eno = eno;
       }
-
       // Determine API endpoint and method
-      const apiUrl = isUpdate 
+      const apiUrl = isUpdate
         ? `https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${editingInventoryId}?changedBy=${encodeURIComponent(username)}`
         : 'https://backendaab.in/aabuildersDash/api/inventory/save';
       const method = isUpdate ? 'PUT' : 'POST';
-
       // Save/Update to backend
       const response = await fetch(apiUrl, {
         method: method,
@@ -1333,15 +1191,12 @@ const Outgoing = ({ user }) => {
         },
         body: JSON.stringify(payload)
       });
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `Failed to ${isUpdate ? 'update' : 'save'} inventory data`);
       }
-
       const savedData = await response.json();
       alert(`Inventory data ${isUpdate ? 'updated' : 'saved'} successfully!`);
-      
       // Reset form
       setOutgoingData({
         projectName: '',
@@ -1363,57 +1218,46 @@ const Outgoing = ({ user }) => {
       alert(`Error saving inventory: ${error.message}`);
     }
   };
-
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date and Actions Row - Only show when not in empty state */}
       {!isEmptyState && (
-        <div className="flex-shrink-0 px-4 pt-2 pb-1 border-b border-gray-100">
-          <div className="flex items-center justify-between">
+        <div className="px-4">
+          <div className="sticky top-[100px] z-30 bg-white flex items-center justify-between mb-2 mt-0.5 border-b border-[#E0E0E0]">
             <button
               type="button"
               onClick={() => setShowDatePicker(true)}
-              className="text-[12px] font-medium text-[#616161] leading-normal underline-offset-2 hover:underline"
+              className="text-[12px] font-medium text-black leading-normal underline-offset-2 hover:underline"
             >
               {outgoingData.date}
             </button>
             <div className="flex items-center">
               {isEditMode && fromHistory ? (
-                <button
-                  type="button"
-                  onClick={() => handleSaveOutgoing(outgoingData.outgoingType || 'stock return')}
+                <button type="button" onClick={() => handleSaveOutgoing(outgoingData.outgoingType || 'stock return')}
                   className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
                 >
                   Update
                 </button>
               ) : fromHistory && !isEditMode && ((outgoingData.outgoingType || '').toLowerCase() === 'stock return' || (outgoingData.outgoingType || '').toLowerCase() === 'stockreturn') ? (
-                <button
-                  type="button"
-                  onClick={() => handleDownloadPDF()}
+                <button type="button" onClick={() => handleDownloadPDF()}
                   className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
                 >
                   Download
                 </button>
               ) : fromHistory && !isEditMode && (outgoingData.outgoingType || '').toLowerCase() === 'dispatch' ? (
-                <button
-                  type="button"
-                  onClick={() => handleDownloadPDF()}
+                <button type="button" onClick={() => handleDownloadPDF()}
                   className="flex items-center text-[13px] font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
                 >
                   Download
                 </button>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => handleSaveOutgoing('stock return')}
+                  <button type="button" onClick={() => handleSaveOutgoing('stock return')}
                     className="flex items-center text-[13px] gap-1 font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
                   >
                     Stock Return <img src={SR} alt="SR" className="w-[13px] h-[13px]" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSaveOutgoing('dispatch')}
+                  <button type="button" onClick={() => handleSaveOutgoing('dispatch')}
                     className="flex items-center text-[13px] gap-1 font-medium text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
                   >
                     Dispatch <img src={DP} alt="DP" className="w-[13px] h-[13px]" />
@@ -1449,130 +1293,137 @@ const Outgoing = ({ user }) => {
           </div>
         </div>
       )}
-
       {/* Form Fields - visible while you are selecting the three fields (before first + click) or when hideSummaryCard is true */}
       {(!hasOpenedAdd || hideSummaryCard) && (
-        <div className="flex-shrink-0 px-4 pt-1">
+        <div className="px-4 ">
           {/* Date in empty state */}
           {isEmptyState && (
-            <div className="mb-4 border-b border-gray-200 pb-2">
+            <div className="mb-2 items-center border-b border-gray-200 pb-2 mt-0.5">
               <button
                 type="button"
                 onClick={() => setShowDatePicker(true)}
-                className="text-[12px] font-medium text-[#616161] leading-normal underline-offset-2 hover:underline"
+                className="text-[12px] font-medium text-black leading-normal underline-offset-2 hover:underline"
               >
                 {outgoingData.date}
               </button>
             </div>
           )}
-        {/* Project Name Field */}
-        <div className="mb-2 relative">
-          <p className="text-[12px] font-semibold text-black leading-normal mb-1">
-            Project Name<span className="text-[#eb2f8e]">*</span>
-          </p>
-          <div className="relative">
-            <div
-              onClick={() => setShowProjectModal(true)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer"
-              style={{
-                paddingRight: outgoingData.projectName ? '40px' : '12px',
-                boxSizing: 'border-box',
-                color: outgoingData.projectName ? '#000' : '#9E9E9E'
-              }}
-            >
-              {outgoingData.projectName || 'Select Project Name'}
+          {/* Project Name Field */}
+          <div className="space-y-[6px]">
+            <div className=" relative">
+              <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                Project Name<span className="text-[#eb2f8e]">*</span>
+              </p>
+              <div className="relative">
+                <div
+                  onClick={() => setShowProjectModal(true)}
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
+                  style={{
+                    paddingRight: outgoingData.projectName ? '40px' : '12px',
+                    boxSizing: 'border-box',
+                    color: outgoingData.projectName ? '#000' : '#9E9E9E'
+                  }}
+                >
+                  <span>{outgoingData.projectName || 'Select Project Name'}</span>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                {outgoingData.projectName && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOutgoingData({ ...outgoingData, projectName: '' });
+                    }}
+                    className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    style={{ right: '24px' }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
-            {outgoingData.projectName && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOutgoingData({ ...outgoingData, projectName: '' });
-                }}
-                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                style={{ right: '24px' }}
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Project Incharge Field */}
-        <div className="mb-2 relative">
-          <p className="text-[12px] font-semibold text-black leading-normal mb-1">
-            Project Incharge<span className="text-[#eb2f8e]">*</span>
-          </p>
-          <div className="relative">
-            <div
-              onClick={() => setShowInchargeModal(true)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer"
-              style={{
-                paddingRight: outgoingData.projectIncharge ? '40px' : '12px',
-                boxSizing: 'border-box',
-                color: outgoingData.projectIncharge ? '#000' : '#9E9E9E'
-              }}
-            >
-              {outgoingData.projectIncharge || 'Select Project Incharge'}
+            {/* Project Incharge Field */}
+            <div className=" relative">
+              <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                Project Incharge<span className="text-[#eb2f8e]">*</span>
+              </p>
+              <div className="relative">
+                <div
+                  onClick={() => setShowInchargeModal(true)}
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
+                  style={{
+                    paddingRight: outgoingData.projectIncharge ? '40px' : '12px',
+                    boxSizing: 'border-box',
+                    color: outgoingData.projectIncharge ? '#000' : '#9E9E9E'
+                  }}
+                >
+                  <span>{outgoingData.projectIncharge || 'Select Project Incharge'}</span>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                {outgoingData.projectIncharge && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedIncharge(null);
+                      setOutgoingData({ ...outgoingData, projectIncharge: '', contact: '' });
+                    }}
+                    className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    style={{ right: '24px' }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
-            {outgoingData.projectIncharge && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedIncharge(null);
-                  setOutgoingData({ ...outgoingData, projectIncharge: '', contact: '' });
-                }}
-                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                style={{ right: '24px' }}
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Stocking Location Field */}
-        <div className="mb-2 relative">
-          <p className="text-[12px] font-semibold text-black leading-normal mb-1">
-            Stocking Location<span className="text-[#eb2f8e]">*</span>
-          </p>
-          <div className="relative">
-            <div
-              onClick={() => setShowStockingLocationModal(true)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer"
-              style={{
-                paddingRight: outgoingData.stockingLocation ? '40px' : '12px',
-                boxSizing: 'border-box',
-                color: outgoingData.stockingLocation ? '#000' : '#9E9E9E'
-              }}
-            >
-              {outgoingData.stockingLocation || 'Select Stocking Location'}
+            {/* Stocking Location Field */}
+            <div className="relative">
+              <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                Stocking Location<span className="text-[#eb2f8e]">*</span>
+              </p>
+              <div className="relative">
+                <div
+                  onClick={() => setShowStockingLocationModal(true)}
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
+                  style={{
+                    paddingRight: outgoingData.stockingLocation ? '40px' : '12px',
+                    boxSizing: 'border-box',
+                    color: outgoingData.stockingLocation ? '#000' : '#9E9E9E'
+                  }}
+                >
+                  <span>{outgoingData.stockingLocation || 'Select Stocking Location'}</span>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                {outgoingData.stockingLocation && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOutgoingData({ ...outgoingData, stockingLocation: '' });
+                    }}
+                    className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    style={{ right: '24px' }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
-            {outgoingData.stockingLocation && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOutgoingData({ ...outgoingData, stockingLocation: '' });
-                }}
-                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                style={{ right: '24px' }}
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            )}
           </div>
-        </div>
         </div>
       )}
-
       {/* Summary details card - show after first + click or in edit mode */}
       {(hasOpenedAdd || isEditMode) && !hideSummaryCard && !isEmptyState && (outgoingData.projectName || outgoingData.projectIncharge || outgoingData.stockingLocation) && (
         <div className="flex-shrink-0 mx-2 mb-1 p-2 bg-white border border-[#aaaaaa] rounded-[8px]">
@@ -1610,13 +1461,12 @@ const Outgoing = ({ user }) => {
           </div>
         </div>
       )}
-
       {/* Filled State extras (items) - Show when fields are filled OR after opening add items OR in edit mode */}
       {(hasOpenedAdd || !isEmptyState || isEditMode) && (
         <>
           {/* Items Section - Show only when all three fields are filled */}
           {(!isEmptyState || isEditMode) && outgoingData.projectName && outgoingData.projectIncharge && outgoingData.stockingLocation && (
-            <div className="flex flex-col flex-1 min-h-0 mx-4 mb-4">
+            <div className="flex flex-col flex-1 min-h-0 mx-4 mb-4 mt-2">
               {/* Items Header - Fixed */}
               <div className="flex-shrink-0 flex items-center gap-2 mb-2 border-b border-[#E0E0E0] pb-2">
                 <p className="text-[14px] font-medium text-black leading-normal">Items</p>
@@ -1727,7 +1577,6 @@ const Outgoing = ({ user }) => {
           )}
         </>
       )}
-
       {/* Add Button - Fixed position (only enabled when all required fields are filled) */}
       <AddButton
         onClick={() => {
@@ -1757,7 +1606,6 @@ const Outgoing = ({ user }) => {
         disabled={fromHistory && !isEditMode ? false : !areOutgoingFieldsFilled}
         showNew={fromHistory && !isEditMode}
       />
-
       {/* Modals */}
       <SelectVendorModal
         isOpen={showProjectModal}
@@ -1779,7 +1627,6 @@ const Outgoing = ({ user }) => {
             const empName = emp.employeeName || emp.name || emp.fullName || emp.employee_name || '';
             return empName === value;
           });
-
           if (selectedEmployee) {
             const contactNumber = selectedEmployee.employee_mobile_number || selectedEmployee.mobileNumber || selectedEmployee.mobile_number || selectedEmployee.contact || '';
             setSelectedIncharge({

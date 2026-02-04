@@ -278,24 +278,15 @@ const AddInput = () => {
   // Update stocking location status when locators are selected/deselected
   const updateStockingLocationStatus = async (newSelectedLocators) => {
     try {
-      console.log('updateStockingLocationStatus called with:', newSelectedLocators);
-      console.log('previousSelectedLocators:', previousSelectedLocators);
-      console.log('outgoingSiteOptions:', outgoingSiteOptions);
-
       // Process all sites - update based on whether they're in the new selection
       const updatePromises = [];
-
       for (const site of outgoingSiteOptions) {
         if (site.id && site.value) {
           const shouldBeSelected = newSelectedLocators.includes(site.value);
           const wasSelected = previousSelectedLocators.includes(site.value);
-
           // Only update if the status needs to change
           if (shouldBeSelected !== wasSelected) {
             const url = `https://backendaab.in/aabuilderDash/api/project_Names/${site.id}/stocking-location?markedAsStockingLocation=${shouldBeSelected}`;
-            console.log(`Updating site ${site.value} (id: ${site.id}): ${shouldBeSelected ? 'true' : 'false'}`);
-            console.log(`Sending PUT request to: ${url}`);
-
             const updatePromise = fetch(url, {
               method: 'PUT',
               credentials: 'include',
@@ -305,7 +296,6 @@ const AddInput = () => {
             })
               .then(response => {
                 if (response.ok) {
-                  console.log(`✓ Successfully updated site ${site.id} (${site.value}): ${shouldBeSelected}`);
                   return { success: true, siteId: site.id, siteName: site.value };
                 } else {
                   console.error(`✗ Failed to update site ${site.id}: ${response.status} ${response.statusText}`);
@@ -316,45 +306,36 @@ const AddInput = () => {
                 console.error(`✗ Error updating site ${site.id}:`, error);
                 return { success: false, siteId: site.id, siteName: site.value, error: error.message };
               });
-
             updatePromises.push(updatePromise);
           } else {
             console.log(`Skipping site ${site.value} - no change needed (was: ${wasSelected}, should be: ${shouldBeSelected})`);
           }
         }
       }
-
       // Wait for all updates to complete
       await Promise.all(updatePromises);
-
       // Update previous selection for next comparison
       setPreviousSelectedLocators(newSelectedLocators);
-
       // Refresh site data to get updated markedAsStockingLocation values
       await refreshSiteData();
     } catch (error) {
       console.error('Error updating stocking location status:', error);
     }
   };
-
   const [selectedCategories, setSelectedCategories] = useState([]);
-
   // Category options from API (with IDs) and strings for dropdown
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [categoryOptionsStrings, setCategoryOptionsStrings] = useState([]);
-
   // State for fetched data (same as PurchaseOrder Input Data page)
   const [poItemName, setPoItemName] = useState([]);
   const [poModel, setPoModel] = useState([]);
   const [poBrand, setPoBrand] = useState([]);
   const [poType, setPoType] = useState([]);
-
   // Options for dropdowns (merged API + localStorage)
   const [itemNameOptions, setItemNameOptions] = useState([]);
   const [modelOptions, setModelOptions] = useState([]);
   const [brandOptions, setBrandOptions] = useState([]);
   const [typeOptions, setTypeOptions] = useState([]);
-
   // Fetch item names from API
   const fetchPoItemName = async () => {
     try {
@@ -368,11 +349,9 @@ const AddInput = () => {
         const extractedNames = data.map(item =>
           item.itemName || item.poItemName || item.name || item.item_name || ''
         ).filter(name => name !== '');
-
         // Merge with any previously saved item names from localStorage
         const savedItemNames = localStorage.getItem('itemNameOptions');
         const savedNames = savedItemNames ? JSON.parse(savedItemNames) : [];
-
         // Combine API names with saved names, removing duplicates
         const allNames = [...new Set([...extractedNames, ...savedNames])];
         setItemNameOptions(allNames);
@@ -1268,7 +1247,7 @@ const AddInput = () => {
       {/* New Input Section */}
       <div className="px-4 pt-2">
         {/* New Input Header - Sticky */}
-        <div className=" top-[100px] z-30 bg-white flex items-center justify-between mb-4 border-b border-[#E0E0E0] pb-2">
+        <div className=" top-[100px] z-30 bg-white flex items-center justify-between mb-2 border-b border-[#E0E0E0] pb-2">
           {/* Group Dropdown - Left Side */}
           <button
             onClick={() => setShowGroupModal(true)}
@@ -1294,12 +1273,11 @@ const AddInput = () => {
             </button>
           </div>
         </div>
-
         {/* Form Fields */}
-        <div className="mb-4">
+        <div className="space-y-[6px]">
           {/* Item Name */}
-          <div className="mb-2">
-            <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+          <div className="">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
               Item Name<span className="text-[#eb2f8e]">*</span>
             </p>
             <div className="relative">
@@ -1352,8 +1330,8 @@ const AddInput = () => {
           </div>
 
           {/* Model */}
-          <div className="mb-2">
-            <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+          <div className="">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
               Model<span className="text-[#eb2f8e]">*</span>
             </p>
             <div className="relative">
@@ -1406,8 +1384,8 @@ const AddInput = () => {
           </div>
 
           {/* Type */}
-          <div className="mb-2">
-            <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+          <div className="">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
               Type<span className="text-[#eb2f8e]">*</span>
             </p>
             <div className="relative">
@@ -1459,10 +1437,10 @@ const AddInput = () => {
             </div>
           </div>
 
-          <div className="flex gap-3 mb-2">
+          <div className="flex gap-3">
             {/* Brand */}
             <div>
-              <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+              <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
                 Brand<span className="text-[#eb2f8e]">*</span>
               </p>
               <div className="relative">
@@ -1516,7 +1494,7 @@ const AddInput = () => {
 
             {/* Min Qty */}
             <div>
-              <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+              <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
                 Min Qty
               </p>
               <input
@@ -1529,7 +1507,7 @@ const AddInput = () => {
             </div>
             {/* Default Qty */}
             <div>
-              <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+              <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
                 Default Qty
               </p>
               <input
@@ -1541,34 +1519,34 @@ const AddInput = () => {
               />
             </div>
           </div>
-
-
         </div>
         {/* Add to List / Update List Button */}
-        <button
-          onClick={handleAddToList}
-          disabled={!formData.itemName || !formData.model || !formData.type || !formData.brand}
-          className={`w-[328px] h-[32px] rounded-[8px] flex items-center justify-center gap-2 text-white text-[12px] font-medium transition-colors ${formData.itemName && formData.model && formData.type && formData.brand
+        <div className="mt-2">
+          <button
+            onClick={handleAddToList}
+            disabled={!formData.itemName || !formData.model || !formData.type || !formData.brand}
+            className={`w-[328px] h-[32px] rounded-[8px] flex items-center justify-center gap-2 text-white text-[12px] font-medium transition-colors ${formData.itemName && formData.model && formData.type && formData.brand
               ? 'bg-black hover:bg-gray-800'
               : 'bg-[#757575] cursor-not-allowed'
-            }`}
-        >
-          {editingRowIndex !== null ? (
-            <>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M13.3333 2L5.33333 10M13.3333 2L9.33333 2M13.3333 2L13.3333 6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span>Update List</span>
-            </>
-          ) : (
-            <>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 3V13M3 8H13" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              <span>Add to List</span>
-            </>
-          )}
-        </button>
+              }`}
+          >
+            {editingRowIndex !== null ? (
+              <>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M13.3333 2L5.33333 10M13.3333 2L9.33333 2M13.3333 2L13.3333 6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span>Update List</span>
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 3V13M3 8H13" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span>Add to List</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
       {/* otherPOEntityList Table - Show when itemName is selected */}
       {formData.itemName && otherPOEntityList.length > 0 && (
@@ -1761,7 +1739,6 @@ const AddInput = () => {
         isOpen={showLocatorsModal}
         onClose={() => setShowLocatorsModal(false)}
         onSelect={async (values) => {
-          console.log('SelectLocatorsModal onSelect called with values:', values);
           setSelectedLocators(values);
           await updateStockingLocationStatus(values);
           // Don't close modal immediately - let user continue selecting

@@ -42,7 +42,6 @@ const Inventory = ({ user, onLogout }) => {
       setCurrentPage('tools-tracker');
       navigate('/toolsTracker');
     }
-    // Other pages can be handled here when implemented
   };
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -67,7 +66,7 @@ const Inventory = ({ user, onLogout }) => {
       case 'project-usage-history':
         return <ProjectUsageReport />;
       case 'non-po-history':
-        return <NonPOHistory />;
+        return <NonPOHistory onTabChange={handleTabChange} />;
       case 'edit-stock':
         return <EditStock />;
       default:

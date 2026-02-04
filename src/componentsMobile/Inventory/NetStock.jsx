@@ -109,7 +109,6 @@ const NetStock = () => {
     };
     fetchLocationNames();
   }, []);
-
   // Fetch item names from API (for getting names and minQty/defaultQty)
   useEffect(() => {
     const fetchItemNames = async () => {
@@ -125,7 +124,6 @@ const NetStock = () => {
     };
     fetchItemNames();
   }, []);
-
   // Fetch brand, model, type APIs for name resolution
   useEffect(() => {
     const fetchAll = async () => {
@@ -135,7 +133,6 @@ const NetStock = () => {
           fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll'),
           fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll')
         ]);
-
         if (brandRes.ok) {
           const brandData = await brandRes.json();
           setPoBrand(brandData);
@@ -154,7 +151,6 @@ const NetStock = () => {
     };
     fetchAll();
   }, []);
-
   // Calculate net stock from inventory data based on selected stocking location
   const calculateNetStock = (inventoryRecords, selectedLocationId) => {
     // Filter out deleted records
@@ -162,19 +158,13 @@ const NetStock = () => {
       const recordDeleteStatus = record.delete_status !== undefined ? record.delete_status : record.deleteStatus;
       return !recordDeleteStatus;
     });
-
     // Group by composite key: item_id-category_id-model_id-brand_id-type_id
-    // Calculate net stock for each unique combination. For transfer records we treat them specially:
-    // - When viewing a specific location: subtract from source (stocking_location_id) and add to destination (to_stocking_location_id)
-    // - When viewing across all locations (selectedLocationId is falsy): transfer is neutral (no net change)
     const stockMap = {}; // Key: composite key, Value: net stock quantity
-
     activeRecords.forEach(record => {
       const recordStockingLocationId = record.stocking_location_id || record.stockingLocationId;
       const inventoryType = (record.inventory_type || record.inventoryType || '').toString().toLowerCase();
       const toStockingLocationId = record.to_stocking_location_id || record.toStockingLocationId || null;
       const inventoryItems = record.inventoryItems || record.inventory_items || [];
-
       if (Array.isArray(inventoryItems)) {
         inventoryItems.forEach(invItem => {
           const itemId = invItem.item_id || invItem.itemId || null;
@@ -182,11 +172,9 @@ const NetStock = () => {
           const modelId = invItem.model_id || invItem.modelId || null;
           const brandId = invItem.brand_id || invItem.brandId || null;
           const typeId = invItem.type_id || invItem.typeId || null;
-
           if (itemId !== null && itemId !== undefined) {
             // Create composite key for unique combination
             const compositeKey = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
-
             if (!stockMap[compositeKey]) {
               stockMap[compositeKey] = {
                 itemId: itemId,
@@ -199,9 +187,7 @@ const NetStock = () => {
             }
             // Convert quantity to number
             const quantity = Number(invItem.quantity) || 0;
-
             let delta = 0;
-
             if (!selectedLocationId) {
               // Viewing across all locations: transfers are neutral (they move stock between locations)
               if (inventoryType === 'transfer' && toStockingLocationId) {
@@ -241,7 +227,6 @@ const NetStock = () => {
       netStock: Math.max(0, item.quantity) // Ensure non-negative
     }));
   };
-
   // Fetch inventory data
   useEffect(() => {
     const fetchInventory = async () => {
@@ -253,10 +238,8 @@ const NetStock = () => {
           setLoading(false);
           return;
         }
-
         const inventoryRecords = await response.json();
         setInventoryData(inventoryRecords);
-
         // Calculate initial net stock (all locations)
         const inventoryItems = calculateNetStock(inventoryRecords, null);
         setStockQuantities(inventoryItems);
@@ -268,20 +251,16 @@ const NetStock = () => {
     };
     fetchInventory();
   }, []);
-
   // Recalculate net stock when stocking location changes
   useEffect(() => {
     if (inventoryData.length === 0) return;
-
     const selectedLocationOption = stockingLocationOptions.find(loc =>
       loc.value === selectedStockingLocation || loc.label === selectedStockingLocation
     );
     const selectedLocationId = selectedLocationOption?.id || null;
-
     const inventoryItems = calculateNetStock(inventoryData, selectedLocationId);
     setStockQuantities(inventoryItems);
   }, [selectedStockingLocation, inventoryData, stockingLocationOptions]);
-
   // Process inventory items and match with item names API to get display names and minQty/defaultQty
   useEffect(() => {
     if (stockQuantities.length === 0 || itemNamesData.length === 0) {
@@ -290,19 +269,15 @@ const NetStock = () => {
       }
       return;
     }
-
     setLoading(true);
     const processedData = [];
-
     // Create lookup maps from item names API
     const itemNameMap = {}; // itemId -> item data
     const entityMap = {}; // composite key -> entity data
-
     itemNamesData.forEach(item => {
       const itemId = item.id || item._id || null;
       if (itemId) {
         itemNameMap[String(itemId)] = item;
-
         // Map entities by composite key, include qty info if present
         const otherPOEntityList = item.otherPOEntityList || [];
         otherPOEntityList.forEach(entity => {
@@ -311,7 +286,6 @@ const NetStock = () => {
           const modelId = entity.modelId || entity.model_id || null;
           const typeId = entity.typeId || entity.type_id || null;
           const categoryId = item.categoryId || item.category_id || null;
-
           const entityKey = `${entityItemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
           const defaultQtyFromEntity = entity.defaultQty || entity.default_qty || '25';
           const minQtyFromEntity = entity.minimumQty || entity.minimum_qty || entity.minQty || entity.min_qty || '5';
@@ -326,7 +300,6 @@ const NetStock = () => {
         });
       }
     });
-
     // Process each inventory item
     stockQuantities.forEach(invItem => {
       const itemId = invItem.itemId;
@@ -407,25 +380,20 @@ const NetStock = () => {
           const brandName = brandId ? findNameById(poBrand, brandId, 'brand') : '';
           const modelName = modelId ? findNameById(poModel, modelId, 'model') : '';
           const typeName = typeId ? findNameById(poType, typeId, 'typeColor') || findNameById(poType, typeId, 'type') : '';
-
           // Extract qty info from itemData when available. Prefer matching entry in otherPOEntityList when possible
           let defaultQtyFromItem = itemData.defaultQty || itemData.default_qty || '25';
           let minQtyFromItem = itemData.minimumQuantity || itemData.minimumQty || itemData.minimum_qty || itemData.minQty || itemData.min_qty || itemData.minimum || '5';
-
           if (Array.isArray(itemData.otherPOEntityList) && itemData.otherPOEntityList.length) {
             const matchEntity = itemData.otherPOEntityList.find(ent => {
               // Try to match by brand/model/type when available
               const eBrand = ent.brandId || ent.brand_id || ent.brandName || '';
               const eModel = ent.modelId || ent.model_id || ent.modelName || '';
               const eType = ent.typeId || ent.type_id || ent.typeColor || '';
-
               const brandMatch = !brandId || String(eBrand) === String(brandId) || String(eBrand) === String(ent.brandName) || String(ent.brandName) === String(brandId);
               const modelMatch = !modelId || String(eModel) === String(modelId) || String(eModel) === String(ent.modelName) || String(ent.modelName) === String(modelId);
               const typeMatch = !typeId || String(eType) === String(typeId) || String(eType) === String(ent.typeColor) || String(ent.typeColor) === String(typeId);
-
               // Also allow matching by category if provided
               const categoryMatch = !categoryIdFromItem || String(ent.categoryId || ent.category_id) === String(categoryIdFromItem);
-
               return brandMatch && modelMatch && typeMatch && categoryMatch;
             });
             if (matchEntity) {
@@ -504,7 +472,6 @@ const NetStock = () => {
         (item.category || '').toLowerCase().includes(query)
       );
     }
-
     // Apply dropdown selectionFilter to the displayed list
     if (selectionFilter) {
       if (selectionFilter === 'Minimum') {
@@ -526,7 +493,6 @@ const NetStock = () => {
         // All -> no additional filtering
       }
     }
-
     setFilteredData(filtered);
   }, [selectedCategory, searchQuery, netStockData, categoryOptions, selectionFilter]);
   // Sync selectAll state with selectedCards
@@ -537,7 +503,6 @@ const NetStock = () => {
       setSelectAll(false);
     }
   }, [selectedCards, filteredData]);
-
   // Keep the toggle state in sync: if ALL filtered items are currently selected, show toggle ON.
   useEffect(() => {
     if (!filteredData || filteredData.length === 0) {
@@ -547,11 +512,8 @@ const NetStock = () => {
     const allSelected = filteredData.every(i => selectedCards.includes(i.id));
     if (allSelected !== selectAllFiltered) setSelectAllFiltered(allSelected);
   }, [selectedCards, filteredData]);
-
   // Selection of items is controlled only by the toggle button now.
   // Changing the dropdown filter will NOT auto-select items.
-
-
   const handleDateConfirm = (date) => {
     setSelectedDate(date);
     setShowDatePicker(false);
@@ -598,145 +560,148 @@ const NetStock = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date Row */}
-      <div className="flex-shrink-0 px-4 pt-2 pb-1.5 border-b border-gray-100">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setShowDatePicker(true)}
-            className="text-[12px] font-medium text-[#616161] leading-normal underline-offset-2 hover:underline"
-          >
-            {selectedDate}
-          </button>
-          <div className="flex items-center gap-3">
-            {selectedCards.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  // Get selected items data (include items selected even if currently filtered out)
-                  const selectedItemsData = selectedCards
-                    .map(selId => netStockData.find(item => item.id === selId))
-                    .filter(Boolean)
-                    .map(item => ({
-                      itemName: item.itemName || '',
-                      category: item.category || '',
-                      model: item.model || '',
-                      brand: item.brand || '',
-                      type: item.type || '',
-                      quantity: String(
-                        item.status === 'Available' ? (item.defaultQty || item.minQty || 1)
-                          : item.status === 'Place Order' ? (item.minQty || item.defaultQty || 1)
-                            : (item.defaultQty || item.minQty || 1)
-                      ),
-                      itemId: item.itemId || null,
-                      brandId: item.brandId || null,
-                      modelId: item.modelId || null,
-                      typeId: item.typeId || null,
-                      categoryId: item.categoryId || null
-                    }))
-                    .filter(item => item.itemId !== null && item.itemId !== undefined); // Only include items with valid itemId
-                  // Store in localStorage
-                  localStorage.setItem('netStockSelectedItems', JSON.stringify(selectedItemsData));
-                  // Navigate to PurchaseOrder page
-                  navigate('/purchaseorder');
-                }}
-                className="text-[13px] font-medium text-black leading-normal"
-              >
-                Add to PO
-              </button>
-            )}
+      <div className="px-4">
+        <div className=" pt-2 pb-2 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setShowDatePicker(true)}
+              className="text-[12px] font-medium text-black leading-normal underline-offset-2 hover:underline"
+            >
+              {selectedDate}
+            </button>
+            <div className="flex items-center gap-3">
+              {selectedCards.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Get selected items data (include items selected even if currently filtered out)
+                    const selectedItemsData = selectedCards
+                      .map(selId => netStockData.find(item => item.id === selId))
+                      .filter(Boolean)
+                      .map(item => ({
+                        itemName: item.itemName || '',
+                        category: item.category || '',
+                        model: item.model || '',
+                        brand: item.brand || '',
+                        type: item.type || '',
+                        quantity: String(
+                          item.status === 'Available' ? (item.defaultQty || item.minQty || 1)
+                            : item.status === 'Place Order' ? (item.minQty || item.defaultQty || 1)
+                              : (item.defaultQty || item.minQty || 1)
+                        ),
+                        itemId: item.itemId || null,
+                        brandId: item.brandId || null,
+                        modelId: item.modelId || null,
+                        typeId: item.typeId || null,
+                        categoryId: item.categoryId || null
+                      }))
+                      .filter(item => item.itemId !== null && item.itemId !== undefined); // Only include items with valid itemId
+                    // Store in localStorage
+                    localStorage.setItem('netStockSelectedItems', JSON.stringify(selectedItemsData));
+                    // Navigate to PurchaseOrder page
+                    navigate('/purchaseorder');
+                  }}
+                  className="text-[13px] font-medium text-black leading-normal"
+                >
+                  Add to PO
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
       {/* Filters Section */}
-      <div className="flex-shrink-0 px-4 pt-2 mb-2">
-
+      <div className="px-4 pt-2 mb-2">
         {/* Category Filter */}
-        <div className="mb-2">
-          <div className="flex items-center justify-between">
-            <p className="text-[12px] font-semibold text-black leading-normal">
-              Category
+        <div className="space-y-[6px]">
+          <div className="">
+            <div className="flex items-center justify-between mb-0.5">
+              <p className="text-[12px] font-semibold text-black leading-normal">
+                Category
+              </p>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleExportPDF}
+                  className="text-[12px] font-semibold text-black leading-normal"
+                >
+                  Export PDF
+                </button>
+              </div>
+            </div>
+            <div className="relative">
+              <div
+                onClick={() => setShowCategoryModal(true)}
+                className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
+                style={{
+                  paddingRight: selectedCategory ? '40px' : '12px',
+                  boxSizing: 'border-box',
+                  color: selectedCategory ? '#000' : '#9E9E9E'
+                }}
+              >
+                <span>{selectedCategory || 'Select Category'}</span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              {selectedCategory && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedCategory('');
+                  }}
+                  className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  style={{ right: '24px' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+          {/* Stocking Location Filter */}
+          <div className="">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+              Stocking Location
             </p>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={handleExportPDF}
-                className="text-[12px] font-semibold text-black leading-normal"
-              >
-                Export PDF
-              </button>
-            </div>
-          </div>
-          <div className="relative">
-            <div
-              onClick={() => setShowCategoryModal(true)}
-              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
-              style={{
-                paddingRight: selectedCategory ? '40px' : '12px',
-                boxSizing: 'border-box',
-                color: selectedCategory ? '#000' : '#9E9E9E'
-              }}
-            >
-              <span>{selectedCategory || 'Select Category'}</span>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            {selectedCategory && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedCategory('');
+            <div className="relative">
+              <div
+                onClick={() => setShowStockingLocationModal(true)}
+                className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
+                style={{
+                  paddingRight: selectedStockingLocation ? '40px' : '12px',
+                  boxSizing: 'border-box',
+                  color: selectedStockingLocation ? '#000' : '#9E9E9E'
                 }}
-                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                style={{ right: '24px' }}
               >
+                <span>{selectedStockingLocation || 'Select Location'}</span>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </button>
-            )}
-          </div>
-        </div>
-        {/* Stocking Location Filter */}
-        <div className="mb-4">
-          <p className="text-[12px] font-semibold text-black leading-normal mb-1">
-            Stocking Location
-          </p>
-          <div className="relative">
-            <div
-              onClick={() => setShowStockingLocationModal(true)}
-              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
-              style={{
-                paddingRight: selectedStockingLocation ? '40px' : '12px',
-                boxSizing: 'border-box',
-                color: selectedStockingLocation ? '#000' : '#9E9E9E'
-              }}
-            >
-              <span>{selectedStockingLocation || 'Select Location'}</span>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              </div>
+              {selectedStockingLocation && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedStockingLocation('');
+                  }}
+                  className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  style={{ right: '24px' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
             </div>
-            {selectedStockingLocation && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedStockingLocation('');
-                }}
-                className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                style={{ right: '24px' }}
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            )}
           </div>
         </div>
         {/* Search Bar */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-2">
           <div className="relative flex-1">
             <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -771,8 +736,6 @@ const NetStock = () => {
             </div>
           </div>
         </div>
-        {/* Filter Count Display */}
-
         {/* Toggle switch matching provided image (adds/removes only filtered items) */}
         <div className="flex items-center justify-between">
           {selectionFilter && (
@@ -782,9 +745,9 @@ const NetStock = () => {
                   {selectionFilter}:
                 </span>
                 <span className={`text-[12px] font-semibold ${selectionFilter === 'Minimum' ? 'text-[#E4572E]' :
-                    selectionFilter === 'Default' ? 'text-[#BF9853]' :
-                      selectionFilter === 'Excess' ? 'text-[#007233]' :
-                        'text-black'
+                  selectionFilter === 'Default' ? 'text-[#BF9853]' :
+                    selectionFilter === 'Excess' ? 'text-[#007233]' :
+                      'text-black'
                   }`}>
                   {filteredData.length}
                 </span>
@@ -848,88 +811,90 @@ const NetStock = () => {
             <p className="text-[14px] text-gray-500">No items found</p>
           </div>
         ) : (
-          <div className=" shadow-md">
+          <div>
             {filteredData.map((item) => {
               const isSelected = selectedCards.includes(item.id);
               return (
                 <div
                   key={item.id}
-                  onClick={() => {
-                    if (isSelected) {
-                      setSelectedCards(selectedCards.filter(id => id !== item.id));
-                      if (selectedCards.length === filteredData.length) {
-                        setSelectAll(false);
-                      }
-                    } else {
-                      setSelectedCards([...selectedCards, item.id]);
-                      if (selectedCards.length + 1 === filteredData.length) {
-                        setSelectAll(true);
-                      }
-                    }
-                  }}
-                  className={`bg-white border rounded-[8px] p-3 shadow-sm cursor-pointer relative ${isSelected ? 'border-[#007233]' : 'border-gray-200'
-                    }`}
-                  style={isSelected ? { borderWidth: '1px', borderColor: '#007233' } : {}}
+                  className={`relative overflow-hidden shadow-lg border bg-gray-50 rounded-[8px] h-[100px] ${isSelected ? 'border-[#007233] border-opacity-100' : 'border-[#E0E0E0] border-opacity-30'}`}
                 >
                   {/* Checkmark icon for selected cards */}
                   {isSelected && (
-                    <div className="absolute -top-2 -left-2 w-6 h-6 bg-[#007233] rounded-full flex items-center justify-center">
+                    <div className="absolute -top-1 -left-0.5 w-6 h-6 bg-[#007233] rounded-full flex items-center justify-center z-10">
                       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M11.6667 3.5L5.25 10.5L2.33334 7.58333" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
                   )}
-                  <div className="flex items-start justify-between">
-                    {/* Left side: Item details */}
-                    <div className="flex-1">
-                      {/* Item ID and Favorite */}
-                      <div className="flex items-center gap-1 mb-1">
-                        {item.isFavorite && (
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M6 1L7.545 4.13L11 4.635L8.5 7.07L9.09 10.5L6 8.885L2.91 10.5L3.5 7.07L1 4.635L4.455 4.13L6 1Z" fill="#EF4444" />
-                          </svg>
-                        )}
-                      </div>
-                      {/* Item Name */}
-                      <div className="mb-1 flex items-center justify-between">
-                        <p className="text-[13px] font-semibold text-black leading-tight">
-                          {item.itemName}
-                        </p>
-                        {item.status === 'Place Order' ? (
-                          <button className="bg-[#007233] text-white text-[11px] font-medium px-3 rounded-[4px]">
-                            Place Order
-                          </button>
-                        ) : (
-                          <div className="bg-[#f7f1c9] text-[#BF9853] text-[11px] font-medium px-3 rounded-[15px] ">
-                            Available
-                          </div>
-                        )}
-                      </div>
-                      {/* Model */}
-                      <div className="mb-1">
-                        <p className="text-[13px] font-semibold text-black leading-tight">
-                          {item.model ? `${item.model}` : ''}
-                        </p>
-                      </div>
-                      {/* Brand and Type */}
-                      <div className="mb-1 flex items-center justify-between">
-                        <p className="text-[12px] font-medium text-[#616161]">
-                          {item.brand && item.type ? `${item.brand}, ${item.type}` : item.brand || item.type || ''}
-                        </p>
-                        <p className="text-[11px] font-medium text-[#E4572E] pl-3">
-                          Net Stock : {String(item.netStock).padStart(2, '0')}
-                        </p>
+                  <div
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedCards(selectedCards.filter(id => id !== item.id));
+                        if (selectedCards.length === filteredData.length) {
+                          setSelectAll(false);
+                        }
+                      } else {
+                        setSelectedCards([...selectedCards, item.id]);
+                        if (selectedCards.length + 1 === filteredData.length) {
+                          setSelectAll(true);
+                        }
+                      }
+                    }}
+                    className="flex-1 bg-white rounded-[8px] h-full px-3 py-3 cursor-pointer transition-all duration-300 ease-out"
+                  >
+                    <div className="flex items-start justify-between">
+                      {/* Left side: Item details */}
+                      <div className="flex-1">
+                        {/* Item ID and Favorite */}
+                        <div className="flex items-center gap-1 mb-1">
+                          {item.isFavorite && (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M6 1L7.545 4.13L11 4.635L8.5 7.07L9.09 10.5L6 8.885L2.91 10.5L3.5 7.07L1 4.635L4.455 4.13L6 1Z" fill="#EF4444" />
+                            </svg>
+                          )}
+                        </div>
+                        {/* Item Name */}
+                        <div className="mb-1 flex items-center justify-between">
+                          <p className="text-[13px] font-semibold text-black leading-tight">
+                            {item.itemName}
+                          </p>
+                          {item.status === 'Place Order' ? (
+                            <button className="bg-[#007233] text-white text-[11px] font-medium px-3 rounded-[4px]">
+                              Place Order
+                            </button>
+                          ) : (
+                            <div className="bg-[#f7f1c9] text-[#BF9853] text-[11px] font-medium px-3 rounded-[15px] ">
+                              Available
+                            </div>
+                          )}
+                        </div>
+                        {/* Model */}
+                        <div className="mb-1">
+                          <p className="text-[13px] font-semibold text-black leading-tight">
+                            {item.model ? `${item.model}` : ''}
+                          </p>
+                        </div>
+                        {/* Brand and Type */}
+                        <div className="mb-1 flex items-center justify-between">
+                          <p className="text-[12px] font-medium text-[#616161]">
+                            {item.brand && item.type ? `${item.brand}, ${item.type}` : item.brand || item.type || ''}
+                          </p>
+                          <p className="text-[11px] font-medium text-[#E4572E] pl-3">
+                            Net Stock : {String(item.netStock).padStart(2, '0')}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {/* Default Qty and Min Qty - Same horizontal line */}
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-medium text-[#BF9853]">
-                      Default Qty : {item.defaultQty || '25'}
-                    </p>
-                    <p className="text-[11px] font-medium text-[#007233] text-right">
-                      Min Qty : {item.minQty || '5'}
-                    </p>
+                    {/* Default Qty and Min Qty - Same horizontal line */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-medium text-[#BF9853]">
+                        Default Qty : {item.defaultQty || '25'}
+                      </p>
+                      <p className="text-[11px] font-medium text-[#007233] text-right">
+                        Min Qty : {item.minQty || '5'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               );

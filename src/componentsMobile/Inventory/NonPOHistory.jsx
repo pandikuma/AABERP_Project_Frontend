@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
+import Edit from '../Images/edit1.png';
+import Delete from '../Images/delete.png';
 
-const NonPOHistory = () => {
+const NonPOHistory = ({ onTabChange }) => {
   const [nonPORecords, setNonPORecords] = useState([]);
   const [filteredRecords, setFilteredRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +25,10 @@ const NonPOHistory = () => {
   const [categoryOptionsStrings, setCategoryOptionsStrings] = useState([]);
   const [projectNameSearch, setProjectNameSearch] = useState('');
   const [stockingLocationSearch, setStockingLocationSearch] = useState('');
+  const [expandedItemId, setExpandedItemId] = useState(null);
+  const [swipeStates, setSwipeStates] = useState({});
+  const expandedItemIdRef = useRef(expandedItemId);
+  const cardRefs = useRef({});
 
   // Fetch vendor data
   useEffect(() => {
@@ -140,6 +146,9 @@ const NonPOHistory = () => {
           const totalQuantity = inventoryItems.reduce((sum, item) => {
             return sum + Math.abs(item.quantity || 0);
           }, 0);
+          const totalAmount = inventoryItems.reduce((sum, item) => {
+            return sum + Math.abs(item.amount || 0);
+          }, 0);
 
           // Format date
           const itemDate = record.date || record.created_at || record.createdAt;
@@ -165,6 +174,7 @@ const NonPOHistory = () => {
             stockingLocation,
             numberOfItems,
             totalQuantity,
+            totalAmount,
             formattedDate,
             formattedTime,
             isToday: formattedDate === new Date().toLocaleDateString('en-GB', {
@@ -230,11 +240,11 @@ const NonPOHistory = () => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!showFilterSheet) return;
-      
+
       const target = event.target;
       const isProjectNameDropdown = target.closest('[data-dropdown="projectName"]');
       const isStockingLocationDropdown = target.closest('[data-dropdown="stockingLocation"]');
-      
+
       if (projectNameOpen && !isProjectNameDropdown) {
         setProjectNameOpen(false);
       }
@@ -250,6 +260,266 @@ const NonPOHistory = () => {
       };
     }
   }, [projectNameOpen, stockingLocationOpen, showFilterSheet]);
+
+  // Update ref when expandedItemId changes
+  useEffect(() => {
+    expandedItemIdRef.current = expandedItemId;
+  }, [expandedItemId]);
+
+  // Swipe handlers
+  const minSwipeDistance = 50;
+
+  const handleTouchStart = (e, itemId) => {
+    const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
+    setSwipeStates(prev => ({
+      ...prev,
+      [itemId]: {
+        startX: touch.clientX,
+        currentX: touch.clientX,
+        isSwiping: false
+      }
+    }));
+  };
+
+  const handleTouchMove = (e, itemId) => {
+    const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
+    const state = swipeStates[itemId];
+    if (!state) return;
+    const deltaX = touch.clientX - state.startX;
+    const isExpanded = expandedItemIdRef.current === itemId;
+    if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+      setSwipeStates(prev => ({
+        ...prev,
+        [itemId]: {
+          ...prev[itemId],
+          currentX: touch.clientX,
+          isSwiping: true
+        }
+      }));
+    }
+  };
+
+  const handleTouchEnd = (itemId) => {
+    const state = swipeStates[itemId];
+    if (!state) return;
+    const deltaX = state.currentX - state.startX;
+    const absDeltaX = Math.abs(deltaX);
+    if (absDeltaX >= minSwipeDistance) {
+      if (deltaX < 0) {
+        setExpandedItemId(itemId);
+      } else {
+        setExpandedItemId(null);
+      }
+    }
+    setSwipeStates(prev => {
+      const newState = { ...prev };
+      delete newState[itemId];
+      return newState;
+    });
+  };
+
+  // Set up non-passive touch event listeners
+  useEffect(() => {
+    const cleanupFunctions = [];
+
+    Object.keys(cardRefs.current).forEach(itemId => {
+      const cardElement = cardRefs.current[itemId];
+      if (!cardElement) return;
+
+      const touchMoveHandler = (e) => {
+        const state = swipeStates[itemId];
+        if (!state) return;
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - state.startX;
+        const isExpanded = expandedItemIdRef.current === itemId;
+        if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+          e.preventDefault();
+        }
+      };
+
+      cardElement.addEventListener('touchmove', touchMoveHandler, { passive: false });
+
+      cleanupFunctions.push(() => {
+        cardElement.removeEventListener('touchmove', touchMoveHandler);
+      });
+    });
+
+    return () => {
+      cleanupFunctions.forEach(cleanup => cleanup());
+    };
+  }, [filteredRecords, swipeStates]);
+
+  // Global mouse handlers for desktop support
+  useEffect(() => {
+    if (filteredRecords.length === 0) return;
+
+    const globalMouseMoveHandler = (e) => {
+      setSwipeStates(prev => {
+        let hasChanges = false;
+        const newState = { ...prev };
+
+        filteredRecords.forEach(record => {
+          const state = prev[record.id || record._id];
+          if (!state) return;
+          const deltaX = e.clientX - state.startX;
+          const isExpanded = expandedItemIdRef.current === (record.id || record._id);
+          if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+            newState[record.id || record._id] = {
+              ...state,
+              currentX: e.clientX,
+              isSwiping: true
+            };
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? newState : prev;
+      });
+    };
+
+    const globalMouseUpHandler = () => {
+      setSwipeStates(prev => {
+        let hasChanges = false;
+        const newState = { ...prev };
+
+        filteredRecords.forEach(record => {
+          const state = prev[record.id || record._id];
+          if (!state) return;
+          const deltaX = state.currentX - state.startX;
+          const absDeltaX = Math.abs(deltaX);
+          if (absDeltaX >= minSwipeDistance) {
+            if (deltaX < 0) {
+              setExpandedItemId(record.id || record._id);
+            } else {
+              setExpandedItemId(null);
+            }
+          } else {
+            if (expandedItemIdRef.current === (record.id || record._id)) {
+              setExpandedItemId(null);
+            }
+          }
+          delete newState[record.id || record._id];
+          hasChanges = true;
+        });
+
+        return hasChanges ? newState : prev;
+      });
+    };
+
+    document.addEventListener('mousemove', globalMouseMoveHandler);
+    document.addEventListener('mouseup', globalMouseUpHandler);
+
+    return () => {
+      document.removeEventListener('mousemove', globalMouseMoveHandler);
+      document.removeEventListener('mouseup', globalMouseUpHandler);
+    };
+  }, [filteredRecords]);
+
+  // Handle edit
+  const handleEdit = async (record) => {
+    try {
+      let inventoryData = record;
+
+      // Check if inventoryItems are present
+      const hasInventoryItems = inventoryData?.inventoryItems || inventoryData?.inventory_items;
+
+      // If inventoryItems are missing, try to fetch them from the backend
+      if (!hasInventoryItems || (Array.isArray(inventoryData?.inventoryItems) && inventoryData.inventoryItems.length === 0) ||
+        (Array.isArray(inventoryData?.inventory_items) && inventoryData.inventory_items.length === 0)) {
+        if (inventoryData?.id) {
+          try {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${inventoryData.id}`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (response.ok) {
+              const detailedData = await response.json();
+              if (detailedData.inventoryItems || detailedData.inventory_items) {
+                const items = detailedData.inventoryItems || detailedData.inventory_items;
+                inventoryData = {
+                  ...inventoryData,
+                  inventoryItems: items,
+                  inventory_items: items
+                };
+              }
+            }
+          } catch (fetchError) {
+            console.error('Error fetching inventory details:', fetchError);
+          }
+        }
+      }
+
+      // Ensure inventoryItems are explicitly set
+      if (inventoryData?.inventoryItems || inventoryData?.inventory_items) {
+        const items = inventoryData.inventoryItems || inventoryData.inventory_items;
+        inventoryData = {
+          ...inventoryData,
+          inventoryItems: items,
+          inventory_items: items
+        };
+      }
+
+      // Mark as edit mode
+      inventoryData.isEditMode = true;
+
+      // Store inventory item data in localStorage
+      if (inventoryData) {
+        localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
+      }
+      // Dispatch custom event for incoming component to listen
+      window.dispatchEvent(new CustomEvent('editInventory', { detail: inventoryData }));
+      // Navigate to incoming tab for editing
+      if (onTabChange) {
+        onTabChange('incoming');
+      }
+      setExpandedItemId(null);
+    } catch (error) {
+      console.error('Error in handleEdit:', error);
+      const inventoryData = record;
+      inventoryData.isEditMode = true;
+      localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
+      window.dispatchEvent(new CustomEvent('editInventory', { detail: inventoryData }));
+      if (onTabChange) {
+        onTabChange('incoming');
+      }
+      setExpandedItemId(null);
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async (recordId) => {
+    if (!window.confirm('Are you sure you want to delete this record?')) {
+      setExpandedItemId(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/delete/${recordId}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Remove from local state
+        setNonPORecords(prev => prev.filter(record => (record.id || record._id) !== recordId));
+        alert('Record deleted successfully');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete record');
+      }
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      alert(`Error deleting record: ${error.message}`);
+    }
+    setExpandedItemId(null);
+  };
 
   // Handler for adding new category
   const handleAddNewCategory = async (newCategory) => {
@@ -324,76 +594,239 @@ const NonPOHistory = () => {
 
       {/* Filter Button */}
       <div className="flex-shrink-0 px-4 pb-3">
-        <button
-          onClick={() => setShowFilterSheet(true)}
-          type="button"
-          className="flex items-center gap-2 text-[14px] font-medium text-gray-700"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 4H14M4 8H12M6 12H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          Filter
-        </button>
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={() => setShowFilterSheet(true)}
+            type="button"
+            className="flex items-center gap-2 text-[14px] font-medium text-gray-700 flex-shrink-0"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Top horizontal line */}
+              <line x1="2" y1="5" x2="16" y2="5" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" />
+              {/* Top vertical line intersecting center */}
+              <line x1="9" y1="3" x2="9" y2="7" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" />
+              {/* Top arrows pointing left and right */}
+              <path d="M7 4L9 5L11 4" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M7 6L9 5L11 6" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              {/* Bottom horizontal line */}
+              <line x1="2" y1="13" x2="16" y2="13" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" />
+              {/* Bottom vertical line intersecting center */}
+              <line x1="9" y1="11" x2="9" y2="15" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" />
+              {/* Bottom arrows pointing left and right */}
+              <path d="M7 12L9 13L11 12" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M7 14L9 13L11 14" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+            {!(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) && (
+              <span className="text-[12px] font-medium text-black">Filter</span>
+            )}
+          </button>
+          {/* Active Filter Tags - Next to Filter button */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) && (
+              <div className="flex items-center gap-2 flex-nowrap">
+                {filterData.projectName && (
+                  <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Project</span>
+                    <button
+                      onClick={() => setFilterData({ ...filterData, projectName: '' })}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {filterData.stockingLocation && (
+                  <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Location</span>
+                    <button
+                      onClick={() => setFilterData({ ...filterData, stockingLocation: '' })}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {filterData.date && (
+                  <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Date</span>
+                    <button
+                      onClick={() => setFilterData({ ...filterData, date: '' })}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {filterData.entryNo && (
+                  <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Entry.No</span>
+                    <button
+                      onClick={() => setFilterData({ ...filterData, entryNo: '' })}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {filterData.category && (
+                  <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Category</span>
+                    <button
+                      onClick={() => setFilterData({ ...filterData, category: '' })}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Records List */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4 scrollbar-hide no-scrollbar scrollbar-none">
+      <div className="flex-1 overflow-y-auto px-4 scrollbar-hide no-scrollbar scrollbar-none">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-">
             <p className="text-gray-500">Loading...</p>
           </div>
         ) : filteredRecords.length === 0 ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-">
             <p className="text-gray-500">No non-PO records found</p>
           </div>
         ) : (
-          <div className="">
-            {filteredRecords.map((record) => (
-              <div
-                key={record.id || record._id}
-                className="bg-white border-2 shadow-md border-gray-200 rounded-lg p-4"
-              >
-                <div className=" justify-between items-start">
-                  {/* Left Side */}
-                  <div className="flex items-center justify-between mb-1">
-                    <div>
-                      <span className="text-[12px] font-semibold text-black">
-                        #{record.entryNumber}
-                      </span>
-                      <span className="text-[12px] font-semibold text-black">
-                        , {record.vendorName}
-                      </span>
-                    </div>
-                    <p className="text-[12px] text-gray-600 mb-1">
-                      No. of Items - {record.numberOfItems}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-gray-600 mb-1">
-                      {record.stockingLocation}
-                    </p>
-                  </div>
-                  <div>
+          <div>
+            {filteredRecords.map((record) => {
+              const recordId = record.id || record._id;
+              const isExpanded = expandedItemId === recordId;
+              const swipeState = swipeStates[recordId];
+              let swipeOffset = 0;
+              if (swipeState && swipeState.isSwiping) {
+                const deltaX = swipeState.currentX - swipeState.startX;
+                if (deltaX < 0) {
+                  swipeOffset = Math.max(-110, Math.min(0, deltaX));
+                } else {
+                  swipeOffset = Math.min(0, Math.max(0, deltaX));
+                }
+              } else if (isExpanded) {
+                swipeOffset = -110;
+              } else {
+                swipeOffset = 0;
+              }
 
+              return (
+                <div key={recordId} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-gray-50 rounded-[8px] h-[100px]">
+                  {/* History Card */}
+                  <div
+                    ref={(el) => {
+                      if (el) {
+                        cardRefs.current[recordId] = el;
+                      } else {
+                        delete cardRefs.current[recordId];
+                      }
+                    }}
+                    className="flex-1 bg-white rounded-[8px] h-full px-3 py-3 transition-all duration-300 ease-out"
+                    style={{
+                      transform: `translateX(${swipeOffset}px)`,
+                      touchAction: 'pan-y',
+                      userSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto',
+                      WebkitUserSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto',
+                      MozUserSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto',
+                      msUserSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto'
+                    }}
+                    onTouchStart={(e) => handleTouchStart(e, recordId)}
+                    onTouchMove={(e) => handleTouchMove(e, recordId)}
+                    onTouchEnd={() => handleTouchEnd(recordId)}
+                    onMouseDown={(e) => handleTouchStart(e, recordId)}
+                  >
+                    <div className=" justify-between items-start">
+                      {/* Left Side */}
+                      <div className="flex items-center justify-between mb-1">
+                        <div>
+                          <span className="text-[12px] font-semibold text-black">
+                            #{record.entryNumber}
+                          </span>
+                          <span className="text-[12px] font-semibold text-black">
+                            , {record.vendorName}
+                          </span>
+                        </div>
+                        <p className="text-[12px] text-gray-600 mb-1">
+                          No. of Items - {record.numberOfItems}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[12px] text-gray-600 mb-1">
+                          {record.stockingLocation}
+                        </p>
+                        <p className="text-[12px] font-semibold text-[#BF9853]">
+                          Quantity - {record.totalQuantity}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[12px] text-gray-500">
+                          {record.created_date_time && new Date(record.created_date_time).toLocaleString('en-GB', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </p>
+                        <p className="text-[12px] font-semibold text-black">
+                          ₹{record.totalAmount?.toLocaleString('en-IN') || '0'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[12px] text-gray-500">
-                      {record.created_date_time && new Date(record.created_date_time).toLocaleString('en-GB', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                      })}
-                    </p>
-                    <p className="text-[12px] font-semibold text-[#BF9853]">
-                      Quantity - {record.totalQuantity}
-                    </p>
+
+                  {/* Action Buttons - Behind the card on the right, revealed on swipe */}
+                  <div
+                    className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
+                    style={{
+                      opacity: isExpanded || (swipeState && swipeState.isSwiping && swipeOffset < -20) ? 1 : 0,
+                      transform: swipeOffset < 0
+                        ? `translateX(${Math.max(0, 110 + swipeOffset)}px)`
+                        : 'translateX(110px)',
+                      transition: 'opacity 0.2s ease-out',
+                      pointerEvents: isExpanded ? 'auto' : 'none'
+                    }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(record);
+                      }}
+                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+                      title="Edit"
+                    >
+                      <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(recordId);
+                      }}
+                      className="action-button w-[48px] h-[95px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+                      title="Delete"
+                    >
+                      <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -411,35 +844,27 @@ const NonPOHistory = () => {
           <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-[360px] bg-white rounded-t-[20px] z-50 shadow-lg">
             {/* Header */}
             <div className="flex-shrink-0">
-              <div className='flex justify-end mr-4 mt-1'>
-                <button
-                    onClick={() => setShowFilterSheet(false)}
-                    className="text-red-500 hover:text-red-700 text-xl font-bold"
-                  >
-                    ✕
-                  </button>
-              </div>
-              <div className="flex justify-between items-center px-6">
-              <h2 className="text-lg font-semibold text-gray-800">
-                Select Filters
-              </h2>
+              <div className="flex justify-between items-center px-6 mt-3">
+                <h2 className="text-md font-semibold">
+                  Select Filters
+                </h2>
 
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setShowCategoryModal(true)}
-                  className="text-[16px] font-semibold text-black underline decoration-solid"
-                  style={{ textUnderlinePosition: 'from-font' }}
-                >
-                  {filterData.category || 'Category'}
-                </button>
-              </div>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setShowCategoryModal(true)}
+                    className="text-[16px] font-semibold text-black decoration-solid"
+                    style={{ textUnderlinePosition: 'from-font' }}
+                  >
+                    {filterData.category || 'Category'}
+                  </button>
+                </div>
               </div>
             </div>
             {/* Filter Form */}
-            <div className="px-6 py-4 space-y-5 overflow-y-hidden overflow-x-hidden flex-1" style={{ maxHeight: 'calc(80vh - 140px)' }}>
+            <div className="px-6 py-4 space-y-1 overflow-y-hidden overflow-x-hidden flex-1" style={{ maxHeight: 'calc(80vh - 140px)' }}>
               {/* Project Name */}
               <div className="relative" data-dropdown="projectName">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-0.5">
                   Project Name
                 </label>
                 <div className="relative">
@@ -459,9 +884,26 @@ const NonPOHistory = () => {
                         setProjectNameSearch('');
                       }
                     }}
-                    className="w-full h-[40px] px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white pr-10"
+                    className="w-full h-[32px] px-3 border border-gray-300 rounded-[8px] focus:outline-none text-black focus:border-gray-400 bg-white placeholder:text-[12px]"
+                    style={{ paddingRight: filterData.projectName ? '60px' : '40px' }}
                   />
-                  <svg 
+                  {filterData.projectName && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFilterData({ ...filterData, projectName: '' });
+                        setProjectNameOpen(false);
+                        setProjectNameSearch('');
+                      }}
+                      className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  )}
+                  <svg
                     onClick={(e) => {
                       e.stopPropagation();
                       setProjectNameOpen(!projectNameOpen);
@@ -469,15 +911,15 @@ const NonPOHistory = () => {
                         setProjectNameSearch('');
                       }
                     }}
-                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 cursor-pointer transition-transform ${projectNameOpen ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    stroke="currentColor" 
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 cursor-pointer transition-transform ${projectNameOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                   {projectNameOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-hidden">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 shadow-lg max-h-48 overflow-hidden">
                       <div className="overflow-y-auto max-h-48">
                         <button
                           type="button"
@@ -486,12 +928,12 @@ const NonPOHistory = () => {
                             setProjectNameOpen(false);
                             setProjectNameSearch('');
                           }}
-                          className={`w-full h-[40px] px-4 py-2 text-left text-sm hover:bg-gray-100 ${!filterData.projectName ? 'bg-gray-100' : ''}`}
+                          className={`w-full h-[34px] px-4 py-2 text-left text-sm hover:bg-gray-100 ${!filterData.projectName ? 'bg-gray-100' : ''}`}
                         >
                           Select Project
                         </button>
                         {siteData
-                          .filter(site => 
+                          .filter(site =>
                             site.siteName?.toLowerCase().includes(projectNameSearch.toLowerCase())
                           )
                           .map((site) => (
@@ -516,7 +958,7 @@ const NonPOHistory = () => {
 
               {/* Stocking Location */}
               <div className="relative" data-dropdown="stockingLocation">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-0.5 mt-2">
                   Stocking Location
                 </label>
                 <div className="relative">
@@ -536,9 +978,26 @@ const NonPOHistory = () => {
                         setStockingLocationSearch('');
                       }
                     }}
-                    className="w-full h-[40px] px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white pr-10"
+                    className="w-full h-[32px] px-4 py-2 border border-gray-300 rounded-[8px] text-black focus:outline-none focus:border-gray-400 bg-white placeholder:text-[12px]"
+                    style={{ paddingRight: filterData.stockingLocation ? '60px' : '40px' }}
                   />
-                  <svg 
+                  {filterData.stockingLocation && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFilterData({ ...filterData, stockingLocation: '' });
+                        setStockingLocationOpen(false);
+                        setStockingLocationSearch('');
+                      }}
+                      className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  )}
+                  <svg
                     onClick={(e) => {
                       e.stopPropagation();
                       setStockingLocationOpen(!stockingLocationOpen);
@@ -546,15 +1005,15 @@ const NonPOHistory = () => {
                         setStockingLocationSearch('');
                       }
                     }}
-                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 cursor-pointer transition-transform ${stockingLocationOpen ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    stroke="currentColor" 
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 cursor-pointer transition-transform ${stockingLocationOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                   {stockingLocationOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg overflow-hidden" style={{ maxHeight: '200px', bottom: 'auto', top: '100%' }}>
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 shadow-lg overflow-hidden" style={{ maxHeight: '200px', bottom: 'auto', top: '100%' }}>
                       <div className="overflow-y-auto" style={{ maxHeight: '100px' }}>
                         <button
                           type="button"
@@ -568,7 +1027,7 @@ const NonPOHistory = () => {
                           AA Stock Room A
                         </button>
                         {siteData
-                          .filter(site => 
+                          .filter(site =>
                             site.siteName?.toLowerCase().includes(stockingLocationSearch.toLowerCase())
                           )
                           .map((site) => (
@@ -592,20 +1051,20 @@ const NonPOHistory = () => {
               </div>
 
               {/* Date and Entry No */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="grid grid-cols-2 gap-4" style={{ overflow: 'visible' }}>
+                <div className="relative">
+                  <label className="block text-sm font-medium mb-0.5 mt-2">
                     Date
                   </label>
                   <input
                     type="date"
                     value={filterData.date}
                     onChange={(e) => setFilterData({ ...filterData, date: e.target.value })}
-                    className="w-full h-[40px] px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white"
+                    className="w-full h-[32px] px-4 py-2 border border-gray-300 rounded-[8px] text-black focus:outline-none focus:border-gray-400 bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-0.5 mt-2">
                     Entry.No
                   </label>
                   <input
@@ -613,14 +1072,14 @@ const NonPOHistory = () => {
                     placeholder="Enter"
                     value={filterData.entryNo}
                     onChange={(e) => setFilterData({ ...filterData, entryNo: e.target.value })}
-                    className="w-full h-[40px] px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:border-gray-400 bg-white"
+                    className="w-full h-[32px] px-4 py-2 border border-gray-300 rounded-[8px] text-black focus:outline-none focus:border-gray-400 bg-white placeholder:text-[12px]"
                   />
                 </div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex-shrink-0 flex gap-3 px-6 py-4 border-t border-gray-200">
+            <div className="flex-shrink-0 flex gap-3 px-6 py-4">
               <button
                 onClick={() => setShowFilterSheet(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
