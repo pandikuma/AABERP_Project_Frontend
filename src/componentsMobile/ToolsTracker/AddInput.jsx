@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import SearchableDropdown from '../PurchaseOrder/SearchableDropdown';
 import SelectLocatorsModal from '../Inventory/SelectLocatorsModal';
+import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 
 const AddInput = ({ user }) => {
   const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
@@ -33,11 +34,12 @@ const AddInput = ({ user }) => {
   const [toolsBrandFullData, setToolsBrandFullData] = useState([]); // Full brand objects with id and tools_brand
   const [toolsItemIdFullData, setToolsItemIdFullData] = useState([]); // Full item ID objects with id and item_id
   const [purchaseStoreFullData, setPurchaseStoreFullData] = useState([]); // Full vendor objects with id and vendorName
+  const [homeLocationFullData, setHomeLocationFullData] = useState([]); // Full project objects with id, siteName, and branch
   const [stockManagementData, setStockManagementData] = useState([]); // For checking item_ids_id usage
   const [addSheetForm, setAddSheetForm] = useState({
     itemName: '',
     itemNameId: null, // Store the ID
-    quantity: '0',
+    quantity: '',
     itemId: '',
     itemIdDbId: null, // Store the database ID of item_id
     model: '',
@@ -49,40 +51,37 @@ const AddInput = ({ user }) => {
     contact: '',
     purchaseStore: '',
     purchaseStoreId: null, // Store the ID
+    homeLocation: '',
+    homeLocationId: null, // Store the ID
     shopAddress: ''
   });
   const [purchaseStoreOptions, setPurchaseStoreOptions] = useState([]); // Vendors with makeAsServiceShop === true
+  const [homeLocationOptions, setHomeLocationOptions] = useState([]); // Project names from project_Names API
   const [showNewItemIdInput, setShowNewItemIdInput] = useState(false);
-  const [newItemIdValue, setNewItemIdValue] = useState('');  
-  // Get list of Item IDs that are already assigned to a machine (and tool_status is not "Dead")
+  const [newItemIdValue, setNewItemIdValue] = useState('');
   const usedItemIds = React.useMemo(() => {
     const usedIds = new Set();
     stockManagementData.forEach(item => {
       const itemIdId = item?.item_ids_id ?? item?.itemIdsId;
       const machineNum = item?.machine_number ?? item?.machineNumber;
-      const toolStatus = (item?.tool_status ?? item?.toolStatus)?.toLowerCase();      
+      const toolStatus = (item?.tool_status ?? item?.toolStatus)?.toLowerCase();
       if (itemIdId && machineNum && toolStatus !== 'dead') {
         usedIds.add(String(itemIdId));
       }
     });
     return usedIds;
-  }, [stockManagementData]);  
-  // Filter out used Item IDs from the dropdown options
+  }, [stockManagementData]);
   const sheetItemIdOptions = React.useMemo(() => {
     return apiItemIdOptions.filter(itemIdName => {
-      // Find the database ID for this item ID name
       const itemIdObj = toolsItemIdFullData.find(
         item => (item?.item_id?.trim() ?? item?.itemId?.trim()) === itemIdName
       );
-      const dbId = itemIdObj?.id;      
-      // If we can't find the DB ID, keep it in the list (safe default)
-      if (!dbId) return true;      
-      // Filter out if this ID is already used
+      const dbId = itemIdObj?.id;
+      if (!dbId) return true;
       return !usedItemIds.has(String(dbId));
     });
   }, [apiItemIdOptions, toolsItemIdFullData, usedItemIds]);
   const [tableData, setTableData] = useState([]);
-  // Fetch item names
   useEffect(() => {
     const fetchItemNames = async () => {
       try {
@@ -105,7 +104,6 @@ const AddInput = ({ user }) => {
     };
     fetchItemNames();
   }, []);
-  // When item name changes, derive details/options from tools_item_name data
   useEffect(() => {
     if (!selectedItemName) {
       setCurrentToolsItemNameList(null);
@@ -132,12 +130,10 @@ const AddInput = ({ user }) => {
     setTableData(mappedTable);
     const idsFromDetails = details
       .map(d => d?.item_ids_id ?? d?.itemIdsId)
-      .filter(Boolean);    
-    // Merge with API-fetched item IDs
+      .filter(Boolean);
     const allIds = Array.from(new Set([...apiItemIdOptions, ...idsFromDetails]));
     setItemIdOptions(allIds);
   }, [selectedItemName, toolsItemNameListData, apiItemIdOptions]);
-  // Fetch brands
   useEffect(() => {
     const fetchBrands = async () => {
       try {
@@ -148,7 +144,6 @@ const AddInput = ({ user }) => {
         });
         if (response.ok) {
           const data = await response.json();
-          // Store full brand data with IDs
           setToolsBrandFullData(Array.isArray(data) ? data : []);
           const brandOpts = (Array.isArray(data) ? data : [])
             .map(b => b?.tools_brand?.trim() ?? b?.toolsBrand?.trim())
@@ -161,7 +156,6 @@ const AddInput = ({ user }) => {
     };
     fetchBrands();
   }, []);
-  // Fetch item IDs from API
   useEffect(() => {
     const fetchItemIds = async () => {
       try {
@@ -172,12 +166,10 @@ const AddInput = ({ user }) => {
         });
         if (response.ok) {
           const data = await response.json();
-          // Store full item ID data with IDs
           setToolsItemIdFullData(Array.isArray(data) ? data : []);
           const itemIdOpts = (Array.isArray(data) ? data : [])
             .map(item => item?.item_id?.trim() ?? item?.itemId?.trim())
             .filter(item => item)
-            // Filter out purely numeric values (these are likely database IDs, not actual item IDs)
             .filter(item => !/^\d+$/.test(item));
           setApiItemIdOptions(itemIdOpts);
         }
@@ -186,8 +178,7 @@ const AddInput = ({ user }) => {
       }
     };
     fetchItemIds();
-  }, []);  
-  // Fetch stock management data to check item_ids_id usage
+  }, []);
   useEffect(() => {
     const fetchStockManagement = async () => {
       try {
@@ -206,19 +197,14 @@ const AddInput = ({ user }) => {
     };
     fetchStockManagement();
   }, []);
-  // Fetch item IDs when item name or brand is selected
   useEffect(() => {
-    // Item IDs are derived from selected item name (see effect above).
-    // When no item name is selected, show only API-fetched item IDs
     if (!selectedItemName) {
       setItemIdOptions(apiItemIdOptions);
     }
   }, [selectedItemName, selectedBrand, apiItemIdOptions]);
-  // Fetch vendor names
   useEffect(() => {
     fetchVendorNames();
   }, []);
-  // Fetch service store vendors (vendors with makeAsServiceShop === true) for Purchase Store dropdown
   useEffect(() => {
     const fetchServiceStoreVendors = async () => {
       try {
@@ -231,7 +217,6 @@ const AddInput = ({ user }) => {
         });
         if (response.ok) {
           const data = await response.json();
-          // Filter only vendors with makeAsServiceShop === true and store full data
           const serviceStoreVendorsData = data.filter(vendor => vendor.makeAsServiceShop === true);
           setPurchaseStoreFullData(serviceStoreVendorsData);
           const serviceStoreVendorNames = serviceStoreVendorsData
@@ -247,6 +232,32 @@ const AddInput = ({ user }) => {
     };
     fetchServiceStoreVendors();
   }, []);
+  useEffect(() => {
+    const fetchHomeLocations = async () => {
+      try {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setHomeLocationFullData(data);
+          const homeLocationNames = data
+            .map(item => item.siteName)
+            .filter(Boolean);
+          setHomeLocationOptions(homeLocationNames);
+        } else {
+          console.log('Error fetching home locations.');
+        }
+      } catch (error) {
+        console.error('Error fetching home locations:', error);
+      }
+    };
+    fetchHomeLocations();
+  }, []);
   const fetchVendorNames = async () => {
     try {
       const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll', {
@@ -258,7 +269,6 @@ const AddInput = ({ user }) => {
       });
       if (response.ok) {
         const data = await response.json();
-        // Store full vendor data
         setAllVendorData(data);
         const formattedData = data.map(item => ({
           value: item.vendorName,
@@ -266,14 +276,12 @@ const AddInput = ({ user }) => {
           id: item.id,
           makeAsServiceShop: item.makeAsServiceShop || false,
         }));
-        // Sort vendors: makeAsServiceShop === true first, then alphabetically
         const sortedVendors = formattedData.sort((a, b) => {
           if (a.makeAsServiceShop && !b.makeAsServiceShop) return -1;
           if (!a.makeAsServiceShop && b.makeAsServiceShop) return 1;
           return (a.label || a.value || '').localeCompare(b.label || b.value || '');
         });
         setVendorOptions(sortedVendors);
-        // Extract vendor names as strings for the modal (already sorted)
         const vendorNames = sortedVendors.map(item => item.label || item.value).filter(Boolean);
         setVendorNameOptions(vendorNames);
       } else {
@@ -283,21 +291,18 @@ const AddInput = ({ user }) => {
       console.error('Error:', error);
     }
   };
-  // Initialize selectedVendors from vendors that are already marked as service shops
   useEffect(() => {
     if (vendorOptions.length > 0 && previousSelectedVendors.length === 0 && selectedVendors.length === 0) {
       const initialSelected = vendorOptions
         .filter(vendor => vendor.makeAsServiceShop === true)
         .map(vendor => vendor.value)
         .filter(Boolean);
-      // Always set previousSelectedVendors, even if empty, so comparison works correctly
       setPreviousSelectedVendors(initialSelected);
       if (initialSelected.length > 0) {
         setSelectedVendors(initialSelected);
       }
     }
   }, [vendorOptions]);
-  // Refresh vendor data from API
   const refreshVendorData = async () => {
     try {
       const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll', {
@@ -316,14 +321,12 @@ const AddInput = ({ user }) => {
           id: item.id,
           makeAsServiceShop: item.makeAsServiceShop || false,
         }));
-        // Sort vendors: makeAsServiceShop === true first, then alphabetically
         const sortedVendors = formattedData.sort((a, b) => {
           if (a.makeAsServiceShop && !b.makeAsServiceShop) return -1;
           if (!a.makeAsServiceShop && b.makeAsServiceShop) return 1;
           return (a.label || a.value || '').localeCompare(b.label || b.value || '');
         });
         setVendorOptions(sortedVendors);
-        // Extract vendor names as strings for the modal (already sorted)
         const vendorNames = sortedVendors.map(item => item.label || item.value).filter(Boolean);
         setVendorNameOptions(vendorNames);
       }
@@ -331,16 +334,13 @@ const AddInput = ({ user }) => {
       console.error("Error refreshing vendor data: ", error);
     }
   };
-  // Update service shop status when vendors are selected/deselected
   const updateServiceShopStatus = async (newSelectedVendors) => {
     try {
-      // Process all vendors - update based on whether they're in the new selection
       const updatePromises = [];
       for (const vendor of vendorOptions) {
         if (vendor.id && vendor.value) {
           const shouldBeSelected = newSelectedVendors.includes(vendor.value);
           const wasSelected = previousSelectedVendors.includes(vendor.value);
-          // Only update if the status needs to change
           if (shouldBeSelected !== wasSelected) {
             const url = `https://backendaab.in/aabuilderDash/api/vendor_Names/${vendor.id}/make-store?makeAsServiceStore=${shouldBeSelected}`;
             const updatePromise = fetch(url, {
@@ -366,11 +366,8 @@ const AddInput = ({ user }) => {
           }
         }
       }
-      // Wait for all updates to complete
       await Promise.all(updatePromises);
-      // Update previous selection for next comparison
       setPreviousSelectedVendors(newSelectedVendors);
-      // Refresh vendor data to get updated makeAsServiceShop values
       await refreshVendorData();
     } catch (error) {
       console.error('Error updating service shop status:', error);
@@ -378,6 +375,8 @@ const AddInput = ({ user }) => {
   };
   const [sheetOpenPicker, setSheetOpenPicker] = useState(null);
   const [sheetPickerSearch, setSheetPickerSearch] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerField, setDatePickerField] = useState(null); // 'purchaseDate' or 'warrantyDate'
   const handleAddNew = () => {
     setShowAddNewSheet(true);
   };
@@ -385,9 +384,10 @@ const AddInput = ({ user }) => {
     setShowAddNewSheet(false);
     setSheetOpenPicker(null);
     setSheetPickerSearch('');
+    setShowDatePicker(false);
+    setDatePickerField(null);
     setSelectedFile(null);
     setFileUrl('');
-    // Reset form to initial state
     setAddSheetForm({
       itemName: '',
       itemNameId: null,
@@ -403,14 +403,16 @@ const AddInput = ({ user }) => {
       contact: '',
       purchaseStore: '',
       purchaseStoreId: null,
+      homeLocation: '',
+      homeLocationId: null,
       shopAddress: ''
     });
   };
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (!file) return;    
+    if (!file) return;
     setSelectedFile(file);
-    setIsUploading(true);    
+    setIsUploading(true);
     try {
       const formData = new FormData();
       const now = new Date();
@@ -425,16 +427,16 @@ const AddInput = ({ user }) => {
         .replace(",", "")
         .replace(/\s/g, "-");
       const itemName = addSheetForm.itemName || selectedItemName || 'Tool';
-      const finalName = `${timestamp} ${itemName} ${addSheetForm.machineNumber || ''}`.trim();      
+      const finalName = `${timestamp} ${itemName} ${addSheetForm.machineNumber || ''}`.trim();
       formData.append('file', file);
-      formData.append('file_name', finalName);      
+      formData.append('file_name', finalName);
       const uploadResponse = await fetch(GOOGLE_UPLOAD_URL, {
         method: "POST",
         body: formData,
-      });      
+      });
       if (!uploadResponse.ok) {
         throw new Error('File upload failed');
-      }      
+      }
       const uploadResult = await uploadResponse.json();
       setFileUrl(uploadResult.url);
     } catch (error) {
@@ -444,15 +446,13 @@ const AddInput = ({ user }) => {
       setFileUrl('');
     } finally {
       setIsUploading(false);
-    }    
+    }
     e.target.value = '';
   };
   const handleAddSheetFieldChange = (field, value) => {
     setAddSheetForm(prev => {
-      const updated = { ...prev, [field]: value };      
-      // Mutual exclusivity: Item ID and Quantity
+      const updated = { ...prev, [field]: value };
       if (field === 'itemId' && value) {
-        // If Item ID is selected, clear Quantity and find the database ID
         updated.quantity = '0';
         const itemIdObj = toolsItemIdFullData.find(
           item => (item?.item_id?.trim() ?? item?.itemId?.trim()) === value
@@ -461,11 +461,9 @@ const AddInput = ({ user }) => {
       } else if (field === 'itemId' && !value) {
         updated.itemIdDbId = null;
       } else if (field === 'quantity' && value && value !== '0' && value.trim() !== '') {
-        // If Quantity is entered (and not empty/zero), clear Item ID
         updated.itemId = '';
         updated.itemIdDbId = null;
-      }      
-      // Store IDs for dropdown selections
+      }
       if (field === 'itemName' && value) {
         const itemNameObj = toolsItemNameListData.find(
           item => (item?.item_name ?? item?.itemName) === value
@@ -473,7 +471,7 @@ const AddInput = ({ user }) => {
         updated.itemNameId = itemNameObj?.id ?? null;
       } else if (field === 'itemName' && !value) {
         updated.itemNameId = null;
-      }      
+      }
       if (field === 'brand' && value) {
         const brandObj = toolsBrandFullData.find(
           b => (b?.tools_brand?.trim() ?? b?.toolsBrand?.trim()) === value
@@ -481,7 +479,7 @@ const AddInput = ({ user }) => {
         updated.brandId = brandObj?.id ?? null;
       } else if (field === 'brand' && !value) {
         updated.brandId = null;
-      }      
+      }
       if (field === 'purchaseStore' && value) {
         const storeObj = purchaseStoreFullData.find(
           v => v?.vendorName === value
@@ -489,37 +487,52 @@ const AddInput = ({ user }) => {
         updated.purchaseStoreId = storeObj?.id ?? null;
       } else if (field === 'purchaseStore' && !value) {
         updated.purchaseStoreId = null;
-      }      
+      }
+      if (field === 'homeLocation' && value) {
+        const locationObj = homeLocationFullData.find(
+          item => item?.siteName === value
+        );
+        updated.homeLocationId = locationObj?.id ?? null;
+      } else if (field === 'homeLocation' && !value) {
+        updated.homeLocationId = null;
+      }
       return updated;
     });
   };
   const toLocalDateTimeString = (date) => {
-    // LocalDateTime expects: yyyy-MM-ddTHH:mm:ss (no timezone suffix)
-    return date.toISOString().slice(0, 19);
-  };  
-  // Check if item_ids_id is already in use with a machine_number (unless tool_status is "Dead")
-  // This checks in tools_tracker_item_stock_management table
+    // Convert to Indian Standard Time (IST = UTC+5:30)
+    const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    const istDate = new Date(date.getTime() + istOffset);
+    
+    // Format as YYYY-MM-DDTHH:mm:ss (ISO-8601 format for Java LocalDateTime)
+    const year = istDate.getUTCFullYear();
+    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(istDate.getUTCDate()).padStart(2, '0');
+    const hours = String(istDate.getUTCHours()).padStart(2, '0');
+    const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(istDate.getUTCSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  };
   const isItemIdInUseWithMachine = (itemIdDbId, itemIdName) => {
-    if (!itemIdDbId && !itemIdName) return { inUse: false, machineNumber: null };    
-    // Check in stock management data - the item_ids_id in this table stores the database ID
+    if (!itemIdDbId && !itemIdName) return { inUse: false, machineNumber: null };
     const foundInStockManagement = stockManagementData.find(item => {
       const storedItemIdId = item?.item_ids_id ?? item?.itemIdsId;
       const machineNum = item?.machine_number ?? item?.machineNumber;
-      const toolStatus = (item?.tool_status ?? item?.toolStatus)?.toLowerCase();      
-      // Check if the item_ids_id matches (either by DB ID or by name) and has a machine number
-      const idMatches = itemIdDbId 
+      const toolStatus = (item?.tool_status ?? item?.toolStatus)?.toLowerCase();
+      const idMatches = itemIdDbId
         ? String(storedItemIdId) === String(itemIdDbId)
-        : String(storedItemIdId) === String(itemIdName);      
+        : String(storedItemIdId) === String(itemIdName);
       return idMatches && machineNum && toolStatus !== 'dead';
-    });    
+    });
     if (foundInStockManagement) {
-      return { 
-        inUse: true, 
-        machineNumber: foundInStockManagement?.machine_number ?? foundInStockManagement?.machineNumber 
+      return {
+        inUse: true,
+        machineNumber: foundInStockManagement?.machine_number ?? foundInStockManagement?.machineNumber
       };
-    }    
+    }
     return { inUse: false, machineNumber: null };
-  };  
+  };
   const buildNewToolDetail = () => ({
     timestamp: toLocalDateTimeString(new Date()),
     item_ids_id: addSheetForm.itemIdDbId ? String(addSheetForm.itemIdDbId) : null,
@@ -528,19 +541,16 @@ const AddInput = ({ user }) => {
     machine_number: (addSheetForm.machineNumber || '').trim() || null,
     tool_status: 'Available'
   });
-  // Handler for when user adds a new item name via dropdown
   const handleAddNewItemName = async (newItemName) => {
     if (!newItemName || !newItemName.trim()) {
       return;
     }
     const trimmedName = newItemName.trim();
-    // Check if item name already exists
     if (itemNameOptions.some(name => name.toLowerCase() === trimmedName.toLowerCase())) {
       setSelectedItemName(trimmedName);
       return;
     }
     try {
-      // Save new item name to API (with empty tools_details array)
       const payload = {
         category_id: selectedCategory ?? null,
         item_name: trimmedName,
@@ -555,7 +565,6 @@ const AddInput = ({ user }) => {
       if (!res.ok) {
         throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
       }
-      // Refresh item names list
       const refreshed = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
@@ -568,7 +577,6 @@ const AddInput = ({ user }) => {
           .map(item => item?.item_name ?? item?.itemName)
           .filter(Boolean);
         setItemNameOptions(Array.from(new Set(names)));
-        // Set the newly created item name as selected
         setSelectedItemName(trimmedName);
       }
     } catch (e) {
@@ -576,19 +584,16 @@ const AddInput = ({ user }) => {
       alert('Failed to save new Item Name. Please try again.');
     }
   };
-  // Handler for when user adds a new brand via dropdown
   const handleAddNewBrand = async (newBrand) => {
     if (!newBrand || !newBrand.trim()) {
       return;
     }
-    const trimmedBrand = newBrand.trim();    
-    // Check if brand already exists
+    const trimmedBrand = newBrand.trim();
     if (brandOptions.some(b => b.toLowerCase() === trimmedBrand.toLowerCase())) {
       setSelectedBrand(trimmedBrand);
       return;
     }
     try {
-      // Save new brand to API
       const payload = {
         tools_brand: trimmedBrand
       };
@@ -601,7 +606,6 @@ const AddInput = ({ user }) => {
       if (!res.ok) {
         throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
       }
-      // Refresh brands list
       const refreshed = await fetch(`${TOOLS_BRAND_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
@@ -609,13 +613,11 @@ const AddInput = ({ user }) => {
       });
       if (refreshed.ok) {
         const data = await refreshed.json();
-        // Store full brand data with IDs
         setToolsBrandFullData(Array.isArray(data) ? data : []);
         const brandOpts = (Array.isArray(data) ? data : [])
           .map(b => b?.tools_brand?.trim() ?? b?.toolsBrand?.trim())
           .filter(b => b);
         setBrandOptions(Array.from(new Set(brandOpts)));
-        // Set the newly created brand as selected
         setSelectedBrand(trimmedBrand);
       }
     } catch (e) {
@@ -623,19 +625,16 @@ const AddInput = ({ user }) => {
       alert('Failed to save new Brand. Please try again.');
     }
   };
-  // Handler for when user adds a new item ID via dropdown
   const handleAddNewItemId = async (newItemId) => {
     if (!newItemId || !newItemId.trim()) {
       return;
     }
-    const trimmedItemId = newItemId.trim();    
-    // Check if item ID already exists
+    const trimmedItemId = newItemId.trim();
     if (itemIdOptions.some(id => id.toLowerCase() === trimmedItemId.toLowerCase())) {
       setSelectedItemId(trimmedItemId);
       return;
     }
     try {
-      // Save new item ID to API
       const payload = {
         item_id: trimmedItemId
       };
@@ -648,7 +647,6 @@ const AddInput = ({ user }) => {
       if (!res.ok) {
         throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
       }
-      // Refresh item IDs list
       const refreshed = await fetch(`${TOOLS_ITEM_ID_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
@@ -656,20 +654,17 @@ const AddInput = ({ user }) => {
       });
       if (refreshed.ok) {
         const data = await refreshed.json();
-        // Store full item ID data with IDs
         setToolsItemIdFullData(Array.isArray(data) ? data : []);
         const itemIdOpts = (Array.isArray(data) ? data : [])
           .map(item => item?.item_id?.trim() ?? item?.itemId?.trim())
           .filter(item => item);
         setApiItemIdOptions(itemIdOpts);
-        // Merge with item IDs from tools_details if item name is selected
         const currentDetails = currentToolsItemNameList?.tools_details ?? currentToolsItemNameList?.toolsDetails ?? [];
         const idsFromDetails = currentDetails
           .map(d => d?.item_ids_id ?? d?.itemIdsId)
           .filter(Boolean);
         const allIds = Array.from(new Set([...itemIdOpts, ...idsFromDetails]));
         setItemIdOptions(allIds);
-        // Set the newly created item ID as selected
         setSelectedItemId(trimmedItemId);
       }
     } catch (e) {
@@ -682,77 +677,40 @@ const AddInput = ({ user }) => {
     if (!itemName) {
       alert('Item Name is required.');
       return;
-    }    
-    // Check if quantity is entered (not empty and not '0')
-    const hasQuantity = addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '';    
-    // Validate required fields only if quantity is NOT entered
-    // When quantity is entered, all other fields become optional
-    if (!hasQuantity) {
-      if (!addSheetForm.model?.trim()) {
-        alert('Model is required.');
-        return;
-      }
-      if (!addSheetForm.machineNumber?.trim()) {
-        alert('Machine Number is required.');
-        return;
-      }
-      if (!addSheetForm.brand?.trim()) {
-        alert('Brand is required.');
-        return;
-      }
-      if (!addSheetForm.purchaseDate) {
-        alert('Purchase Date is required.');
-        return;
-      }
-      if (!addSheetForm.warrantyDate) {
-        alert('Warranty Date is required.');
-        return;
-      }
-      if (!addSheetForm.contact?.trim()) {
-        alert('Contact is required.');
-        return;
-      }
-      if (!addSheetForm.purchaseStore?.trim()) {
-        alert('Purchase Store is required.');
-        return;
-      }
-      if (!addSheetForm.shopAddress?.trim()) {
-        alert('Shop Address is required.');
-        return;
-      }
-    }    
-    // Validate that item_ids_id is not already in use with a machine_number (unless tool_status is "Dead")
+    }
+    if (!addSheetForm.homeLocationId) {
+      alert('Home Location is required.');
+      return;
+    }
     if (addSheetForm.itemId) {
       const { inUse, machineNumber } = isItemIdInUseWithMachine(addSheetForm.itemIdDbId, addSheetForm.itemId);
       if (inUse) {
         alert(`Item ID "${addSheetForm.itemId}" is already assigned to machine number "${machineNumber}" and the tool status is not Dead. Please select a different Item ID.`);
         return;
       }
-    }    
+    }
     if (isUploading) {
       alert('Please wait for file upload to complete.');
       return;
-    }    
-    setIsSaving(true);    
+    }
+    setIsSaving(true);
     try {
-      // Find the item name ID from existing data - check for exact match (case-insensitive, trimmed)
       const normalizedItemName = itemName.toLowerCase().trim();
       const existingItemName = toolsItemNameListData.find(
         item => {
           const existingName = (item?.item_name ?? item?.itemName ?? '').toLowerCase().trim();
           return existingName === normalizedItemName;
         }
-      );      
-      // Use existing item name ID if found, otherwise use the one from form
-      let itemNameId = existingItemName?.id ?? addSheetForm.itemNameId;      
-      // Build payload for ToolsTrackerItemStockManagement API - send IDs instead of names
+      );
+      let itemNameId = existingItemName?.id ?? addSheetForm.itemNameId;
       const stockManagementPayload = {
-        item_name_id: itemNameId ? String(itemNameId) : itemName, // Use ID if available, otherwise use name
+        item_name_id: itemNameId ? String(itemNameId) : itemName,
         brand_name_id: addSheetForm.brandId ? String(addSheetForm.brandId) : '',
         item_ids_id: addSheetForm.itemIdDbId ? String(addSheetForm.itemIdDbId) : '',
         model: addSheetForm.model?.trim() || '',
         machine_number: addSheetForm.machineNumber?.trim() || '',
         purchase_store_id: addSheetForm.purchaseStoreId ? String(addSheetForm.purchaseStoreId) : '',
+        home_location_id: addSheetForm.homeLocationId ? String(addSheetForm.homeLocationId) : '',
         purchase_date: addSheetForm.purchaseDate || '',
         warranty_date: addSheetForm.warrantyDate || '',
         contact: addSheetForm.contact?.trim() || '',
@@ -760,73 +718,71 @@ const AddInput = ({ user }) => {
         quantity: addSheetForm.quantity || '0',
         file_url: fileUrl || '',
         tool_status: 'Available'
-      };      
-      // Save to ToolsTrackerItemStockManagement API
+      };
       const stockRes = await fetch(`${TOOLS_STOCK_MANAGEMENT_BASE_URL}/save`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(stockManagementPayload)
-      });      
+      });
       if (!stockRes.ok) {
         throw new Error(`Failed to save stock management: ${stockRes.status} ${stockRes.statusText}`);
-      }      
-      // Also save to tools_item_name for legacy/table display purposes
-      const newDetail = buildNewToolDetail();      
-      // Check if item name already exists in the database - MUST use existing one, never create duplicate
-      if (existingItemName?.id) {
-        // Item name exists - UPDATE it by adding the new tool detail
-        const existingDetails = Array.isArray(existingItemName?.tools_details)
-          ? existingItemName.tools_details
-          : Array.isArray(existingItemName?.toolsDetails)
-            ? existingItemName.toolsDetails
-            : [];        
-        const payload = {
-          category_id: existingItemName?.category_id ?? existingItemName?.categoryId ?? selectedCategory ?? null,
-          item_name: existingItemName?.item_name ?? existingItemName?.itemName, // Use the EXACT existing name
-          tools_details: [...existingDetails, newDetail]
-        };
-        const res = await fetch(
-          `${TOOLS_ITEM_NAME_BASE_URL}/edit/${existingItemName.id}?edited_by=${encodeURIComponent(user?.name || user?.username || 'mobile')}`,
-          {
-            method: 'PUT',
+      }
+      // Only update ToolsItemNameList if quantity is not entered (quantity is empty, '0', or not set)
+      const hasQuantity = addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '';
+      if (!hasQuantity) {
+        const newDetail = buildNewToolDetail();
+        if (existingItemName?.id) {
+          const existingDetails = Array.isArray(existingItemName?.tools_details)
+            ? existingItemName.tools_details
+            : Array.isArray(existingItemName?.toolsDetails)
+              ? existingItemName.toolsDetails
+              : [];
+          const payload = {
+            category_id: existingItemName?.category_id ?? existingItemName?.categoryId ?? selectedCategory ?? null,
+            item_name: existingItemName?.item_name ?? existingItemName?.itemName, // Use the EXACT existing name
+            tools_details: [...existingDetails, newDetail]
+          };
+          const res = await fetch(
+            `${TOOLS_ITEM_NAME_BASE_URL}/edit/${existingItemName.id}?edited_by=${encodeURIComponent(user?.name || user?.username || 'mobile')}`,
+            {
+              method: 'PUT',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            }
+          );
+          if (!res.ok) throw new Error(`Failed to update ToolsItemNameList: ${res.status} ${res.statusText}`);
+        } else {
+          const payload = {
+            category_id: selectedCategory ?? null,
+            item_name: itemName,
+            tools_details: [newDetail]
+          };
+          const res = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/save`, {
+            method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-          }
-        );
-        if (!res.ok) throw new Error(`Failed to update ToolsItemNameList: ${res.status} ${res.statusText}`);
-      } else {
-        // Item name doesn't exist in database - create new ONLY in this case
-        const payload = {
-          category_id: selectedCategory ?? null,
-          item_name: itemName,
-          tools_details: [newDetail]
-        };
-        const res = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/save`, {
-          method: 'POST',
+          });
+          if (!res.ok) throw new Error(`Failed to save new ToolsItemNameList: ${res.status} ${res.statusText}`);
+        }
+        // Refresh ToolsItemNameList only if we updated it
+        const refreshed = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
+          method: 'GET',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          headers: { 'Content-Type': 'application/json' }
         });
-        if (!res.ok) throw new Error(`Failed to save new ToolsItemNameList: ${res.status} ${res.statusText}`);
-      }      
-      // Refresh item names + details
-      const refreshed = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (refreshed.ok) {
-        const data = await refreshed.json();
-        setToolsItemNameListData(Array.isArray(data) ? data : []);
-        const names = (Array.isArray(data) ? data : [])
-          .map(item => item?.item_name ?? item?.itemName)
-          .filter(Boolean);
-        setItemNameOptions(Array.from(new Set(names)));
-        setSelectedItemName(itemName);
-      }      
-      // Refresh stock management data
+        if (refreshed.ok) {
+          const data = await refreshed.json();
+          setToolsItemNameListData(Array.isArray(data) ? data : []);
+          const names = (Array.isArray(data) ? data : [])
+            .map(item => item?.item_name ?? item?.itemName)
+            .filter(Boolean);
+          setItemNameOptions(Array.from(new Set(names)));
+          setSelectedItemName(itemName);
+        }
+      }
       const stockRefreshed = await fetch(`${TOOLS_STOCK_MANAGEMENT_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
@@ -835,7 +791,7 @@ const AddInput = ({ user }) => {
       if (stockRefreshed.ok) {
         const stockData = await stockRefreshed.json();
         setStockManagementData(Array.isArray(stockData) ? stockData : []);
-      }      
+      }
       alert('Saved successfully!');
       handleCloseAddNewSheet();
     } catch (e) {
@@ -847,13 +803,13 @@ const AddInput = ({ user }) => {
   };
   const getPickerOptions = () => {
     if (!sheetOpenPicker) return [];
-    const opts = { itemName: itemNameOptions, itemId: sheetItemIdOptions, brand: brandOptions, purchaseStore: purchaseStoreOptions }[sheetOpenPicker] || [];
+    const opts = { itemName: itemNameOptions, itemId: sheetItemIdOptions, brand: brandOptions, purchaseStore: purchaseStoreOptions, homeLocation: homeLocationOptions }[sheetOpenPicker] || [];
     const q = (sheetPickerSearch || '').trim().toLowerCase();
     if (!q) return opts;
     return opts.filter(o => String(o).toLowerCase().includes(q));
   };
   const getPickerPlaceholder = () => {
-    const pl = { itemName: 'Select', itemId: 'Select', brand: 'Select', purchaseStore: 'Select' }[sheetOpenPicker];
+    const pl = { itemName: 'Select', itemId: 'Select', brand: 'Select', purchaseStore: 'Select', homeLocation: 'Select' }[sheetOpenPicker];
     return pl || 'Select';
   };
   const openSheetPicker = (field) => {
@@ -869,44 +825,39 @@ const AddInput = ({ user }) => {
     setNewItemIdValue('');
   };
   const handleSheetPickerSelect = (field, value) => {
-    // Handle "+ Create new" option for itemId
     if (field === 'itemId' && value === '__CREATE_NEW__') {
       setShowNewItemIdInput(true);
       return;
     }
     handleAddSheetFieldChange(field, value);
     closeSheetPicker();
-  };  
-  // Handle creating a new Item ID from the picker modal
+  };
   const handleCreateNewItemId = async () => {
     if (!newItemIdValue || !newItemIdValue.trim()) {
       alert('Please enter an Item ID');
       return;
-    }    
-    const trimmedItemId = newItemIdValue.trim();    
-    // Check if already exists
+    }
+    const trimmedItemId = newItemIdValue.trim();
     if (apiItemIdOptions.some(id => id.toLowerCase() === trimmedItemId.toLowerCase())) {
       alert('This Item ID already exists. Please enter a different one.');
       return;
-    }    
+    }
     try {
-      // Save new item ID to API
       const payload = { item_id: trimmedItemId };
       const res = await fetch(`${TOOLS_ITEM_ID_BASE_URL}/save`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      });      
+      });
       if (!res.ok) {
         throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
-      }      
-      // Refresh item IDs list
+      }
       const refreshed = await fetch(`${TOOLS_ITEM_ID_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' }
-      });      
+      });
       if (refreshed.ok) {
         const data = await refreshed.json();
         const dataArray = Array.isArray(data) ? data : [];
@@ -914,19 +865,16 @@ const AddInput = ({ user }) => {
         const itemIdOpts = dataArray
           .map(item => item?.item_id?.trim() ?? item?.itemId?.trim())
           .filter(item => item);
-        setApiItemIdOptions(itemIdOpts);        
-        // Find the newly created item ID's database ID from the refreshed data
+        setApiItemIdOptions(itemIdOpts);
         const newItemIdObj = dataArray.find(
           item => (item?.item_id?.trim() ?? item?.itemId?.trim())?.toLowerCase() === trimmedItemId.toLowerCase()
         );
-        const newItemIdDbId = newItemIdObj?.id ?? null;        
-        // Set the form values directly with the new item ID and its database ID
+        const newItemIdDbId = newItemIdObj?.id ?? null;
         setAddSheetForm(prev => ({
           ...prev,
           itemId: trimmedItemId,
           itemIdDbId: newItemIdDbId,
-          quantity: '0' // Clear quantity when item ID is selected
-        }));        
+        }));
         closeSheetPicker();
       }
     } catch (e) {
@@ -934,6 +882,42 @@ const AddInput = ({ user }) => {
       alert('Failed to save new Item ID. Please try again.');
     }
   };
+  // Helper functions to convert between date formats
+  // DatePickerModal returns "dd/mm/yyyy", but we store dates in "dd/mm/yyyy" format for display
+  const formatDateForDisplay = (dateStr) => {
+    if (!dateStr) return '';
+    // If date is in yyyy-mm-dd format (from HTML5 date input), convert to dd/mm/yyyy
+    if (dateStr.includes('-') && dateStr.length === 10) {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    // If already in dd/mm/yyyy format, return as is
+    return dateStr;
+  };
+
+  const formatDateForInput = (dateStr) => {
+    if (!dateStr) return '';
+    // Convert dd/mm/yyyy to yyyy-mm-dd for HTML5 date input (if needed)
+    if (dateStr.includes('/') && dateStr.length === 10) {
+      const [day, month, year] = dateStr.split('/');
+      return `${year}-${month}-${day}`;
+    }
+    return dateStr;
+  };
+
+  const handleDatePickerOpen = (field) => {
+    setDatePickerField(field);
+    setShowDatePicker(true);
+  };
+
+  const handleDatePickerConfirm = (formattedDate) => {
+    if (datePickerField) {
+      handleAddSheetFieldChange(datePickerField, formattedDate);
+    }
+    setShowDatePicker(false);
+    setDatePickerField(null);
+  };
+
   const renderSheetDropdown = (field, value, placeholder) => (
     <div className="relative w-full">
       <div onClick={() => openSheetPicker(field)}
@@ -958,7 +942,6 @@ const AddInput = ({ user }) => {
   );
   return (
     <div className="flex flex-col min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      {/* Category Section */}
       <div className="flex-shrink-0 px-4 pt-2 pb-3">
         <div className="flex items-center justify-between border-b border-gray-200 gap-2">
           <p className="text-[12px] mb-2 font-medium text-black leading-normal">Category</p>
@@ -967,9 +950,7 @@ const AddInput = ({ user }) => {
           </button>
         </div>
       </div>
-      {/* Input Fields */}
       <div className="flex-shrink-0 px-4 pb-4">
-        {/* Item Name */}
         <div className="mb-4">
           <p className="text-[12px] font-medium text-black leading-normal mb-1">
             Item Name<span className="text-[#eb2f8e]">*</span>
@@ -984,9 +965,7 @@ const AddInput = ({ user }) => {
             showAllOptions={true}
           />
         </div>
-        {/* Brand and Item ID Row */}
         <div className="flex gap-3 mb-4">
-          {/* Brand */}
           <div className="flex-1">
             <p className="text-[12px] font-medium text-black leading-normal mb-1">
               Brand<span className="text-[#eb2f8e]">*</span>
@@ -1001,7 +980,6 @@ const AddInput = ({ user }) => {
               showAllOptions={true}
             />
           </div>
-          {/* Item ID */}
           <div className="flex-1">
             <p className="text-[12px] font-medium text-black leading-normal mb-1">
               Item ID<span className="text-[#eb2f8e]">*</span>
@@ -1122,6 +1100,38 @@ const AddInput = ({ user }) => {
                   {renderSheetDropdown('brand', addSheetForm.brand, 'Select')}
                 </div>
               </div>
+              <div className="flex gap-3 mb-2">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[12px] font-medium text-black">
+                      Home Location<span className="text-[#eb2f8e]">*</span>
+                    </p>
+                    {addSheetForm.homeLocation && (() => {
+                      const selectedLocation = homeLocationFullData.find(item => item?.siteName === addSheetForm.homeLocation);
+                      return selectedLocation?.branch ? (
+                        <span className="text-[12px] font-medium text-[#E4572E]">{selectedLocation.branch}</span>
+                      ) : null;
+                    })()}
+                  </div>
+                  {renderSheetDropdown('homeLocation', addSheetForm.homeLocation, 'Select')}
+                </div>
+              </div>
+              <div className="flex gap-3 mb-2">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[12px] font-medium text-black">
+                      Purchase Store{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
+                    </p>
+                    {addSheetForm.purchaseStore && (() => {
+                      const selectedStore = purchaseStoreFullData.find(item => item?.vendorName === addSheetForm.purchaseStore);
+                      return selectedStore?.contact_number ? (
+                        <span className="text-[12px] font-medium text-[#E4572E]">{selectedStore.contact_number}</span>
+                      ) : null;
+                    })()}
+                  </div>
+                  {renderSheetDropdown('purchaseStore', addSheetForm.purchaseStore, 'Select')}
+                </div>
+              </div>
               {/* Row 4: Purchase Date* + Warranty Date* */}
               <div className="flex gap-3 w-[100px] mb-2">
                 <div className="flex-1">
@@ -1130,11 +1140,20 @@ const AddInput = ({ user }) => {
                   </p>
                   <div className="relative">
                     <input
-                      type="date"
-                      value={addSheetForm.purchaseDate}
-                      onChange={(e) => handleAddSheetFieldChange('purchaseDate', e.target.value)}
-                      className="w-[150px] h-[32px] border border-[#d6d6d6] pl-3 pr-3 text-[12px] font-medium focus:outline-none text-gray-700"
+                      type="text"
+                      readOnly
+                      value={formatDateForDisplay(addSheetForm.purchaseDate) || ''}
+                      onClick={() => handleDatePickerOpen('purchaseDate')}
+                      onFocus={() => handleDatePickerOpen('purchaseDate')}
+                      placeholder="dd-mm-yyyy"
+                      className="w-[150px] h-[32px] border border-[#d6d6d6] pl-3 pr-10 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500 cursor-pointer"
                     />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2H4C2.89543 2 2 2.89543 2 4V12C2 13.1046 2.89543 14 4 14H12C13.1046 14 14 13.1046 14 12V4C14 2.89543 13.1046 2 12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M11 1V4M5 1V4M2 7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
                   </div>
                 </div>
                 <div className="flex-1">
@@ -1143,48 +1162,24 @@ const AddInput = ({ user }) => {
                   </p>
                   <div className="relative">
                     <input
-                      type="date"
-                      value={addSheetForm.warrantyDate}
-                      onChange={(e) => handleAddSheetFieldChange('warrantyDate', e.target.value)}
-                      className="w-[150px] h-[32px] border border-[#d6d6d6] pl-3 pr-3 text-[12px] font-medium focus:outline-none text-gray-700"
+                      type="text"
+                      readOnly
+                      value={formatDateForDisplay(addSheetForm.warrantyDate) || ''}
+                      onClick={() => handleDatePickerOpen('warrantyDate')}
+                      onFocus={() => handleDatePickerOpen('warrantyDate')}
+                      placeholder="dd-mm-yyyy"
+                      className="w-[150px] h-[32px] border border-[#d6d6d6] pl-3 pr-10 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500 cursor-pointer"
                     />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2H4C2.89543 2 2 2.89543 2 4V12C2 13.1046 2.89543 14 4 14H12C13.1046 14 14 13.1046 14 12V4C14 2.89543 13.1046 2 12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M11 1V4M5 1V4M2 7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
                   </div>
                 </div>
               </div>
-              {/* Row 5: Contact* + Purchase Store* */}
-              <div className="flex gap-3 mb-2">
-                <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">
-                    Contact{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
-                  </p>
-                  <input
-                    type="text"
-                    value={addSheetForm.contact}
-                    onChange={(e) => handleAddSheetFieldChange('contact', e.target.value)}
-                    className="w-full h-[32px] border border-[#d6d6d6] px-3 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500"
-                    placeholder="Enter"
-                  />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">
-                    Purchase Store{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
-                  </p>
-                  {renderSheetDropdown('purchaseStore', addSheetForm.purchaseStore, 'Select')}
-                </div>
-              </div>
-              {/* Row 6: Shop Address* full width */}
-              <div className="mb-2">
-                <p className="text-[12px] font-medium text-black mb-1">
-                  Shop Address{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
-                </p>
-                <input
-                  type="text"
-                  value={addSheetForm.shopAddress}
-                  onChange={(e) => handleAddSheetFieldChange('shopAddress', e.target.value)}
-                  className="w-full h-[32px] border border-[#d6d6d6]  px-3 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500"
-                  placeholder="Enter"
-                />
-              </div>
+
               {/* Attach File */}
               <div className="mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1215,10 +1210,10 @@ const AddInput = ({ user }) => {
                     <span className="text-[10px] text-green-600">Uploaded</span>
                   )}
                 </div>
-                <input 
-                  id="add-sheet-attach-file" 
-                  type="file" 
-                  className="hidden" 
+                <input
+                  id="add-sheet-attach-file"
+                  type="file"
+                  className="hidden"
                   onChange={handleFileChange}
                   accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,image/*,application/pdf"
                 />
@@ -1250,12 +1245,12 @@ const AddInput = ({ user }) => {
           <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center px-6 pt-5">
               <p className="text-[16px] font-semibold text-black">
-                {showNewItemIdInput ? 'Create New Item ID' : `Select ${({ itemName: 'Item Name', itemId: 'Item ID', brand: 'Brand', purchaseStore: 'Purchase Store' })[sheetOpenPicker]}`}
+                {showNewItemIdInput ? 'Create New Item ID' : `Select ${({ itemName: 'Item Name', itemId: 'Item ID', brand: 'Brand', purchaseStore: 'Purchase Store', homeLocation: 'Home Location' })[sheetOpenPicker]}`}
               </p>
               <button type="button" onClick={closeSheetPicker} className="text-red-500 text-[20px] font-semibold hover:opacity-80">
                 ×
               </button>
-            </div>            
+            </div>
             {/* Show input form for creating new Item ID */}
             {showNewItemIdInput && sheetOpenPicker === 'itemId' ? (
               <div className="px-6 pt-4 pb-6">
@@ -1350,6 +1345,16 @@ const AddInput = ({ user }) => {
             setVendorNameOptions([...vendorNameOptions, newVendor]);
           }
         }}
+      />
+      {/* Date Picker Modal */}
+      <DatePickerModal
+        isOpen={showDatePicker}
+        onClose={() => {
+          setShowDatePicker(false);
+          setDatePickerField(null);
+        }}
+        onConfirm={handleDatePickerConfirm}
+        initialDate={datePickerField === 'purchaseDate' ? addSheetForm.purchaseDate : datePickerField === 'warrantyDate' ? addSheetForm.warrantyDate : ''}
       />
     </div>
   );

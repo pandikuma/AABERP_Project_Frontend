@@ -20,7 +20,6 @@ const History = ({ user, onTabChange }) => {
   const [itemNamesMap, setItemNamesMap] = useState({});
   const [brandsMap, setBrandsMap] = useState({});
   const [itemIdsMap, setItemIdsMap] = useState({});
-  // Image viewer state
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [imageViewerData, setImageViewerData] = useState({
     images: [],
@@ -29,20 +28,15 @@ const History = ({ user, onTabChange }) => {
     itemId: '',
     machineStatus: ''
   });
-  // Swipe detection state - track per card
   const [swipeStates, setSwipeStates] = useState({});
   const [expandedEntryId, setExpandedEntryId] = useState(null);
   const expandedEntryIdRef = useRef(expandedEntryId);
-  
-  // Keep ref in sync with state
   useEffect(() => {
     expandedEntryIdRef.current = expandedEntryId;
   }, [expandedEntryId]);
-  // Fetch lookup data for mapping IDs to names
   useEffect(() => {
     const fetchLookupData = async () => {
       try {
-        // Fetch projects (using siteName field like Transfer.jsx)
         const projectsRes = await fetch(`${PROJECT_NAMES_BASE_URL}/getAll`, {
           method: 'GET',
           credentials: 'include',
@@ -56,7 +50,6 @@ const History = ({ user, onTabChange }) => {
           });
           setProjectsMap(map);
         }
-        // Fetch vendors (using vendorName field like Transfer.jsx)
         const vendorsRes = await fetch(`${VENDOR_NAMES_BASE_URL}/getAll`, {
           method: 'GET',
           credentials: 'include',
@@ -70,7 +63,6 @@ const History = ({ user, onTabChange }) => {
           });
           setVendorsMap(map);
         }
-        // Fetch employees
         const employeesRes = await fetch(`${EMPLOYEE_DETAILS_BASE_URL}/site_engineers`, {
           method: 'GET',
           credentials: 'include',
@@ -84,7 +76,6 @@ const History = ({ user, onTabChange }) => {
           });
           setEmployeesMap(map);
         }
-        // Fetch item names
         const itemNamesRes = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
           method: 'GET',
           credentials: 'include',
@@ -98,7 +89,6 @@ const History = ({ user, onTabChange }) => {
           });
           setItemNamesMap(map);
         }
-        // Fetch brands
         const brandsRes = await fetch(`${TOOLS_BRAND_BASE_URL}/getAll`, {
           method: 'GET',
           credentials: 'include',
@@ -112,7 +102,6 @@ const History = ({ user, onTabChange }) => {
           });
           setBrandsMap(map);
         }
-        // Fetch item IDs
         const itemIdsRes = await fetch(`${TOOLS_ITEM_ID_BASE_URL}/getAll`, {
           method: 'GET',
           credentials: 'include',
@@ -123,11 +112,9 @@ const History = ({ user, onTabChange }) => {
           const map = {};
           (Array.isArray(data) ? data : []).forEach(i => {
             const toolsId = i.item_id || i.itemId || '';
-            // Store with both string and number keys for flexible lookup
             map[i.id] = toolsId;
             map[String(i.id)] = toolsId;
           });
-          console.log('ItemIds Map:', map);
           setItemIdsMap(map);
         }
       } catch (error) {
@@ -136,7 +123,6 @@ const History = ({ user, onTabChange }) => {
     };
     fetchLookupData();
   }, []);
-  // Fetch history data from tools tracker management API
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -148,19 +134,15 @@ const History = ({ user, onTabChange }) => {
         });        
         if (response.ok) {
           const data = await response.json();
-          // Store full entries data for edit functionality
           const fullEntries = (Array.isArray(data) ? data : []).filter(entry => {
             const entryType = entry.tools_entry_type || entry.toolsEntryType || 'Entry';
             return entryType.toLowerCase() === 'entry';
           });
           setFullEntriesData(fullEntries);
-          
-          // Flatten the data - create separate entries for each item
           const flattenedData = [];
           fullEntries.forEach(entry => {
             const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];            
             if (entryItems.length === 0) {
-              // If no items, still show the entry
               flattenedData.push({
                 id: `${entry.id}-0`,
                 entryId: entry.id,
@@ -182,17 +164,13 @@ const History = ({ user, onTabChange }) => {
                 images: []
               });
             } else {
-              // Create separate entry for each item
               entryItems.forEach((item, index) => {
-                // Process images - convert base64 to data URLs if needed
                 const rawImages = item.tools_item_live_images || item.toolsItemLiveImages || [];
                 const processedImages = rawImages.map(img => {
-                  // If tools_image exists (byte array as base64), convert to data URL
                   if (img.tools_image || img.toolsImage) {
                     const base64Data = img.tools_image || img.toolsImage;
                     return `data:image/jpeg;base64,${base64Data}`;
                   }
-                  // Fallback to URL if exists
                   if (img.tools_image_url || img.toolsImageUrl) {
                     return img.tools_image_url || img.toolsImageUrl;
                   }
@@ -221,13 +199,11 @@ const History = ({ user, onTabChange }) => {
               });
             }
           });          
-          // Sort by created_date_time (newest first)
           flattenedData.sort((a, b) => {
             const dateA = new Date(a.createdDateTime);
             const dateB = new Date(b.createdDateTime);
             return dateB - dateA;
           });          
-          // Filter to only show 'Entry' type data (exclude Service and other types)
           const filteredData = flattenedData.filter(entry => entry.toolsEntryType === 'entry');
           setHistoryData(filteredData);
         } else {
@@ -243,7 +219,6 @@ const History = ({ user, onTabChange }) => {
     };
     fetchHistory();
   }, []);
-  // Format timestamp to date and time
   const formatDateTime = (timestamp) => {
     if (!timestamp) return { date: '', time: '' };
     try {
@@ -263,13 +238,10 @@ const History = ({ user, onTabChange }) => {
       return { date: '', time: '' };
     }
   };
-  // Get location name (project or vendor)
   const getLocationName = (id, checkVendorsFirst = false) => {
     if (!id) return '-';    
-    // Convert to string for comparison
     const idStr = String(id);    
     if (checkVendorsFirst) {
-      // Check vendors first (for service stores)
       if (vendorsMap[idStr]) {
         return vendorsMap[idStr];
       }
@@ -277,14 +249,12 @@ const History = ({ user, onTabChange }) => {
         return vendorsMap[id];
       }
     }    
-    // Check projects
     if (projectsMap[idStr]) {
       return projectsMap[idStr];
     }
     if (projectsMap[id]) {
       return projectsMap[id];
     }    
-    // Check vendors
     if (vendorsMap[idStr]) {
       return vendorsMap[idStr];
     }
@@ -293,7 +263,6 @@ const History = ({ user, onTabChange }) => {
     }    
     return '-';
   };
-  // Image viewer handlers
   const handleOpenImageViewer = (entry, itemName, itemId) => {
     if (entry.images.length === 0) {
       alert('No images available for this item');
@@ -323,8 +292,6 @@ const History = ({ user, onTabChange }) => {
       currentIndex: prev.currentIndex === prev.images.length - 1 ? 0 : prev.currentIndex + 1
     }));
   };
-
-  // Swipe handlers
   const minSwipeDistance = 50;
   const handleTouchStart = (e, entryId) => {
     const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
@@ -337,7 +304,6 @@ const History = ({ user, onTabChange }) => {
       }
     }));
   };
-
   const handleTouchMove = (e, entryId) => {
     e.preventDefault();
     const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
@@ -346,7 +312,6 @@ const History = ({ user, onTabChange }) => {
       if (!state) return prev;
       const deltaX = touch.clientX - state.startX;
       const isExpanded = expandedEntryIdRef.current === entryId;
-      // Only allow left swipe (negative deltaX)
       if (deltaX < 0 || (isExpanded && deltaX > 0)) {
         return {
           ...prev,
@@ -360,60 +325,46 @@ const History = ({ user, onTabChange }) => {
       return prev;
     });
   };
-
   const handleTouchEnd = (entryId) => {
     setSwipeStates(prev => {
       const state = prev[entryId];
       if (!state) return prev;
       const deltaX = state.currentX - state.startX;
       const absDeltaX = Math.abs(deltaX);
-      
       if (absDeltaX >= minSwipeDistance) {
         if (deltaX < 0) {
-          // Swiped left (reveal buttons)
           setExpandedEntryId(entryId);
         } else {
-          // Swiped right (hide buttons)
           setExpandedEntryId(null);
         }
       } else {
-        // Small movement - snap back
         if (expandedEntryIdRef.current === entryId) {
           setExpandedEntryId(null);
         }
       }
-      
-      // Remove swipe state
       const newState = { ...prev };
       delete newState[entryId];
       return newState;
     });
   };
-
   const handleMouseDown = (e, entryId) => {
-    if (e.button !== 0) return; // Only handle left mouse button
+    if (e.button !== 0) return;
     const syntheticEvent = {
       touches: [{ clientX: e.clientX }],
       preventDefault: () => e.preventDefault()
     };
     handleTouchStart(syntheticEvent, entryId);
   };
-
   const handleCardClick = (e) => {
-    // Don't trigger if clicking on the action buttons
     if (e.target.closest('.action-button')) {
       return;
     }
-    // Close expanded card if clicking elsewhere
     if (expandedEntryId) {
       setExpandedEntryId(null);
     }
   };
-
-  // Global mouse handlers for desktop support
   useEffect(() => {
     if (historyData.length === 0) return;
-
     const globalMouseMoveHandler = (e) => {
       setSwipeStates(prev => {
         let hasChanges = false;
@@ -423,7 +374,6 @@ const History = ({ user, onTabChange }) => {
           if (!state) return;
           const deltaX = e.clientX - state.startX;
           const isExpanded = expandedEntryIdRef.current === entry.id;
-          // Only update if dragging horizontally
           if (deltaX < 0 || (isExpanded && deltaX > 0)) {
             newState[entry.id] = {
               ...state,
@@ -436,7 +386,6 @@ const History = ({ user, onTabChange }) => {
         return hasChanges ? newState : prev;
       });
     };
-
     const globalMouseUpHandler = () => {
       setSwipeStates(prev => {
         let hasChanges = false;
@@ -448,27 +397,21 @@ const History = ({ user, onTabChange }) => {
           const absDeltaX = Math.abs(deltaX);
           if (absDeltaX >= minSwipeDistance) {
             if (deltaX < 0) {
-              // Swiped left (reveal buttons)
               setExpandedEntryId(entry.id);
             } else {
-              // Swiped right (hide buttons)
               setExpandedEntryId(null);
             }
           } else {
-            // Small movement - snap back
             if (expandedEntryIdRef.current === entry.id) {
               setExpandedEntryId(null);
             }
           }
-          // Remove swipe state for this card
           delete newState[entry.id];
           hasChanges = true;
         });
         return hasChanges ? newState : prev;
       });
     };
-
-    // Add global mouse event listeners
     document.addEventListener('mousemove', globalMouseMoveHandler);
     document.addEventListener('mouseup', globalMouseUpHandler);
     return () => {
@@ -478,11 +421,9 @@ const History = ({ user, onTabChange }) => {
   }, [historyData]);
   return (
     <div className="flex flex-col bg-white min-h-[calc(100vh-90px-80px)]" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      {/* Category Header */}
       <div className="flex-shrink-0 px-4 pt-4 pb-2 border-b border-gray-200">
         <p className="text-[12px] text-black font-medium">Category</p>
       </div>
-      {/* History Entries List */}
       <div className="flex-1 px-4 overflow-y-auto pb-4">
         {loading ? (
           <div className="flex items-center justify-center py-8">
@@ -496,45 +437,36 @@ const History = ({ user, onTabChange }) => {
           <div className="mt-3 shadow-lg rounded-lg">
             {historyData.map((entry) => {
               const { date, time } = formatDateTime(entry.createdDateTime);
-              const fromLocation = getLocationName(entry.fromProjectId, false);              
-              // For "To" location - check based on entry type
+              const fromLocation = getLocationName(entry.fromProjectId, false);
               let toLocation = '-';
               if (entry.toolsEntryType === 'Entry') {
-                // Entry type: check toProjectId first, then serviceStoreId
                 toLocation = getLocationName(entry.toProjectId, false);
                 if (toLocation === '-') {
                   toLocation = getLocationName(entry.serviceStoreId, true);
                 }
               } else {
-                // Service type: check serviceStoreId first (vendors), then toProjectId
                 toLocation = getLocationName(entry.serviceStoreId, true);
                 if (toLocation === '-') {
                   toLocation = getLocationName(entry.toProjectId, false);
                 }
               }              
               const inchargeName = employeesMap[entry.projectInchargeId] || employeesMap[String(entry.projectInchargeId)] || '-';
-              const itemName = itemNamesMap[entry.itemNameId] || itemNamesMap[String(entry.itemNameId)] || entry.itemNameId || '-';              
-              // Get item ID name (like "AA DM 01") from the map using item_ids_id
+              const itemName = itemNamesMap[entry.itemNameId] || itemNamesMap[String(entry.itemNameId)] || entry.itemNameId || '-';
               const itemIdName = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
               const hasImages = entry.images.length > 0;              
-              // Determine what to show: itemIdName (like "AA DM 01") or quantity
               const displayValue = itemIdName || (entry.quantity > 0 ? String(entry.quantity) : '');
-              
-              // Swipe state and offset calculation
               const entryId = entry.id;
               const swipeState = swipeStates[entryId];
               const isExpanded = expandedEntryId === entryId;
-              const buttonWidth = 96; // 2 * 40px + gap
+              const buttonWidth = 96;
               const swipeOffset =
                 swipeState && swipeState.isSwiping
                   ? Math.max(-buttonWidth, swipeState.currentX - swipeState.startX)
                   : isExpanded
                     ? -buttonWidth
                     : 0;
-
               return (
                 <div key={entry.id} className="relative overflow-hidden">
-                  {/* Card */}
                   <div
                     className="bg-white border-2 border-[#E0E0E0] rounded-[8px] px-3 py-2 cursor-pointer transition-transform duration-300 ease-out select-none"
                     style={{
@@ -549,22 +481,19 @@ const History = ({ user, onTabChange }) => {
                     onMouseDown={(e) => handleMouseDown(e, entryId)}
                     onClick={handleCardClick}
                   >
-                  {/* Row 1: Entry number + Item Name | Item ID Name or Quantity */}
                   <div className="flex items-start justify-between mb-1">
                     <p className="text-[12px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
                       #{entry.eno}, {itemName}
                     </p>
                     <div className="flex flex-col items-end flex-shrink-0 ml-2">
                       {displayValue ? (
-                        <p 
-                          className={`text-[12px] font-semibold leading-snug ${hasImages ? 'text-[#E4572E] cursor-pointer underline' : 'text-black'}`}
+                        <p className={`text-[12px] font-semibold leading-snug ${hasImages ? 'text-[#E4572E] cursor-pointer underline' : 'text-black'}`}
                           onClick={() => hasImages && handleOpenImageViewer(entry, itemName, displayValue)}
                         >
                           {displayValue}
                         </p>
                       ) : hasImages ? (
-                        <p 
-                          className="text-[12px] font-semibold leading-snug text-[#E4572E] cursor-pointer underline"
+                        <p className="text-[12px] font-semibold leading-snug text-[#E4572E] cursor-pointer underline"
                           onClick={() => handleOpenImageViewer(entry, itemName, 'View')}
                         >
                           📷 Image
@@ -572,7 +501,6 @@ const History = ({ user, onTabChange }) => {
                       ) : null}
                     </div>
                   </div>
-                  {/* Row 2: From | Machine Number */}
                   <div className="flex items-start justify-between mb-1">
                     <p className="text-[11px] text-[#848484] leading-snug truncate flex-1 min-w-0">
                       From - {fromLocation}
@@ -583,7 +511,6 @@ const History = ({ user, onTabChange }) => {
                       </p>
                     )}
                   </div>
-                  {/* Row 3: To | Status */}
                   <div className="flex items-start justify-between mb-1">
                     <p className="text-[11px] text-[#BF9853] leading-snug truncate flex-1 min-w-0">
                       To - {toLocation}
@@ -609,7 +536,6 @@ const History = ({ user, onTabChange }) => {
                       </p>
                     </div>
                   </div>
-                  {/* Row 4: Date/Time | Person Name */}
                   <div className="flex items-start justify-between">
                     <p className="text-[11px] text-[#848484] leading-snug truncate flex-1 min-w-0">
                       {date} • {time}
@@ -619,8 +545,6 @@ const History = ({ user, onTabChange }) => {
                     </p>
                   </div>
                   </div>
-
-                  {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
                     className="absolute right-0 top-0 bottom-0 flex gap-2 flex-shrink-0 z-0"
                     style={{
@@ -637,10 +561,7 @@ const History = ({ user, onTabChange }) => {
                       onClick={(e) => {
                         e.stopPropagation();
                         setExpandedEntryId(null);
-                        // Handle edit - store only entry ID to avoid localStorage quota issues
-                        // The Transfer page will fetch the full entry data using this ID
                         localStorage.setItem('editingToolsTrackerEntryId', String(entry.entryId));
-                        // Switch to Transfer tab
                         if (onTabChange) {
                           onTabChange('transfer');
                         }
@@ -649,13 +570,7 @@ const History = ({ user, onTabChange }) => {
                     >
                       <img src={EditIcon} alt="Edit" className="w-[18px] h-[18px]" />
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedEntryId(null);
-                        // Handle delete - you can add delete functionality here
-                        console.log('Delete entry:', entry);
-                      }}
+                    <button onClick={(e) => {e.stopPropagation();setExpandedEntryId(null);}}
                       className="action-button w-[40px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
                     >
                       <img src={DeleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
@@ -667,27 +582,21 @@ const History = ({ user, onTabChange }) => {
           </div>
         )}
       </div>
-      {/* Image Viewer Modal - Floating style */}
       {showImageViewer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={handleCloseImageViewer} style={{ fontFamily: "'Manrope', sans-serif" }} >
-          {/* Semi-transparent overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-40"></div>          
-          {/* Image Container */}
+          <div className="absolute inset-0 bg-black bg-opacity-40"></div>
           <div className="relative z-10 w-full max-w-[90%] mx-4" onClick={(e) => e.stopPropagation()} >
-            {/* Image */}
             <div className="relative">
               <img
                 src={imageViewerData.images[imageViewerData.currentIndex]}
                 alt={`${imageViewerData.itemName} - ${imageViewerData.currentIndex + 1}`}
                 className="w-full h-auto max-h-[60vh] object-contain rounded-lg shadow-2xl"
               />              
-              {/* Close Button - Inside image at top right */}
               <button onClick={handleCloseImageViewer} className="absolute -top-7 -right-1 w-8 h-8 rounded-full flex items-center justify-center z-20 ">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M18 6L6 18M6 6L18 18" stroke="#E4572E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>              
-              {/* Previous Button */}
               {imageViewerData.images.length > 1 && (
                 <button onClick={handlePrevImage}
                   className="absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center"
@@ -697,7 +606,6 @@ const History = ({ user, onTabChange }) => {
                   </svg>
                 </button>
               )}
-              {/* Next Button */}
               {imageViewerData.images.length > 1 && (
                 <button onClick={handleNextImage}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center"
@@ -707,7 +615,6 @@ const History = ({ user, onTabChange }) => {
                   </svg>
                 </button>
               )}
-              {/* Image Counter */}
               {imageViewerData.images.length > 1 && (
                 <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full">
                   <span className="text-[12px] text-white">
@@ -716,7 +623,6 @@ const History = ({ user, onTabChange }) => {
                 </div>
               )}
             </div>
-            {/* Status indicator below image */}
             <div className="flex items-center justify-center gap-2 mt-3">
               <span
                 className={`w-2 h-2 rounded-full ${

@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import SearchableDropdown from '../PurchaseOrder/SearchableDropdown';
+import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import EditIcon from '../Images/edit1.png';
 import DeleteIcon from '../Images/delete.png';
 
 const Transfer = ({ user }) => {
-  // Tools Tracker API URLs
   const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
   const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
   const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
-
   const [entryNo, setEntryNo] = useState(0);
   const [date, setDate] = useState(() => {
     const today = new Date();
@@ -21,6 +20,11 @@ const Transfer = ({ user }) => {
   const [selectedTo, setSelectedTo] = useState(null);
   const [selectedServiceStore, setSelectedServiceStore] = useState(null);
   const [selectedIncharge, setSelectedIncharge] = useState(null);
+  const [selectedRelocateItemId, setSelectedRelocateItemId] = useState(null);
+  const [selectedCurrentLocation, setSelectedCurrentLocation] = useState(null);
+  const [selectedRelocateLocation, setSelectedRelocateLocation] = useState(null);
+  const [relocateItemDetails, setRelocateItemDetails] = useState(null);
+  const [vendorOptions, setVendorOptions] = useState([]);
   const [items, setItems] = useState([]);
   const [fromOptions, setFromOptions] = useState([]);
   const [toOptions, setToOptions] = useState([]);
@@ -30,6 +34,9 @@ const Transfer = ({ user }) => {
   const [showToDropdown, setShowToDropdown] = useState(false);
   const [showServiceStoreDropdown, setShowServiceStoreDropdown] = useState(false);
   const [showInchargeDropdown, setShowInchargeDropdown] = useState(false);
+  const [showRelocateItemIdDropdown, setShowRelocateItemIdDropdown] = useState(false);
+  const [showCurrentLocationDropdown, setShowCurrentLocationDropdown] = useState(false);
+  const [showRelocateLocationDropdown, setShowRelocateLocationDropdown] = useState(false);
   const [toSearchQuery, setToSearchQuery] = useState('');
   const [toFavorites, setToFavorites] = useState(() => {
     const saved = localStorage.getItem('favoriteToSites');
@@ -50,6 +57,11 @@ const Transfer = ({ user }) => {
     const saved = localStorage.getItem('favoriteIncharges');
     return saved ? JSON.parse(saved) : [];
   });
+  const [relocateLocationSearchQuery, setRelocateLocationSearchQuery] = useState('');
+  const [relocateLocationFavorites, setRelocateLocationFavorites] = useState(() => {
+    const saved = localStorage.getItem('favoriteRelocateLocations');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [entryServiceMode, setEntryServiceMode] = useState('Entry');
   const [showAddItemsModal, setShowAddItemsModal] = useState(false);
   const [itemNameOptions, setItemNameOptions] = useState([]);
@@ -67,37 +79,26 @@ const Transfer = ({ user }) => {
     quantity: '',
     machineNumber: ''
   });
-  // Store full data from tools tracker APIs
   const [toolsItemNameListData, setToolsItemNameListData] = useState([]);
   const [toolsBrandFullData, setToolsBrandFullData] = useState([]);
   const [toolsItemIdFullData, setToolsItemIdFullData] = useState([]);
   const [apiItemIdOptions, setApiItemIdOptions] = useState([]);
   const [stockManagementData, setStockManagementData] = useState([]);
-
-  // State for item name quantity count and selected item machine number
+  const [toolsTrackerManagementData, setToolsTrackerManagementData] = useState([]);
   const [selectedItemNameQuantity, setSelectedItemNameQuantity] = useState(0);
   const [selectedItemMachineNumber, setSelectedItemMachineNumber] = useState('');
-
-  // State for upload modal
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadFiles, setUploadFiles] = useState([]); // Array of {file, progress, url, id}
+  const [uploadFiles, setUploadFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('Working');
   const [uploadDescription, setUploadDescription] = useState('');
   const [statusOptions] = useState(['Working', 'Not Working', 'Under Repair', 'Dead']);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-
-  // Image upload is now handled as base64 bytes sent directly to tools_image field
   const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_stock_management';
   const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
-
-  // State for saving
   const [isSaving, setIsSaving] = useState(false);
-
-  // State for confirmation modal
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-
-  // State for universal search modal
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [showUniversalSearchModal, setShowUniversalSearchModal] = useState(false);
   const [universalSearchQuery, setUniversalSearchQuery] = useState('');
   const [showSearchConfirmModal, setShowSearchConfirmModal] = useState(false);
@@ -108,22 +109,19 @@ const Transfer = ({ user }) => {
   const [searchUploadDescription, setSearchUploadDescription] = useState('');
   const [showSearchStatusDropdown, setShowSearchStatusDropdown] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [expandedItemId, setExpandedItemId] = useState(null); // track which item card is expanded
-  const [swipeStates, setSwipeStates] = useState({}); // track swipe state per item
+  const [expandedItemId, setExpandedItemId] = useState(null);
+  const [swipeStates, setSwipeStates] = useState({});
   const [isEditingTransferDetails, setIsEditingTransferDetails] = useState(false);
-
-  // State for image viewer modal
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [imageViewerData, setImageViewerData] = useState({
     images: [],
     currentIndex: 0,
     itemName: '',
-    itemUniqueId: '', // The unique id of the item for updating images
+    itemUniqueId: '',
     itemId: '',
     toLocation: '',
     machineStatus: ''
   });
-  // Fetch sites/projects for From and To dropdowns
   useEffect(() => {
     const fetchSites = async () => {
       try {
@@ -152,7 +150,6 @@ const Transfer = ({ user }) => {
     };
     fetchSites();
   }, []);
-  // Fetch vendors for Service Store dropdown (only those with makeAsServiceShop === true)
   useEffect(() => {
     const fetchServiceStoreVendors = async () => {
       try {
@@ -165,8 +162,6 @@ const Transfer = ({ user }) => {
         });
         if (response.ok) {
           const data = await response.json();
-          console.log('All vendor data:', data);
-          // Filter only vendors with makeAsServiceShop === true
           const serviceStoreVendors = data
             .filter(vendor => vendor.makeAsServiceShop === true)
             .map(vendor => ({
@@ -174,8 +169,14 @@ const Transfer = ({ user }) => {
               label: vendor.vendorName,
               id: vendor.id,
             }));
-          console.log('Service store vendors:', serviceStoreVendors);
           setServiceStoreOptions(serviceStoreVendors);
+          // Also store all vendors for purchase store lookup
+          const allVendors = data.map(vendor => ({
+            value: vendor.vendorName,
+            label: vendor.vendorName,
+            id: vendor.id,
+          }));
+          setVendorOptions(allVendors);
         } else {
           console.log('Error fetching service store vendors.');
         }
@@ -185,7 +186,6 @@ const Transfer = ({ user }) => {
     };
     fetchServiceStoreVendors();
   }, []);
-  // Fetch site incharge
   useEffect(() => {
     const fetchSiteIncharge = async () => {
       try {
@@ -208,22 +208,37 @@ const Transfer = ({ user }) => {
     };
     fetchSiteIncharge();
   }, []);
-  // Fetch entry number
   useEffect(() => {
     const fetchEntryNo = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/tools_tracker_management/getEntryCount');
+        let endpoint;
+        if (entryServiceMode === 'Service') {
+          endpoint = `${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/getServiceCount`;
+        } else if (entryServiceMode === 'Relocate') {
+          endpoint = `${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/getRelocationCount`;
+        } else {
+          endpoint = `${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/getEntryCount`;
+        }
+        const response = await fetch(endpoint);
         if (response.ok) {
           const data = await response.json();
-          setEntryNo(data.eno + 1);
+          setEntryNo(data + 1);
         }
       } catch (error) {
         console.error('Error fetching entry number:', error);
       }
     };
     fetchEntryNo();
-  }, []);
-  // Reset search when dropdowns close
+  }, [entryServiceMode]);
+  useEffect(() => {
+    // Update current location in relocateItemDetails when selectedCurrentLocation changes
+    if (entryServiceMode === 'Relocate' && relocateItemDetails && selectedCurrentLocation) {
+      setRelocateItemDetails(prev => ({
+        ...prev,
+        currentLocation: selectedCurrentLocation.label || ''
+      }));
+    }
+  }, [selectedCurrentLocation, entryServiceMode]);
   useEffect(() => {
     if (!showToDropdown) {
       setToSearchQuery('');
@@ -238,12 +253,9 @@ const Transfer = ({ user }) => {
       setInchargeSearchQuery('');
     }
   }, [showToDropdown, showServiceStoreDropdown, showFromDropdown, showInchargeDropdown]);
-
-  // Global mouse handlers for desktop support (similar to PurchaseOrder)
   useEffect(() => {
     if (items.length === 0) return;
     const minSwipeDistance = 50;
-
     const globalMouseMoveHandler = (e) => {
       setSwipeStates(prev => {
         let hasChanges = false;
@@ -253,7 +265,6 @@ const Transfer = ({ user }) => {
           if (!state) return;
           const deltaX = e.clientX - state.startX;
           const isExpanded = expandedItemId === item.id;
-          // Only update if dragging horizontally
           if (deltaX < 0 || (isExpanded && deltaX > 0)) {
             newState[item.id] = {
               ...state,
@@ -266,7 +277,6 @@ const Transfer = ({ user }) => {
         return hasChanges ? newState : prev;
       });
     };
-
     const globalMouseUpHandler = () => {
       setSwipeStates(prev => {
         let hasChanges = false;
@@ -278,27 +288,21 @@ const Transfer = ({ user }) => {
           const absDeltaX = Math.abs(deltaX);
           if (absDeltaX >= minSwipeDistance) {
             if (deltaX < 0) {
-              // Swiped left (reveal buttons)
               setExpandedItemId(item.id);
             } else {
-              // Swiped right (hide buttons)
               setExpandedItemId(null);
             }
           } else {
-            // Small movement - snap back
             if (expandedItemId === item.id) {
               setExpandedItemId(null);
             }
           }
-          // Remove swipe state for this card
           delete newState[item.id];
           hasChanges = true;
         });
         return hasChanges ? newState : prev;
       });
     };
-
-    // Add global mouse event listeners
     document.addEventListener('mousemove', globalMouseMoveHandler);
     document.addEventListener('mouseup', globalMouseUpHandler);
     return () => {
@@ -306,8 +310,6 @@ const Transfer = ({ user }) => {
       document.removeEventListener('mouseup', globalMouseUpHandler);
     };
   }, [items, expandedItemId]);
-
-  // Normalize search text for flexible matching
   const normalizeSearchText = (text) => {
     if (!text) return '';
     return text
@@ -316,14 +318,12 @@ const Transfer = ({ user }) => {
       .replace(/\s+/g, ' ')
       .trim();
   };
-  // Filter and sort To options
   const getFilteredToOptions = () => {
     const normalizedQuery = normalizeSearchText(toSearchQuery);
     const filtered = toOptions.filter(option => {
       const normalizedLabel = normalizeSearchText(option.label);
       return normalizedLabel.includes(normalizedQuery);
     });
-    // Sort: favorites first, then alphabetically
     return filtered.sort((a, b) => {
       const aIsFavorite = toFavorites.includes(a.id);
       const bIsFavorite = toFavorites.includes(b.id);
@@ -332,7 +332,6 @@ const Transfer = ({ user }) => {
       return a.label.localeCompare(b.label);
     });
   };
-  // Handle toggle favorite for To options
   const handleToggleToFavorite = (e, optionId) => {
     e.stopPropagation();
     const newFavorites = toFavorites.includes(optionId)
@@ -341,14 +340,12 @@ const Transfer = ({ user }) => {
     setToFavorites(newFavorites);
     localStorage.setItem('favoriteToSites', JSON.stringify(newFavorites));
   };
-  // Filter and sort From options
   const getFilteredFromOptions = () => {
     const normalizedQuery = normalizeSearchText(fromSearchQuery);
     const filtered = fromOptions.filter(option => {
       const normalizedLabel = normalizeSearchText(option.label);
       return normalizedLabel.includes(normalizedQuery);
     });
-    // Sort: favorites first, then alphabetically
     return filtered.sort((a, b) => {
       const aIsFavorite = fromFavorites.includes(a.id);
       const bIsFavorite = fromFavorites.includes(b.id);
@@ -357,7 +354,6 @@ const Transfer = ({ user }) => {
       return a.label.localeCompare(b.label);
     });
   };
-  // Handle toggle favorite for From options
   const handleToggleFromFavorite = (e, optionId) => {
     e.stopPropagation();
     const newFavorites = fromFavorites.includes(optionId)
@@ -366,14 +362,12 @@ const Transfer = ({ user }) => {
     setFromFavorites(newFavorites);
     localStorage.setItem('favoriteFromSites', JSON.stringify(newFavorites));
   };
-  // Filter and sort Incharge options
   const getFilteredInchargeOptions = () => {
     const normalizedQuery = normalizeSearchText(inchargeSearchQuery);
     const filtered = inchargeOptions.filter(option => {
       const normalizedLabel = normalizeSearchText(option.label);
       return normalizedLabel.includes(normalizedQuery);
     });
-    // Sort: favorites first, then alphabetically
     return filtered.sort((a, b) => {
       const aIsFavorite = inchargeFavorites.includes(a.id);
       const bIsFavorite = inchargeFavorites.includes(b.id);
@@ -382,7 +376,6 @@ const Transfer = ({ user }) => {
       return a.label.localeCompare(b.label);
     });
   };
-  // Handle toggle favorite for Incharge options
   const handleToggleInchargeFavorite = (e, optionId) => {
     e.stopPropagation();
     const newFavorites = inchargeFavorites.includes(optionId)
@@ -391,14 +384,34 @@ const Transfer = ({ user }) => {
     setInchargeFavorites(newFavorites);
     localStorage.setItem('favoriteIncharges', JSON.stringify(newFavorites));
   };
-  // Filter and sort Service Store options
+  const getFilteredRelocateLocationOptions = () => {
+    const normalizedQuery = normalizeSearchText(relocateLocationSearchQuery);
+    const filtered = fromOptions.filter(option => {
+      const normalizedLabel = normalizeSearchText(option.label);
+      return normalizedLabel.includes(normalizedQuery);
+    });
+    return filtered.sort((a, b) => {
+      const aIsFavorite = relocateLocationFavorites.includes(a.id);
+      const bIsFavorite = relocateLocationFavorites.includes(b.id);
+      if (aIsFavorite && !bIsFavorite) return -1;
+      if (!aIsFavorite && bIsFavorite) return 1;
+      return a.label.localeCompare(b.label);
+    });
+  };
+  const handleToggleRelocateLocationFavorite = (e, optionId) => {
+    e.stopPropagation();
+    const newFavorites = relocateLocationFavorites.includes(optionId)
+      ? relocateLocationFavorites.filter(id => id !== optionId)
+      : [...relocateLocationFavorites, optionId];
+    setRelocateLocationFavorites(newFavorites);
+    localStorage.setItem('favoriteRelocateLocations', JSON.stringify(newFavorites));
+  };
   const getFilteredServiceStoreOptions = () => {
     const normalizedQuery = normalizeSearchText(serviceStoreSearchQuery);
     const filtered = serviceStoreOptions.filter(option => {
       const normalizedLabel = normalizeSearchText(option.label);
       return normalizedLabel.includes(normalizedQuery);
     });
-    // Sort: favorites first, then alphabetically
     return filtered.sort((a, b) => {
       const aIsFavorite = serviceStoreFavorites.includes(a.id);
       const bIsFavorite = serviceStoreFavorites.includes(b.id);
@@ -407,7 +420,6 @@ const Transfer = ({ user }) => {
       return a.label.localeCompare(b.label);
     });
   };
-  // Handle toggle favorite for Service Store options
   const handleToggleServiceStoreFavorite = (e, optionId) => {
     e.stopPropagation();
     const newFavorites = serviceStoreFavorites.includes(optionId)
@@ -420,25 +432,34 @@ const Transfer = ({ user }) => {
     const [day, month, year] = dateString.split('/');
     return `${day}/${month}/${year}`;
   };
-  // Check if all required fields are filled based on mode
   const areFieldsFilled = entryServiceMode === 'Entry'
     ? (selectedFrom && selectedTo && selectedIncharge)
+    : entryServiceMode === 'Relocate'
+    ? (selectedRelocateItemId && selectedCurrentLocation && selectedRelocateLocation)
     : (selectedFrom && selectedServiceStore && selectedIncharge);
-
-  // Handler for switching to Entry mode
   const handleSwitchToEntry = () => {
     setEntryServiceMode('Entry');
-    // Clear Service Store when switching to Entry mode
     setSelectedServiceStore(null);
+    setSelectedRelocateItemId(null);
+    setSelectedCurrentLocation(null);
+    setSelectedRelocateLocation(null);
+    setRelocateItemDetails(null);
   };
-
-  // Handler for switching to Service mode
   const handleSwitchToService = () => {
     setEntryServiceMode('Service');
-    // Clear To project when switching to Service mode
     setSelectedTo(null);
+    setSelectedRelocateItemId(null);
+    setSelectedCurrentLocation(null);
+    setSelectedRelocateLocation(null);
+    setRelocateItemDetails(null);
   };
-  // Fetch tools item names from tools tracker API
+  const handleSwitchToRelocate = () => {
+    setEntryServiceMode('Relocate');
+    setSelectedTo(null);
+    setSelectedServiceStore(null);
+    setSelectedFrom(null);
+    setRelocateLocationSearchQuery('');
+  };
   useEffect(() => {
     const fetchToolsItemNames = async () => {
       try {
@@ -461,8 +482,6 @@ const Transfer = ({ user }) => {
     };
     fetchToolsItemNames();
   }, []);
-
-  // Fetch tools brands from tools tracker API
   useEffect(() => {
     const fetchToolsBrands = async () => {
       try {
@@ -473,7 +492,6 @@ const Transfer = ({ user }) => {
         });
         if (response.ok) {
           const data = await response.json();
-          // Store full brand data with IDs
           setToolsBrandFullData(Array.isArray(data) ? data : []);
           const brandOpts = (Array.isArray(data) ? data : [])
             .map(b => b?.tools_brand?.trim() ?? b?.toolsBrand?.trim())
@@ -486,8 +504,6 @@ const Transfer = ({ user }) => {
     };
     fetchToolsBrands();
   }, []);
-
-  // Fetch tools item IDs from tools tracker API
   useEffect(() => {
     const fetchToolsItemIds = async () => {
       try {
@@ -498,12 +514,10 @@ const Transfer = ({ user }) => {
         });
         if (response.ok) {
           const data = await response.json();
-          // Store full item ID data with IDs
           setToolsItemIdFullData(Array.isArray(data) ? data : []);
           const itemIdOpts = (Array.isArray(data) ? data : [])
             .map(item => item?.item_id?.trim() ?? item?.itemId?.trim())
             .filter(item => item)
-            // Filter out purely numeric values (these are likely database IDs, not actual item IDs)
             .filter(item => !/^\d+$/.test(item));
           setApiItemIdOptions(itemIdOpts);
           setItemIdOptions(itemIdOpts);
@@ -514,8 +528,6 @@ const Transfer = ({ user }) => {
     };
     fetchToolsItemIds();
   }, []);
-
-  // Fetch stock management data to get machine numbers
   useEffect(() => {
     const fetchStockManagement = async () => {
       try {
@@ -534,32 +546,41 @@ const Transfer = ({ user }) => {
     };
     fetchStockManagement();
   }, []);
-
-  // Load edit data from localStorage (when coming from History page)
   useEffect(() => {
-    // Only load if we have all necessary data
+    const fetchToolsTrackerManagement = async () => {
+      try {
+        const response = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setToolsTrackerManagementData(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching tools tracker management data:', error);
+      }
+    };
+    fetchToolsTrackerManagement();
+  }, []);
+  useEffect(() => {
     if (fromOptions.length === 0 || inchargeOptions.length === 0 || toolsItemNameListData.length === 0) {
       return;
     }
-    
     const loadEditData = async () => {
       try {
         const editEntryId = localStorage.getItem('editingToolsTrackerEntryId');
         if (editEntryId) {
-          // Fetch the full entry data from API using the entry ID
           const response = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/get/${editEntryId}`, {
             method: 'GET',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' }
           });
-          
           if (!response.ok) {
             throw new Error('Failed to fetch entry data');
           }
-          
           const editData = await response.json();
-          
-          // Set entry number and date
           if (editData.eno) {
             setEntryNo(editData.eno);
           }
@@ -570,16 +591,11 @@ const Transfer = ({ user }) => {
             const year = date.getFullYear();
             setDate(`${day}/${month}/${year}`);
           }
-          
-          // Set entry/service mode
           const entryType = editData.tools_entry_type || editData.toolsEntryType || 'entry';
           setEntryServiceMode(entryType === 'service' ? 'Service' : 'Entry');
-          
-          // Load items after options are available
           const loadItems = () => {
             const entryItems = editData.tools_tracker_item_name_table || editData.toolsTrackerItemNameTable || [];
             const loadedItems = entryItems.map((item, index) => {
-              // Process images
               const rawImages = item.tools_item_live_images || item.toolsItemLiveImages || [];
               const processedImages = rawImages.map(img => {
                 if (img.tools_image || img.toolsImage) {
@@ -588,18 +604,13 @@ const Transfer = ({ user }) => {
                 }
                 return null;
               }).filter(Boolean);
-              
-              // Create local URLs for display
               const localImageUrls = processedImages;
-              
-              // Get display names from maps
               const itemName = toolsItemNameListData.find(i => String(i?.id) === String(item?.item_name_id ?? item?.itemNameId))?.item_name || 
                                toolsItemNameListData.find(i => String(i?.id) === String(item?.item_name_id ?? item?.itemNameId))?.itemName || '';
               const brand = toolsBrandFullData.find(b => String(b?.id) === String(item?.brand_id ?? item?.brandId))?.tools_brand || 
                            toolsBrandFullData.find(b => String(b?.id) === String(item?.brand_id ?? item?.brandId))?.toolsBrand || '';
               const itemId = toolsItemIdFullData.find(i => String(i?.id) === String(item?.item_ids_id ?? item?.itemIdsId))?.item_id || 
                             toolsItemIdFullData.find(i => String(i?.id) === String(item?.item_ids_id ?? item?.itemIdsId))?.itemId || '';
-              
               return {
                 id: Date.now() + index,
                 timestamp: item.timestamp || new Date().toISOString().slice(0, 19),
@@ -620,19 +631,13 @@ const Transfer = ({ user }) => {
                 itemId: itemId
               };
             });
-            
             setItems(loadedItems);
           };
-          
-          // Wait for options to load, then load items
           if (fromOptions.length > 0 && inchargeOptions.length > 0) {
-            // Set From
             const fromOption = fromOptions.find(opt => String(opt.id) === String(editData.from_project_id || editData.fromProjectId));
             if (fromOption) {
               setSelectedFrom(fromOption);
             }
-            
-            // Set To or Service Store based on mode
             if (entryType === 'service') {
               const serviceStoreOption = serviceStoreOptions.find(opt => String(opt.id) === String(editData.service_store_id || editData.serviceStoreId));
               if (serviceStoreOption) {
@@ -644,29 +649,21 @@ const Transfer = ({ user }) => {
                 setSelectedTo(toOption);
               }
             }
-            
-            // Set Incharge
             const inchargeOption = inchargeOptions.find(opt => String(opt.id) === String(editData.project_incharge_id || editData.projectInchargeId));
             if (inchargeOption) {
               setSelectedIncharge(inchargeOption);
             }
-            
-            // Load items after a short delay to ensure all data is ready
             setTimeout(() => {
               loadItems();
             }, 100);
           } else {
-            // Retry after options load
             const checkInterval = setInterval(() => {
               if (fromOptions.length > 0 && inchargeOptions.length > 0) {
                 clearInterval(checkInterval);
-                // Set From
                 const fromOption = fromOptions.find(opt => String(opt.id) === String(editData.from_project_id || editData.fromProjectId));
                 if (fromOption) {
                   setSelectedFrom(fromOption);
                 }
-                
-                // Set To or Service Store
                 if (entryType === 'service') {
                   const serviceStoreOption = serviceStoreOptions.find(opt => String(opt.id) === String(editData.service_store_id || editData.serviceStoreId));
                   if (serviceStoreOption) {
@@ -678,22 +675,15 @@ const Transfer = ({ user }) => {
                     setSelectedTo(toOption);
                   }
                 }
-                
-                // Set Incharge
                 const inchargeOption = inchargeOptions.find(opt => String(opt.id) === String(editData.project_incharge_id || editData.projectInchargeId));
                 if (inchargeOption) {
                   setSelectedIncharge(inchargeOption);
-                }
-                
+                }                
                 loadItems();
               }
             }, 100);
-            
-            // Clear interval after 5 seconds to prevent infinite loop
             setTimeout(() => clearInterval(checkInterval), 5000);
           }
-          
-          // Clear edit data from localStorage
           localStorage.removeItem('editingToolsTrackerEntryId');
         }
       } catch (error) {
@@ -701,7 +691,6 @@ const Transfer = ({ user }) => {
         localStorage.removeItem('editingToolsTrackerEntryId');
       }
     };
-    
     loadEditData();
   }, [fromOptions, toOptions, serviceStoreOptions, inchargeOptions, toolsItemNameListData, toolsBrandFullData, toolsItemIdFullData]);
   const handleAddItem = () => {
@@ -725,7 +714,6 @@ const Transfer = ({ user }) => {
     setSelectedItemNameQuantity(0);
     setSelectedItemMachineNumber('');
   };
-
   const handleCloseUploadModal = () => {
     setShowUploadModal(false);
     setUploadFiles([]);
@@ -734,13 +722,51 @@ const Transfer = ({ user }) => {
     setUploadDescription('');
   };
   const handleAddItemSubmit = () => {
-    // Only Item Name is required, other fields are optional
     if (addItemFormData.itemName) {
-      // If editing, update item directly without upload modal
       if (editingItem) {
+        const newItemNameId = addItemFormData.itemNameId ? String(addItemFormData.itemNameId) : editingItem.item_name_id;
+        const newItemIdDbId = addItemFormData.itemIdDbId ? String(addItemFormData.itemIdDbId) : editingItem.item_ids_id;
+        const newBrandId = addItemFormData.brandId ? String(addItemFormData.brandId) : editingItem.brand_id;
+        const newMachineNumber = addItemFormData.machineNumber || editingItem.machine_number || '';
+        
+        // If itemId is selected, only check the full set (itemIdsId + brandId + machineNumber)
+        // Don't check itemNameId separately when itemId is selected
+        if (selectedFrom && newItemIdDbId) {
+          const itemSetValidation = validateItemSetAvailability(
+            newItemIdDbId,
+            newBrandId,
+            newMachineNumber,
+            newItemNameId,
+            addItemFormData.itemName,
+            selectedFrom.id
+          );
+          
+          if (!itemSetValidation.isValid) {
+            alert(itemSetValidation.errorMessage);
+            return;
+          }
+        } else if (selectedFrom && newItemNameId) {
+          // Only check itemNameId if itemId is NOT selected (for quantity-based transfers)
+          // Check quantity availability with brandId if provided
+          const newBrandId = addItemFormData.brandId ? String(addItemFormData.brandId) : editingItem.brand_id;
+          const newQuantity = addItemFormData.quantity ? String(addItemFormData.quantity) : String(editingItem.quantity || 0);
+          const validation = validateItemLocation(
+            newItemNameId,
+            addItemFormData.itemName,
+            newBrandId,
+            newQuantity,
+            selectedFrom.id
+          );
+          
+          if (!validation.isValid) {
+            alert(validation.errorMessage);
+            return;
+          }
+        }
+        
         const updatedItem = {
           ...editingItem,
-          item_name_id: addItemFormData.itemNameId ? String(addItemFormData.itemNameId) : editingItem.item_name_id,
+          item_name_id: newItemNameId,
           item_ids_id: addItemFormData.itemIdDbId ? String(addItemFormData.itemIdDbId) : editingItem.item_ids_id,
           brand_id: addItemFormData.brandId ? String(addItemFormData.brandId) : editingItem.brand_id,
           machine_number: addItemFormData.machineNumber || '',
@@ -755,40 +781,28 @@ const Transfer = ({ user }) => {
         setEditingItem(null);
         handleCloseAddItemsModal();
       } else {
-        // Show upload modal for new item
         setShowUploadModal(true);
       }
     }
   };
-
-  // Helper function to convert file to base64
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
-        // Remove the data URL prefix (e.g., "data:image/png;base64,") to get raw base64
         const base64String = reader.result.split(',')[1];
         resolve(base64String);
       };
       reader.onerror = (error) => reject(error);
     });
   };
-
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-
     setIsUploading(true);
-
-    // Process each file
     for (const file of files) {
       const fileId = Date.now() + Math.random();
-
-      // Create local preview URL for UI display
       const localPreviewUrl = URL.createObjectURL(file);
-
-      // Add file to list with initial progress
       setUploadFiles(prev => [...prev, {
         id: fileId,
         file: file,
@@ -798,9 +812,7 @@ const Transfer = ({ user }) => {
         localUrl: localPreviewUrl,
         base64Data: null
       }]);
-
       try {
-        // Simulate progress
         const progressInterval = setInterval(() => {
           setUploadFiles(prev => prev.map(f =>
             f.id === fileId && f.progress < 90
@@ -808,13 +820,8 @@ const Transfer = ({ user }) => {
               : f
           ));
         }, 100);
-
-        // Convert file to base64
         const base64Data = await fileToBase64(file);
-
         clearInterval(progressInterval);
-
-        // Update file with base64 data and 100% progress
         setUploadFiles(prev => prev.map(f =>
           f.id === fileId
             ? { ...f, progress: 100, base64Data: base64Data }
@@ -822,31 +829,473 @@ const Transfer = ({ user }) => {
         ));
       } catch (error) {
         console.error('Error converting file to base64:', error);
-        // Remove failed file from list
         setUploadFiles(prev => prev.filter(f => f.id !== fileId));
         alert(`Failed to process ${file.name}. Please try again.`);
       }
     }
-
     setIsUploading(false);
     e.target.value = '';
   };
+  // Helper function to get current location of an item
+  const getItemCurrentLocation = (itemNameId) => {
+    if (!itemNameId) return null;
+    
+    const itemNameIdStr = String(itemNameId);
+    let currentLocationId = null;
+    let locationType = null; // 'project' or 'home'
+    
+    // First, check in tools_tracker_management entries (transfer history)
+    // Find the most recent entry for this item to determine its current location
+    let mostRecentEntry = null;
+    let mostRecentDate = null;
+    
+    for (const entry of toolsTrackerManagementData) {
+      const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
+      if (entryType.toLowerCase() !== 'entry') continue; // Only check Entry type, not Service
+      
+      const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
+      const hasItem = entryItems.some(entryItem => {
+        const entryItemNameId = entryItem.item_name_id || entryItem.itemNameId;
+        return entryItemNameId && String(entryItemNameId) === itemNameIdStr;
+      });
+      
+      if (hasItem) {
+        const entryDate = entry.created_date_time || entry.createdDateTime || entry.timestamp || '';
+        if (!mostRecentDate || entryDate > mostRecentDate) {
+          mostRecentDate = entryDate;
+          mostRecentEntry = entry;
+        }
+      }
+    }
+    
+    // If item is found in transfer history, get its toProjectId
+    if (mostRecentEntry) {
+      const entryToProjectId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
+      if (entryToProjectId) {
+        currentLocationId = String(entryToProjectId);
+        locationType = 'project';
+        return { locationId: currentLocationId, locationType };
+      }
+    }
+    
+    // If no toProjectId found, check home_location_id from stock management
+    const stockItem = stockManagementData.find(stock => {
+      const stockItemNameId = stock.item_name_id || stock.itemNameId;
+      return stockItemNameId && String(stockItemNameId) === itemNameIdStr;
+    });
+    
+    if (stockItem) {
+      const homeLocationId = stockItem.home_location_id || stockItem.homeLocationId;
+      if (homeLocationId) {
+        currentLocationId = String(homeLocationId);
+        locationType = 'home';
+        return { locationId: currentLocationId, locationType };
+      }
+    }
+    
+    return null; // Item location not found
+  };
+
+  // Helper function to check if a specific item set (itemIdsId + brandId + machineNumber) is available at a location
+  const isItemSetAvailableAtLocation = (itemIdsId, brandId, machineNumber, locationId) => {
+    if (!itemIdsId || !locationId) return false;
+    
+    const itemIdsIdStr = String(itemIdsId);
+    const brandIdStr = brandId ? String(brandId) : null;
+    const machineNumberStr = machineNumber ? String(machineNumber).trim() : '';
+    const locationIdStr = String(locationId);
+    
+    // First check stock management - if item is at home location
+    const stockItem = stockManagementData.find(stock => {
+      const stockItemIdsId = stock.item_ids_id || stock.itemIdsId;
+      const stockBrandId = stock.brand_name_id || stock.brandNameId;
+      const stockMachineNumber = stock.machine_number || stock.machineNumber || '';
+      
+      const itemIdsMatch = stockItemIdsId && String(stockItemIdsId) === itemIdsIdStr;
+      const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+      const machineMatch = !machineNumberStr || (stockMachineNumber && String(stockMachineNumber).trim() === machineNumberStr);
+      
+      return itemIdsMatch && brandMatch && machineMatch;
+    });
+    
+    if (stockItem) {
+      const homeLocationId = stockItem.home_location_id || stockItem.homeLocationId;
+      if (homeLocationId && String(homeLocationId) === locationIdStr) {
+        // Item set is at home location matching the requested location
+        return true;
+      }
+    }
+    
+    // Track transfers to find current location of this specific item set
+    // Find the most recent transfer entry that includes this exact item set
+    let mostRecentEntry = null;
+    let mostRecentDate = null;
+    
+    for (const entry of toolsTrackerManagementData) {
+      const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
+      if (entryType.toLowerCase() !== 'entry') continue; // Only check Entry type, not Service
+      
+      const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
+      const hasMatchingItemSet = entryItems.some(entryItem => {
+        const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
+        const entryBrandId = entryItem.brand_id || entryItem.brandId;
+        const entryMachineNumber = entryItem.machine_number || entryItem.machineNumber || '';
+        
+        const itemIdsMatch = entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
+        const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
+        const machineMatch = !machineNumberStr || (entryMachineNumber && String(entryMachineNumber).trim() === machineNumberStr);
+        
+        return itemIdsMatch && brandMatch && machineMatch;
+      });
+      
+      if (hasMatchingItemSet) {
+        const entryDate = entry.created_date_time || entry.createdDateTime || entry.timestamp || '';
+        if (!mostRecentDate || entryDate > mostRecentDate) {
+          mostRecentDate = entryDate;
+          mostRecentEntry = entry;
+        }
+      }
+    }
+    
+    // If item set was found in transfer history, check its current location
+    if (mostRecentEntry) {
+      const entryToProjectId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
+      if (entryToProjectId && String(entryToProjectId) === locationIdStr) {
+        // Item set is currently at this location
+        return true;
+      }
+    }
+    
+    // If item set not found in transfers and not at home location, it's not available
+    return false;
+  };
+
+  // Helper function to get current location of an item set (itemIdsId + brandId + machineNumber)
+  const getItemSetCurrentLocation = (itemIdsId, brandId, machineNumber) => {
+    if (!itemIdsId) return null;
+    
+    const itemIdsIdStr = String(itemIdsId);
+    const brandIdStr = brandId ? String(brandId) : null;
+    const machineNumberStr = machineNumber ? String(machineNumber).trim() : '';
+    let currentLocationId = null;
+    let locationType = null; // 'project' or 'home'
+    
+    // First, check in tools_tracker_management entries (transfer history)
+    // Find the most recent entry for this item set to determine its current location
+    let mostRecentEntry = null;
+    let mostRecentDate = null;
+    
+    for (const entry of toolsTrackerManagementData) {
+      const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
+      if (entryType.toLowerCase() !== 'entry') continue; // Only check Entry type, not Service
+      
+      const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
+      const hasMatchingItemSet = entryItems.some(entryItem => {
+        const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
+        const entryBrandId = entryItem.brand_id || entryItem.brandId;
+        const entryMachineNumber = entryItem.machine_number || entryItem.machineNumber || '';
+        
+        const itemIdsMatch = entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
+        const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
+        const machineMatch = !machineNumberStr || (entryMachineNumber && String(entryMachineNumber).trim() === machineNumberStr);
+        
+        return itemIdsMatch && brandMatch && machineMatch;
+      });
+      
+      if (hasMatchingItemSet) {
+        const entryDate = entry.created_date_time || entry.createdDateTime || entry.timestamp || '';
+        if (!mostRecentDate || entryDate > mostRecentDate) {
+          mostRecentDate = entryDate;
+          mostRecentEntry = entry;
+        }
+      }
+    }
+    
+    // If item set is found in transfer history, get its toProjectId
+    if (mostRecentEntry) {
+      const entryToProjectId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
+      if (entryToProjectId) {
+        currentLocationId = String(entryToProjectId);
+        locationType = 'project';
+        return { locationId: currentLocationId, locationType };
+      }
+    }
+    
+    // If no toProjectId found, check home_location_id from stock management
+    const stockItem = stockManagementData.find(stock => {
+      const stockItemIdsId = stock.item_ids_id || stock.itemIdsId;
+      const stockBrandId = stock.brand_name_id || stock.brandNameId;
+      const stockMachineNumber = stock.machine_number || stock.machineNumber || '';
+      
+      const itemIdsMatch = stockItemIdsId && String(stockItemIdsId) === itemIdsIdStr;
+      const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+      const machineMatch = !machineNumberStr || (stockMachineNumber && String(stockMachineNumber).trim() === machineNumberStr);
+      
+      return itemIdsMatch && brandMatch && machineMatch;
+    });
+    
+    if (stockItem) {
+      const homeLocationId = stockItem.home_location_id || stockItem.homeLocationId;
+      if (homeLocationId) {
+        currentLocationId = String(homeLocationId);
+        locationType = 'home';
+        return { locationId: currentLocationId, locationType };
+      }
+    }
+    
+    return null; // Item set location not found
+  };
+
+  // Helper function to calculate available quantity of itemNameId (with optional brandId) at a location
+  const getAvailableQuantityAtLocation = (itemNameId, brandId, locationId) => {
+    if (!itemNameId || !locationId) return 0;
+    
+    const itemNameIdStr = String(itemNameId);
+    const brandIdStr = brandId ? String(brandId) : null;
+    const locationIdStr = String(locationId);
+    let availableQuantity = 0;
+    
+    // Start with quantity from stock management (home location)
+    // Filter by itemNameId and optionally brandId
+    const stockItems = stockManagementData.filter(stock => {
+      const stockItemNameId = stock.item_name_id || stock.itemNameId;
+      const stockBrandId = stock.brand_name_id || stock.brandNameId;
+      const stockHomeLocationId = stock.home_location_id || stock.homeLocationId;
+      
+      const itemNameMatch = stockItemNameId && String(stockItemNameId) === itemNameIdStr;
+      const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+      const locationMatch = stockHomeLocationId && String(stockHomeLocationId) === locationIdStr;
+      // Only count items without itemIdsId (quantity-based items)
+      const noItemIdsId = !stock.item_ids_id && !stock.itemIdsId;
+      
+      return itemNameMatch && brandMatch && locationMatch && noItemIdsId;
+    });
+    
+    // Sum quantities from stock management
+    stockItems.forEach(stock => {
+      const qty = parseInt(stock.quantity || 0, 10);
+      availableQuantity += qty;
+    });
+    
+    // Track transfers: add items transferred TO this location, subtract items transferred FROM this location
+    for (const entry of toolsTrackerManagementData) {
+      const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
+      if (entryType.toLowerCase() !== 'entry') continue; // Only check Entry type, not Service
+      
+      const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
+      const entryToProjectId = entry.to_project_id || entry.toProjectId;
+      const entryFromProjectId = entry.from_project_id || entry.fromProjectId;
+      
+      for (const entryItem of entryItems) {
+        // Only count items without itemIdsId (quantity-based items)
+        const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
+        if (entryItemIdsId) continue; // Skip items with itemIdsId
+        
+        const entryItemNameId = entryItem.item_name_id || entryItem.itemNameId;
+        const entryBrandId = entryItem.brand_id || entryItem.brandId;
+        
+        const itemNameMatch = entryItemNameId && String(entryItemNameId) === itemNameIdStr;
+        const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
+        
+        if (itemNameMatch && brandMatch) {
+          const itemQuantity = parseInt(entryItem.quantity || 0, 10);
+          
+          // If transferred TO this location, add to available quantity
+          if (entryToProjectId && String(entryToProjectId) === locationIdStr) {
+            availableQuantity += itemQuantity;
+          }
+          
+          // If transferred FROM this location, subtract from available quantity
+          if (entryFromProjectId && String(entryFromProjectId) === locationIdStr) {
+            availableQuantity -= itemQuantity;
+          }
+        }
+      }
+    }
+    
+    return Math.max(0, availableQuantity); // Ensure non-negative
+  };
+
+  // Validation function to check if item can be transferred from selected location (with quantity check)
+  const validateItemLocation = (itemNameId, itemName, brandId, quantity, fromProjectId) => {
+    if (!itemNameId || !fromProjectId) return { isValid: true };
+    
+    const fromProjectIdStr = String(fromProjectId);
+    const requestedQuantity = parseInt(quantity || 0, 10);
+    
+    // If quantity is specified, check available quantity
+    if (requestedQuantity > 0) {
+      const availableQuantity = getAvailableQuantityAtLocation(itemNameId, brandId, fromProjectIdStr);
+      
+      if (availableQuantity < requestedQuantity) {
+        const projectOption = toOptions.find(opt => String(opt.id) === fromProjectIdStr);
+        const projectName = projectOption?.label || projectOption?.name || fromProjectIdStr;
+        
+        const itemDetails = [
+          `Item Name ID: ${itemNameId}`,
+          brandId ? `Brand ID: ${brandId}` : null
+        ].filter(Boolean).join(', ');
+        
+        return {
+          isValid: false,
+          errorMessage: `Cannot transfer item "${itemName}" (${itemDetails}). Only ${availableQuantity} unit(s) available at "${projectName}" (Project ID: ${fromProjectIdStr}), but ${requestedQuantity} unit(s) requested.`
+        };
+      }
+    } else {
+      // If no quantity specified, check if item exists at location (legacy check)
+      const locationInfo = getItemCurrentLocation(itemNameId);
+      if (!locationInfo) {
+        // Item location not found - allow transfer (might be new item)
+        return { isValid: true };
+      }      
+      const { locationId, locationType } = locationInfo;      
+      if (locationId !== fromProjectIdStr) {
+        // Find location name for error message
+        let locationName = locationId;
+        if (locationType === 'project') {
+          const projectOption = toOptions.find(opt => String(opt.id) === locationId);
+          locationName = projectOption?.label || projectOption?.name || locationId;
+        } else if (locationType === 'home') {
+          const projectOption = toOptions.find(opt => String(opt.id) === locationId);
+          locationName = projectOption?.label || projectOption?.name || `Home Location (ID: ${locationId})`;
+        }
+        return {
+          isValid: false,
+          errorMessage: `Cannot transfer item "${itemName}" (Item Name ID: ${itemNameId}). This item is currently ${locationType === 'project' ? 'in project' : 'at home location'} "${locationName}" (ID: ${locationId}), not in the selected "From" project.`
+        };
+      }
+    }    
+    return { isValid: true };
+  };
+  // Validation function to check if item set (itemIdsId + brandId + machineNumber) is available at location (before sending to backend)
+  const validateItemSetAvailability = (itemIdsId, brandId, machineNumber, itemNameId, itemName, fromProjectId) => {
+    if (!itemIdsId || !fromProjectId) return { isValid: true }; // If no itemId selected, skip check    
+    const fromProjectIdStr = String(fromProjectId);
+    const isAvailable = isItemSetAvailableAtLocation(itemIdsId, brandId, machineNumber, fromProjectIdStr);    
+    if (!isAvailable) {
+      const projectOption = toOptions.find(opt => String(opt.id) === fromProjectIdStr);
+      const projectName = projectOption?.label || projectOption?.name || fromProjectIdStr;      
+      // Find where the item set currently is
+      let currentLocation = null;
+      let currentLocationName = 'unknown location';      
+      const itemIdsIdStr = String(itemIdsId);
+      const brandIdStr = brandId ? String(brandId) : null;
+      const machineNumberStr = machineNumber ? String(machineNumber).trim() : '';      
+      // Check stock management
+      const stockItem = stockManagementData.find(stock => {
+        const stockItemIdsId = stock.item_ids_id || stock.itemIdsId;
+        const stockBrandId = stock.brand_name_id || stock.brandNameId;
+        const stockMachineNumber = stock.machine_number || stock.machineNumber || '';        
+        const itemIdsMatch = stockItemIdsId && String(stockItemIdsId) === itemIdsIdStr;
+        const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+        const machineMatch = !machineNumberStr || (stockMachineNumber && String(stockMachineNumber).trim() === machineNumberStr);        
+        return itemIdsMatch && brandMatch && machineMatch;
+      });
+      
+      if (stockItem) {
+        const homeLocationId = stockItem.home_location_id || stockItem.homeLocationId;
+        if (homeLocationId) {
+          currentLocation = String(homeLocationId);
+          const homeOption = toOptions.find(opt => String(opt.id) === currentLocation);
+          currentLocationName = homeOption?.label || homeOption?.name || `Home Location (ID: ${currentLocation})`;
+        }
+      }
+      
+      // Check transfer history for current location
+      let mostRecentEntry = null;
+      let mostRecentDate = null;
+      for (const entry of toolsTrackerManagementData) {
+        const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
+        if (entryType.toLowerCase() !== 'entry') continue;
+        
+        const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
+        const hasMatchingItemSet = entryItems.some(entryItem => {
+          const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
+          const entryBrandId = entryItem.brand_id || entryItem.brandId;
+          const entryMachineNumber = entryItem.machine_number || entryItem.machineNumber || '';
+          
+          const itemIdsMatch = entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
+          const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
+          const machineMatch = !machineNumberStr || (entryMachineNumber && String(entryMachineNumber).trim() === machineNumberStr);
+          
+          return itemIdsMatch && brandMatch && machineMatch;
+        });
+        
+        if (hasMatchingItemSet) {
+          const entryDate = entry.created_date_time || entry.createdDateTime || entry.timestamp || '';
+          if (!mostRecentDate || entryDate > mostRecentDate) {
+            mostRecentDate = entryDate;
+            mostRecentEntry = entry;
+          }
+        }
+      }
+      
+      if (mostRecentEntry) {
+        const entryToProjectId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
+        if (entryToProjectId) {
+          currentLocation = String(entryToProjectId);
+          const currentOption = toOptions.find(opt => String(opt.id) === currentLocation);
+          currentLocationName = currentOption?.label || currentOption?.name || currentLocation;
+        }
+      }
+      
+      const itemSetDetails = [
+        `Item ID: ${itemIdsId}`,
+        brandId ? `Brand ID: ${brandId}` : null,
+        machineNumber ? `Machine Number: ${machineNumber}` : null
+      ].filter(Boolean).join(', ');
+      
+      return {
+        isValid: false,
+        errorMessage: `Cannot transfer item "${itemName}" (${itemSetDetails}). This item set is currently at "${currentLocationName}" (ID: ${currentLocation || 'unknown'}), not at the selected "From" project "${projectName}" (Project ID: ${fromProjectIdStr}).`
+      };
+    }
+    
+    return { isValid: true };
+  };
 
   const handleConfirmUpload = () => {
-    // Add item with all data including upload info
-    // Send images as base64 bytes to tools_image field
+    // If itemId is selected, only check the full set (itemIdsId + brandId + machineNumber)
+    // Don't check itemNameId separately when itemId is selected
+    if (selectedFrom && addItemFormData.itemIdDbId) {
+      const itemSetValidation = validateItemSetAvailability(
+        addItemFormData.itemIdDbId,
+        addItemFormData.brandId,
+        addItemFormData.machineNumber,
+        addItemFormData.itemNameId,
+        addItemFormData.itemName,
+        selectedFrom.id
+      );
+      
+      if (!itemSetValidation.isValid) {
+        alert(itemSetValidation.errorMessage);
+        return;
+      }
+    } else if (selectedFrom && addItemFormData.itemNameId) {
+      // Only check itemNameId if itemId is NOT selected (for quantity-based transfers)
+      // Check quantity availability with brandId if provided
+      const validation = validateItemLocation(
+        addItemFormData.itemNameId,
+        addItemFormData.itemName,
+        addItemFormData.brandId,
+        addItemFormData.quantity,
+        selectedFrom.id
+      );
+      
+      if (!validation.isValid) {
+        alert(validation.errorMessage);
+        return;
+      }
+    }
+
     const uploadedImages = uploadFiles
       .filter(f => f.base64Data) // Only include files with base64 data
       .map(f => ({
         tools_image: f.base64Data // Send as byte array (base64 encoded)
       }));
-
-    // Also keep local URLs for UI display
     const localImageUrls = uploadFiles
       .filter(f => f.localUrl)
       .map(f => f.localUrl);
-
-    // Structure the item according to ToolsTrackerItemNameTable entity
     const newItem = {
       id: Date.now(), // Temporary ID for UI
       timestamp: new Date().toISOString().slice(0, 19), // LocalDateTime format
@@ -859,69 +1308,212 @@ const Transfer = ({ user }) => {
       machine_status: uploadStatus,
       description: uploadDescription,
       tools_item_live_images: uploadedImages, // For backend (base64 bytes)
-      localImageUrls: localImageUrls, // For UI display only
-      // Keep display data for UI
+      localImageUrls: localImageUrls, 
       itemName: addItemFormData.itemName,
       brand: addItemFormData.brand,
       itemId: addItemFormData.itemId
     };
-
-    // Add new item (editing is handled in handleAddItemSubmit)
     setItems([...items, newItem]);
-
-    // Close both modals
     handleCloseUploadModal();
     handleCloseAddItemsModal();
   };
-
-  // Function to save all data to the API
   const handleSaveTransfer = async () => {
-    if (!selectedFrom || !selectedIncharge) {
-      alert('Please fill in all required fields (From and Project Incharge)');
-      return;
+    if (entryServiceMode === 'Relocate') {
+      if (!selectedRelocateItemId || !selectedCurrentLocation || !selectedRelocateLocation) {
+        alert('Please fill in all required fields (Item ID, Current Location, and Relocate Location)');
+        return;
+      }
+    } else {
+      if (!selectedFrom || !selectedIncharge) {
+        alert('Please fill in all required fields (From and Project Incharge)');
+        return;
+      }
+      if (entryServiceMode === 'Entry' && !selectedTo) {
+        alert('Please select the "To" field');
+        return;
+      }
+      if (entryServiceMode === 'Service' && !selectedServiceStore) {
+        alert('Please select the Service Store');
+        return;
+      }
+      if (items.length === 0) {
+        alert('Please add at least one item');
+        return;
+      }
     }
 
-    if (entryServiceMode === 'Entry' && !selectedTo) {
-      alert('Please select the "To" field');
-      return;
+    // Validation: Check if items are available at fromProjectId (before sending to backend)
+    // Skip validation for Relocate mode as it uses different flow
+    if (entryServiceMode !== 'Relocate' && selectedFrom) {
+      const fromProjectId = String(selectedFrom.id);
+      
+      for (const item of items) {
+        if (!item.item_name_id) continue;
+        
+        // If itemId is selected, only check the full set (itemIdsId + brandId + machineNumber)
+        // Don't check itemNameId separately when itemId is selected
+        if (item.item_ids_id) {
+          const itemSetValidation = validateItemSetAvailability(
+            item.item_ids_id,
+            item.brand_id,
+            item.machine_number,
+            item.item_name_id,
+            item.itemName,
+            fromProjectId
+          );
+          
+          if (!itemSetValidation.isValid) {
+            alert(itemSetValidation.errorMessage);
+            setIsSaving(false);
+            return;
+          }
+        } else {
+          // Only check itemNameId if itemId is NOT selected (for quantity-based transfers)
+          // Check quantity availability with brandId if provided
+          const validation = validateItemLocation(
+            item.item_name_id,
+            item.itemName,
+            item.brand_id,
+            item.quantity,
+            fromProjectId
+          );
+          
+          if (!validation.isValid) {
+            alert(validation.errorMessage);
+            setIsSaving(false);
+            return;
+          }
+        }
+      }
     }
 
-    if (entryServiceMode === 'Service' && !selectedServiceStore) {
-      alert('Please select the Service Store');
-      return;
-    }
-
-    if (items.length === 0) {
-      alert('Please add at least one item');
-      return;
+    // Additional validation: Check if items are currently in a different project (for Entry mode)
+    if (entryServiceMode === 'Entry' && selectedTo && selectedFrom) {
+      const targetProjectId = String(selectedTo.id);
+      const fromProjectId = String(selectedFrom.id);
+      
+      for (const item of items) {
+        // If itemId is selected, check by full set (itemIdsId + brandId + machineNumber)
+        // Otherwise, check by itemNameId (for quantity-based transfers)
+        if (item.item_ids_id) {
+          // Check by full set
+          const locationInfo = getItemSetCurrentLocation(
+            item.item_ids_id,
+            item.brand_id,
+            item.machine_number
+          );
+          if (!locationInfo) continue; // Item set location not found - allow transfer
+          
+          const { locationId, locationType } = locationInfo;
+          
+          // If item set is in a project (not home), check if it's different from both FROM and TO
+          if (locationType === 'project') {
+            const currentProjectId = String(locationId);
+            
+            // Allow transfer if we're transferring FROM the project where item set currently is
+            // Block if item set is in a different project than both FROM and TO
+            if (currentProjectId !== fromProjectId && currentProjectId !== targetProjectId) {
+              const projectOption = toOptions.find(opt => String(opt.id) === currentProjectId);
+              const projectName = projectOption?.label || projectOption?.name || currentProjectId;
+              const itemName = item.itemName || 'Unknown Item';
+              const itemSetDetails = [
+                `Item ID: ${item.itemId || item.item_ids_id}`,
+                item.brand_id ? `Brand ID: ${item.brand_id}` : null,
+                item.machine_number ? `Machine Number: ${item.machine_number}` : null
+              ].filter(Boolean).join(', ');
+              alert(`Cannot transfer item "${itemName}" (${itemSetDetails}). This item set is currently in project "${projectName}" (Project ID: ${currentProjectId}). Please return it to home location first or transfer it from the current project.`);
+              setIsSaving(false);
+              return;
+            }
+          }
+        } else if (item.item_name_id) {
+          // Check by itemNameId (for quantity-based transfers)
+          const locationInfo = getItemCurrentLocation(item.item_name_id);
+          if (!locationInfo) continue; // Item location not found - allow transfer
+          
+          const { locationId, locationType } = locationInfo;
+          
+          // If item is in a project (not home), check if it's different from both FROM and TO
+          if (locationType === 'project') {
+            const currentProjectId = String(locationId);
+            
+            // Allow transfer if we're transferring FROM the project where item currently is
+            // Block if item is in a different project than both FROM and TO
+            if (currentProjectId !== fromProjectId && currentProjectId !== targetProjectId) {
+              const projectOption = toOptions.find(opt => String(opt.id) === currentProjectId);
+              const projectName = projectOption?.label || projectOption?.name || currentProjectId;
+              const itemName = item.itemName || 'Unknown Item';
+              alert(`Cannot transfer item "${itemName}" (Item Name ID: ${item.item_name_id}). This item is currently in project "${projectName}" (Project ID: ${currentProjectId}). Please return it to home location first or transfer it from the current project.`);
+              setIsSaving(false);
+              return;
+            }
+          }
+        }
+      }
     }
 
     setIsSaving(true);
-
     try {
-      // Build the payload according to ToolsTrackerManagement entity
-      const payload = {
-        from_project_id: selectedFrom?.id ? String(selectedFrom.id) : null,
-        to_project_id: entryServiceMode === 'Entry' && selectedTo?.id ? String(selectedTo.id) : null,
-        project_incharge_id: selectedIncharge?.id ? String(selectedIncharge.id) : null,
-        service_store_id: entryServiceMode === 'Service' && selectedServiceStore?.id ? String(selectedServiceStore.id) : null,
-        created_by: user?.name || user?.username || 'mobile',
-        tools_entry_type: entryServiceMode.toLowerCase(), // "entry" or "service"
-        eno: String(entryNo),
-        tools_tracker_item_name_table: items.map(item => ({
-          timestamp: item.timestamp || new Date().toISOString().slice(0, 19),
-          item_name_id: item.item_name_id || null,
-          item_ids_id: item.item_ids_id || null,
-          brand_id: item.brand_id || null,
-          model: item.model || '',
-          machine_number: item.machine_number || '',
-          quantity: item.quantity || 0,
-          machine_status: item.machine_status || 'Working',
-          description: item.description || '',
-          tools_item_live_images: item.tools_item_live_images || []
-        }))
-      };
-
+      let payload;
+      
+      if (entryServiceMode === 'Relocate') {
+        // For Relocate mode, get item details from stock management
+        const stockItem = stockManagementData.find(item => {
+          const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+          return String(itemIdsId) === String(selectedRelocateItemId);
+        });
+        
+        if (!stockItem) {
+          alert('Item not found in stock management');
+          setIsSaving(false);
+          return;
+        }
+        
+        payload = {
+          from_project_id: selectedCurrentLocation?.id ? String(selectedCurrentLocation.id) : null,
+          to_project_id: selectedRelocateLocation?.id ? String(selectedRelocateLocation.id) : null,
+          project_incharge_id: null,
+          service_store_id: null,
+          created_by: user?.name || user?.username || 'mobile',
+          tools_entry_type: 'relocation',
+          eno: String(entryNo),
+          tools_tracker_item_name_table: [{
+            timestamp: new Date().toISOString().slice(0, 19),
+            item_name_id: stockItem.item_name_id || stockItem.itemNameId || null,
+            item_ids_id: String(selectedRelocateItemId),
+            brand_id: stockItem.brand_id || stockItem.brandId || stockItem.brand_name_id || stockItem.brandNameId || null,
+            model: stockItem.model || '',
+            machine_number: stockItem.machine_number || stockItem.machineNumber || '',
+            quantity: stockItem.quantity || 0,
+            machine_status: stockItem.machine_status || stockItem.machineStatus || 'Working',
+            description: '',
+            home_location_id: selectedRelocateLocation?.id ? String(selectedRelocateLocation.id) : null,
+            tools_item_live_images: []
+          }]
+        };
+      } else {
+        payload = {
+          from_project_id: selectedFrom?.id ? String(selectedFrom.id) : null,
+          to_project_id: entryServiceMode === 'Entry' && selectedTo?.id ? String(selectedTo.id) : null,
+          project_incharge_id: selectedIncharge?.id ? String(selectedIncharge.id) : null,
+          service_store_id: entryServiceMode === 'Service' && selectedServiceStore?.id ? String(selectedServiceStore.id) : null,
+          created_by: user?.name || user?.username || 'mobile',
+          tools_entry_type: entryServiceMode.toLowerCase(), // "entry" or "service"
+          eno: String(entryNo),
+          tools_tracker_item_name_table: items.map(item => ({
+            timestamp: item.timestamp || new Date().toISOString().slice(0, 19),
+            item_name_id: item.item_name_id || null,
+            item_ids_id: item.item_ids_id || null,
+            brand_id: item.brand_id || null,
+            model: item.model || '',
+            machine_number: item.machine_number || '',
+            quantity: item.quantity || 0,
+            machine_status: item.machine_status || 'Working',
+            description: item.description || '',
+            tools_item_live_images: item.tools_item_live_images || []
+          }))
+        };
+      }
       const response = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/save`, {
         method: 'POST',
         credentials: 'include',
@@ -930,22 +1522,21 @@ const Transfer = ({ user }) => {
         },
         body: JSON.stringify(payload)
       });
-
       if (!response.ok) {
         throw new Error(`Failed to save: ${response.status} ${response.statusText}`);
       }
-
       const result = await response.json();
       alert('Transfer saved successfully!');
-
-      // Reset form after successful save
       setSelectedFrom(null);
       setSelectedTo(null);
       setSelectedServiceStore(null);
       setSelectedIncharge(null);
+      setSelectedRelocateItemId(null);
+      setSelectedCurrentLocation(null);
+      setSelectedRelocateLocation(null);
+      setRelocateItemDetails(null);
       setItems([]);
       setEntryNo(prev => prev + 1);
-
     } catch (error) {
       console.error('Error saving transfer:', error);
       alert('Failed to save transfer. Please try again.');
@@ -953,16 +1544,11 @@ const Transfer = ({ user }) => {
       setIsSaving(false);
     }
   };
-
-  // Function to remove an item from the list
   const handleRemoveItem = (itemId) => {
     setItems(prev => prev.filter(item => item.id !== itemId));
   };
-
-  // Function to handle edit item
   const handleEditItem = (item) => {
     setEditingItem(item);
-    // Populate the form with item data
     setAddItemFormData({
       itemName: item.itemName || '',
       itemNameId: item.item_name_id ? String(item.item_name_id) : null,
@@ -975,13 +1561,9 @@ const Transfer = ({ user }) => {
     });
     setShowAddItemsModal(true);
   };
-
-  // Image viewer handlers
   const handleOpenImageViewer = (item, imageIndex = 0) => {
-    // Use localImageUrls for UI display
     const images = item.localImageUrls || [];
     if (images.length === 0) return;
-
     setImageViewerData({
       images: images,
       currentIndex: imageIndex,
@@ -993,41 +1575,32 @@ const Transfer = ({ user }) => {
     });
     setShowImageViewer(true);
   };
-
   const handleCloseImageViewer = () => {
     setShowImageViewer(false);
   };
-
   const handlePrevImage = () => {
     setImageViewerData(prev => ({
       ...prev,
       currentIndex: prev.currentIndex > 0 ? prev.currentIndex - 1 : prev.images.length - 1
     }));
   };
-
   const handleNextImage = () => {
     setImageViewerData(prev => ({
       ...prev,
       currentIndex: prev.currentIndex < prev.images.length - 1 ? prev.currentIndex + 1 : 0
     }));
   };
-
-  // Delete image from viewer and update the item
   const handleDeleteViewerImage = (indexToDelete) => {
     const currentItemId = imageViewerData.itemUniqueId;
     if (!currentItemId) return;
-
-    // Update the items array
     setItems(prev => prev.map(item => {
       if (item.id === currentItemId) {
         const newLocalImages = [...(item.localImageUrls || [])];
         const newToolsImages = [...(item.tools_item_live_images || [])];
-
         newLocalImages.splice(indexToDelete, 1);
         if (newToolsImages.length > indexToDelete) {
           newToolsImages.splice(indexToDelete, 1);
         }
-
         return {
           ...item,
           localImageUrls: newLocalImages,
@@ -1036,24 +1609,17 @@ const Transfer = ({ user }) => {
       }
       return item;
     }));
-
-    // Update the viewer state
     setImageViewerData(prev => {
       const newImages = [...prev.images];
       newImages.splice(indexToDelete, 1);
-
-      // If no images left, close the viewer
       if (newImages.length === 0) {
         setShowImageViewer(false);
         return prev;
       }
-
-      // Adjust currentIndex if needed
       let newIndex = prev.currentIndex;
       if (newIndex >= newImages.length) {
         newIndex = newImages.length - 1;
       }
-
       return {
         ...prev,
         images: newImages,
@@ -1061,21 +1627,14 @@ const Transfer = ({ user }) => {
       };
     });
   };
-
-  // Add new image to viewer
   const handleAddImageToViewer = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
-
     const currentItemId = imageViewerData.itemUniqueId;
     if (!currentItemId) return;
-
     for (const file of files) {
       try {
-        // Create local preview URL
         const localPreviewUrl = URL.createObjectURL(file);
-
-        // Convert to base64
         const base64Data = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => {
@@ -1085,8 +1644,6 @@ const Transfer = ({ user }) => {
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
-
-        // Update the items array
         setItems(prev => prev.map(item => {
           if (item.id === currentItemId) {
             return {
@@ -1097,43 +1654,33 @@ const Transfer = ({ user }) => {
           }
           return item;
         }));
-
-        // Update the viewer state
         setImageViewerData(prev => ({
           ...prev,
           images: [...prev.images, localPreviewUrl],
-          currentIndex: prev.images.length // Navigate to the newly added image
+          currentIndex: prev.images.length
         }));
       } catch (error) {
         console.error('Error adding image:', error);
       }
     }
-
-    // Reset the input
     e.target.value = '';
   };
-
   const handleDeleteUploadFile = (fileId) => {
     setUploadFiles(prev => prev.filter(f => f.id !== fileId));
   };
-
-  // Universal Search Handlers
   const handleOpenUniversalSearch = () => {
     setUniversalSearchQuery('');
     setShowUniversalSearchModal(true);
   };
-
   const handleCloseUniversalSearch = () => {
     setShowUniversalSearchModal(false);
     setUniversalSearchQuery('');
   };
-
   const handleSelectSearchItem = (item) => {
     setSelectedSearchItem(item);
     setShowUniversalSearchModal(false);
     setShowSearchConfirmModal(true);
   };
-
   const handleConfirmSearchItem = () => {
     setShowSearchConfirmModal(false);
     setSearchUploadFiles([]);
@@ -1141,12 +1688,10 @@ const Transfer = ({ user }) => {
     setSearchUploadDescription('');
     setShowSearchUploadModal(true);
   };
-
   const handleCancelSearchConfirm = () => {
     setShowSearchConfirmModal(false);
     setSelectedSearchItem(null);
   };
-
   const handleCloseSearchUploadModal = () => {
     setShowSearchUploadModal(false);
     setSelectedSearchItem(null);
@@ -1154,7 +1699,6 @@ const Transfer = ({ user }) => {
     setSearchUploadStatus('Working');
     setSearchUploadDescription('');
   };
-
   const handleSearchFileSelect = (e) => {
     const files = Array.from(e.target.files);
     files.forEach((file) => {
@@ -1170,7 +1714,6 @@ const Transfer = ({ user }) => {
         progress: 100,
         base64: null
       };
-      // Convert to base64
       const reader = new FileReader();
       reader.onload = () => {
         const base64String = reader.result.split(',')[1];
@@ -1183,15 +1726,11 @@ const Transfer = ({ user }) => {
     });
     e.target.value = '';
   };
-
   const handleDeleteSearchUploadFile = (fileId) => {
     setSearchUploadFiles(prev => prev.filter(f => f.id !== fileId));
   };
-
   const handleConfirmSearchUpload = () => {
     if (!selectedSearchItem) return;
-
-    // Get item details from the selected search item
     const itemNameObj = toolsItemNameListData.find(
       item => String(item?.id) === String(selectedSearchItem?.item_name_id ?? selectedSearchItem?.itemNameId)
     );
@@ -1201,7 +1740,6 @@ const Transfer = ({ user }) => {
     const itemIdObj = toolsItemIdFullData.find(
       item => String(item?.id) === String(selectedSearchItem?.item_ids_id ?? selectedSearchItem?.itemIdsId)
     );
-
     const newItem = {
       id: Date.now(),
       itemName: itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown',
@@ -1218,15 +1756,11 @@ const Transfer = ({ user }) => {
       localImageUrls: searchUploadFiles.filter(f => f.base64).map(f => `data:image/jpeg;base64,${f.base64}`),
       imageBase64List: searchUploadFiles.filter(f => f.base64).map(f => f.base64)
     };
-
     setItems([...items, newItem]);
     handleCloseSearchUploadModal();
   };
-
-  // Get filtered items for universal search
   const getFilteredSearchItems = () => {
     if (!stockManagementData || stockManagementData.length === 0) return [];
-
     return stockManagementData.filter(item => {
       const itemNameObj = toolsItemNameListData.find(
         i => String(i?.id) === String(item?.item_name_id ?? item?.itemNameId)
@@ -1237,12 +1771,10 @@ const Transfer = ({ user }) => {
       const brandObj = toolsBrandFullData.find(
         i => String(i?.id) === String(item?.brand_id ?? item?.brandId)
       );
-
       const itemName = itemNameObj?.item_name || itemNameObj?.itemName || '';
       const itemIdName = itemIdObj?.item_id || itemIdObj?.itemId || '';
       const brandName = brandObj?.tools_brand || brandObj?.toolsBrand || '';
       const machineNumber = item?.machine_number ?? item?.machineNumber ?? '';
-
       const searchLower = universalSearchQuery.toLowerCase();
       return (
         itemName.toLowerCase().includes(searchLower) ||
@@ -1252,8 +1784,6 @@ const Transfer = ({ user }) => {
       );
     });
   };
-
-  // Format date for search items
   const formatSearchItemDate = (timestamp) => {
     if (!timestamp) return '';
     try {
@@ -1273,50 +1803,37 @@ const Transfer = ({ user }) => {
       return '';
     }
   };
-
   const handleFieldChange = (field, value) => {
     setAddItemFormData(prev => {
       const updated = { ...prev, [field]: value };
-
-      // Mutual exclusivity: Item ID and Quantity
       if (field === 'itemId' && value) {
-        // If Item ID is selected, clear Quantity
         updated.quantity = '';
       } else if (field === 'quantity' && value && value.trim() !== '') {
-        // If Quantity is entered, clear Item ID
         updated.itemId = '';
         updated.itemIdDbId = null;
         updated.machineNumber = '';
         setSelectedItemMachineNumber('');
       }
-
-      // Store IDs for dropdown selections
       if (field === 'itemName' && value) {
         const itemNameObj = toolsItemNameListData.find(
           item => (item?.item_name ?? item?.itemName) === value
         );
         updated.itemNameId = itemNameObj?.id ?? null;
-
-        // Calculate quantity count from tools_details or stock management
         const toolsDetails = Array.isArray(itemNameObj?.tools_details)
           ? itemNameObj.tools_details
           : Array.isArray(itemNameObj?.toolsDetails)
             ? itemNameObj.toolsDetails
             : [];
-
-        // Count from stock management data for this item name
         const stockCount = stockManagementData.filter(item => {
           const itemNameId = item?.item_name_id ?? item?.itemNameId;
           return String(itemNameId) === String(itemNameObj?.id);
         }).length;
-
         const quantityCount = Math.max(toolsDetails.length, stockCount);
         setSelectedItemNameQuantity(quantityCount);
       } else if (field === 'itemName' && !value) {
         updated.itemNameId = null;
         setSelectedItemNameQuantity(0);
       }
-
       if (field === 'brand' && value) {
         const brandObj = toolsBrandFullData.find(
           b => (b?.tools_brand?.trim() ?? b?.toolsBrand?.trim()) === value
@@ -1325,44 +1842,142 @@ const Transfer = ({ user }) => {
       } else if (field === 'brand' && !value) {
         updated.brandId = null;
       }
-
       if (field === 'itemId' && value) {
         const itemIdObj = toolsItemIdFullData.find(
           item => (item?.item_id?.trim() ?? item?.itemId?.trim()) === value
         );
         updated.itemIdDbId = itemIdObj?.id ?? null;
-
-        // Find machine number from stock management data
-        const stockItem = stockManagementData.find(item => {
-          const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
-          return String(itemIdsId) === String(itemIdObj?.id);
-        });
-        const machineNum = stockItem?.machine_number ?? stockItem?.machineNumber ?? '';
-        updated.machineNumber = machineNum;
-        setSelectedItemMachineNumber(machineNum);
+        
+        if (itemIdObj?.id) {
+          const itemIdsIdStr = String(itemIdObj.id);
+          
+          // Find all entries with this item_ids_id from both stockManagementData and toolsTrackerManagementData
+          const allEntries = [];
+          
+          // Get from stockManagementData
+          stockManagementData.forEach(item => {
+            const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+            if (String(itemIdsId) === itemIdsIdStr) {
+              allEntries.push({
+                id: item?.id ?? item?._id ?? 0,
+                timestamp: item?.timestamp || item?.created_date_time || item?.createdDateTime || '',
+                item_name_id: item?.item_name_id ?? item?.itemNameId,
+                brand_id: item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId,
+                machine_number: item?.machine_number ?? item?.machineNumber ?? ''
+              });
+            }
+          });
+          
+          // Get from toolsTrackerManagementData
+          toolsTrackerManagementData.forEach(entry => {
+            const entryItems = entry?.tools_tracker_item_name_table ?? entry?.toolsTrackerItemNameTable ?? [];
+            entryItems.forEach(item => {
+              const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+              if (String(itemIdsId) === itemIdsIdStr) {
+                allEntries.push({
+                  id: entry?.id ?? entry?._id ?? 0,
+                  timestamp: entry?.created_date_time ?? entry?.createdDateTime ?? entry?.timestamp ?? '',
+                  item_name_id: item?.item_name_id ?? item?.itemNameId,
+                  brand_id: item?.brand_id ?? item?.brandId,
+                  machine_number: item?.machine_number ?? item?.machineNumber ?? ''
+                });
+              }
+            });
+          });
+          
+          // Sort by id descending (highest id = most recent) or timestamp descending
+          allEntries.sort((a, b) => {
+            // First try to sort by id (numeric comparison)
+            const idA = parseInt(a.id) || 0;
+            const idB = parseInt(b.id) || 0;
+            if (idB !== idA) {
+              return idB - idA;
+            }
+            // If ids are equal or both 0, sort by timestamp
+            if (a.timestamp && b.timestamp) {
+              return new Date(b.timestamp) - new Date(a.timestamp);
+            }
+            return 0;
+          });
+          
+          // Get the last (most recent) entry
+          const lastEntry = allEntries.length > 0 ? allEntries[0] : null;
+          
+          if (lastEntry) {
+            // Set Item Name from the last entry
+            if (lastEntry.item_name_id) {
+              const itemNameObj = toolsItemNameListData.find(
+                item => String(item?.id) === String(lastEntry.item_name_id)
+              );
+              if (itemNameObj) {
+                updated.itemName = itemNameObj?.item_name ?? itemNameObj?.itemName ?? '';
+                updated.itemNameId = itemNameObj?.id ?? null;
+              }
+            }
+            
+            // Set Brand from the last entry
+            if (lastEntry.brand_id) {
+              const brandObj = toolsBrandFullData.find(
+                b => String(b?.id) === String(lastEntry.brand_id)
+              );
+              if (brandObj) {
+                updated.brand = brandObj?.tools_brand ?? brandObj?.toolsBrand ?? '';
+                updated.brandId = brandObj?.id ?? null;
+              }
+            }
+            
+            // Set Machine Number from the last entry
+            if (lastEntry.machine_number) {
+              updated.machineNumber = lastEntry.machine_number;
+              setSelectedItemMachineNumber(lastEntry.machine_number);
+            } else {
+              updated.machineNumber = '';
+              setSelectedItemMachineNumber('');
+            }
+          } else {
+            // If no entry found, try to get itemName from stockManagementData (fallback)
+            const stockItem = stockManagementData.find(item => {
+              const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+              return String(itemIdsId) === itemIdsIdStr;
+            });
+            
+            if (stockItem?.item_name_id) {
+              const itemNameObj = toolsItemNameListData.find(
+                item => String(item?.id) === String(stockItem.item_name_id)
+              );
+              if (itemNameObj) {
+                updated.itemName = itemNameObj?.item_name ?? itemNameObj?.itemName ?? '';
+                updated.itemNameId = itemNameObj?.id ?? null;
+              }
+            }
+            
+            const machineNum = stockItem?.machine_number ?? stockItem?.machineNumber ?? '';
+            updated.machineNumber = machineNum;
+            setSelectedItemMachineNumber(machineNum);
+          }
+        }
       } else if (field === 'itemId' && !value) {
         updated.itemIdDbId = null;
+        updated.itemName = '';
+        updated.itemNameId = null;
+        updated.brand = '';
+        updated.brandId = null;
         updated.machineNumber = '';
         setSelectedItemMachineNumber('');
       }
-
       return updated;
     });
   };
-
-  // Handler for when user adds a new item name via dropdown
   const handleAddNewItemName = async (newItemName) => {
     if (!newItemName || !newItemName.trim()) {
       return;
     }
     const trimmedName = newItemName.trim();
-    // Check if item name already exists
     if (itemNameOptions.some(name => name.toLowerCase() === trimmedName.toLowerCase())) {
       handleFieldChange('itemName', trimmedName);
       return;
     }
     try {
-      // Save new item name to API (with empty tools_details array)
       const payload = {
         category_id: selectedCategory?.id ?? null,
         item_name: trimmedName,
@@ -1377,7 +1992,18 @@ const Transfer = ({ user }) => {
       if (!res.ok) {
         throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
       }
-      // Refresh item names list
+      // Try to get ID from response first
+      let savedItemId = null;
+      try {
+        const responseText = await res.clone().text();
+        if (responseText) {
+          const responseData = JSON.parse(responseText);
+          savedItemId = responseData?.id ?? responseData?._id ?? null;
+        }
+      } catch {
+        // If response doesn't have JSON, continue to refresh
+      }
+      
       const refreshed = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
@@ -1390,28 +2016,37 @@ const Transfer = ({ user }) => {
           .map(item => item?.item_name ?? item?.itemName)
           .filter(Boolean);
         setItemNameOptions(Array.from(new Set(names)));
-        // Set the newly created item name as selected
-        handleFieldChange('itemName', trimmedName);
+        
+        // Find the ID from refreshed data if not in response
+        if (!savedItemId) {
+          const newItem = (Array.isArray(data) ? data : []).find(
+            item => (item?.item_name ?? item?.itemName) === trimmedName
+          );
+          savedItemId = newItem?.id ?? newItem?._id ?? null;
+        }
+        
+        // Set both itemName and itemNameId
+        setAddItemFormData(prev => ({
+          ...prev,
+          itemName: trimmedName,
+          itemNameId: savedItemId
+        }));
       }
     } catch (e) {
       console.error('Error saving new Item Name:', e);
       alert('Failed to save new Item Name. Please try again.');
     }
   };
-
-  // Handler for when user adds a new brand via dropdown
   const handleAddNewBrand = async (newBrand) => {
     if (!newBrand || !newBrand.trim()) {
       return;
     }
     const trimmedBrand = newBrand.trim();
-    // Check if brand already exists
     if (brandOptions.some(b => b.toLowerCase() === trimmedBrand.toLowerCase())) {
       handleFieldChange('brand', trimmedBrand);
       return;
     }
     try {
-      // Save new brand to API
       const payload = {
         tools_brand: trimmedBrand
       };
@@ -1424,7 +2059,18 @@ const Transfer = ({ user }) => {
       if (!res.ok) {
         throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
       }
-      // Refresh brands list
+      // Try to get ID from response first
+      let savedBrandId = null;
+      try {
+        const responseText = await res.clone().text();
+        if (responseText) {
+          const responseData = JSON.parse(responseText);
+          savedBrandId = responseData?.id ?? responseData?._id ?? null;
+        }
+      } catch {
+        // If response doesn't have JSON, continue to refresh
+      }
+      
       const refreshed = await fetch(`${TOOLS_BRAND_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
@@ -1432,34 +2078,42 @@ const Transfer = ({ user }) => {
       });
       if (refreshed.ok) {
         const data = await refreshed.json();
-        // Store full brand data with IDs
         setToolsBrandFullData(Array.isArray(data) ? data : []);
         const brandOpts = (Array.isArray(data) ? data : [])
           .map(b => b?.tools_brand?.trim() ?? b?.toolsBrand?.trim())
           .filter(b => b);
         setBrandOptions(Array.from(new Set(brandOpts)));
-        // Set the newly created brand as selected
-        handleFieldChange('brand', trimmedBrand);
+        
+        // Find the ID from refreshed data if not in response
+        if (!savedBrandId) {
+          const newBrand = (Array.isArray(data) ? data : []).find(
+            b => (b?.tools_brand?.trim() ?? b?.toolsBrand?.trim()) === trimmedBrand
+          );
+          savedBrandId = newBrand?.id ?? newBrand?._id ?? null;
+        }
+        
+        // Set both brand and brandId
+        setAddItemFormData(prev => ({
+          ...prev,
+          brand: trimmedBrand,
+          brandId: savedBrandId
+        }));
       }
     } catch (e) {
       console.error('Error saving new Brand:', e);
       alert('Failed to save new Brand. Please try again.');
     }
   };
-
-  // Handler for when user adds a new item ID via dropdown
   const handleAddNewItemId = async (newItemId) => {
     if (!newItemId || !newItemId.trim()) {
       return;
     }
     const trimmedItemId = newItemId.trim();
-    // Check if item ID already exists
     if (itemIdOptions.some(id => id.toLowerCase() === trimmedItemId.toLowerCase())) {
       handleFieldChange('itemId', trimmedItemId);
       return;
     }
     try {
-      // Save new item ID to API
       const payload = {
         item_id: trimmedItemId
       };
@@ -1472,7 +2126,18 @@ const Transfer = ({ user }) => {
       if (!res.ok) {
         throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
       }
-      // Refresh item IDs list
+      // Try to get ID from response first
+      let savedItemIdDbId = null;
+      try {
+        const responseText = await res.clone().text();
+        if (responseText) {
+          const responseData = JSON.parse(responseText);
+          savedItemIdDbId = responseData?.id ?? responseData?._id ?? null;
+        }
+      } catch {
+        // If response doesn't have JSON, continue to refresh
+      }
+      
       const refreshed = await fetch(`${TOOLS_ITEM_ID_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
@@ -1480,7 +2145,6 @@ const Transfer = ({ user }) => {
       });
       if (refreshed.ok) {
         const data = await refreshed.json();
-        // Store full item ID data with IDs
         setToolsItemIdFullData(Array.isArray(data) ? data : []);
         const itemIdOpts = (Array.isArray(data) ? data : [])
           .map(item => item?.item_id?.trim() ?? item?.itemId?.trim())
@@ -1488,8 +2152,21 @@ const Transfer = ({ user }) => {
           .filter(item => !/^\d+$/.test(item));
         setApiItemIdOptions(itemIdOpts);
         setItemIdOptions(itemIdOpts);
-        // Set the newly created item ID as selected
-        handleFieldChange('itemId', trimmedItemId);
+        
+        // Find the ID from refreshed data if not in response
+        if (!savedItemIdDbId) {
+          const newItemId = (Array.isArray(data) ? data : []).find(
+            item => (item?.item_id?.trim() ?? item?.itemId?.trim()) === trimmedItemId
+          );
+          savedItemIdDbId = newItemId?.id ?? newItemId?._id ?? null;
+        }
+        
+        // Set both itemId and itemIdDbId
+        setAddItemFormData(prev => ({
+          ...prev,
+          itemId: trimmedItemId,
+          itemIdDbId: savedItemIdDbId
+        }));
       }
     } catch (e) {
       console.error('Error saving new Item ID:', e);
@@ -1498,23 +2175,22 @@ const Transfer = ({ user }) => {
   };
   return (
     <div className="flex flex-col min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      {/* Entry Number and Date with Transfer Button */}
       <div className="flex-shrink-0 px-4 pt-2 pb-1 flex items-center justify-between">
-        <p className="text-[12px] font-medium text-black leading-normal">
-          #{entryNo || 'NO'} {date}
-        </p>
+        <div className="flex items-center gap-1">
+          <p className="text-[12px] font-medium text-black leading-normal">
+            #{entryNo || 'NO'}
+          </p>
+          <button type="button" onClick={() => setShowDatePicker(true)} className="text-[12px] font-medium text-black leading-normal underline-offset-2 hover:underline">
+            {date}
+          </button>
+        </div>
         <div className='flex gap-3'>
-          {/* Transfer Button - Show when items exist */}
           {items.length > 0 && areFieldsFilled && (
-            <button
-              onClick={() => setShowConfirmModal(true)}
-              disabled={isSaving}
-              className="flex items-center gap-1 text-[14px] font-medium text-black"
-            >
+            <button onClick={() => setShowConfirmModal(true)} disabled={isSaving} className="flex items-center gap-1 text-[14px] font-medium text-black">
               {isSaving ? (
                 <span className="text-gray-500">...</span>
               ) : (
-                <span>{entryServiceMode === 'Service' ? 'Sent to service' : 'Transfer'}</span>
+                <span>{entryServiceMode === 'Service' ? 'Sent to service' : entryServiceMode === 'Relocate' ? 'Relocate' : 'Transfer'}</span>
               )}
             </button>
           )}
@@ -1528,7 +2204,6 @@ const Transfer = ({ user }) => {
           </div>
         </div>
       </div>
-      {/* Entry/Service Segmented Control */}
       <div className="flex-shrink-0 px-4 pt-4 pb-3">
         <div className="flex bg-[#E0E0E0] items-center h-[36px] rounded-[8px] p-1">
           <button
@@ -1549,40 +2224,68 @@ const Transfer = ({ user }) => {
           >
             Service
           </button>
+          <button
+            onClick={handleSwitchToRelocate}
+            className={`flex-1 h-full rounded-[6px] text-[12px] font-semibold leading-normal transition-colors ${entryServiceMode === 'Relocate'
+              ? 'bg-white text-black'
+              : 'bg-transparent text-[#848484]'
+              }`}
+          >
+            Relocate
+          </button>
         </div>
       </div>
-
-      {/* Summary View - Show when items exist and not editing */}
-      {items.length > 0 && !isEditingTransferDetails && (
+      {((items.length > 0 && !isEditingTransferDetails) || (entryServiceMode === 'Relocate' && selectedRelocateItemId && !isEditingTransferDetails)) && (
         <div className="flex-shrink-0 px-4 pt-2">
           <div className="border border-gray-200 rounded-lg p-3">
             <div className="space-y-1">
-              <div className="flex items-center">
-                <span className="text-[12px] text-gray-500 w-[100px]">From</span>
-                <span className="text-[12px] text-gray-500 mx-2">:</span>
-                <span className="text-[12px] text-gray-700">{selectedFrom?.label || '-'}</span>
-              </div>
-              <div className="flex items-center">
-                <span className="text-[12px] text-gray-500 w-[100px]">{entryServiceMode === 'Entry' ? 'To' : 'Service Store'}</span>
-                <span className="text-[12px] text-gray-500 mx-2">:</span>
-                <span className="text-[12px] text-gray-700">
-                  {entryServiceMode === 'Entry' ? (selectedTo?.label || '-') : (selectedServiceStore?.label || '-')}
-                </span>
-              </div>
-              <div className="flex items-center">
-                <span className="text-[12px] text-gray-500 w-[100px]">Project Incharge</span>
-                <span className="text-[12px] text-gray-500 mx-2">:</span>
-                <span className="text-[12px] text-gray-700">{selectedIncharge?.label || '-'}</span>
-              </div>
+              {entryServiceMode === 'Relocate' ? (
+                <>
+                  <div className="flex items-center">
+                    <span className="text-[12px] text-gray-500 w-[100px]">Item ID</span>
+                    <span className="text-[12px] text-gray-500 mx-2">:</span>
+                    <span className="text-[12px] text-gray-700">
+                      {selectedRelocateItemId ? (toolsItemIdFullData.find(i => String(i?.id) === String(selectedRelocateItemId))?.item_id || toolsItemIdFullData.find(i => String(i?.id) === String(selectedRelocateItemId))?.itemId || '-') : '-'}
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-[12px] text-gray-500 w-[100px]">Current Location</span>
+                    <span className="text-[12px] text-gray-500 mx-2">:</span>
+                    <span className="text-[12px] text-gray-700">{selectedCurrentLocation?.label || '-'}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-[12px] text-gray-500 w-[100px]">Relocate Location</span>
+                    <span className="text-[12px] text-gray-500 mx-2">:</span>
+                    <span className="text-[12px] text-gray-700">{selectedRelocateLocation?.label || '-'}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center">
+                    <span className="text-[12px] text-gray-500 w-[100px]">From</span>
+                    <span className="text-[12px] text-gray-500 mx-2">:</span>
+                    <span className="text-[12px] text-gray-700">{selectedFrom?.label || '-'}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-[12px] text-gray-500 w-[100px]">{entryServiceMode === 'Entry' ? 'To' : 'Service Store'}</span>
+                    <span className="text-[12px] text-gray-500 mx-2">:</span>
+                    <span className="text-[12px] text-gray-700">
+                      {entryServiceMode === 'Entry' ? (selectedTo?.label || '-') : (selectedServiceStore?.label || '-')}
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-[12px] text-gray-500 w-[100px]">Project Incharge</span>
+                    <span className="text-[12px] text-gray-500 mx-2">:</span>
+                    <span className="text-[12px] text-gray-700">{selectedIncharge?.label || '-'}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
       )}
-
-      {/* Input Fields - Show when no items or when editing transfer details */}
-      {(items.length === 0 || isEditingTransferDetails) && (
+      {(items.length === 0 || isEditingTransferDetails) && entryServiceMode !== 'Relocate' && (
         <div className="flex-shrink-0 px-4 pt-4">
-          {/* From Field */}
           <div className="mb-4 relative dropdown-container">
             <p className="text-[12px] font-semibold text-black leading-normal mb-1">
               From<span className="text-[#eb2f8e]">*</span>
@@ -1624,9 +2327,7 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           </div>
-
-          {/* From Field Modal */}
-          {showFromDropdown && (
+          {showFromDropdown && entryServiceMode !== 'Relocate' && (
             <div
               className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
               onClick={(e) => {
@@ -1636,22 +2337,13 @@ const Transfer = ({ user }) => {
               }}
               style={{ fontFamily: "'Manrope', sans-serif" }}
             >
-              <div
-                className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Header */}
+              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select From</p>
-                  <button
-                    onClick={() => setShowFromDropdown(false)}
-                    className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"
-                  >
+                  <button onClick={() => setShowFromDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                     ×
                   </button>
                 </div>
-
-                {/* Search Bar */}
                 <div className="px-6 pt-4 pb-4">
                   <div className="relative">
                     <input
@@ -1670,11 +2362,8 @@ const Transfer = ({ user }) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Options List */}
                 <div className="flex-1 overflow-y-auto mb-4 px-6">
                   <div className="shadow-md rounded-lg overflow-hidden">
-                    {/* Create New Option - Show when typing something that doesn't exist */}
                     {fromSearchQuery.trim() && !fromOptions.some(opt => {
                       const normalizedOpt = normalizeSearchText(opt.label);
                       const normalizedQuery = normalizeSearchText(fromSearchQuery.trim());
@@ -1682,8 +2371,6 @@ const Transfer = ({ user }) => {
                     }) && (
                         <button
                           onClick={() => {
-                            // Handle new item creation - you can add your logic here
-                            console.log('Create new item:', fromSearchQuery);
                           }}
                           className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
                         >
@@ -1700,11 +2387,64 @@ const Transfer = ({ user }) => {
                         {getFilteredFromOptions().map((option) => {
                           const isFavorite = fromFavorites.includes(option.id);
                           const isSelected = selectedFrom?.id === option.id;
-
                           return (
                             <button
                               key={option.id}
                               onClick={() => {
+                                // Validate existing items before changing "From" project
+                                if (items.length > 0) {
+                                  const invalidItems = [];
+                                  for (const item of items) {
+                                    if (!item.item_name_id) continue;
+                                    
+                                    // If itemId is selected, only check the full set (itemIdsId + brandId + machineNumber)
+                                    // Don't check itemNameId separately when itemId is selected
+                                    if (item.item_ids_id) {
+                                      const itemSetValidation = validateItemSetAvailability(
+                                        item.item_ids_id,
+                                        item.brand_id,
+                                        item.machine_number,
+                                        item.item_name_id,
+                                        item.itemName,
+                                        option.id
+                                      );
+                                      
+                                      if (!itemSetValidation.isValid) {
+                                        invalidItems.push({
+                                          name: item.itemName || 'Unknown Item',
+                                          error: itemSetValidation.errorMessage
+                                        });
+                                      }
+                                    } else {
+                                      // Only check itemNameId if itemId is NOT selected (for quantity-based transfers)
+                                      // Check quantity availability with brandId if provided
+                                      const validation = validateItemLocation(
+                                        item.item_name_id,
+                                        item.itemName,
+                                        item.brand_id,
+                                        item.quantity,
+                                        option.id
+                                      );
+                                      
+                                      if (!validation.isValid) {
+                                        invalidItems.push({
+                                          name: item.itemName || 'Unknown Item',
+                                          error: validation.errorMessage
+                                        });
+                                      }
+                                    }
+                                  }
+                                  
+                                  if (invalidItems.length > 0) {
+                                    const errorMessage = invalidItems
+                                      .map(inv => inv.error)
+                                      .join('\n\n');
+                                    alert(`Cannot change "From" project. The following items are not in the selected location:\n\n${errorMessage}`);
+                                    setShowFromDropdown(false);
+                                    return;
+                                  }
+                                }
+                                
                                 setSelectedFrom(option);
                                 setShowFromDropdown(false);
                                 setIsEditingTransferDetails(false);
@@ -1712,12 +2452,8 @@ const Transfer = ({ user }) => {
                               className={`w-full h-[40px] px-6 flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                                 }`}
                             >
-                              {/* Left: Star Icon and Option Text */}
                               <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <button
-                                  onClick={(e) => handleToggleFromFavorite(e, option.id)}
-                                  className="w-6 h-6 flex items-center justify-center flex-shrink-0"
-                                >
+                                <button onClick={(e) => handleToggleFromFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                   {isFavorite ? (
                                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                       <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1730,8 +2466,6 @@ const Transfer = ({ user }) => {
                                 </button>
                                 <p className="text-[14px] font-medium text-black text-left truncate">{option.label}</p>
                               </div>
-
-                              {/* Right: Radio Button */}
                               <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-3">
                                 {isSelected ? (
                                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1760,8 +2494,6 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           )}
-
-          {/* To Field - Only show in Entry mode */}
           {entryServiceMode === 'Entry' && (
             <div className="mb-4 relative dropdown-container">
               <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -1806,8 +2538,6 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           )}
-
-          {/* Service Store Field - Only show in Service mode */}
           {entryServiceMode === 'Service' && (
             <div className="mb-4 relative dropdown-container">
               <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -1852,7 +2582,44 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           )}
-          {/* To Field Modal */}
+          {entryServiceMode === 'Relocate' && selectedRelocateItemId && relocateItemDetails && (
+            <div className="mb-4">
+              <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                <p className="text-[14px] font-semibold text-black mb-3">Product Detail</p>
+                <div className="space-y-2">
+                  <div className="flex items-start">
+                    <span className="text-[12px] font-medium text-gray-600 w-[120px] flex-shrink-0">Item Name</span>
+                    <span className="text-[12px] font-medium text-black flex-1">: {relocateItemDetails.itemName || '-'}</span>
+                  </div>
+                  <div className="flex items-start">
+                    <span className="text-[12px] font-medium text-gray-600 w-[120px] flex-shrink-0">Birth Location</span>
+                    <span className="text-[12px] font-medium text-black flex-1">: {relocateItemDetails.birthLocation || '-'}</span>
+                  </div>
+                  <div className="flex items-start">
+                    <span className="text-[12px] font-medium text-gray-600 w-[120px] flex-shrink-0">Current Location</span>
+                    <span className="text-[12px] font-medium text-black flex-1">: {relocateItemDetails.currentLocation || '-'}</span>
+                  </div>
+                  <div className="flex items-start">
+                    <span className="text-[12px] font-medium text-gray-600 w-[120px] flex-shrink-0">Purchase Store</span>
+                    <span className="text-[12px] font-medium text-black flex-1">: {relocateItemDetails.purchaseStore || '-'}</span>
+                  </div>
+                </div>
+              </div>
+              {relocateItemDetails.imageUrl && (
+                <div className="mt-4 flex justify-center">
+                  <img 
+                    src={relocateItemDetails.imageUrl} 
+                    alt={relocateItemDetails.itemName || 'Product'} 
+                    className="max-w-full h-auto rounded-lg shadow-md"
+                    style={{ maxHeight: '300px' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           {showToDropdown && (
             <div
               className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
@@ -1863,22 +2630,13 @@ const Transfer = ({ user }) => {
               }}
               style={{ fontFamily: "'Manrope', sans-serif" }}
             >
-              <div
-                className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Header */}
+              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select To</p>
-                  <button
-                    onClick={() => setShowToDropdown(false)}
-                    className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"
-                  >
+                  <button onClick={() => setShowToDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                     ×
                   </button>
                 </div>
-
-                {/* Search Bar */}
                 <div className="px-6 pt-4 pb-4">
                   <div className="relative">
                     <input
@@ -1897,11 +2655,8 @@ const Transfer = ({ user }) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Options List */}
                 <div className="flex-1 overflow-y-auto mb-4 px-6">
                   <div className="shadow-md rounded-lg overflow-hidden">
-                    {/* Create New Option - Show when typing something that doesn't exist */}
                     {toSearchQuery.trim() && !toOptions.some(opt => {
                       const normalizedOpt = normalizeSearchText(opt.label);
                       const normalizedQuery = normalizeSearchText(toSearchQuery.trim());
@@ -1909,8 +2664,6 @@ const Transfer = ({ user }) => {
                     }) && (
                         <button
                           onClick={() => {
-                            // Handle new item creation - you can add your logic here
-                            console.log('Create new item:', toSearchQuery);
                           }}
                           className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
                         >
@@ -1927,7 +2680,6 @@ const Transfer = ({ user }) => {
                         {getFilteredToOptions().map((option) => {
                           const isFavorite = toFavorites.includes(option.id);
                           const isSelected = selectedTo?.id === option.id;
-
                           return (
                             <button
                               key={option.id}
@@ -1939,12 +2691,8 @@ const Transfer = ({ user }) => {
                               className={`w-full h-[40px] px-6 flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                                 }`}
                             >
-                              {/* Left: Star Icon and Option Text */}
                               <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <button
-                                  onClick={(e) => handleToggleToFavorite(e, option.id)}
-                                  className="w-6 h-6 flex items-center justify-center flex-shrink-0"
-                                >
+                                <button onClick={(e) => handleToggleToFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                   {isFavorite ? (
                                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                       <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1957,8 +2705,6 @@ const Transfer = ({ user }) => {
                                 </button>
                                 <p className="text-[14px] font-medium text-black text-left truncate">{option.label}</p>
                               </div>
-
-                              {/* Right: Radio Button */}
                               <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-3">
                                 {isSelected ? (
                                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1987,8 +2733,6 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           )}
-
-          {/* Service Store Field Modal */}
           {showServiceStoreDropdown && (
             <div
               className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
@@ -1999,22 +2743,15 @@ const Transfer = ({ user }) => {
               }}
               style={{ fontFamily: "'Manrope', sans-serif" }}
             >
-              <div
-                className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
+              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Header */}
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select Service Store</p>
-                  <button
-                    onClick={() => setShowServiceStoreDropdown(false)}
-                    className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"
-                  >
+                  <button onClick={() => setShowServiceStoreDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                     ×
                   </button>
                 </div>
-
-                {/* Search Bar */}
                 <div className="px-6 pt-4 pb-4">
                   <div className="relative">
                     <input
@@ -2033,11 +2770,8 @@ const Transfer = ({ user }) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Options List */}
                 <div className="flex-1 overflow-y-auto mb-4 px-6">
                   <div className="shadow-md rounded-lg overflow-hidden">
-                    {/* Create New Option - Show when typing something that doesn't exist */}
                     {serviceStoreSearchQuery.trim() && !serviceStoreOptions.some(opt => {
                       const normalizedOpt = normalizeSearchText(opt.label);
                       const normalizedQuery = normalizeSearchText(serviceStoreSearchQuery.trim());
@@ -2045,8 +2779,6 @@ const Transfer = ({ user }) => {
                     }) && (
                         <button
                           onClick={() => {
-                            // Handle new item creation - you can add your logic here
-                            console.log('Create new item:', serviceStoreSearchQuery);
                           }}
                           className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
                         >
@@ -2063,7 +2795,6 @@ const Transfer = ({ user }) => {
                         {getFilteredServiceStoreOptions().map((option) => {
                           const isFavorite = serviceStoreFavorites.includes(option.id);
                           const isSelected = selectedServiceStore?.id === option.id;
-
                           return (
                             <button
                               key={option.id}
@@ -2075,12 +2806,8 @@ const Transfer = ({ user }) => {
                               className={`w-full h-[40px] px-6 flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                                 }`}
                             >
-                              {/* Left: Star Icon and Option Text */}
                               <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <button
-                                  onClick={(e) => handleToggleServiceStoreFavorite(e, option.id)}
-                                  className="w-6 h-6 flex items-center justify-center flex-shrink-0"
-                                >
+                                <button onClick={(e) => handleToggleServiceStoreFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                   {isFavorite ? (
                                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                       <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -2093,8 +2820,6 @@ const Transfer = ({ user }) => {
                                 </button>
                                 <p className="text-[14px] font-medium text-black text-left truncate">{option.label}</p>
                               </div>
-
-                              {/* Right: Radio Button */}
                               <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-3">
                                 {isSelected ? (
                                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2123,8 +2848,6 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           )}
-
-          {/* Project Incharge Field */}
           <div className="mb-4 relative dropdown-container">
             <p className="text-[12px] font-semibold text-black leading-normal mb-1">
               Project Incharge<span className="text-[#eb2f8e]">*</span>
@@ -2167,7 +2890,6 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           </div>
-          {/* Project Incharge Field Modal */}
           {showInchargeDropdown && (
             <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
               onClick={(e) => {
@@ -2178,14 +2900,12 @@ const Transfer = ({ user }) => {
               style={{ fontFamily: "'Manrope', sans-serif" }}
             >
               <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()} >
-                {/* Header */}
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select Project Incharge</p>
                   <button onClick={() => setShowInchargeDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity" >
                     ×
                   </button>
                 </div>
-                {/* Search Bar */}
                 <div className="px-6 pt-4 pb-4">
                   <div className="relative">
                     <input
@@ -2204,10 +2924,8 @@ const Transfer = ({ user }) => {
                     </div>
                   </div>
                 </div>
-                {/* Options List */}
                 <div className="flex-1 overflow-y-auto mb-4 px-6">
                   <div className="shadow-md rounded-lg overflow-hidden">
-                    {/* Create New Option - Show when typing something that doesn't exist */}
                     {inchargeSearchQuery.trim() && !inchargeOptions.some(opt => {
                       const normalizedOpt = normalizeSearchText(opt.label);
                       const normalizedQuery = normalizeSearchText(inchargeSearchQuery.trim());
@@ -2215,8 +2933,6 @@ const Transfer = ({ user }) => {
                     }) && (
                         <button
                           onClick={() => {
-                            // Handle new item creation - you can add your logic here
-                            console.log('Create new item:', inchargeSearchQuery);
                           }}
                           className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
                         >
@@ -2244,7 +2960,6 @@ const Transfer = ({ user }) => {
                               className={`w-full h-[40px] px-6 flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                                 }`}
                             >
-                              {/* Left: Star Icon and Option Text */}
                               <div className="flex items-center gap-3 flex-1 min-w-0">
                                 <button onClick={(e) => handleToggleInchargeFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0" >
                                   {isFavorite ? (
@@ -2259,7 +2974,6 @@ const Transfer = ({ user }) => {
                                 </button>
                                 <p className="text-[14px] font-medium text-black text-left truncate">{option.label}</p>
                               </div>
-                              {/* Right: Radio Button */}
                               <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-3">
                                 {isSelected ? (
                                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2290,7 +3004,366 @@ const Transfer = ({ user }) => {
           )}
         </div>
       )}
-      {/* Items Label */}
+      {entryServiceMode === 'Relocate' && (
+        <div className="flex-shrink-0 px-4 pt-4">
+          <div className="mb-4 relative dropdown-container">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+              Item ID<span className="text-[#eb2f8e]">*</span>
+            </p>
+            <SearchableDropdown
+              value={selectedRelocateItemId ? (toolsItemIdFullData.find(i => String(i?.id) === String(selectedRelocateItemId))?.item_id || toolsItemIdFullData.find(i => String(i?.id) === String(selectedRelocateItemId))?.itemId || '') : ''}
+              onChange={(value) => {
+                const itemIdObj = toolsItemIdFullData.find(
+                  item => (item?.item_id?.trim() ?? item?.itemId?.trim()) === value
+                );
+                if (itemIdObj) {
+                  setSelectedRelocateItemId(itemIdObj.id);
+                  const itemIdsIdStr = String(itemIdObj.id);
+                  
+                  // First, check transfer history for the most recent toProjectId
+                  let currentLocationId = null;
+                  let mostRecentEntry = null;
+                  let mostRecentDate = null;
+                  
+                  // Find the most recent transfer entry for this itemId
+                  for (const entry of toolsTrackerManagementData) {
+                    const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
+                    if (entryType.toLowerCase() !== 'entry') continue; // Only check Entry type transfers
+                    
+                    const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
+                    const hasMatchingItemId = entryItems.some(entryItem => {
+                      const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
+                      return entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
+                    });
+                    
+                    if (hasMatchingItemId) {
+                      const entryDate = entry.created_date_time || entry.createdDateTime || entry.timestamp || '';
+                      if (!mostRecentDate || entryDate > mostRecentDate) {
+                        mostRecentDate = entryDate;
+                        mostRecentEntry = entry;
+                      }
+                    }
+                  }
+                  
+                  // If found a transfer entry with toProjectId, use that as current location
+                  if (mostRecentEntry) {
+                    const toProjectId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
+                    if (toProjectId) {
+                      currentLocationId = String(toProjectId);
+                    }
+                  }
+                  
+                  // If no toProjectId found in transfer history, use home_location_id from stock management
+                  if (!currentLocationId) {
+                    const stockItem = stockManagementData.find(item => {
+                      const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+                      return String(itemIdsId) === itemIdsIdStr;
+                    });
+                    
+                    if (stockItem) {
+                      const homeLocationId = stockItem.home_location_id || stockItem.homeLocationId;
+                      if (homeLocationId) {
+                        currentLocationId = String(homeLocationId);
+                      }
+                    }
+                  }
+                  
+                  // Set the current location
+                  let locationOption = null;
+                  if (currentLocationId) {
+                    locationOption = toOptions.find(opt => String(opt.id) === currentLocationId);
+                    if (locationOption) {
+                      setSelectedCurrentLocation(locationOption);
+                    }
+                  }
+                  
+                  // Get item details from stock management
+                  const stockItem = stockManagementData.find(item => {
+                    const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+                    return String(itemIdsId) === itemIdsIdStr;
+                  });
+                  
+                  if (stockItem) {
+                    // Get item name
+                    const itemNameId = stockItem.item_name_id || stockItem.itemNameId;
+                    const itemNameObj = toolsItemNameListData.find(i => String(i?.id) === String(itemNameId));
+                    const itemName = itemNameObj?.item_name || itemNameObj?.itemName || '';
+                    
+                    // Get purchase store name
+                    const purchaseStoreId = stockItem.purchase_store_id || stockItem.purchaseStoreId;
+                    const purchaseStore = purchaseStoreId 
+                      ? vendorOptions.find(v => String(v.id) === String(purchaseStoreId))?.label || ''
+                      : '';
+                    
+                    // Get birth location (original home location)
+                    const birthLocationId = stockItem.home_location_id || stockItem.homeLocationId;
+                    const birthLocation = birthLocationId
+                      ? toOptions.find(opt => String(opt.id) === String(birthLocationId))?.label || ''
+                      : '';
+                    
+                    // Get current location label
+                    const currentLocationLabel = locationOption?.label || '';
+                    
+                    // Get last updated image from transfer history
+                    let lastImageUrl = '';
+                    if (mostRecentEntry) {
+                      const entryItems = mostRecentEntry.tools_tracker_item_name_table || mostRecentEntry.toolsTrackerItemNameTable || [];
+                      const matchingEntryItem = entryItems.find(entryItem => {
+                        const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
+                        return entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
+                      });
+                      
+                      if (matchingEntryItem) {
+                        const images = matchingEntryItem.tools_item_live_images || matchingEntryItem.toolsItemLiveImages || [];
+                        if (images.length > 0) {
+                          // Get the last image (most recent)
+                          const lastImage = images[images.length - 1];
+                          if (lastImage.tools_image || lastImage.toolsImage) {
+                            const base64Data = lastImage.tools_image || lastImage.toolsImage;
+                            lastImageUrl = `data:image/jpeg;base64,${base64Data}`;
+                          }
+                        }
+                      }
+                    }
+                    
+                    // Fallback to stock management image if no transfer history image found
+                    const imageUrl = lastImageUrl || stockItem.file_url || stockItem.fileUrl || '';
+                    
+                    // Set item details for display
+                    setRelocateItemDetails({
+                      itemName: itemName,
+                      birthLocation: birthLocation,
+                      currentLocation: currentLocationLabel,
+                      purchaseStore: purchaseStore,
+                      imageUrl: imageUrl
+                    });
+                  } else {
+                    setRelocateItemDetails(null);
+                  }
+                } else {
+                  setSelectedRelocateItemId(null);
+                  setSelectedCurrentLocation(null);
+                  setRelocateItemDetails(null);
+                }
+              }}
+              options={itemIdOptions}
+              placeholder="Select Item ID"
+              fieldName="Item ID"
+              showAllOptions={true}
+            />
+          </div>
+          <div className="mb-4 relative dropdown-container">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+              Current Location<span className="text-[#eb2f8e]">*</span>
+            </p>
+            <div className="relative">
+              <div
+                onClick={() => {
+                  setShowCurrentLocationDropdown(!showCurrentLocationDropdown);
+                  setShowFromDropdown(false);
+                  setShowToDropdown(false);
+                  setShowServiceStoreDropdown(false);
+                  setShowInchargeDropdown(false);
+                  setShowRelocateLocationDropdown(false);
+                }}
+                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                style={{
+                  color: selectedCurrentLocation ? '#000' : '#9E9E9E',
+                  boxSizing: 'border-box',
+                  paddingRight: selectedCurrentLocation ? '40px' : '40px'
+                }}
+              >
+                {selectedCurrentLocation ? selectedCurrentLocation.label : 'Select'}
+              </div>
+              {selectedCurrentLocation && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedCurrentLocation(null);
+                    setRelocateItemDetails(null);
+                  }}
+                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div className="mb-4 relative dropdown-container">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-1">
+              Relocate Location<span className="text-[#eb2f8e]">*</span>
+            </p>
+            <div className="relative">
+              <div
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Relocate Location clicked');
+                  setShowRelocateLocationDropdown(true);
+                  setShowFromDropdown(false);
+                  setShowToDropdown(false);
+                  setShowServiceStoreDropdown(false);
+                  setShowInchargeDropdown(false);
+                  setShowCurrentLocationDropdown(false);
+                }}
+                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                style={{
+                  color: selectedRelocateLocation ? '#000' : '#9E9E9E',
+                  boxSizing: 'border-box',
+                  paddingRight: '40px'
+                }}
+              >
+                {selectedRelocateLocation ? selectedRelocateLocation.label : 'Select'}
+              </div>
+              {selectedRelocateLocation && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedRelocateLocation(null);
+                  }}
+                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  style={{ zIndex: 5 }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" style={{ zIndex: 1 }}>
+                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showRelocateLocationDropdown && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowRelocateLocationDropdown(false);
+            }
+          }}
+          style={{ fontFamily: "'Manrope', sans-serif", zIndex: 9999 }}
+        >
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-6 pt-5">
+              <p className="text-[16px] font-semibold text-black">Select Relocate Location</p>
+              <button onClick={() => {
+                setShowRelocateLocationDropdown(false);
+                setRelocateLocationSearchQuery('');
+              }} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
+                ×
+              </button>
+            </div>
+            <div className="px-6 pt-4 pb-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={relocateLocationSearchQuery}
+                  onChange={(e) => setRelocateLocationSearchQuery(e.target.value)}
+                  placeholder="Search"
+                  className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                  autoFocus
+                />
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
+                    <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto mb-4 px-6">
+              <div className="shadow-md rounded-lg overflow-hidden">
+                {relocateLocationSearchQuery.trim() && !fromOptions.some(opt => {
+                  const normalizedOpt = normalizeSearchText(opt.label);
+                  const normalizedQuery = normalizeSearchText(relocateLocationSearchQuery.trim());
+                  return normalizedOpt === normalizedQuery;
+                }) && (
+                    <button
+                      onClick={() => {
+                      }}
+                      className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
+                    >
+                      <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M7 3V11M3 7H11" stroke="#000" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </div>
+                      <p className="text-[14px] text-gray-600 font-normal text-left truncate">"{relocateLocationSearchQuery.trim()}"</p>
+                    </button>
+                  )}
+                {getFilteredRelocateLocationOptions().length > 0 ? (
+                  <div className="space-y-0">
+                    {getFilteredRelocateLocationOptions().map((option) => {
+                      const isFavorite = relocateLocationFavorites.includes(option.id);
+                      const isSelected = selectedRelocateLocation?.id === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => {
+                            setSelectedRelocateLocation(option);
+                            setShowRelocateLocationDropdown(false);
+                            setRelocateLocationSearchQuery('');
+                            setIsEditingTransferDetails(false);
+                          }}
+                          className={`w-full h-[40px] px-6 flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                            }`}
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <button onClick={(e) => handleToggleRelocateLocationFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                              {isFavorite ? (
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              ) : (
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </button>
+                            <p className="text-[14px] font-medium text-black text-left truncate">{option.label}</p>
+                          </div>
+                          <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-3">
+                            {isSelected ? (
+                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="10" cy="10" r="9" stroke="#e4572e" strokeWidth="2" fill="none" />
+                                <circle cx="10" cy="10" r="4" fill="#e4572e" />
+                              </svg>
+                            ) : (
+                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="10" cy="10" r="9" stroke="#9E9E9E" strokeWidth="1.5" fill="none" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-4">
+                    <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
+                      {relocateLocationSearchQuery ? 'No options found' : 'No options available'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex-shrink-0 px-4 pt-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -2299,7 +3372,7 @@ const Transfer = ({ user }) => {
               <span className="text-[10px] font-medium text-black">{items.length}</span>
             </div>
           </div>
-          {areFieldsFilled && (
+          {areFieldsFilled && entryServiceMode !== 'Relocate' && (
             <div className="cursor-pointer" onClick={handleOpenUniversalSearch}>
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="9" cy="9" r="6" stroke="#000" strokeWidth="1.5" />
@@ -2309,18 +3382,13 @@ const Transfer = ({ user }) => {
           )}
         </div>
       </div>
-      {/* Items List */}
       {items.length > 0 && (
         <div className="flex-1 overflow-y-auto px-4 pt-2 pb-[120px]">
           <div className="shadow-md rounded-lg">
             {items.map((item, index) => {
               const itemId = item.id;
               const minSwipeDistance = 50;
-              
-              // Width of the combined action buttons (2 * 40px + gap)
               const buttonWidth = 96;
-              
-              // Calculate swipe offset for smooth animation
               const swipeState = swipeStates[itemId];
               const isExpanded = expandedItemId === itemId;
               const swipeOffset =
@@ -2329,7 +3397,6 @@ const Transfer = ({ user }) => {
                   : isExpanded
                     ? -buttonWidth
                     : 0;
-
               const handleTouchStart = (e) => {
                 const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
                 setSwipeStates(prev => ({
@@ -2341,7 +3408,6 @@ const Transfer = ({ user }) => {
                   }
                 }));
               };
-
               const handleTouchMove = (e) => {
                 e.preventDefault();
                 const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
@@ -2349,7 +3415,6 @@ const Transfer = ({ user }) => {
                   const state = prev[itemId];
                   if (!state) return prev;
                   const deltaX = touch.clientX - state.startX;
-                  // Only allow left swipe (negative deltaX)
                   if (deltaX < 0 || (isExpanded && deltaX > 0)) {
                     return {
                       ...prev,
@@ -2363,59 +3428,46 @@ const Transfer = ({ user }) => {
                   return prev;
                 });
               };
-
               const handleTouchEnd = () => {
                 setSwipeStates(prev => {
                   const state = prev[itemId];
                   if (!state) return prev;
                   const deltaX = state.currentX - state.startX;
-                  const absDeltaX = Math.abs(deltaX);
-                  
+                  const absDeltaX = Math.abs(deltaX);                  
                   if (absDeltaX >= minSwipeDistance) {
                     if (deltaX < 0) {
-                      // Swiped left (reveal buttons)
                       setExpandedItemId(itemId);
                     } else {
-                      // Swiped right (hide buttons)
                       setExpandedItemId(null);
                     }
                   } else {
-                    // Small movement - snap back
                     if (isExpanded) {
                       setExpandedItemId(null);
                     }
                   }
-                  
-                  // Remove swipe state
                   const newState = { ...prev };
                   delete newState[itemId];
                   return newState;
                 });
               };
-
               const handleMouseDown = (e) => {
-                if (e.button !== 0) return; // Only handle left mouse button
+                if (e.button !== 0) return;
                 const syntheticEvent = {
                   touches: [{ clientX: e.clientX }],
                   preventDefault: () => e.preventDefault()
                 };
                 handleTouchStart(syntheticEvent);
               };
-
               const handleCardClick = (e) => {
-                // Don't trigger if clicking on the action buttons
                 if (e.target.closest('.action-button')) {
                   return;
                 }
-                // Close expanded card if clicking elsewhere
                 if (isExpanded) {
                   setExpandedItemId(null);
                 }
               };
-
               return (
                 <div key={itemId} className="relative overflow-hidden">
-                  {/* Card */}
                   <div
                     className="bg-white border-2 border-[#E0E0E0] rounded-[8px] px-3 py-2 min-h-[66px] cursor-pointer transition-transform duration-300 ease-out select-none"
                     style={{
@@ -2431,20 +3483,16 @@ const Transfer = ({ user }) => {
                     onClick={handleCardClick}
                   >
                     <div className="flex items-start justify-between">
-                      {/* Left Side - Item Details */}
                       <div className="flex-1 min-w-0">
-                        {/* Item Name */}
                         <p className="text-[12px] font-semibold text-black leading-snug truncate">
                           {item.itemName || 'Unknown Item'}
                         </p>
                         <div className="mt-1 space-y-1 min-h-[32px]">
-                          {/* Machine Number */}
                           {item.machine_number || item.machineNumber ? (
                             <p className="text-[11px] font-medium text-[#777777] leading-snug truncate">
                               {item.machine_number || item.machineNumber}
                             </p>
                           ) : null}
-                          {/* Brand */}
                           {item.brand && (
                             <p className="text-[11px] font-medium text-[#9E9E9E] leading-snug truncate">
                               {item.brand}
@@ -2452,10 +3500,7 @@ const Transfer = ({ user }) => {
                           )}
                         </div>
                       </div>
-                      {/* Right Side - Category, Image, Item ID */}
                       <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                        
-                        {/* Image Indicator */}
                         {item.localImageUrls?.length > 0 && (
                           <div
                             className="flex items-center gap-1 text-[#E4572E] cursor-pointer"
@@ -2472,15 +3517,12 @@ const Transfer = ({ user }) => {
                             <span className="text-[10px] font-medium">Image</span>
                           </div>
                         )}
-                        {/* Item ID or Quantity */}
                         <p className="text-[12px] font-semibold text-black leading-snug">
                           {item.itemId || (item.quantity > 0 ? `${item.quantity} Qty` : '')}
                         </p>
                       </div>
                     </div>
                   </div>
-
-                  {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
                     className="absolute right-0 top-0 bottom-0 flex gap-2 flex-shrink-0 z-0"
                     style={{
@@ -2520,20 +3562,19 @@ const Transfer = ({ user }) => {
           </div>
         </div>
       )}
-      {/* Floating Action Button - Black with + icon */}
-      <div className="fixed bottom-[110px] right-[24px] lg:right-[calc(50%-164px)] z-30 cursor-pointer" onClick={areFieldsFilled ? handleAddItem : undefined}>
-        <div className={`w-[56px] h-[56px] rounded-full flex items-center justify-center shadow-lg ${areFieldsFilled ? 'bg-black' : 'bg-gray-400'
-          }`}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 5V19M5 12H19" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+      {entryServiceMode !== 'Relocate' && (
+        <div className="fixed bottom-[110px] right-[24px] lg:right-[calc(50%-164px)] z-30 cursor-pointer" onClick={areFieldsFilled ? handleAddItem : undefined}>
+          <div className={`w-[56px] h-[56px] rounded-full flex items-center justify-center shadow-lg ${areFieldsFilled ? 'bg-black' : 'bg-gray-400'
+            }`}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5V19M5 12H19" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </div>
         </div>
-      </div>
-      {/* Add Items Bottom Sheet Modal */}
+      )}
       {showAddItemsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={handleCloseAddItemsModal} >
           <div className="bg-white w-full max-w-[360px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
-            {/* Header with Title and Category */}
             <div className="flex items-center justify-between px-6 pt-5 pb-4">
               <p className="text-[16px] font-medium text-black leading-normal">
                 {editingItem ? 'Edit Item' : 'Add Items'}
@@ -2547,11 +3588,8 @@ const Transfer = ({ user }) => {
                 </button>
               </div>
             </div>
-            {/* Form fields */}
             <div className="px-6 pb-6">
-              {/* Row 1: Item Name with Quantity Count + Quantity Input */}
               <div className="flex gap-3 mb-[10px]">
-                {/* Item Name */}
                 <div className="flex-1 relative">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-[13px] font-medium text-black leading-normal">
@@ -2569,25 +3607,49 @@ const Transfer = ({ user }) => {
                     placeholder="Drilling Machine"
                     fieldName="Item Name"
                     showAllOptions={true}
+                    disabled={!!addItemFormData.itemId}
                   />
                 </div>
-                {/* Quantity */}
                 <div className="w-[80px] relative">
                   <p className="text-[13px] font-medium text-black mb-1 leading-normal">
                     Quantity
                   </p>
-                  <input
-                    type="text"
-                    value={addItemFormData.quantity}
-                    onChange={(e) => handleFieldChange('quantity', e.target.value)}
-                    disabled={!!addItemFormData.itemId}
-                    className={`w-full h-[32px] border border-[#d6d6d6] rounded-[8px] px-3 text-[12px] font-medium focus:outline-none text-black ${addItemFormData.itemId ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white'
-                      }`}
-                    placeholder="Enter"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={addItemFormData.quantity}
+                      onChange={(e) => handleFieldChange('quantity', e.target.value)}
+                      disabled={!!addItemFormData.itemId}
+                      className={`w-full h-[32px] border border-[#d6d6d6] rounded-[8px] px-3 pr-7 text-[12px] font-medium focus:outline-none text-black ${addItemFormData.itemId ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white'
+                        }`}
+                      placeholder="Enter"
+                    />
+                    {addItemFormData.quantity && addItemFormData.quantity.trim() !== '' && !addItemFormData.itemId && (
+                      <button
+                        type="button"
+                        onClick={() => handleFieldChange('quantity', '')}
+                        className="absolute top-1/2 transform -translate-y-1/2 right-2 w-5 h-5 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
+                      >
+                        <svg 
+                          width="12" 
+                          height="12" 
+                          viewBox="0 0 12 12" 
+                          fill="none" 
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path 
+                            d="M9 3L3 9M3 3L9 9" 
+                            stroke="#666" 
+                            strokeWidth="1.5" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-              {/* Brand */}
               <div className="mb-[10px] relative">
                 <p className="text-[13px] font-medium text-black mb-1 leading-normal">
                   Brand
@@ -2602,7 +3664,6 @@ const Transfer = ({ user }) => {
                   showAllOptions={true}
                 />
               </div>
-              {/* Item ID with Machine Number */}
               <div className="mb-6 relative">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-[13px] font-medium text-black leading-normal">
@@ -2624,7 +3685,6 @@ const Transfer = ({ user }) => {
                   />
                 </div>
               </div>
-              {/* Buttons */}
               <div className="flex gap-4">
                 <button
                   onClick={handleCloseAddItemsModal}
@@ -2647,7 +3707,6 @@ const Transfer = ({ user }) => {
           </div>
         </div>
       )}
-      {/* Upload and Attach Files Modal */}
       {showUploadModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
@@ -2655,7 +3714,6 @@ const Transfer = ({ user }) => {
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div className="bg-white w-full max-w-[360px] rounded-[16px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
             <div className="flex items-center justify-between px-6 pt-5 pb-2 flex-shrink-0">
               <div>
                 <p className="text-[16px] font-semibold text-black">Upload and Attach files</p>
@@ -2665,9 +3723,7 @@ const Transfer = ({ user }) => {
                 ×
               </button>
             </div>
-            {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto">
-              {/* Upload Area */}
               <div className="px-6 py-4">
                 <label
                   htmlFor="file-upload-input"
@@ -2690,7 +3746,6 @@ const Transfer = ({ user }) => {
                   multiple
                 />
               </div>
-              {/* File Uploading Section - Multiple Files */}
               {uploadFiles.length > 0 && (
                 <div className="px-6 pb-4">
                   <p className="text-[12px] font-medium text-black mb-2">File Uploading</p>
@@ -2717,10 +3772,7 @@ const Transfer = ({ user }) => {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleDeleteUploadFile(fileItem.id)}
-                            className="text-red-500 hover:text-red-700"
-                          >
+                          <button onClick={() => handleDeleteUploadFile(fileItem.id)} className="text-red-500 hover:text-red-700">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                               <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -2733,12 +3785,10 @@ const Transfer = ({ user }) => {
                   </div>
                 </div>
               )}
-              {/* Status Dropdown */}
               <div className="px-6 pb-4">
                 <p className="text-[12px] font-medium text-black mb-2">Status</p>
                 <div className="relative">
-                  <div
-                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                  <div onClick={() => setShowStatusDropdown(!showStatusDropdown)}
                     className="w-full h-[40px] border border-gray-300 rounded-lg px-4 flex items-center justify-between cursor-pointer bg-white"
                   >
                     <span className="text-[14px] text-black">{uploadStatus}</span>
@@ -2765,7 +3815,6 @@ const Transfer = ({ user }) => {
                   )}
                 </div>
               </div>
-              {/* Description */}
               <div className="px-6 pb-4">
                 <p className="text-[12px] font-medium text-black mb-2">Description</p>
                 <textarea
@@ -2776,11 +3825,8 @@ const Transfer = ({ user }) => {
                 />
               </div>
             </div>
-            {/* Confirm Button - Fixed at bottom */}
             <div className="px-6 pb-6 pt-2 flex-shrink-0">
-              <button
-                onClick={handleConfirmUpload}
-                disabled={isUploading}
+              <button onClick={handleConfirmUpload} disabled={isUploading}
                 className={`w-full h-[48px] rounded-lg text-[16px] font-bold text-white ${isUploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-black'
                   }`}
               >
@@ -2790,10 +3836,8 @@ const Transfer = ({ user }) => {
           </div>
         </div>
       )}
-      {/* Image Viewer Modal */}
       {showImageViewer && (
         <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex flex-col" style={{ fontFamily: "'Manrope', sans-serif" }}>
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-black bg-opacity-60">
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-semibold text-white truncate">
@@ -2811,9 +3855,7 @@ const Transfer = ({ user }) => {
               </button>
             </div>
           </div>
-          {/* Image Container with Swipe */}
           <div className="flex-1 relative overflow-hidden">
-            {/* Current Image */}
             <div className="absolute inset-0 flex items-center justify-center">
               {imageViewerData.images[imageViewerData.currentIndex] && (
                 <img
@@ -2823,21 +3865,16 @@ const Transfer = ({ user }) => {
                 />
               )}
             </div>
-            {/* Navigation Arrows - Only show if multiple images */}
             {imageViewerData.images.length > 1 && (
               <>
-                {/* Left Arrow */}
-                <button
-                  onClick={handlePrevImage}
+                <button onClick={handlePrevImage}
                   className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-black bg-opacity-50 rounded-full text-white"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
-                {/* Right Arrow */}
-                <button
-                  onClick={handleNextImage}
+                <button onClick={handleNextImage}
                   className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-black bg-opacity-50 rounded-full text-white"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2846,7 +3883,6 @@ const Transfer = ({ user }) => {
                 </button>
               </>
             )}
-            {/* Image Counter */}
             {imageViewerData.images.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black bg-opacity-50 px-3 py-1 rounded-full">
                 <span className="text-[12px] text-white">
@@ -2855,7 +3891,6 @@ const Transfer = ({ user }) => {
               </div>
             )}
           </div>
-          {/* Footer */}
           <div className="px-4 py-3 bg-black bg-opacity-60">
             <div className="flex items-center justify-between">
               <p className="text-[12px] text-white">
@@ -2870,16 +3905,11 @@ const Transfer = ({ user }) => {
               </span>
             </div>
           </div>
-          {/* Thumbnail Strip with Add and Delete */}
           <div className="px-4 py-2 bg-black bg-opacity-60 overflow-x-auto">
             <div className="flex gap-2 items-center">
               {imageViewerData.images.map((img, index) => (
-                <div
-                  key={index}
-                  className="relative flex-shrink-0"
-                >
-                  <div
-                    onClick={() => setImageViewerData(prev => ({ ...prev, currentIndex: index }))}
+                <div key={index} className="relative flex-shrink-0">
+                  <div onClick={() => setImageViewerData(prev => ({ ...prev, currentIndex: index }))}
                     className={`w-[50px] h-[50px] rounded-lg overflow-hidden cursor-pointer border-2 ${index === imageViewerData.currentIndex ? 'border-[#E4572E]' : 'border-transparent'
                       }`}
                   >
@@ -2889,7 +3919,6 @@ const Transfer = ({ user }) => {
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  {/* Delete button - only on selected image */}
                   {index === imageViewerData.currentIndex && (
                     <button
                       onClick={(e) => {
@@ -2905,7 +3934,6 @@ const Transfer = ({ user }) => {
                   )}
                 </div>
               ))}
-              {/* Add Image Button */}
               <label className="w-[50px] h-[50px] rounded-lg border-2 border-dashed border-[#E4572E] flex-shrink-0 cursor-pointer flex items-center justify-center bg-transparent hover:bg-[#E4572E] hover:bg-opacity-10 transition-colors">
                 <input
                   type="file"
@@ -2922,15 +3950,11 @@ const Transfer = ({ user }) => {
           </div>
         </div>
       )}
-      {/* Confirmation Modal */}
       {showConfirmModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-          onClick={() => setShowConfirmModal(false)}
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowConfirmModal(false)}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div className="bg-white w-full max-w-[320px] rounded-[16px] p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            {/* Warning Icon */}
             <div className="flex justify-center mb-4">
               <div className="w-[60px] h-[60px] rounded-full bg-[#FFF3E0] flex items-center justify-center">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2938,18 +3962,14 @@ const Transfer = ({ user }) => {
                 </svg>
               </div>
             </div>
-            {/* Title */}
             <h3 className="text-[18px] font-semibold text-black text-center mb-2">
               Please Confirm ?
             </h3>
-            {/* Message */}
             <p className="text-[13px] text-[#666666] text-center mb-6 leading-relaxed">
               Please check that all the machines you take are in proper running condition before taking them.
             </p>
-            {/* Buttons */}
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowConfirmModal(false)}
+              <button onClick={() => setShowConfirmModal(false)}
                 className="flex-1 h-[44px] border border-gray-300 rounded-[8px] text-[14px] font-semibold text-black bg-white hover:bg-gray-50 transition-colors"
               >
                 Cancel
@@ -2968,28 +3988,24 @@ const Transfer = ({ user }) => {
           </div>
         </div>
       )}
-      {/* Universal Search Bottom Sheet Modal */}
+      <DatePickerModal
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onConfirm={(formattedDate) => {
+          setDate(formattedDate);
+          setShowDatePicker(false);
+        }}
+        initialDate={date}
+      />
       {showUniversalSearchModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center"
-          onClick={handleCloseUniversalSearch}
-          style={{ fontFamily: "'Manrope', sans-serif" }}
-        >
-          <div
-            className="bg-white w-full max-w-[400px] rounded-tl-[16px] rounded-tr-[16px] max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" onClick={handleCloseUniversalSearch} style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white w-full max-w-[400px] rounded-tl-[16px] rounded-tr-[16px] max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 pt-4 pb-3 flex-shrink-0">
               <p className="text-[16px] font-semibold text-black">Search Items</p>
-              <button
-                onClick={handleCloseUniversalSearch}
-                className="text-[#E4572E] text-xl font-bold"
-              >
+              <button onClick={handleCloseUniversalSearch} className="text-[#E4572E] text-xl font-bold">
                 ×
               </button>
             </div>
-            {/* Search Input */}
             <div className="px-4 pb-3 flex-shrink-0">
               <div className="relative">
                 <svg
@@ -3012,7 +4028,6 @@ const Transfer = ({ user }) => {
                 />
               </div>
             </div>
-            {/* Items List */}
             <div className="flex-1 overflow-y-auto px-4 pb-4">
               {getFilteredSearchItems().length === 0 ? (
                 <div className="flex items-center justify-center py-8">
@@ -3041,21 +4056,14 @@ const Transfer = ({ user }) => {
                     const inchargeName = inchargeObj?.label || '';
                     const dateTime = formatSearchItemDate(item?.created_date_time ?? item?.createdDateTime);
                     return (
-                      <div
-                        key={item.id || index}
-                        className="py-4 cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSelectSearchItem(item)}
-                      >
-                        {/* Row 1: Item Name | Category Tag */}
+                      <div key={item.id || index} className="py-4 cursor-pointer hover:bg-gray-50" onClick={() => handleSelectSearchItem(item)}>
                         <div className="flex items-start justify-between mb-1">
                           <p className="text-[14px] font-semibold text-black">{itemName}</p>
                         </div>
-                        {/* Row 2: Machine Number | Item ID */}
                         <div className="flex items-start justify-between mb-1">
                           <p className="text-[13px] text-black">{machineNumber || '-'}</p>
                           <p className="text-[13px] font-medium text-black">{itemIdName}</p>
                         </div>
-                        {/* Row 3: Brand | Status */}
                         <div className="flex items-start justify-between mb-1">
                           <p className="text-[12px] text-gray-600">{brandName}</p>
                           <div className="flex items-center gap-1">
@@ -3071,7 +4079,6 @@ const Transfer = ({ user }) => {
                             </p>
                           </div>
                         </div>
-                        {/* Row 4: Date/Time | Incharge Name */}
                         <div className="flex items-start justify-between">
                           <p className="text-[11px] text-gray-500">{dateTime}</p>
                           <p className="text-[12px] text-gray-600">{inchargeName}</p>
@@ -3085,18 +4092,11 @@ const Transfer = ({ user }) => {
           </div>
         </div>
       )}
-      {/* Search Item Confirmation Modal */}
       {showSearchConfirmModal && selectedSearchItem && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-          onClick={handleCancelSearchConfirm}
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={handleCancelSearchConfirm}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
-          <div
-            className="bg-white w-full max-w-[320px] rounded-[16px] p-6 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Success/Info Icon */}
+          <div className="bg-white w-full max-w-[320px] rounded-[16px] p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-center mb-4">
               <div className="w-[60px] h-[60px] rounded-full bg-[#E8F5E9] flex items-center justify-center">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -3104,24 +4104,19 @@ const Transfer = ({ user }) => {
                 </svg>
               </div>
             </div>
-            {/* Title */}
             <h3 className="text-[18px] font-semibold text-black text-center mb-2">
               Confirm Cart?
             </h3>
-            {/* Message */}
             <p className="text-[13px] text-[#666666] text-center mb-6 leading-relaxed">
               Do you Want to Confirm Move the machine please upload Image
             </p>
-            {/* Buttons */}
             <div className="flex gap-3">
-              <button
-                onClick={handleCancelSearchConfirm}
+              <button onClick={handleCancelSearchConfirm}
                 className="flex-1 h-[44px] border border-gray-300 rounded-[8px] text-[14px] font-semibold text-black bg-white hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
-              <button
-                onClick={handleConfirmSearchItem}
+              <button onClick={handleConfirmSearchItem}
                 className="flex-1 h-[44px] bg-black rounded-[8px] text-[14px] font-semibold text-white hover:bg-gray-800 transition-colors"
               >
                 Yes
@@ -3130,36 +4125,23 @@ const Transfer = ({ user }) => {
           </div>
         </div>
       )}
-      {/* Search Upload Modal */}
       {showSearchUploadModal && selectedSearchItem && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-          onClick={handleCloseSearchUploadModal}
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={handleCloseSearchUploadModal}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
-          <div
-            className="bg-white w-full max-w-[360px] rounded-[16px] shadow-lg max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
+          <div className="bg-white w-full max-w-[360px] rounded-[16px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 pt-5 pb-2 flex-shrink-0">
               <div>
                 <p className="text-[16px] font-semibold text-black">Upload and Attach files</p>
                 <p className="text-[12px] text-gray-500">Attachments will be of this Transfer</p>
               </div>
-              <button
-                onClick={handleCloseSearchUploadModal}
-                className="text-[#E4572E] text-xl font-bold"
-              >
+              <button onClick={handleCloseSearchUploadModal} className="text-[#E4572E] text-xl font-bold">
                 ×
               </button>
             </div>
-            {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto">
-              {/* Upload Area */}
               <div className="px-6 py-4">
-                <label
-                  htmlFor="search-file-upload-input"
+                <label htmlFor="search-file-upload-input"
                   className="flex flex-col items-center justify-center w-full h-[100px] border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                 >
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -3179,7 +4161,6 @@ const Transfer = ({ user }) => {
                   multiple
                 />
               </div>
-              {/* File Uploading Section */}
               {searchUploadFiles.length > 0 && (
                 <div className="px-6 pb-4">
                   <p className="text-[12px] font-medium text-black mb-2">File Uploading</p>
@@ -3200,10 +4181,7 @@ const Transfer = ({ user }) => {
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleDeleteSearchUploadFile(fileItem.id)}
-                            className="text-red-500 hover:text-red-700"
-                          >
+                          <button onClick={() => handleDeleteSearchUploadFile(fileItem.id)} className="text-red-500 hover:text-red-700">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                               <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -3216,12 +4194,10 @@ const Transfer = ({ user }) => {
                   </div>
                 </div>
               )}
-              {/* Status Dropdown */}
               <div className="px-6 pb-4">
                 <p className="text-[12px] font-medium text-black mb-2">Status</p>
                 <div className="relative">
-                  <div
-                    onClick={() => setShowSearchStatusDropdown(!showSearchStatusDropdown)}
+                  <div onClick={() => setShowSearchStatusDropdown(!showSearchStatusDropdown)}
                     className="w-full h-[40px] border border-gray-300 rounded-lg px-4 flex items-center justify-between cursor-pointer bg-white"
                   >
                     <span className="text-[14px] text-black">{searchUploadStatus}</span>
@@ -3248,7 +4224,6 @@ const Transfer = ({ user }) => {
                   )}
                 </div>
               </div>
-              {/* Description */}
               <div className="px-6 pb-4">
                 <p className="text-[12px] font-medium text-black mb-2">Description</p>
                 <textarea
@@ -3259,7 +4234,6 @@ const Transfer = ({ user }) => {
                 />
               </div>
             </div>
-            {/* Confirm Button */}
             <div className="px-6 pb-6 pt-2 flex-shrink-0">
               <button onClick={handleConfirmSearchUpload} className="w-full h-[48px] rounded-lg text-[16px] font-bold text-white bg-black">
                 Confirm
@@ -3271,5 +4245,4 @@ const Transfer = ({ user }) => {
     </div>
   );
 };
-
 export default Transfer;

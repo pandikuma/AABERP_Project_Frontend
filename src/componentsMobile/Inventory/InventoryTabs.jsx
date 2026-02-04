@@ -10,16 +10,35 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
     { id: 'add-input', label: 'Add Input' },
     { id: 'incoming-tracker', label: 'Incoming Tracker' },
     { id: 'non-po-history', label: 'Non PO History' },
+    { id: 'edit-stock', label: 'Edit Stock ' }
+  ];
+
+  // Dropdown menu items matching the image
+  const dropdownMenuItems = [
+    { id: 'outgoing', label: 'Outgoing' },
+    { id: 'incoming', label: 'Incoming' },
+    { id: 'project-usage-report', label: 'Project Usage Report' },
+    { id: 'net-stock', label: 'Net Stock' },
+    { id: 'history', label: 'History' },
+    { id: 'add-input', label: 'Add input' },
+    { id: 'incoming-tracker', label: 'Incoming Tracker' },
+    { id: 'project-usage-history', label: 'Project Usage History' },
+    { id: 'non-po-history', label: 'Non PO History' },
     { id: 'edit-stock', label: 'Edit Stock' }
   ];
 
   const tabsContainerRef = useRef(null);
   const activeTabRef = useRef(null);
   const fixedContainerRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const kebabButtonRef = useRef(null);
+  const dropdownMenuRef = useRef(null);
   const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
 
   const updateUnderlinePosition = () => {
     if (activeTabRef.current && fixedContainerRef.current) {
@@ -80,6 +99,66 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
     }
   }, [activeTab]);
 
+  // Handle clicking outside dropdown to close it and update position
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target) &&
+        dropdownMenuRef.current &&
+        !dropdownMenuRef.current.contains(event.target)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    const updateDropdownPosition = () => {
+      if (isDropdownOpen && kebabButtonRef.current) {
+        const buttonRect = kebabButtonRef.current.getBoundingClientRect();
+        // Position dropdown aligned to the right side
+        setDropdownPosition({
+          top: buttonRect.bottom + 5,
+          right: Math.max(8, window.innerWidth - buttonRect.right) // Align with button or 8px from edge
+        });
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+      window.addEventListener('resize', updateDropdownPosition);
+      window.addEventListener('scroll', updateDropdownPosition, true);
+      // Initial position update
+      updateDropdownPosition();
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      window.removeEventListener('resize', updateDropdownPosition);
+      window.removeEventListener('scroll', updateDropdownPosition, true);
+    };
+  }, [isDropdownOpen]);
+
+  const handleDropdownToggle = (e) => {
+    e.stopPropagation();
+    if (!isDropdownOpen && kebabButtonRef.current) {
+      // Calculate position for fixed dropdown - align to right side
+      const buttonRect = kebabButtonRef.current.getBoundingClientRect();
+      // Position dropdown aligned to the right edge with small margin
+      setDropdownPosition({
+        top: buttonRect.bottom + 5, // 5px gap below button
+        right: Math.max(8, window.innerWidth - buttonRect.right) // Align with button or 8px from edge
+      });
+    }
+    setIsDropdownOpen(!isDropdownOpen);
+  };
+
+  const handleMenuItemClick = (tabId) => {
+    onTabChange(tabId);
+    setIsDropdownOpen(false);
+  };
+
   return (
     <>
       <style>{`
@@ -95,12 +174,12 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
           scrollbar-width: none;
         }
       `}</style>
-      <div ref={fixedContainerRef} className="fixed top-[50px] transform w-full max-w-[357px] h-[40px] overflow-x-auto bg-white z-40 inventory-tabs-container" style={{ fontFamily: "'Manrope', sans-serif" }}>
-        <div className="relative h-full px-4 overflow-x-auto scrollbar-hide inventory-tabs-scroll" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div ref={fixedContainerRef} className="fixed top-[50px] transform w-full max-w-[357px] h-[40px] overflow-x-auto bg-white inventory-tabs-container" style={{ fontFamily: "'Manrope', sans-serif", zIndex: 30 }}>
+        <div className="relative h-full px-4 pr-6 overflow-x-auto scrollbar-hide inventory-tabs-scroll" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <div 
             ref={tabsContainerRef}
-            className="flex items-center gap-4 px- h-full overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing inventory-tabs-scroll"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            className="flex items-center gap-4 h-full overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing inventory-tabs-scroll"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', paddingRight: '5px' }}
           onMouseDown={(e) => {
             setIsDragging(true);
             setStartX(e.pageX - tabsContainerRef.current.offsetLeft);
@@ -141,28 +220,62 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
             </button>
           ))}
         </div>
+        </div>
         {/* Three dots menu button */}
-        <button className="absolute right-0 top-1/2 transform -translate-y-1/2 w-[20px] h-[20px] flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity bg-white z-10 pointer-events-auto">
-          <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="2" cy="2" r="1.5" fill="#000"/>
-            <circle cx="2" cy="8" r="1.5" fill="#000"/>
-            <circle cx="2" cy="14" r="1.5" fill="#000"/>
-          </svg>
-        </button>
-      </div>      
-      {/* Base border line in gray */}
-      <div className="absolute bottom-0 left-0 w-full h-[1px]" style={{ backgroundColor: '#D9D9D9' }}>
-        {/* Active tab underline - positioned exactly below the clicked heading */}
-        <div 
-          className="absolute bottom-0 h-[1.70px] transition-all duration-300"
-          style={{ 
-            backgroundColor: '#BF9853',
-            left: `${underlineStyle.left}px`,
-            width: `${underlineStyle.width}px`
-          }}
-        ></div>
+        <div ref={dropdownRef} className="absolute right-2 top-1/2 transform -translate-y-1/2" style={{ zIndex: 31 }}>
+          <button 
+            ref={kebabButtonRef}
+            onClick={handleDropdownToggle}
+            className="w-[20px] h-[20px] flex items-center justify-center cursor-pointer hover:opacity-70 transition-opacity bg-white pointer-events-auto"
+          >
+            <svg width="4" height="16" viewBox="0 0 4 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="2" cy="2" r="1.5" fill="#000"/>
+              <circle cx="2" cy="8" r="1.5" fill="#000"/>
+              <circle cx="2" cy="14" r="1.5" fill="#000"/>
+            </svg>
+          </button>
+        </div>
+        {/* Base border line in gray */}
+        <div className="absolute bottom-0 left-0 w-full h-[1px]" style={{ backgroundColor: '#D9D9D9' }}>
+          {/* Active tab underline - positioned exactly below the clicked heading */}
+          <div 
+            className="absolute bottom-0 h-[1.70px] transition-all duration-300"
+            style={{ 
+              backgroundColor: '#BF9853',
+              left: `${underlineStyle.left}px`,
+              width: `${underlineStyle.width}px`
+            }}
+          ></div>
+        </div>
       </div>
-    </div>
+      {/* Dropdown Menu - Fixed positioning outside container to avoid overflow clipping */}
+      {isDropdownOpen && (
+        <div 
+          ref={dropdownMenuRef}
+          className="fixed bg-white rounded-lg shadow-lg py-2" 
+          style={{ 
+            zIndex: 9999,
+            top: `${dropdownPosition.top}px`,
+            right: `${dropdownPosition.right}px`,
+            width: '180px',
+            maxWidth: '180px'
+          }}
+        >
+          {dropdownMenuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleMenuItemClick(item.id)}
+              className={`w-full text-left px-4 py-2 text-[12px] font-semibold transition-colors ${
+                activeTab === item.id 
+                  ? 'text-black bg-[#E8E8E8]' 
+                  : 'text-[#333333] hover:bg-[#E8E8E8]'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
     </>
   );
 };
