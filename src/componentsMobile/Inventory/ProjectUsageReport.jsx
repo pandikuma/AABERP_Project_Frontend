@@ -10,7 +10,6 @@ const ProjectUsageReport = () => {
     const today = new Date();
     return today.toLocaleDateString('en-GB'); // DD/MM/YYYY
   };
-
   const [activeTab, setActiveTab] = useState('history'); // 'report' or 'history'
   const [date, setDate] = useState(getTodayDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -32,7 +31,6 @@ const ProjectUsageReport = () => {
   const [swipeStates, setSwipeStates] = useState({});
   const expandedItemIdRef = useRef(expandedItemId);
   const cardRefs = useRef({});
-
   // Fetch project names from API
   useEffect(() => {
     const fetchProjects = async () => {
@@ -60,7 +58,6 @@ const ProjectUsageReport = () => {
     };
     fetchProjects();
   }, []);
-
   // Fetch category options
   useEffect(() => {
     const fetchCategories = async () => {
@@ -81,7 +78,6 @@ const ProjectUsageReport = () => {
     };
     fetchCategories();
   }, []);
-
   // Fetch PO item names, brands, models, types, and categories
   useEffect(() => {
     const fetchPOData = async () => {
@@ -93,7 +89,6 @@ const ProjectUsageReport = () => {
           fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll'),
           fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll')
         ]);
-
         if (itemNamesRes.ok) {
           const data = await itemNamesRes.json();
           setPoItemNames(data);
@@ -120,7 +115,6 @@ const ProjectUsageReport = () => {
     };
     fetchPOData();
   }, []);
-
   // Helper functions to resolve IDs to names
   const findNameById = (array, id, fieldName) => {
     if (!array || !id || id === 0) return '';
@@ -131,31 +125,25 @@ const ProjectUsageReport = () => {
     if (!item) return '';
     return item[fieldName] || item.name || item.label || '';
   };
-
   const resolveItemName = (itemId) => {
     return findNameById(poItemNames, itemId, 'itemName') || findNameById(poItemNames, itemId, 'name') || '';
   };
-
   const resolveBrandName = (brandId) => {
     if (!brandId || brandId === 0) return '';
     return findNameById(poBrands, brandId, 'brand') || findNameById(poBrands, brandId, 'brandName') || findNameById(poBrands, brandId, 'name') || '';
   };
-
   const resolveTypeName = (typeId) => {
     if (!typeId || typeId === 0) return '';
     return findNameById(poTypes, typeId, 'typeColor') || findNameById(poTypes, typeId, 'type') || findNameById(poTypes, typeId, 'typeName') || findNameById(poTypes, typeId, 'name') || '';
   };
-
   const resolveCategoryName = (categoryId) => {
     if (!categoryId) return '';
     return findNameById(poCategories, categoryId, 'category') || findNameById(poCategories, categoryId, 'name') || findNameById(poCategories, categoryId, 'label') || '';
   };
-
   const resolveModelName = (modelId) => {
     if (!modelId) return '';
     return findNameById(poModel, modelId, 'model') || findNameById(poModel, modelId, 'modelName') || findNameById(poModel, modelId, 'name') || '';
   };
-
   // Fetch inventory data
   useEffect(() => {
     const fetchInventoryData = async () => {
@@ -168,13 +156,10 @@ const ProjectUsageReport = () => {
             'Content-Type': 'application/json'
           }
         });
-
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-
         const data = await response.json();
-
         // Filter for outgoing type only (dispatch and stock return)
         const outgoingItems = data.filter(item => {
           const inventoryType = item.inventory_type || item.inventoryType || '';
@@ -184,7 +169,6 @@ const ProjectUsageReport = () => {
             (String(outgoingType).toLowerCase() === 'dispatch' || String(outgoingType).toLowerCase() === 'stock return') &&
             !isDeleted;
         });
-
         setInventoryData(outgoingItems);
       } catch (error) {
         console.error('Error fetching inventory data:', error);
@@ -195,24 +179,19 @@ const ProjectUsageReport = () => {
     };
     fetchInventoryData();
   }, []);
-
   // Process and group inventory data by item and project
   const processedUsageData = useMemo(() => {
     if (!inventoryData.length || !poItemNames.length) return [];
-
     // Group by: item_id, category_id, model_id, brand_id, type_id, and client_id (project)
     const groupedMap = {};
-
     inventoryData.forEach(record => {
       const inventoryItems = record.inventoryItems || record.inventory_items || [];
       const clientId = record.client_id || record.clientId;
       const outgoingType = (record.outgoing_type || record.outgoingType || '').toLowerCase();
       const recordDate = record.date || record.created_at || record.createdAt;
-
       // Get project name
       const project = projectOptions.find(p => p.id === clientId);
       const projectName = project ? project.value : '';
-
       inventoryItems.forEach(invItem => {
         const itemId = invItem.item_id || invItem.itemId;
         const categoryId = invItem.category_id || invItem.categoryId;
@@ -221,10 +200,8 @@ const ProjectUsageReport = () => {
         const typeId = invItem.type_id || invItem.typeId;
         const quantity = invItem.quantity || invItem.qty || 0;
         const amount = invItem.amount || 0;
-
         // Create composite key
         const key = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}-${clientId || 'null'}`;
-
         if (!groupedMap[key]) {
           // Resolve names
           const itemName = resolveItemName(itemId) || invItem.itemName || invItem.item_name || '';
@@ -232,7 +209,6 @@ const ProjectUsageReport = () => {
           const model = resolveModelName(modelId) || invItem.modelName || invItem.model_name || invItem.model || '';
           const type = resolveTypeName(typeId) || invItem.typeName || invItem.type_name || invItem.type || '';
           const category = resolveCategoryName(categoryId) || invItem.categoryName || invItem.category_name || invItem.category || '';
-
           groupedMap[key] = {
             itemId: itemId,
             categoryId: categoryId,
@@ -252,7 +228,6 @@ const ProjectUsageReport = () => {
             latestDate: recordDate
           };
         }
-
         // Accumulate quantities and amounts
         const absQty = Math.abs(quantity);
         if (outgoingType === 'dispatch') {
@@ -263,14 +238,12 @@ const ProjectUsageReport = () => {
           groupedMap[key].returnQty += absQty;
         }
         groupedMap[key].totalAmount += Math.abs(amount || 0);
-
         // Update latest date
         if (new Date(recordDate) > new Date(groupedMap[key].latestDate)) {
           groupedMap[key].latestDate = recordDate;
         }
       });
     });
-
     // Convert to array and calculate usage
     return Object.values(groupedMap)
       .map(item => ({
@@ -285,23 +258,19 @@ const ProjectUsageReport = () => {
       .filter(item => item.usage > 0) // Only show items with usage > 0
       .sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate)); // Sort by date, newest first
   }, [inventoryData, projectOptions, poItemNames, poBrands, poModel, poTypes, poCategories]);
-
   // Filter processed data
   const filteredData = useMemo(() => {
     let filtered = [...processedUsageData];
-
     // Filter by project
     if (selectedProject) {
       filtered = filtered.filter(item => item.projectName === selectedProject);
     }
-
     // Filter by category
     if (selectedCategory) {
       filtered = filtered.filter(item =>
         item.category.toLowerCase() === selectedCategory.toLowerCase()
       );
     }
-
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -313,26 +282,20 @@ const ProjectUsageReport = () => {
         String(item.itemId).includes(query)
       );
     }
-
     return filtered;
   }, [processedUsageData, selectedProject, selectedCategory, searchQuery]);
-
   // Process history data - show all items separately
   const historyData = useMemo(() => {
     if (!inventoryData.length || !poItemNames.length) return [];
-
     const historyItems = [];
-
     inventoryData.forEach(record => {
       const inventoryItems = record.inventoryItems || record.inventory_items || [];
       const clientId = record.client_id || record.clientId;
       const outgoingType = (record.outgoing_type || record.outgoingType || '').toLowerCase();
       const recordDate = record.date || record.created_at || record.createdAt;
-
       // Get project name
       const project = projectOptions.find(p => p.id === clientId);
       const projectName = project ? project.value : '';
-
       inventoryItems.forEach(invItem => {
         const itemId = invItem.item_id || invItem.itemId;
         const categoryId = invItem.category_id || invItem.categoryId;
@@ -341,24 +304,20 @@ const ProjectUsageReport = () => {
         const typeId = invItem.type_id || invItem.typeId;
         const quantity = invItem.quantity || invItem.qty || 0;
         const amount = invItem.amount || 0;
-
         // Resolve names
         const itemName = resolveItemName(itemId) || invItem.itemName || invItem.item_name || '';
         const brand = resolveBrandName(brandId) || invItem.brandName || invItem.brand_name || invItem.brand || '';
         const model = resolveModelName(modelId) || invItem.modelName || invItem.model_name || invItem.model || '';
         const type = resolveTypeName(typeId) || invItem.typeName || invItem.type_name || invItem.type || '';
         const category = resolveCategoryName(categoryId) || invItem.categoryName || invItem.category_name || invItem.category || '';
-
         const absQty = Math.abs(quantity);
         let dispatchQty = 0;
         let returnQty = 0;
-
         if (outgoingType === 'dispatch') {
           dispatchQty = absQty;
         } else if (outgoingType === 'stock return') {
           returnQty = absQty;
         }
-
         historyItems.push({
           itemId: itemId,
           categoryId: categoryId,
@@ -385,26 +344,21 @@ const ProjectUsageReport = () => {
         });
       });
     });
-
     return historyItems.sort((a, b) => new Date(b.recordDate) - new Date(a.recordDate));
   }, [inventoryData, projectOptions, poItemNames, poBrands, poModel, poTypes, poCategories]);
-
   // Filter history data
   const filteredHistoryData = useMemo(() => {
     let filtered = [...historyData];
-
     // Filter by project
     if (selectedProject) {
       filtered = filtered.filter(item => item.projectName === selectedProject);
     }
-
     // Filter by category
     if (selectedCategory) {
       filtered = filtered.filter(item =>
         item.category.toLowerCase() === selectedCategory.toLowerCase()
       );
     }
-
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -416,15 +370,12 @@ const ProjectUsageReport = () => {
         String(item.itemId).includes(query)
       );
     }
-
     return filtered;
   }, [historyData, selectedProject, selectedCategory, searchQuery]);
-
   const handleDateConfirm = (selectedDate) => {
     setDate(selectedDate);
     setShowDatePicker(false);
   };
-
   const getCategoryColor = (category) => {
     const cat = category.toLowerCase();
     if (cat.includes('electrical')) {
@@ -436,7 +387,6 @@ const ProjectUsageReport = () => {
     }
     return 'bg-gray-100 text-gray-700'; // Default gray
   };
-
   const formatAmount = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -444,15 +394,12 @@ const ProjectUsageReport = () => {
       maximumFractionDigits: 0
     }).format(amount);
   };
-
   // Update ref when expandedItemId changes
   useEffect(() => {
     expandedItemIdRef.current = expandedItemId;
   }, [expandedItemId]);
-
   // Swipe handlers
   const minSwipeDistance = 50;
-
   const handleTouchStart = (e, itemId) => {
     const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
     setSwipeStates(prev => ({
@@ -464,7 +411,6 @@ const ProjectUsageReport = () => {
       }
     }));
   };
-
   const handleTouchMove = (e, itemId) => {
     const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
     const state = swipeStates[itemId];
@@ -486,7 +432,6 @@ const ProjectUsageReport = () => {
       }));
     }
   };
-
   const handleTouchEnd = (itemId) => {
     const state = swipeStates[itemId];
     if (!state) return;
@@ -513,16 +458,13 @@ const ProjectUsageReport = () => {
       return newState;
     });
   };
-
   // Set up non-passive touch event listeners to allow preventDefault
   useEffect(() => {
     const cleanupFunctions = [];
-
     // Set up non-passive touchmove listeners for each card to handle preventDefault
     Object.keys(cardRefs.current).forEach(itemId => {
       const cardElement = cardRefs.current[itemId];
       if (!cardElement) return;
-
       const touchMoveHandler = (e) => {
         const state = swipeStates[itemId];
         if (!state) return;
@@ -534,7 +476,6 @@ const ProjectUsageReport = () => {
           e.preventDefault();
         }
       };
-
       // Add non-passive touchmove listener
       cardElement.addEventListener('touchmove', touchMoveHandler, { passive: false });
 
@@ -542,21 +483,17 @@ const ProjectUsageReport = () => {
         cardElement.removeEventListener('touchmove', touchMoveHandler);
       });
     });
-
     return () => {
       cleanupFunctions.forEach(cleanup => cleanup());
     };
   }, [filteredData, swipeStates]);
-
   // Global mouse handlers for desktop support
   useEffect(() => {
     if (filteredData.length === 0) return;
-
     const globalMouseMoveHandler = (e) => {
       setSwipeStates(prev => {
         let hasChanges = false;
         const newState = { ...prev };
-
         filteredData.forEach(item => {
           const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${item.projectId}`;
           const state = prev[itemId];
@@ -573,7 +510,6 @@ const ProjectUsageReport = () => {
             hasChanges = true;
           }
         });
-
         return hasChanges ? newState : prev;
       });
     };
@@ -857,7 +793,6 @@ const ProjectUsageReport = () => {
                         </div>
                       </div>
                     </div>
-
                     {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                     <div
                       className="absolute top-[2.5px] flex gap-2 flex-shrink-0 z-0"
@@ -913,10 +848,8 @@ const ProjectUsageReport = () => {
                 const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${item.projectId}-${index}`;
                 const isExpanded = expandedItemId === itemId;
                 const swipeState = swipeStates[itemId];
-
                 // Width of the combined action buttons (2 * 40px + gap)
                 const buttonWidth = 96;
-
                 // Calculate swipe offset for smooth animation
                 const swipeOffset =
                   swipeState && swipeState.isSwiping
@@ -924,7 +857,6 @@ const ProjectUsageReport = () => {
                     : isExpanded
                       ? -buttonWidth
                       : 0;
-
                 return (
                   <div key={itemId} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-gray-50 rounded-[8px] h-[112px]">
                     {/* Card */}
@@ -971,7 +903,6 @@ const ProjectUsageReport = () => {
                             </span>
                           )}
                         </div>
-
                         {/* Row 2: Model with empty space on right */}
                         <div className="flex items-start justify-between">
                           <p className="text-[12px] font-medium text-gray-600">
@@ -979,7 +910,6 @@ const ProjectUsageReport = () => {
                           </p>
                           <div></div>
                         </div>
-
                         {/* Row 3: Brand and Type with Dispatch/Return on right */}
                         <div className="flex items-start justify-between">
                           <p className="text-[12px] font-medium text-gray-600">
@@ -995,7 +925,6 @@ const ProjectUsageReport = () => {
                             </p>
                           ) : null}
                         </div>
-
                         {/* Row 4: Date */}
                         <div className="flex items-start justify-between">
                           <p className="text-[12px] font-medium text-gray-600">
@@ -1005,7 +934,6 @@ const ProjectUsageReport = () => {
                             {formatAmount(item.totalAmount)}
                           </p>
                         </div>
-
                         {/* Row 5: Project Name and Amount */}
                         <div className="flex items-start justify-between">
                           <p className="text-[12px] font-medium text-gray-700">
@@ -1015,7 +943,6 @@ const ProjectUsageReport = () => {
                         </div>
                       </div>
                     </div>
-
                     {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                     <div
                       className="absolute top-[2.5px] flex gap-2 flex-shrink-0 z-0"

@@ -5,7 +5,6 @@ import Edit from '../Images/edit.png'
 import Change1 from '../Images/right-left.png'
 import Change2 from '../Images/two-arrow.png'
 import { to } from 'mathjs';
-
 const EditStock = () => {
   const [activeSubTab, setActiveSubTab] = useState('transfer'); // 'transfer', 'update', 'history'
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -117,7 +116,6 @@ const EditStock = () => {
   const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
   const [currentStock, setCurrentStock] = useState('');
   const [newCount, setNewCount] = useState('');
-  // Move stock modal fields
   const [moveProject, setMoveProject] = useState('');
   const [moveProjectId, setMoveProjectId] = useState(null);
   const [moveDescription, setMoveDescription] = useState('');

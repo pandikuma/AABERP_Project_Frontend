@@ -3,7 +3,6 @@ import Edit from '../Images/edit1.png';
 import Delete from '../Images/delete.png';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import SearchableDropdown from '../PurchaseOrder/SearchableDropdown';
-
 const History = ({ onTabChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [historyData, setHistoryData] = useState([]);
@@ -27,7 +26,6 @@ const History = ({ onTabChange }) => {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showInchargeDropdown, setShowInchargeDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-
   // Fetch client data
   useEffect(() => {
     const fetchClients = async () => {
@@ -58,7 +56,6 @@ const History = ({ onTabChange }) => {
     };
     fetchClients();
   }, []);
-
   // Fetch employee data for Project Incharge
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -77,7 +74,6 @@ const History = ({ onTabChange }) => {
     };
     fetchEmployees();
   }, []);
-
   // Fetch inventory history data
   useEffect(() => {
     const fetchHistory = async () => {
@@ -183,18 +179,15 @@ const History = ({ onTabChange }) => {
     };
     fetchHistory();
   }, [clientData]);
-
   // Filter data based on search query and active type
   useEffect(() => {
     let filtered = historyData;
-
     // Filter by active type (Stack Return or Dispatch)
     if (activeType === 'stack return') {
       filtered = filtered.filter(item => item.type === 'SR');
     } else if (activeType === 'dispatch') {
       filtered = filtered.filter(item => item.type === 'DP');
     }
-
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -204,7 +197,6 @@ const History = ({ onTabChange }) => {
         return customerLocation.includes(query) || transactionId.includes(query);
       });
     }
-
     // Filter by Project Name
     if (filterProjectName.trim()) {
       filtered = filtered.filter(item => {
@@ -212,7 +204,6 @@ const History = ({ onTabChange }) => {
         return customerName.toLowerCase() === filterProjectName.toLowerCase();
       });
     }
-
     // Filter by Project Incharge
     if (filterProjectIncharge.trim()) {
       filtered = filtered.filter(item => {
@@ -220,7 +211,6 @@ const History = ({ onTabChange }) => {
         return incharge.toLowerCase() === filterProjectIncharge.toLowerCase();
       });
     }
-
     // Filter by Stocking Location
     if (filterStockingLocation.trim()) {
       filtered = filtered.filter(item => {
@@ -228,7 +218,6 @@ const History = ({ onTabChange }) => {
         return location.toLowerCase() === filterStockingLocation.toLowerCase();
       });
     }
-
     // Filter by SR Number
     if (filterSRNumber.trim()) {
       filtered = filtered.filter(item => {
@@ -242,7 +231,6 @@ const History = ({ onTabChange }) => {
         return transactionId.includes(srNumber);
       });
     }
-
     // Filter by Date
     if (filterDate.trim()) {
       filtered = filtered.filter(item => {
@@ -253,7 +241,6 @@ const History = ({ onTabChange }) => {
         return dateObj.toDateString() === filterDateObj.toDateString();
       });
     }
-
     setFilteredData(filtered);
   }, [searchQuery, historyData, activeType, filterProjectName, filterProjectIncharge, filterStockingLocation, filterSRNumber, filterDate]);
 
@@ -263,14 +250,12 @@ const History = ({ onTabChange }) => {
     const date = new Date(dateString);
     const today = new Date();
     const isToday = date.toDateString() === today.toDateString();
-
     if (isToday) {
       return 'Today';
     } else {
       return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
   };
-
   // Format time
   const formatTime = (dateString, timeString) => {
     if (timeString) return timeString;
@@ -278,7 +263,6 @@ const History = ({ onTabChange }) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   };
-
   // Format price
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-IN', {
@@ -287,7 +271,6 @@ const History = ({ onTabChange }) => {
       maximumFractionDigits: 0
     }).format(price);
   };
-
   const formatDDMMYYYYFromISO = (isoDate) => {
     if (!isoDate) return '';
     // Expecting YYYY-MM-DD (from previous <input type="date"> behavior)
@@ -297,7 +280,6 @@ const History = ({ onTabChange }) => {
     }
     return '';
   };
-
   const formatISOFromDDMMYYYY = (ddmmyyyy) => {
     if (!ddmmyyyy) return '';
     // Expecting DD/MM/YYYY (from DatePickerModal)
@@ -307,15 +289,12 @@ const History = ({ onTabChange }) => {
     }
     return '';
   };
-
   // Update ref when expandedItemId changes
   useEffect(() => {
     expandedItemIdRef.current = expandedItemId;
   }, [expandedItemId]);
-
   // Swipe handlers
   const minSwipeDistance = 50;
-
   const handleTouchStart = (e, itemId) => {
     const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
     const wasCloneExpanded = cloneExpandedItemId === itemId;
@@ -329,7 +308,6 @@ const History = ({ onTabChange }) => {
       }
     }));
   };
-
   const handleTouchMove = (e, itemId) => {
     const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
     const state = swipeStates[itemId];
@@ -351,7 +329,6 @@ const History = ({ onTabChange }) => {
       }));
     }
   };
-
   const handleTouchEnd = (itemId) => {
     const state = swipeStates[itemId];
     if (!state) return;
@@ -389,16 +366,13 @@ const History = ({ onTabChange }) => {
       return newState;
     });
   };
-
   // Set up non-passive touch event listeners to allow preventDefault
   useEffect(() => {
     const cleanupFunctions = [];
-
     // Set up non-passive touchmove listeners for each card to handle preventDefault
     Object.keys(cardRefs.current).forEach(itemId => {
       const cardElement = cardRefs.current[itemId];
       if (!cardElement) return;
-
       const touchMoveHandler = (e) => {
         const state = swipeStates[itemId];
         if (!state) return;
@@ -411,7 +385,6 @@ const History = ({ onTabChange }) => {
           e.preventDefault();
         }
       };
-
       // Add non-passive touchmove listener
       cardElement.addEventListener('touchmove', touchMoveHandler, { passive: false });
 
@@ -419,16 +392,13 @@ const History = ({ onTabChange }) => {
         cardElement.removeEventListener('touchmove', touchMoveHandler);
       });
     });
-
     return () => {
       cleanupFunctions.forEach(cleanup => cleanup());
     };
   }, [filteredData, swipeStates, cloneExpandedItemId]);
-
   // Global mouse handlers for desktop support
   useEffect(() => {
     if (filteredData.length === 0) return;
-
     const globalMouseMoveHandler = (e) => {
       setSwipeStates(prev => {
         let hasChanges = false;
@@ -451,16 +421,13 @@ const History = ({ onTabChange }) => {
             hasChanges = true;
           }
         });
-
         return hasChanges ? newState : prev;
       });
     };
-
     const globalMouseUpHandler = () => {
       setSwipeStates(prev => {
         let hasChanges = false;
         const newState = { ...prev };
-
         filteredData.forEach(item => {
           const state = prev[item.id];
           if (!state) return;
@@ -498,30 +465,24 @@ const History = ({ onTabChange }) => {
           delete newState[item.id];
           hasChanges = true;
         });
-
         return hasChanges ? newState : prev;
       });
     };
-
     // Add global mouse event listeners
     document.addEventListener('mousemove', globalMouseMoveHandler);
     document.addEventListener('mouseup', globalMouseUpHandler);
-
     return () => {
       document.removeEventListener('mousemove', globalMouseMoveHandler);
       document.removeEventListener('mouseup', globalMouseUpHandler);
     };
   }, [filteredData]);
-
   // Handle view (for viewing when clicking transaction ID)
   const handleView = async (item) => {
     try {
       // Get the original inventory item data (should already have inventoryItems from originalItem)
       let inventoryData = item.originalItem || item;
-
       // Check if inventoryItems are present in the data
       const hasInventoryItems = inventoryData?.inventoryItems || inventoryData?.inventory_items;
-
       // If inventoryItems are missing, try to fetch them from the backend
       if (!hasInventoryItems || (Array.isArray(inventoryData?.inventoryItems) && inventoryData.inventoryItems.length === 0) ||
         (Array.isArray(inventoryData?.inventory_items) && inventoryData.inventory_items.length === 0)) {
@@ -535,7 +496,6 @@ const History = ({ onTabChange }) => {
                 'Content-Type': 'application/json'
               }
             });
-
             if (response.ok) {
               const detailedData = await response.json();
               // Merge the detailed data with inventoryItems
@@ -554,7 +514,6 @@ const History = ({ onTabChange }) => {
           }
         }
       }
-
       // Ensure inventoryItems are explicitly set (use both field names for compatibility)
       if (inventoryData?.inventoryItems || inventoryData?.inventory_items) {
         const items = inventoryData.inventoryItems || inventoryData.inventory_items;
@@ -564,12 +523,10 @@ const History = ({ onTabChange }) => {
           inventory_items: items
         };
       }
-
       // Mark as view mode (not edit mode) - for showing Download button
       inventoryData.isEditMode = false;
       // Mark as view mode from History (for showing Download button instead of Stack Return/Dispatch)
       inventoryData.fromHistory = true;
-
       // Store inventory item data in localStorage to load in outgoing tab
       if (inventoryData) {
         localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
@@ -595,16 +552,13 @@ const History = ({ onTabChange }) => {
       setExpandedItemId(null);
     }
   };
-
   // Handle edit (for update)
   const handleEdit = async (item) => {
     try {
       // Get the original inventory item data (should already have inventoryItems from originalItem)
       let inventoryData = item.originalItem || item;
-
       // Check if inventoryItems are present in the data
       const hasInventoryItems = inventoryData?.inventoryItems || inventoryData?.inventory_items;
-
       // If inventoryItems are missing, try to fetch them from the backend
       if (!hasInventoryItems || (Array.isArray(inventoryData?.inventoryItems) && inventoryData.inventoryItems.length === 0) ||
         (Array.isArray(inventoryData?.inventory_items) && inventoryData.inventory_items.length === 0)) {
@@ -618,7 +572,6 @@ const History = ({ onTabChange }) => {
                 'Content-Type': 'application/json'
               }
             });
-
             if (response.ok) {
               const detailedData = await response.json();
               // Merge the detailed data with inventoryItems
@@ -637,7 +590,6 @@ const History = ({ onTabChange }) => {
           }
         }
       }
-
       // Ensure inventoryItems are explicitly set (use both field names for compatibility)
       if (inventoryData?.inventoryItems || inventoryData?.inventory_items) {
         const items = inventoryData.inventoryItems || inventoryData.inventory_items;
@@ -647,12 +599,10 @@ const History = ({ onTabChange }) => {
           inventory_items: items
         };
       }
-
       // Mark as edit mode (update, not clone)
       inventoryData.isEditMode = true;
       // Mark as view mode from History (for showing Download button instead of Stack Return/Dispatch)
       inventoryData.fromHistory = true;
-
       // Store inventory item data in localStorage to load in outgoing tab
       if (inventoryData) {
         localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
@@ -678,16 +628,13 @@ const History = ({ onTabChange }) => {
       setExpandedItemId(null);
     }
   };
-
   // Handle clone (for create new)
   const handleClone = async (item) => {
     try {
       // Get the original inventory item data (should already have inventoryItems from originalItem)
       let inventoryData = item.originalItem || item;
-
       // Check if inventoryItems are present in the data
       const hasInventoryItems = inventoryData?.inventoryItems || inventoryData?.inventory_items;
-
       // If inventoryItems are missing, try to fetch them from the backend
       if (!hasInventoryItems || (Array.isArray(inventoryData?.inventoryItems) && inventoryData.inventoryItems.length === 0) ||
         (Array.isArray(inventoryData?.inventory_items) && inventoryData.inventory_items.length === 0)) {
@@ -701,7 +648,6 @@ const History = ({ onTabChange }) => {
                 'Content-Type': 'application/json'
               }
             });
-
             if (response.ok) {
               const detailedData = await response.json();
               // Merge the detailed data with inventoryItems
@@ -720,7 +666,6 @@ const History = ({ onTabChange }) => {
           }
         }
       }
-
       // Ensure inventoryItems are explicitly set (use both field names for compatibility)
       if (inventoryData?.inventoryItems || inventoryData?.inventory_items) {
         const items = inventoryData.inventoryItems || inventoryData.inventory_items;
@@ -730,12 +675,10 @@ const History = ({ onTabChange }) => {
           inventory_items: items
         };
       }
-
       // Mark as clone mode (create new, not update) - remove isEditMode or set to false
       inventoryData.isEditMode = false;
       // Remove ID to ensure it creates new record
       delete inventoryData.id;
-
       // Store inventory item data in localStorage to load in outgoing tab
       if (inventoryData) {
         localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
@@ -761,19 +704,16 @@ const History = ({ onTabChange }) => {
       setCloneExpandedItemId(null);
     }
   };
-
   // Handle delete
   const handleDelete = (itemId) => {
     console.log('Delete item:', itemId);
     // TODO: Implement delete functionality
     setExpandedItemId(null);
   };
-
   const getTodayDate = () => {
     const today = new Date();
     return today.toLocaleDateString('en-GB'); // DD/MM/YYYY
   };
-
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Date and Category Section */}
@@ -815,7 +755,6 @@ const History = ({ onTabChange }) => {
           </div>
         </div>
       </div>
-
       {/* Search Bar */}
       <div className="flex-shrink-0 px-4 pt-4 pb-3">
         <div className="relative">
@@ -834,7 +773,6 @@ const History = ({ onTabChange }) => {
           />
         </div>
       </div>
-
       {/* Filter */}
       <div className="flex-shrink-0 px-4 pb-3">
         <div className="flex items-center gap-2 flex-wrap">
@@ -950,7 +888,6 @@ const History = ({ onTabChange }) => {
           )}
         </div>
       </div>
-
       {/* History List */}
       <div className="flex overflow-y-auto px-4">
         {loading ? (
@@ -972,11 +909,9 @@ const History = ({ onTabChange }) => {
                 // Add 5 hours and 30 minutes (5.30 hours = 5.5 hours = 19800000 milliseconds)
                 adjustedDate.setTime(adjustedDate.getTime());
               }
-
               const displayDate = adjustedDate ? formatDate(adjustedDate.toISOString()) : formatDate(item.date);
               const displayTime = adjustedDate ? formatTime(adjustedDate.toISOString(), null) : formatTime(item.date, item.time);
               const customerLocation = `${item.customerName}`;
-
               const isExpanded = expandedItemId === item.id;
               const isCloneExpanded = cloneExpandedItemId === item.id;
               const swipeState = swipeStates[item.id];
@@ -995,7 +930,6 @@ const History = ({ onTabChange }) => {
               } else {
                 swipeOffset = 0;
               }
-
               return (
                 <div key={item.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-gray-50 rounded-[8px] h-[100px]">
                   {/* Clone Button - Behind the card on the left, revealed on right swipe */}
@@ -1062,14 +996,12 @@ const History = ({ onTabChange }) => {
                             {item.transactionId}
                           </p>
                         </div>
-
                         {/* Customer/Location Name */}
                         <div className="mb-1">
                           <p className="text-[12px] font-medium text-black leading-normal">
                             {customerLocation}
                           </p>
                         </div>
-
                         {/* Date and Time */}
                         <div>
                           <p className="text-[12px] font-medium text-[#616161] leading-normal">
@@ -1077,7 +1009,6 @@ const History = ({ onTabChange }) => {
                           </p>
                         </div>
                       </div>
-
                       {/* Right side: Number of Items, Quantity, and Price */}
                       <div className="flex flex-col items-end text-right flex-shrink-0 ml-4">
                         <p className="text-[11px] font-medium text-[#616161] leading-normal mb-1">
@@ -1092,7 +1023,6 @@ const History = ({ onTabChange }) => {
                       </div>
                     </div>
                   </div>
-
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
                     className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
@@ -1132,7 +1062,6 @@ const History = ({ onTabChange }) => {
           </div>
         )}
       </div>
-
       {/* Filter Modal */}
       {showFilterModal && (
         <div
@@ -1170,7 +1099,6 @@ const History = ({ onTabChange }) => {
                 </svg>
               </button>
             </div>
-
             {/* Modal Content */}
             <div className="px-6 overflow-visible">
               {/* Project Name */}
@@ -1213,7 +1141,6 @@ const History = ({ onTabChange }) => {
                   />
                 </div>
                 {/* Stocking Location */}
-
                 <div className="flex-1">
                   <label className="block text-[13px] font-medium text-black mb-0.5">Stocking Location</label>
                   <SearchableDropdown
@@ -1232,8 +1159,6 @@ const History = ({ onTabChange }) => {
                     className="w-full h-[32px]"
                   />
                 </div>
-
-
                 <div className=" flex items-center gap-2 ">
                   {/* Date */}
                   <div className="flex-1">
@@ -1302,7 +1227,6 @@ const History = ({ onTabChange }) => {
           </div>
         </div>
       )}
-
       <DatePickerModal
         isOpen={showDatePicker}
         onClose={() => setShowDatePicker(false)}
