@@ -8,6 +8,7 @@ const AddInput = ({ user }) => {
   const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
   const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
   const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_stock_management';
+  const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
   const GOOGLE_UPLOAD_URL = 'https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive';
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedItemName, setSelectedItemName] = useState(null);
@@ -36,6 +37,7 @@ const AddInput = ({ user }) => {
   const [purchaseStoreFullData, setPurchaseStoreFullData] = useState([]); // Full vendor objects with id and vendorName
   const [homeLocationFullData, setHomeLocationFullData] = useState([]); // Full project objects with id, siteName, and branch
   const [stockManagementData, setStockManagementData] = useState([]); // For checking item_ids_id usage
+  const [machineStatusData, setMachineStatusData] = useState([]); // Machine status data from new API
   const [addSheetForm, setAddSheetForm] = useState({
     itemName: '',
     itemNameId: null, // Store the ID
@@ -59,28 +61,118 @@ const AddInput = ({ user }) => {
   const [homeLocationOptions, setHomeLocationOptions] = useState([]); // Project names from project_Names API
   const [showNewItemIdInput, setShowNewItemIdInput] = useState(false);
   const [newItemIdValue, setNewItemIdValue] = useState('');
+  // Helper to get latest machine status for an itemIdsId + machineNumber combination
+  const getLatestMachineStatus = React.useMemo(() => {
+    const statusMap = new Map();
+    
+    // Group machine statuses by itemIdsId + machineNumber and get latest for each
+    machineStatusData.forEach(status => {
+      const itemIdsId = String(status.item_ids_id || status.itemIdsId || '');
+      const machineNum = String(status.machine_number || status.machineNumber || '');
+      const key = `${itemIdsId}_${machineNum}`;
+      
+      if (itemIdsId && machineNum) {
+        const existing = statusMap.get(key);
+        if (!existing || (status.id || 0) > (existing.id || 0)) {
+          statusMap.set(key, status);
+        }
+      }
+    });
+    
+    return statusMap;
+  }, [machineStatusData]);
+
   const usedItemIds = React.useMemo(() => {
     const usedIds = new Set();
     stockManagementData.forEach(item => {
       const itemIdId = item?.item_ids_id ?? item?.itemIdsId;
       const machineNum = item?.machine_number ?? item?.machineNumber;
-      const toolStatus = (item?.tool_status ?? item?.toolStatus)?.toLowerCase();
-      if (itemIdId && machineNum && toolStatus !== 'dead') {
-        usedIds.add(String(itemIdId));
+      
+      if (itemIdId && machineNum) {
+        // Check machine status from new API
+        const key = `${String(itemIdId)}_${String(machineNum)}`;
+        const latestStatus = getLatestMachineStatus.get(key);
+        
+        if (latestStatus) {
+          // Use status from new API
+          const machineStatus = (latestStatus.machine_status || latestStatus.machineStatus || '').toLowerCase();
+          // Only mark as used if status is NOT "Machine Dead" or "Not Working"
+          if (machineStatus !== 'machine dead') {
+            usedIds.add(String(itemIdId));
+          }
+        } else {
+          // If no status in new API, fallback to checking tool_status from stock management
+          const toolStatus = (item?.tool_status ?? item?.toolStatus)?.toLowerCase();
+          if (toolStatus && toolStatus !== 'machine dead') {
+            usedIds.add(String(itemIdId));
+          }
+        }
       }
     });
     return usedIds;
-  }, [stockManagementData]);
+  }, [stockManagementData, getLatestMachineStatus]);
+  // Helper function to check if an itemId has any machine with Dead/Not Working status
+  const hasDeadOrNotWorkingMachine = React.useMemo(() => {
+    const itemIdsWithDeadStatus = new Set();
+    
+    // Group machine statuses by itemIdsId
+    const statusByItemId = {};
+    machineStatusData.forEach(status => {
+      const itemIdsId = String(status.item_ids_id || status.itemIdsId || '');
+      const machineStatus = (status.machine_status || status.machineStatus || '')      
+      if (itemIdsId && (machineStatus === 'Machine Dead')) {
+        if (!statusByItemId[itemIdsId]) {
+          statusByItemId[itemIdsId] = [];
+        }
+        statusByItemId[itemIdsId].push(status);
+      }
+    });
+    
+    // For each itemIdsId, get the latest status for each machine number
+    Object.keys(statusByItemId).forEach(itemIdsId => {
+      const statuses = statusByItemId[itemIdsId];
+      // Group by machine number and get latest status for each
+      const byMachineNumber = {};
+      statuses.forEach(status => {
+        const machineNum = String(status.machine_number || status.machineNumber || '');
+        if (!byMachineNumber[machineNum] || (status.id || 0) > (byMachineNumber[machineNum].id || 0)) {
+          byMachineNumber[machineNum] = status;
+        }
+      });
+      
+      // Check if any machine has Dead or Not Working status
+      const hasDeadMachine = Object.values(byMachineNumber).some(status => {
+        const statusLower = (status.machine_status || status.machineStatus || '')
+        return statusLower === 'Machine Dead';
+      });
+      
+      if (hasDeadMachine) {
+        itemIdsWithDeadStatus.add(itemIdsId);
+      }
+    });
+    
+    return itemIdsWithDeadStatus;
+  }, [machineStatusData]);
+
   const sheetItemIdOptions = React.useMemo(() => {
     return apiItemIdOptions.filter(itemIdName => {
       const itemIdObj = toolsItemIdFullData.find(
         item => (item?.item_id?.trim() ?? item?.itemId?.trim()) === itemIdName
       );
       const dbId = itemIdObj?.id;
-      if (!dbId) return true;
-      return !usedItemIds.has(String(dbId));
+      if (!dbId) {
+        // If itemId not found in database, check if it exists in machine status data
+        // This handles cases where itemId might be referenced in status but not in tools_item_id table
+        return false;
+      }
+      
+      // Check if this itemId has any machine with Dead/Not Working status
+      const hasDeadStatus = hasDeadOrNotWorkingMachine.has(String(dbId));
+      
+      // Only show itemIds that have Dead/Not Working status AND are not currently in use
+      return hasDeadStatus && !usedItemIds.has(String(dbId));
     });
-  }, [apiItemIdOptions, toolsItemIdFullData, usedItemIds]);
+  }, [apiItemIdOptions, toolsItemIdFullData, usedItemIds, hasDeadOrNotWorkingMachine]);
   const [tableData, setTableData] = useState([]);
   useEffect(() => {
     const fetchItemNames = async () => {
@@ -196,6 +288,26 @@ const AddInput = ({ user }) => {
       }
     };
     fetchStockManagement();
+  }, []);
+
+  // Fetch machine status data from the new API
+  useEffect(() => {
+    const fetchMachineStatus = async () => {
+      try {
+        const response = await fetch(`${TOOLS_MACHINE_STATUS_BASE_URL}/all`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setMachineStatusData(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching machine status data:', error);
+      }
+    };
+    fetchMachineStatus();
   }, []);
   useEffect(() => {
     if (!selectedItemName) {
@@ -516,21 +628,46 @@ const AddInput = ({ user }) => {
   };
   const isItemIdInUseWithMachine = (itemIdDbId, itemIdName) => {
     if (!itemIdDbId && !itemIdName) return { inUse: false, machineNumber: null };
-    const foundInStockManagement = stockManagementData.find(item => {
+    
+    // Find matching items in stock management
+    const matchingStockItems = stockManagementData.filter(item => {
       const storedItemIdId = item?.item_ids_id ?? item?.itemIdsId;
       const machineNum = item?.machine_number ?? item?.machineNumber;
-      const toolStatus = (item?.tool_status ?? item?.toolStatus)?.toLowerCase();
       const idMatches = itemIdDbId
         ? String(storedItemIdId) === String(itemIdDbId)
         : String(storedItemIdId) === String(itemIdName);
-      return idMatches && machineNum && toolStatus !== 'dead';
+      return idMatches && machineNum;
     });
-    if (foundInStockManagement) {
-      return {
-        inUse: true,
-        machineNumber: foundInStockManagement?.machine_number ?? foundInStockManagement?.machineNumber
-      };
+    
+    // Check machine status from new API for each matching item
+    for (const stockItem of matchingStockItems) {
+      const itemIdsId = String(stockItem?.item_ids_id ?? stockItem?.itemIdsId);
+      const machineNum = String(stockItem?.machine_number ?? stockItem?.machineNumber);
+      const key = `${itemIdsId}_${machineNum}`;
+      const latestStatus = getLatestMachineStatus.get(key);
+      
+      if (latestStatus) {
+        // Use status from new API
+        const machineStatus = (latestStatus.machine_status || latestStatus.machineStatus || '').toLowerCase();
+        // Only consider in use if status is NOT "Machine Dead" or "Not Working"
+        if (machineStatus !== 'machine dead' && machineStatus !== 'not working') {
+          return {
+            inUse: true,
+            machineNumber: machineNum
+          };
+        }
+      } else {
+        // Fallback to tool_status from stock management if no status in new API
+        const toolStatus = (stockItem?.tool_status ?? stockItem?.toolStatus)?.toLowerCase();
+        if (toolStatus && toolStatus !== 'dead' && toolStatus !== 'machine dead' && toolStatus !== 'not working') {
+          return {
+            inUse: true,
+            machineNumber: machineNum
+          };
+        }
+      }
     }
+    
     return { inUse: false, machineNumber: null };
   };
   const buildNewToolDetail = () => ({
@@ -921,7 +1058,7 @@ const AddInput = ({ user }) => {
   const renderSheetDropdown = (field, value, placeholder) => (
     <div className="relative w-full">
       <div onClick={() => openSheetPicker(field)}
-        className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+        className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
         style={{ color: value ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
       >
         {value || placeholder}
@@ -942,17 +1079,17 @@ const AddInput = ({ user }) => {
   );
   return (
     <div className="flex flex-col min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      <div className="flex-shrink-0 px-4 pt-2 pb-3">
-        <div className="flex items-center justify-between border-b border-gray-200 gap-2">
-          <p className="text-[12px] mb-2 font-medium text-black leading-normal">Category</p>
-          <button onClick={() => setShowVendorsModal(true)} className="text-[12px] mb-2 font-medium text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity">
+      <div className="flex-shrink-0 px-4 pt-2 pb-1.5">
+        <div className="flex items-center pb-1.5 justify-between border-b border-gray-200 gap-2">
+          <p className="text-[12px] font-medium text-black leading-normal">Category</p>
+          <button onClick={() => setShowVendorsModal(true)} className="text-[12px] font-medium text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity">
             Manage shops
           </button>
         </div>
       </div>
-      <div className="flex-shrink-0 px-4 pb-4">
-        <div className="mb-4">
-          <p className="text-[12px] font-medium text-black leading-normal mb-1">
+      <div className="flex-shrink-0 px-4 pb-2 space-y-[6px]">
+        <div className="">
+          <p className="text-[12px] font-medium text-black leading-normal mb-0.5">
             Item Name<span className="text-[#eb2f8e]">*</span>
           </p>
           <SearchableDropdown
@@ -965,9 +1102,9 @@ const AddInput = ({ user }) => {
             showAllOptions={true}
           />
         </div>
-        <div className="flex gap-3 mb-4">
+        <div className="flex gap-3">
           <div className="flex-1">
-            <p className="text-[12px] font-medium text-black leading-normal mb-1">
+            <p className="text-[12px] font-medium text-black leading-normal mb-0.5">
               Brand<span className="text-[#eb2f8e]">*</span>
             </p>
             <SearchableDropdown
@@ -981,7 +1118,7 @@ const AddInput = ({ user }) => {
             />
           </div>
           <div className="flex-1">
-            <p className="text-[12px] font-medium text-black leading-normal mb-1">
+            <p className="text-[12px] font-medium text-black leading-normal mb-0.5">
               Item ID<span className="text-[#eb2f8e]">*</span>
             </p>
             <SearchableDropdown
@@ -1035,11 +1172,11 @@ const AddInput = ({ user }) => {
               </button>
             </div>
             {/* Form - scrollable */}
-            <div className="flex-1 overflow-y-auto px-6 py-1">
+            <div className="flex-1 space-y-[6px] px-6 py-1">
               {/* Row 1: Item Name* + Quantity (half) */}
               <div className="flex gap-3 mb-2">
                 <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">
+                  <p className="text-[12px] font-medium text-black mb-0.5">
                     Item Name<span className="text-[#eb2f8e]">*</span>
                   </p>
                   <div className='w-[220px]'>
@@ -1047,13 +1184,13 @@ const AddInput = ({ user }) => {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">Quantity</p>
+                  <p className="text-[12px] font-medium text-black mb-0.5">Quantity</p>
                   <input
                     type="text"
                     value={addSheetForm.quantity}
                     onChange={(e) => handleAddSheetFieldChange('quantity', e.target.value)}
                     disabled={!!addSheetForm.itemId}
-                    className={`w-full h-[32px] border border-[#d6d6d6] px-3 text-[12px] font-medium focus:outline-none text-gray-700 ${!!addSheetForm.itemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    className={`w-full h-[32px] border border-[#d6d6d6] px-3 rounded text-[12px] font-medium focus:outline-none text-gray-700 ${!!addSheetForm.itemId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     placeholder="0"
                   />
                 </div>
@@ -1061,13 +1198,13 @@ const AddInput = ({ user }) => {
               {/* Row 2: Item ID + Model* */}
               <div className="flex gap-3 mb-2">
                 <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">Item ID</p>
+                  <p className="text-[12px] font-medium text-black mb-0.5">Item ID</p>
                   <div className={addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '' ? 'opacity-50 pointer-events-none' : ''}>
                     {renderSheetDropdown('itemId', addSheetForm.itemId, 'Select')}
                   </div>
                 </div>
                 <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">
+                  <p className="text-[12px] font-medium text-black mb-0.5">
                     Model{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
                   </p>
                   <input
@@ -1082,19 +1219,19 @@ const AddInput = ({ user }) => {
               {/* Row 3: Machine Number* + Brand* */}
               <div className="flex gap-3 mb-2">
                 <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">
+                  <p className="text-[12px] font-medium text-black mb-0.5">
                     Machine Number{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
                   </p>
                   <input
                     type="text"
                     value={addSheetForm.machineNumber}
                     onChange={(e) => handleAddSheetFieldChange('machineNumber', e.target.value)}
-                    className="w-full h-[32px] border border-[#d6d6d6] px-3 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500"
+                    className="w-full h-[32px] border border-[#d6d6d6] px-3 rounded text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500"
                     placeholder="Enter"
                   />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">
+                  <p className="text-[12px] font-medium text-black mb-0.5">
                     Brand{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
                   </p>
                   {renderSheetDropdown('brand', addSheetForm.brand, 'Select')}
@@ -1102,7 +1239,7 @@ const AddInput = ({ user }) => {
               </div>
               <div className="flex gap-3 mb-2">
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-0.5">
                     <p className="text-[12px] font-medium text-black">
                       Home Location<span className="text-[#eb2f8e]">*</span>
                     </p>
@@ -1118,7 +1255,7 @@ const AddInput = ({ user }) => {
               </div>
               <div className="flex gap-3 mb-2">
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-0.5">
                     <p className="text-[12px] font-medium text-black">
                       Purchase Store{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
                     </p>
@@ -1135,7 +1272,7 @@ const AddInput = ({ user }) => {
               {/* Row 4: Purchase Date* + Warranty Date* */}
               <div className="flex gap-3 w-[100px] mb-2">
                 <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">
+                  <p className="text-[12px] font-medium text-black mb-0.5">
                     Purchase Date{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
                   </p>
                   <div className="relative">
@@ -1146,7 +1283,7 @@ const AddInput = ({ user }) => {
                       onClick={() => handleDatePickerOpen('purchaseDate')}
                       onFocus={() => handleDatePickerOpen('purchaseDate')}
                       placeholder="dd-mm-yyyy"
-                      className="w-[150px] h-[32px] border border-[#d6d6d6] pl-3 pr-10 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500 cursor-pointer"
+                      className="w-[150px] h-[32px] border border-[#d6d6d6] pl-3 rounded pr-10 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500 cursor-pointer"
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1157,7 +1294,7 @@ const AddInput = ({ user }) => {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">
+                  <p className="text-[12px] font-medium text-black mb-0.5">
                     Warranty Date{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
                   </p>
                   <div className="relative">
@@ -1168,7 +1305,7 @@ const AddInput = ({ user }) => {
                       onClick={() => handleDatePickerOpen('warrantyDate')}
                       onFocus={() => handleDatePickerOpen('warrantyDate')}
                       placeholder="dd-mm-yyyy"
-                      className="w-[150px] h-[32px] border border-[#d6d6d6] pl-3 pr-10 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500 cursor-pointer"
+                      className="w-[150px] h-[32px] border border-[#d6d6d6] pl-3 rounded pr-10 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500 cursor-pointer"
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1220,7 +1357,7 @@ const AddInput = ({ user }) => {
               </div>
             </div>
             {/* Footer: Cancel + Save */}
-            <div className="flex-shrink-0 flex gap-4 px-6 pb-6 pt-2">
+            <div className="flex-shrink-0 flex gap-4 px-6 pb-4 pt-2">
               <button type="button" onClick={handleCloseAddNewSheet} disabled={isSaving || isUploading}
                 className={`flex-1 h-[40px] border border-black rounded-[8px] text-[14px] font-bold text-black bg-white ${(isSaving || isUploading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               >

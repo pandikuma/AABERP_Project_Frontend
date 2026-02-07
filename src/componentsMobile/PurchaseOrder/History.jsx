@@ -194,24 +194,19 @@ const History = () => {
         if (cachedData) {
           const cachedPOs = JSON.parse(cachedData);
           if (cachedPOs.length > 0) {
-            // Sort cached data
             const sorted = cachedPOs.sort((a, b) => {
               const idA = parseInt(a.id) || 0;
               const idB = parseInt(b.id) || 0;
               return idB - idA;
             });
             setPurchaseOrders(sorted);
-            // Continue to fetch fresh data in background (don't return early)
           }
         }
       } catch (error) {
         console.error('Error loading from cache:', error);
       }
     }
-    
     try {
-      // Use /get/latest for faster initial load (last 250 records)
-      // Use /getAll only when filters are applied
       const apiUrl = hasActiveFilters 
         ? 'https://backendaab.in/aabuildersDash/api/purchase_orders/getAll'
         : 'https://backendaab.in/aabuildersDash/api/purchase_orders/get/latest';
@@ -221,23 +216,16 @@ const History = () => {
         throw new Error('Failed to fetch purchase orders');
       }
       const data = await response.json();
-      console.log(data);
-
-      // Filter out deleted POs and transform API data to match expected format
       const transformedPOs = data
         .filter((po) => {
-          // Filter out POs with delete_status: true (backend uses delete_status field)
           return !(po.delete_status === true || po.deleteStatus === true);
         })
         .map((po) => {
-        // Fetch vendor name if we have vendor_id
         let vendorName = '';
         if (po.vendor_id && allVendors.length > 0) {
           const vendorMatch = allVendors.find(v => v.id === po.vendor_id);
           vendorName = vendorMatch?.vendorName || '';
         }
-
-        // Fetch project/site name if we have client_id
         let projectName = '';
         let projectBranch = '';
         if (po.client_id && allProjects.length > 0) {
@@ -245,8 +233,6 @@ const History = () => {
           projectName = projectMatch?.siteName || projectMatch?.projectName || '';
           projectBranch = projectMatch?.branch || '';
         }
-
-        // Fetch site incharge name if we have site_incharge_id - check both employees and support staff
         let projectIncharge = '';
         if (po.site_incharge_id) {
           const inchargeType = po.site_incharge_type || po.siteInchargeType;
@@ -2041,7 +2027,7 @@ const History = () => {
       {/* Filter Modal */}
       {showFilterModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={() => setShowFilterModal(false)}>
-          <div className="bg-white w-full max-w-[360px] h-[402px] rounded-tl-[16px] rounded-tr-[16px] relative z-50 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-[360px] h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }} onClick={(e) => e.stopPropagation()}>
             {/* Title */}
             <div className="px-6 pt-5 pb-4 flex items-center justify-between">
               <p className="text-[14px] font-semibold text-black">Select Filters</p>
@@ -2111,7 +2097,7 @@ const History = () => {
                       <button
                         type="button"
                         onClick={() => setShowDatePicker(true)}
-                        className="w-full h-[32px] px-4 border border-[#E0E0E0] rounded-[8px] text-[10px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
+                        className="w-full h-[32px] px-4 border border-[#E0E0E0] rounded text-[10px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
                       >
                         <span className={`${(filters.startDate || filters.endDate) ? 'text-black' : 'text-[#9E9E9E]'} whitespace-nowrap overflow-hidden text-ellipsis`}>
                           {filters.startDate && filters.endDate
@@ -2137,7 +2123,7 @@ const History = () => {
                         value={filters.poNumber}
                         onChange={(e) => setFilters({ ...filters, poNumber: e.target.value })}
                         placeholder="Enter"
-                        className="w-full h-[32px] px-4 border border-[#E0E0E0] rounded-[8px] text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
+                        className="w-full h-[32px] px-4 border border-[#E0E0E0] rounded text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
                       />
                     </div>
                   </div>
@@ -2145,7 +2131,7 @@ const History = () => {
               </div>
             </div>            
             {/* Action Buttons - Fixed at bottom */}
-            <div className="absolute mt-10 left-0 right-0 px-6 flex gap-4">
+            <div className="absolute mt-5 left-0 right-0 px-6 flex gap-4">
               <button
                 onClick={() => setShowFilterModal(false)}
                 className="w-[175px] h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"

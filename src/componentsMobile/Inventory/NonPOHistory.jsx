@@ -4,6 +4,8 @@ import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import SearchableDropdown from '../PurchaseOrder/SearchableDropdown';
 import Edit from '../Images/edit1.png';
 import Delete from '../Images/delete.png';
+import Filter from '../Images/Filter.png'
+
 const NonPOHistory = ({ onTabChange }) => {
   const [nonPORecords, setNonPORecords] = useState([]);
   const [filteredRecords, setFilteredRecords] = useState([]);
@@ -31,6 +33,7 @@ const NonPOHistory = ({ onTabChange }) => {
   const [swipeStates, setSwipeStates] = useState({});
   const expandedItemIdRef = useRef(expandedItemId);
   const cardRefs = useRef({});
+
   const formatDDMMYYYYFromISO = (isoDate) => {
     if (!isoDate) return '';
     if (typeof isoDate === 'string' && isoDate.includes('-')) {
@@ -39,6 +42,7 @@ const NonPOHistory = ({ onTabChange }) => {
     }
     return '';
   };
+
   const formatISOFromDDMMYYYY = (ddmmyyyy) => {
     if (!ddmmyyyy) return '';
     if (typeof ddmmyyyy === 'string' && ddmmyyyy.includes('/')) {
@@ -47,6 +51,7 @@ const NonPOHistory = ({ onTabChange }) => {
     }
     return '';
   };
+
   // Fetch vendor data
   useEffect(() => {
     const fetchVendors = async () => {
@@ -62,6 +67,7 @@ const NonPOHistory = ({ onTabChange }) => {
     };
     fetchVendors();
   }, []);
+
   // Fetch site data
   useEffect(() => {
     const fetchSites = async () => {
@@ -83,6 +89,7 @@ const NonPOHistory = ({ onTabChange }) => {
     };
     fetchSites();
   }, []);
+
   // Fetch category options from API
   useEffect(() => {
     const fetchPoCategory = async () => {
@@ -112,6 +119,7 @@ const NonPOHistory = ({ onTabChange }) => {
     };
     fetchPoCategory();
   }, []);
+
   // Fetch and process non-PO incoming records
   useEffect(() => {
     const fetchNonPORecords = async () => {
@@ -124,10 +132,13 @@ const NonPOHistory = ({ onTabChange }) => {
             'Content-Type': 'application/json'
           }
         });
+
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
+
         const inventoryData = await response.json();
+
         // Filter for non-PO records (no purchase_no or purchase_no is 'NO_PO') and exclude deleted
         const nonPOItems = inventoryData.filter(item => {
           const isDeleted = item.delete_status || item.deleteStatus;
@@ -138,16 +149,19 @@ const NonPOHistory = ({ onTabChange }) => {
             String(purchaseNo).toUpperCase() === 'NO_PO';
           return !isDeleted && isNonPO;
         });
+
         // Process each non-PO record
         const processedRecords = nonPOItems.map((record) => {
           // Get vendor name
           const vendorId = record.vendor_id || record.vendorId;
           const vendor = vendorData.find(v => v.id === vendorId);
           const vendorName = vendor ? vendor.vendorName : 'Unknown Vendor';
+
           // Get stocking location name
           const stockingLocationId = record.stocking_location_id || record.stockingLocationId;
           const site = siteData.find(s => s.id === stockingLocationId);
           const stockingLocation = site ? site.siteName : 'Unknown Location';
+
           // Calculate total items and quantity
           const inventoryItems = record.inventoryItems || record.inventory_items || [];
           const numberOfItems = inventoryItems.length;
@@ -157,6 +171,7 @@ const NonPOHistory = ({ onTabChange }) => {
           const totalAmount = inventoryItems.reduce((sum, item) => {
             return sum + Math.abs(item.amount || 0);
           }, 0);
+
           // Format date
           const itemDate = record.date || record.created_at || record.createdAt;
           const dateObj = new Date(itemDate);
@@ -170,8 +185,10 @@ const NonPOHistory = ({ onTabChange }) => {
             minute: '2-digit',
             hour12: true
           });
+
           // Get entry number
           const entryNumber = record.eno || record.ENO || record.entry_number || record.entryNumber || record.id || '';
+
           return {
             ...record,
             entryNumber,
@@ -189,12 +206,14 @@ const NonPOHistory = ({ onTabChange }) => {
             })
           };
         });
+
         // Sort by date (newest first)
         processedRecords.sort((a, b) => {
           const dateA = new Date(a.date || a.created_at || a.createdAt);
           const dateB = new Date(b.date || b.created_at || b.createdAt);
           return dateB - dateA;
         });
+
         setNonPORecords(processedRecords);
       } catch (error) {
         console.error('Error fetching non-PO records:', error);
@@ -203,13 +222,16 @@ const NonPOHistory = ({ onTabChange }) => {
         setLoading(false);
       }
     };
+
     if (vendorData.length > 0 && siteData.length > 0) {
       fetchNonPORecords();
     }
   }, [vendorData, siteData]);
+
   // Filter records based on search query
   useEffect(() => {
     let filtered = nonPORecords;
+
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -221,20 +243,25 @@ const NonPOHistory = ({ onTabChange }) => {
         );
       });
     }
+
     setFilteredRecords(filtered);
   }, [nonPORecords, searchQuery]);
+
   // Close category modal when filter sheet closes
   useEffect(() => {
     if (!showFilterSheet) {
       setShowCategoryModal(false);
     }
   }, [showFilterSheet]);
+
   // Update ref when expandedItemId changes
   useEffect(() => {
     expandedItemIdRef.current = expandedItemId;
   }, [expandedItemId]);
+
   // Swipe handlers
   const minSwipeDistance = 50;
+
   const handleTouchStart = (e, itemId) => {
     const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
     setSwipeStates(prev => ({
@@ -246,6 +273,7 @@ const NonPOHistory = ({ onTabChange }) => {
       }
     }));
   };
+
   const handleTouchMove = (e, itemId) => {
     const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
     const state = swipeStates[itemId];
@@ -263,6 +291,7 @@ const NonPOHistory = ({ onTabChange }) => {
       }));
     }
   };
+
   const handleTouchEnd = (itemId) => {
     const state = swipeStates[itemId];
     if (!state) return;
@@ -281,12 +310,15 @@ const NonPOHistory = ({ onTabChange }) => {
       return newState;
     });
   };
+
   // Set up non-passive touch event listeners
   useEffect(() => {
     const cleanupFunctions = [];
+
     Object.keys(cardRefs.current).forEach(itemId => {
       const cardElement = cardRefs.current[itemId];
       if (!cardElement) return;
+
       const touchMoveHandler = (e) => {
         const state = swipeStates[itemId];
         if (!state) return;
@@ -297,15 +329,19 @@ const NonPOHistory = ({ onTabChange }) => {
           e.preventDefault();
         }
       };
+
       cardElement.addEventListener('touchmove', touchMoveHandler, { passive: false });
+
       cleanupFunctions.push(() => {
         cardElement.removeEventListener('touchmove', touchMoveHandler);
       });
     });
+
     return () => {
       cleanupFunctions.forEach(cleanup => cleanup());
     };
   }, [filteredRecords, swipeStates]);
+
   // Global mouse handlers for desktop support
   useEffect(() => {
     if (filteredRecords.length === 0) return;
@@ -314,6 +350,7 @@ const NonPOHistory = ({ onTabChange }) => {
       setSwipeStates(prev => {
         let hasChanges = false;
         const newState = { ...prev };
+
         filteredRecords.forEach(record => {
           const state = prev[record.id || record._id];
           if (!state) return;
@@ -328,13 +365,16 @@ const NonPOHistory = ({ onTabChange }) => {
             hasChanges = true;
           }
         });
+
         return hasChanges ? newState : prev;
       });
     };
+
     const globalMouseUpHandler = () => {
       setSwipeStates(prev => {
         let hasChanges = false;
         const newState = { ...prev };
+
         filteredRecords.forEach(record => {
           const state = prev[record.id || record._id];
           if (!state) return;
@@ -354,22 +394,28 @@ const NonPOHistory = ({ onTabChange }) => {
           delete newState[record.id || record._id];
           hasChanges = true;
         });
+
         return hasChanges ? newState : prev;
       });
     };
+
     document.addEventListener('mousemove', globalMouseMoveHandler);
     document.addEventListener('mouseup', globalMouseUpHandler);
+
     return () => {
       document.removeEventListener('mousemove', globalMouseMoveHandler);
       document.removeEventListener('mouseup', globalMouseUpHandler);
     };
   }, [filteredRecords]);
+
   // Handle edit
   const handleEdit = async (record) => {
     try {
       let inventoryData = record;
+
       // Check if inventoryItems are present
       const hasInventoryItems = inventoryData?.inventoryItems || inventoryData?.inventory_items;
+
       // If inventoryItems are missing, try to fetch them from the backend
       if (!hasInventoryItems || (Array.isArray(inventoryData?.inventoryItems) && inventoryData.inventoryItems.length === 0) ||
         (Array.isArray(inventoryData?.inventory_items) && inventoryData.inventory_items.length === 0)) {
@@ -382,6 +428,7 @@ const NonPOHistory = ({ onTabChange }) => {
                 'Content-Type': 'application/json'
               }
             });
+
             if (response.ok) {
               const detailedData = await response.json();
               if (detailedData.inventoryItems || detailedData.inventory_items) {
@@ -398,6 +445,7 @@ const NonPOHistory = ({ onTabChange }) => {
           }
         }
       }
+
       // Ensure inventoryItems are explicitly set
       if (inventoryData?.inventoryItems || inventoryData?.inventory_items) {
         const items = inventoryData.inventoryItems || inventoryData.inventory_items;
@@ -407,8 +455,10 @@ const NonPOHistory = ({ onTabChange }) => {
           inventory_items: items
         };
       }
+
       // Mark as edit mode
       inventoryData.isEditMode = true;
+
       // Store inventory item data in localStorage
       if (inventoryData) {
         localStorage.setItem('editingInventory', JSON.stringify(inventoryData));
@@ -432,12 +482,14 @@ const NonPOHistory = ({ onTabChange }) => {
       setExpandedItemId(null);
     }
   };
+
   // Handle delete
   const handleDelete = async (recordId) => {
     if (!window.confirm('Are you sure you want to delete this record?')) {
       setExpandedItemId(null);
       return;
     }
+
     try {
       const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/delete/${recordId}`, {
         method: 'PUT',
@@ -446,6 +498,7 @@ const NonPOHistory = ({ onTabChange }) => {
           'Content-Type': 'application/json'
         }
       });
+
       if (response.ok) {
         // Remove from local state
         setNonPORecords(prev => prev.filter(record => (record.id || record._id) !== recordId));
@@ -460,6 +513,7 @@ const NonPOHistory = ({ onTabChange }) => {
     }
     setExpandedItemId(null);
   };
+
   // Handler for adding new category
   const handleAddNewCategory = async (newCategory) => {
     if (!newCategory || !newCategory.trim()) {
@@ -507,6 +561,7 @@ const NonPOHistory = ({ onTabChange }) => {
       }
     }
   };
+
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden bg-white">
       {/* Search Bar */}
@@ -529,30 +584,16 @@ const NonPOHistory = ({ onTabChange }) => {
           </svg>
         </div>
       </div>
+
       {/* Filter Button */}
       <div className="flex-shrink-0 px-4 pb-3">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowFilterSheet(true)}
             type="button"
             className="flex items-center gap-2 text-[14px] font-medium text-gray-700 flex-shrink-0"
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Top horizontal line */}
-              <line x1="2" y1="5" x2="16" y2="5" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" />
-              {/* Top vertical line intersecting center */}
-              <line x1="9" y1="3" x2="9" y2="7" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" />
-              {/* Top arrows pointing left and right */}
-              <path d="M7 4L9 5L11 4" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M7 6L9 5L11 6" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              {/* Bottom horizontal line */}
-              <line x1="2" y1="13" x2="16" y2="13" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" />
-              {/* Bottom vertical line intersecting center */}
-              <line x1="9" y1="11" x2="9" y2="15" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" />
-              {/* Bottom arrows pointing left and right */}
-              <path d="M7 12L9 13L11 12" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M7 14L9 13L11 14" stroke={(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) ? "#9E9E9E" : "#9E9E9E"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </svg>
+            <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
             {!(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) && (
               <span className="text-[12px] font-medium text-black">Filter</span>
             )}
@@ -631,6 +672,7 @@ const NonPOHistory = ({ onTabChange }) => {
           </div>
         </div>
       </div>
+
       {/* Records List */}
       <div className="flex-1 overflow-y-auto px-4 scrollbar-hide no-scrollbar scrollbar-none">
         {loading ? (
@@ -660,6 +702,7 @@ const NonPOHistory = ({ onTabChange }) => {
               } else {
                 swipeOffset = 0;
               }
+
               return (
                 <div key={recordId} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-gray-50 rounded-[8px] h-[100px]">
                   {/* History Card */}
@@ -725,6 +768,7 @@ const NonPOHistory = ({ onTabChange }) => {
                       </div>
                     </div>
                   </div>
+
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
                     className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
@@ -764,6 +808,7 @@ const NonPOHistory = ({ onTabChange }) => {
           </div>
         )}
       </div>
+
       {/* Filter Bottom Sheet */}
       {showFilterSheet && (
         <>
@@ -820,6 +865,7 @@ const NonPOHistory = ({ onTabChange }) => {
                   className="w-full h-[32px]"
                 />
               </div>
+
               {/* Stocking Location */}
               <div className="relative" data-dropdown="stockingLocation">
                 <label className="block text-[13px] font-medium text-black mb-0.5 mt-2">
@@ -838,6 +884,7 @@ const NonPOHistory = ({ onTabChange }) => {
                   className="w-full h-[32px]"
                 />
               </div>
+
               {/* Date and Entry No */}
               <div className="grid grid-cols-2 gap-4" style={{ overflow: 'visible' }}>
                 <div className="relative">
@@ -847,7 +894,7 @@ const NonPOHistory = ({ onTabChange }) => {
                   <button
                     type="button"
                     onClick={() => setShowDatePicker(true)}
-                    className="w-full h-[32px] px-4 py-2 border border-gray-300 rounded-[8px] text-black focus:outline-none focus:border-gray-400 bg-white flex items-center justify-between"
+                    className="w-full h-[32px] px-4 text-[12px] font-medium py-2 border border-gray-300 rounded text-black focus:outline-none focus:border-gray-400 bg-white flex items-center justify-between"
                   >
                     <span className={`${filterData.date ? 'text-black' : 'text-[#9E9E9E]'} truncate`}>
                       {filterData.date ? formatDDMMYYYYFromISO(filterData.date) : 'Select Date'}
@@ -866,11 +913,12 @@ const NonPOHistory = ({ onTabChange }) => {
                     placeholder="Enter"
                     value={filterData.entryNo}
                     onChange={(e) => setFilterData({ ...filterData, entryNo: e.target.value })}
-                    className="w-full h-[32px] px-4 py-2 border border-gray-300 rounded-[8px] text-black focus:outline-none focus:border-gray-400 bg-white placeholder:text-[12px]"
+                    className="w-full h-[32px] px-4 py-2 border border-gray-300 rounded text-black focus:outline-none focus:border-gray-400 bg-white placeholder:text-[12px]"
                   />
                 </div>
               </div>
             </div>
+
             {/* Action Buttons */}
             <div className="flex-shrink-0 flex gap-3 px-6 py-4">
               <button
@@ -890,6 +938,7 @@ const NonPOHistory = ({ onTabChange }) => {
           </div>
         </>
       )}
+
       <SelectVendorModal
         isOpen={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
@@ -902,6 +951,7 @@ const NonPOHistory = ({ onTabChange }) => {
         fieldName="Category"
         onAddNew={handleAddNewCategory}
       />
+
       <DatePickerModal
         isOpen={showDatePicker}
         onClose={() => setShowDatePicker(false)}
