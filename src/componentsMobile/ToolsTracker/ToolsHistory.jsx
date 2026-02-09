@@ -961,21 +961,24 @@ const ToolsHistory = ({ user }) => {
 
   return (
     <div className="flex flex-col bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      {/* Top row: Item Name (left) + Edit button (right) when Item tab active, Item ID button when Log tab active */}
-      <div className="flex-shrink-0 px-4 pt-2">
+      {/* Top row: Item Name (left) + Edit button (right) when Item tab active, Item Name (left) + Item ID (right) when Log tab active */}
+      <div className="flex-shrink-0 px-4 pt-1.5">
         <div className="flex justify-between items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setShowItemNamePopup(true);
-              setShowBrandPopup(false);
-              setShowItemIdPopup(false);
-              setShowMachineNumberPopup(false);
-            }}
-            className="text-[12px] font-medium text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent text-left"
-          >
-            {selectedItemName ? selectedItemName : 'Item Name'}
-          </button>
+          {/* Show Item Name button when Item tab or Log tab is active */}
+          {(activeSegment === 'item' || activeSegment === 'log') && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowItemNamePopup(true);
+                setShowBrandPopup(false);
+                setShowItemIdPopup(false);
+                setShowMachineNumberPopup(false);
+              }}
+              className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent text-left"
+            >
+              {selectedItemName ? selectedItemName : 'Item Name'}
+            </button>
+          )}
           {/* Show Edit button when Item tab is active and item is selected */}
           {activeSegment === 'item' && selectedStockForCard && (
             <button
@@ -990,8 +993,8 @@ const ToolsHistory = ({ user }) => {
               Edit
             </button>
           )}
-          {/* Only show Item ID button when Log tab is active */}
-          {activeSegment === 'log' && selectedItemName && (
+          {/* Show Item ID button when Log tab is active */}
+          {activeSegment === 'log' && (
             <button
               type="button"
               onClick={() => {
@@ -1000,7 +1003,7 @@ const ToolsHistory = ({ user }) => {
                 setShowBrandPopup(false);
                 setShowMachineNumberPopup(false);
               }}
-              className="text-[12px] font-medium text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent text-right flex-shrink-0"
+              className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent text-right flex-shrink-0"
             >
               {selectedItemId || 'Item ID'}
             </button>
@@ -1011,7 +1014,7 @@ const ToolsHistory = ({ user }) => {
           <button
             type="button"
             onClick={() => setActiveSegment('item')}
-            className={`flex-1 py-1 px-4 ml-1 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${
+            className={`flex-1 py-1 px-4 ml-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${
               activeSegment === 'item' ? 'bg-white text-black' : 'bg-gray-100 text-gray-600'
             }`}
           >
@@ -1020,7 +1023,7 @@ const ToolsHistory = ({ user }) => {
           <button
             type="button"
             onClick={() => setActiveSegment('log')}
-            className={`flex-1 py-1 px-4 ml-1 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${
+            className={`flex-1 py-1 px-4 mr-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${
               activeSegment === 'log' ? 'bg-white text-black' : 'bg-gray-100 text-gray-600'
             }`}
           >

@@ -6,6 +6,7 @@ import DeleteIcon from '../Images/delete.png';
 import FlottingButton from '../Images/Flotting Button Black.png'
 import FlottingButtonWhite from '../Images/Flotting Button.png'
 import Close from '../Images/close.png'
+import Edit from '../Images/edit.png'
 
 const Transfer = ({ user }) => {
   const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
@@ -2725,10 +2726,10 @@ const Transfer = ({ user }) => {
     <div className="flex flex-col min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       <div className="flex-shrink-0 px-4 pt-1 pb-0.5 flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <p className="text-[12px] font-medium text-black leading-normal">
+          <p className="text-[12px] font-semibold text-black leading-normal">
             #{entryNo || 'NO'}
           </p>
-          <button type="button" onClick={() => setShowDatePicker(true)} className="text-[12px] font-medium text-black leading-normal underline-offset-2 hover:underline">
+          <button type="button" onClick={() => setShowDatePicker(true)} className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline">
             {date}
           </button>
         </div>
@@ -2745,10 +2746,7 @@ const Transfer = ({ user }) => {
           {!isEditMode && (
             <div>
               <button onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11 5H6C5.46957 5 4.96086 5.21071 4.58579 5.58579C4.21071 5.96086 4 6.46957 4 7V18C4 18.5304 4.21071 19.0391 4.58579 19.4142C4.96086 19.7893 5.46957 20 6 20H17C17.5304 20 18.0391 19.7893 18.4142 19.4142C18.7893 19.0391 19 18.5304 19 18V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M17.5 2.5C17.8978 2.10217 18.4374 1.87868 19 1.87868C19.5626 1.87868 20.1022 2.10217 20.5 2.5C20.8978 2.89782 21.1213 3.43739 21.1213 4C21.1213 4.56261 20.8978 5.10217 20.5 5.5L12 14L8 15L9 11L17.5 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
               </button>
             </div>
           )}
@@ -2756,7 +2754,7 @@ const Transfer = ({ user }) => {
       </div>
       <div className="flex-shrink-0 px-4 pb-2">
         {isEditMode ? (
-          <div className="flex bg-[#E0E0E0] items-center h-[36px] rounded-[8px] p-1">
+          <div className="flex bg-[#E0E0E0] items-center h-[36px] rounded-[8px]">
             <button
               onClick={handleUpdateTransfer}
               disabled={isSaving || !areFieldsFilled || items.length === 0}
@@ -2867,7 +2865,7 @@ const Transfer = ({ user }) => {
           </div>
           {showFromDropdown && entryServiceMode !== 'Relocate' && (
             <div
-              className="fixed inset-0 -top-1.5 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 bg-black bg-opacity-50 z-50 -top-4 flex items-center justify-center p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
                   setShowFromDropdown(false);
@@ -3122,7 +3120,7 @@ const Transfer = ({ user }) => {
           )}
           {showToDropdown && (
             <div
-              className="fixed inset-0 -top-1.5 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 bg-black bg-opacity-50 -top-4 z-50 flex items-center justify-center p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
                   setShowToDropdown(false);
@@ -3134,7 +3132,7 @@ const Transfer = ({ user }) => {
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select To</p>
                   <button onClick={() => setShowToDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
-                    <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+                  <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
                 <div className="px-6 pt-4 pb-4">
@@ -3235,7 +3233,7 @@ const Transfer = ({ user }) => {
           )}
           {showServiceStoreDropdown && (
             <div
-              className="fixed inset-0  -top-1.5 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 bg-black bg-opacity-50 -top-4 z-50 flex items-center justify-center p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
                   setShowServiceStoreDropdown(false);
@@ -3249,7 +3247,7 @@ const Transfer = ({ user }) => {
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select Service Store</p>
                   <button onClick={() => setShowServiceStoreDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
-                    <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+                  <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
                 <div className="px-6 pt-4 pb-4">
@@ -3391,7 +3389,7 @@ const Transfer = ({ user }) => {
             </div>
           </div>
           {showInchargeDropdown && (
-            <div className="fixed inset-0 -top-1.5 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            <div className="fixed inset-0 bg-black -top-4 bg-opacity-50 z-50 flex items-center justify-center p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
                   setShowInchargeDropdown(false);
@@ -3403,7 +3401,7 @@ const Transfer = ({ user }) => {
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select Project Incharge</p>
                   <button onClick={() => setShowInchargeDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity" >
-                    <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+                  <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
                 <div className="px-6 pt-4 pb-4">
@@ -3562,7 +3560,7 @@ const Transfer = ({ user }) => {
                   <div className="flex justify-between items-center px-6 pt-5">
                     <p className="text-[16px] font-semibold text-black">Select Item ID</p>
                     <button onClick={() => setShowRelocateItemIdDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
-                      <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+                    <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                     </button>
                   </div>
                   <div className="px-6 pt-4 pb-4">
@@ -4371,7 +4369,7 @@ const Transfer = ({ user }) => {
       )}
       {showAddItemsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={handleCloseAddItemsModal} >
-          <div className="bg-white w-full max-w-[360px] h-[310px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-[360px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 pt-5 pb-4">
               <p className="text-[16px] font-medium text-black leading-normal">
                 {editingItem ? 'Edit Item' : 'Add Items'}
@@ -4382,106 +4380,104 @@ const Transfer = ({ user }) => {
                 </button>
               </div>
             </div>
-            <div className="px-6 mb-5">
-              <div className="space-y-[6px]">
-                <div className="flex gap-3">
-                  <div className="flex-1 relative">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-[13px] font-medium text-black leading-normal">
-                        Item Name<span className="text-[#eb2f8e]">*</span>
-                      </p>
-                      {selectedItemNameQuantity > 0 && (
-                        <span className="text-[13px] font-semibold text-[#e06256]">{selectedItemNameQuantity}</span>
-                      )}
-                    </div>
-                    <SearchableDropdown
-                      value={addItemFormData.itemName}
-                      onChange={(value) => handleFieldChange('itemName', value)}
-                      onAddNew={handleAddNewItemName}
-                      options={itemNameOptions}
-                      placeholder="Drilling Machine"
-                      fieldName="Item Name"
-                      showAllOptions={true}
-                      disabled={!!addItemFormData.itemId}
-                    />
-                  </div>
-                  <div className="w-[80px] relative">
-                    <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
-                      Quantity
-                    </p>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={addItemFormData.quantity}
-                        onChange={(e) => handleFieldChange('quantity', e.target.value)}
-                        disabled={!!addItemFormData.itemId}
-                        className={`w-full h-[32px] border border-[#d6d6d6] rounded px-3 pr-7 text-[12px] font-medium focus:outline-none text-black ${addItemFormData.itemId ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white'
-                          }`}
-                        placeholder="Enter"
-                      />
-                      {addItemFormData.quantity && addItemFormData.quantity.trim() !== '' && !addItemFormData.itemId && (
-                        <button
-                          type="button"
-                          onClick={() => handleFieldChange('quantity', '')}
-                          className="absolute top-1/2 transform -translate-y-1/2 right-2 w-5 h-5 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
-                        >
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M9 3L3 9M3 3L9 9"
-                              stroke="#666"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className=" relative">
-                  <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
-                    Brand
-                  </p>
-                  <SearchableDropdown
-                    value={addItemFormData.brand}
-                    onChange={(value) => handleFieldChange('brand', value)}
-                    onAddNew={handleAddNewBrand}
-                    options={brandOptions}
-                    placeholder="Stanley"
-                    fieldName="Brand"
-                    showAllOptions={true}
-                  />
-                </div>
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-0.5">
+            <div className="px-6 pb-6">
+              <div className="flex gap-3 mb-[10px]">
+                <div className="flex-1 relative">
+                  <div className="flex items-center justify-between mb-1">
                     <p className="text-[13px] font-medium text-black leading-normal">
-                      Item ID
+                      Item Name<span className="text-[#eb2f8e]">*</span>
                     </p>
-                    {selectedItemMachineNumber && (
-                      <span className="text-[13px] font-semibold text-[#e06256]">{selectedItemMachineNumber}</span>
+                    {selectedItemNameQuantity > 0 && (
+                      <span className="text-[13px] font-semibold text-[#e06256]">{selectedItemNameQuantity}</span>
                     )}
                   </div>
-                  <div className={addItemFormData.quantity && addItemFormData.quantity.trim() !== '' ? 'opacity-50 pointer-events-none' : ''}>
-                    <SearchableDropdown
-                      value={addItemFormData.itemId}
-                      onChange={(value) => handleFieldChange('itemId', value)}
-                      onAddNew={handleAddNewItemId}
-                      options={itemIdOptions}
-                      placeholder="AA DM 01"
-                      fieldName="Item ID"
-                      showAllOptions={true}
+                  <SearchableDropdown
+                    value={addItemFormData.itemName}
+                    onChange={(value) => handleFieldChange('itemName', value)}
+                    onAddNew={handleAddNewItemName}
+                    options={itemNameOptions}
+                    placeholder="Drilling Machine"
+                    fieldName="Item Name"
+                    showAllOptions={true}
+                    disabled={!!addItemFormData.itemId}
+                  />
+                </div>
+                <div className="w-[80px] relative">
+                  <p className="text-[13px] font-medium text-black mb-1 leading-normal">
+                    Quantity
+                  </p>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={addItemFormData.quantity}
+                      onChange={(e) => handleFieldChange('quantity', e.target.value)}
+                      disabled={!!addItemFormData.itemId}
+                      className={`w-full h-[32px] border border-[#d6d6d6] rounded px-3 pr-7 text-[12px] font-medium focus:outline-none text-black ${addItemFormData.itemId ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white'
+                        }`}
+                      placeholder="Enter"
                     />
+                    {addItemFormData.quantity && addItemFormData.quantity.trim() !== '' && !addItemFormData.itemId && (
+                      <button
+                        type="button"
+                        onClick={() => handleFieldChange('quantity', '')}
+                        className="absolute top-1/2 transform -translate-y-1/2 right-2 w-5 h-5 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M9 3L3 9M3 3L9 9"
+                            stroke="#666"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
-              <div className="flex gap-4 mt-5">
+              <div className="mb-[10px] relative">
+                <p className="text-[13px] font-medium text-black mb-1 leading-normal">
+                  Brand
+                </p>
+                <SearchableDropdown
+                  value={addItemFormData.brand}
+                  onChange={(value) => handleFieldChange('brand', value)}
+                  onAddNew={handleAddNewBrand}
+                  options={brandOptions}
+                  placeholder="Stanley"
+                  fieldName="Brand"
+                  showAllOptions={true}
+                />
+              </div>
+              <div className="mb-6 relative">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[13px] font-medium text-black leading-normal">
+                    Item ID
+                  </p>
+                  {selectedItemMachineNumber && (
+                    <span className="text-[13px] font-semibold text-[#e06256]">{selectedItemMachineNumber}</span>
+                  )}
+                </div>
+                <div className={addItemFormData.quantity && addItemFormData.quantity.trim() !== '' ? 'opacity-50 pointer-events-none' : ''}>
+                  <SearchableDropdown
+                    value={addItemFormData.itemId}
+                    onChange={(value) => handleFieldChange('itemId', value)}
+                    onAddNew={handleAddNewItemId}
+                    options={itemIdOptions}
+                    placeholder="AA DM 01"
+                    fieldName="Item ID"
+                    showAllOptions={true}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4">
                 <button
                   onClick={handleCloseAddItemsModal}
                   className="flex-1 h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
@@ -4795,11 +4791,11 @@ const Transfer = ({ user }) => {
       />
       {showUniversalSearchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" onClick={handleCloseUniversalSearch} style={{ fontFamily: "'Manrope', sans-serif" }}>
-          <div className="bg-white w-full max-w-[400px] h-[500px] rounded-tl-[16px] rounded-tr-[16px] max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-[400px] rounded-tl-[16px] rounded-tr-[16px] max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 pt-4 pb-3 flex-shrink-0">
               <p className="text-[16px] font-semibold text-black">Search Items</p>
               <button onClick={handleCloseUniversalSearch} className="text-[#E4572E] text-xl font-bold">
-                <img src={Close} alt='close' className=' w-[11px] h-[11px]' />
+                ×
               </button>
             </div>
             <div className="px-4 pb-3 flex-shrink-0">

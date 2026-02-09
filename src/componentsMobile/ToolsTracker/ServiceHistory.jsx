@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EditIcon from '../Images/edit1.png';
 import DeleteIcon from '../Images/delete.png';
-import Filter from '../Images/Filter.png'
+import Filter from '../Images/Filter.png';
+import SelectOptionModal from '../PurchaseOrder/SelectOptionModal';
+import DatePickerModal from '../PurchaseOrder/DatePickerModal';
+import Close from '../Images/close.png';
 
 const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
 const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
@@ -21,7 +24,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
   const [itemNamesMap, setItemNamesMap] = useState({});
   const [brandsMap, setBrandsMap] = useState({});
   const [itemIdsMap, setItemIdsMap] = useState({});
-  
+
   // Image viewer state
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [imageViewerData, setImageViewerData] = useState({
@@ -36,7 +39,23 @@ const ServiceHistory = ({ user, onTabChange }) => {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  
+
+  // Filter bottom sheet state
+  const [showFilterBottomSheet, setShowFilterBottomSheet] = useState(false);
+  const [filterItemName, setFilterItemName] = useState('');
+  const [filterMachineNumber, setFilterMachineNumber] = useState('');
+  const [filterItemId, setFilterItemId] = useState('');
+  const [filterProjectIncharge, setFilterProjectIncharge] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [showFilterItemNameModal, setShowFilterItemNameModal] = useState(false);
+  const [showFilterMachineNumberModal, setShowFilterMachineNumberModal] = useState(false);
+  const [showFilterItemIdModal, setShowFilterItemIdModal] = useState(false);
+  const [showFilterProjectInchargeModal, setShowFilterProjectInchargeModal] = useState(false);
+  const [showFilterDatePicker, setShowFilterDatePicker] = useState(false);
+  const [showFilterStatusDropdown, setShowFilterStatusDropdown] = useState(false);
+  const [filterStatusSearchQuery, setFilterStatusSearchQuery] = useState('');
+
   const statusOptions = [
     { value: 'Working', label: 'Problem Solved' },
     { value: 'Under Repair', label: 'Not Working' },
@@ -47,7 +66,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
   const [swipeStates, setSwipeStates] = useState({});
   const [expandedEntryId, setExpandedEntryId] = useState(null);
   const expandedEntryIdRef = useRef(expandedEntryId);
-  
+
   // Keep ref in sync with state
   useEffect(() => {
     expandedEntryIdRef.current = expandedEntryId;
@@ -224,13 +243,13 @@ const ServiceHistory = ({ user, onTabChange }) => {
           method: 'GET',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' }
-        });        
+        });
         if (response.ok) {
-          const data = await response.json();          
+          const data = await response.json();
           // Flatten the data - create separate entries for each item
           const flattenedData = [];
           (Array.isArray(data) ? data : []).forEach(entry => {
-            const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];            
+            const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
             if (entryItems.length === 0) {
               // If no items, still show the entry
               flattenedData.push({
@@ -292,17 +311,17 @@ const ServiceHistory = ({ user, onTabChange }) => {
                 });
               });
             }
-          });          
+          });
           // Sort by created_date_time (newest first)
           flattenedData.sort((a, b) => {
             const dateA = new Date(a.createdDateTime);
             const dateB = new Date(b.createdDateTime);
             return dateB - dateA;
           });
-          
+
           // Filter to only show 'Service' type data (exclude Entry and other types)
           const filteredData = flattenedData.filter(entry => entry.toolsEntryType === 'service');
-          
+
           // Fetch latest machine status from the new API for each entry
           const enrichedData = await Promise.all(
             filteredData.map(async (entry) => {
@@ -315,7 +334,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
               return entry;
             })
           );
-          
+
           setHistoryData(enrichedData);
         } else {
           console.error('Failed to fetch history data');
@@ -355,10 +374,10 @@ const ServiceHistory = ({ user, onTabChange }) => {
   // Get location name (project or vendor)
   const getLocationName = (id, checkVendorsFirst = false) => {
     if (!id) return '-';
-    
+
     // Convert to string for comparison
     const idStr = String(id);
-    
+
     if (checkVendorsFirst) {
       // Check vendors first (for service stores)
       if (vendorsMap[idStr]) {
@@ -368,7 +387,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
         return vendorsMap[id];
       }
     }
-    
+
     // Check projects
     if (projectsMap[idStr]) {
       return projectsMap[idStr];
@@ -376,7 +395,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
     if (projectsMap[id]) {
       return projectsMap[id];
     }
-    
+
     // Check vendors
     if (vendorsMap[idStr]) {
       return vendorsMap[idStr];
@@ -384,7 +403,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
     if (vendorsMap[id]) {
       return vendorsMap[id];
     }
-    
+
     return '-';
   };
 
@@ -394,7 +413,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
       alert('No images available for this item');
       return;
     }
-    
+
     setImageViewerData({
       images: entry.images,
       currentIndex: 0,
@@ -537,7 +556,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
       if (!state) return prev;
       const deltaX = state.currentX - state.startX;
       const absDeltaX = Math.abs(deltaX);
-      
+
       if (absDeltaX >= minSwipeDistance) {
         if (deltaX < 0) {
           // Swiped left (reveal buttons)
@@ -552,7 +571,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
           setExpandedEntryId(null);
         }
       }
-      
+
       // Remove swipe state
       const newState = { ...prev };
       delete newState[entryId];
@@ -652,13 +671,36 @@ const ServiceHistory = ({ user, onTabChange }) => {
     }
   };
 
+  // Get filter options
+  const filterItemNameOptions = Object.values(itemNamesMap).filter(Boolean);
+  const filterMachineNumberOptions = Array.from(new Set(historyData.map(entry => entry.machineNumber).filter(Boolean)));
+  const filterItemIdOptions = Object.values(itemIdsMap).filter(Boolean);
+  const filterProjectInchargeOptions = Object.values(employeesMap).filter(Boolean);
+
+  // Filter bottom sheet handlers
+  const handleCloseFilterBottomSheet = () => {
+    setShowFilterBottomSheet(false);
+    setShowFilterItemNameModal(false);
+    setShowFilterMachineNumberModal(false);
+    setShowFilterItemIdModal(false);
+    setShowFilterProjectInchargeModal(false);
+    setShowFilterDatePicker(false);
+    setShowFilterStatusDropdown(false);
+    setFilterStatusSearchQuery('');
+  };
+
+  const handleSaveFilterBottomSheet = () => {
+    // Apply filters here (you can implement the filtering logic)
+    handleCloseFilterBottomSheet();
+  };
+
   return (
     <div className="flex flex-col bg-white min-h-[calc(100vh-90px-80px)]" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Top Header Section */}
-      <div className="flex-shrink-0 px-4 pt-2 pb-1.5">
-        <div className="flex justify-between items-start border-b border-gray-200 pb-1.5">
+      <div className="flex-shrink-0 pt-1.5">
+        <div className="flex justify-between px-4 items-start border-b border-gray-200 pb-2">
           <div>
-            <p className="text-[12px] font-medium text-black leading-normal">Shop Name</p>
+            <p className="text-[12px] font-semibold text-black leading-normal">Shop Name</p>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[12px] text-[#848484] leading-normal flex items-center gap-1">
@@ -673,9 +715,9 @@ const ServiceHistory = ({ user, onTabChange }) => {
         </div>
       </div>
       {/* Filter and Download Row */}
-      <div className="flex justify-between items-center px-4 pb-3">
-        <div className="flex items-center gap-2">
-        <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
+      <div className="flex justify-between items-center px-4 pb-3 mt-2">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowFilterBottomSheet(true)}>
+          <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
           <span className="text-[12px] font-medium text-black">Filter</span>
         </div>
         <button className="text-[14px] font-medium text-black cursor-pointer hover:opacity-80">
@@ -697,26 +739,26 @@ const ServiceHistory = ({ user, onTabChange }) => {
           <div className="space-y-3">
             {historyData.map((entry) => {
               const { date, time } = formatDateTime(entry.createdDateTime);
-              
+
               // For Service type: check serviceStoreId first (vendors), then toProjectId
               let shopName = getLocationName(entry.serviceStoreId, true);
               if (shopName === '-') {
                 shopName = getLocationName(entry.toProjectId, false);
               }
-              
+
               const inchargeName = employeesMap[entry.projectInchargeId] || employeesMap[String(entry.projectInchargeId)] || '-';
               const itemName = itemNamesMap[entry.itemNameId] || itemNamesMap[String(entry.itemNameId)] || entry.itemNameId || '-';
-              
+
               // Get item ID name (like "AA DM 01") from the map using item_ids_id
               const itemIdName = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
               const hasImages = entry.images.length > 0;
-              
+
               // Get status display
               const statusDisplay = getStatusDisplay(entry.machineStatus);
-              
+
               // Service cost (placeholder - you may need to add this field to the data)
               const serviceCost = entry.serviceCost || 0;
-              
+
               // Swipe state and offset calculation
               const entryId = entry.id;
               const swipeState = swipeStates[entryId];
@@ -747,55 +789,55 @@ const ServiceHistory = ({ user, onTabChange }) => {
                     onMouseDown={(e) => handleMouseDown(e, entryId)}
                     onClick={handleCardClick}
                   >
-                  {/* Row 1: Entry number + Item Name | Date (if separate) */}
-                  <div className="flex items-start justify-between mb-1">
-                    <p className="text-[13px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
-                      #{entry.eno}, {itemName}
-                    </p>
-                  </div>
-
-                  {/* Row 2: Machine Number | Person Name */}
-                  <div className="flex items-start justify-between mb-1">
-                    <p className="text-[14px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
-                      {entry.machineNumber || '-'}
-                    </p>
-                    <p className="text-[12px] text-black leading-snug flex-shrink-0 ml-2">
-                      {inchargeName}
-                    </p>
-                  </div>
-
-                  {/* Row 3: Shop Name | Status + Cost */}
-                  <div className="flex items-start justify-between mb-1">
-                    <p className="text-[12px] font-medium leading-snug truncate flex-1 min-w-0 text-[#BF9853]">
-                      {shopName}
-                    </p>
-                    <p className="text-[11px] leading-snug flex-shrink-0 ml-2">
-                      <span className={`font-medium ${statusDisplay.color}`}>
-                        {statusDisplay.text}
-                      </span>
-                      <span className="text-[#4CAF50] font-medium">, Rs.{serviceCost}</span>
-                    </p>
-                  </div>
-
-                  {/* Row 4: Date/Time | Item ID (green) */}
-                  <div className="flex items-start justify-between">
-                    <p className="text-[11px] text-[#848484] leading-snug truncate flex-1 min-w-0">
-                      {date} • {time}
-                    </p>
-                    {itemIdName && (
-                      <p 
-                        className={`item-id-clickable text-[13px] font-semibold leading-snug flex-shrink-0 ml-2 ${hasImages ? 'text-[#E4572E] cursor-pointer underline' : 'text-[#4CAF50]'}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (hasImages) {
-                            handleOpenImageViewer(entry, itemName, itemIdName || 'View');
-                          }
-                        }}
-                      >
-                        {itemIdName}
+                    {/* Row 1: Entry number + Item Name | Date (if separate) */}
+                    <div className="flex items-start justify-between mb-1">
+                      <p className="text-[13px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
+                        #{entry.eno}, {itemName}
                       </p>
-                    )}
-                  </div>
+                    </div>
+
+                    {/* Row 2: Machine Number | Person Name */}
+                    <div className="flex items-start justify-between mb-1">
+                      <p className="text-[14px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
+                        {entry.machineNumber || '-'}
+                      </p>
+                      <p className="text-[12px] text-black leading-snug flex-shrink-0 ml-2">
+                        {inchargeName}
+                      </p>
+                    </div>
+
+                    {/* Row 3: Shop Name | Status + Cost */}
+                    <div className="flex items-start justify-between mb-1">
+                      <p className="text-[12px] font-medium leading-snug truncate flex-1 min-w-0 text-[#BF9853]">
+                        {shopName}
+                      </p>
+                      <p className="text-[11px] leading-snug flex-shrink-0 ml-2">
+                        <span className={`font-medium ${statusDisplay.color}`}>
+                          {statusDisplay.text}
+                        </span>
+                        <span className="text-[#4CAF50] font-medium">, Rs.{serviceCost}</span>
+                      </p>
+                    </div>
+
+                    {/* Row 4: Date/Time | Item ID (green) */}
+                    <div className="flex items-start justify-between">
+                      <p className="text-[11px] text-[#848484] leading-snug truncate flex-1 min-w-0">
+                        {date} • {time}
+                      </p>
+                      {itemIdName && (
+                        <p
+                          className={`item-id-clickable text-[13px] font-semibold leading-snug flex-shrink-0 ml-2 ${hasImages ? 'text-[#E4572E] cursor-pointer underline' : 'text-[#4CAF50]'}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (hasImages) {
+                              handleOpenImageViewer(entry, itemName, itemIdName || 'View');
+                            }
+                          }}
+                        >
+                          {itemIdName}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
@@ -845,16 +887,16 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
       {/* Image Viewer Modal - Floating style */}
       {showImageViewer && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center"
           onClick={handleCloseImageViewer}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           {/* Semi-transparent overlay */}
           <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-          
+
           {/* Image Container */}
-          <div 
+          <div
             className="relative z-10 w-full max-w-[90%] mx-4"
             onClick={(e) => e.stopPropagation()}
           >
@@ -864,16 +906,16 @@ const ServiceHistory = ({ user, onTabChange }) => {
                 src={imageViewerData.images[imageViewerData.currentIndex]}
                 alt={`${imageViewerData.itemName} - ${imageViewerData.currentIndex + 1}`}
                 className="w-full h-auto max-h-[60vh] object-contain rounded-lg shadow-2xl"
-              />              
+              />
               {/* Close Button - Inside image at top right */}
               <button
                 onClick={handleCloseImageViewer}
                 className="absolute -top-7 -right-1 w-8 h-8 rounded-full flex items-center justify-center z-20 "
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M18 6L6 18M6 6L18 18" stroke="#E4572E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M18 6L6 18M6 6L18 18" stroke="#E4572E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </button>              
+              </button>
               {/* Previous Button */}
               {imageViewerData.images.length > 1 && (
                 <button
@@ -881,7 +923,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   className="absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M15 18L9 12L15 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M15 18L9 12L15 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
               )}
@@ -893,7 +935,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 18L15 12L9 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M9 18L15 12L9 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
               )}
@@ -911,20 +953,18 @@ const ServiceHistory = ({ user, onTabChange }) => {
             {/* Status indicator below image */}
             <div className="flex items-center justify-center gap-2 mt-3">
               <span
-                className={`w-2 h-2 rounded-full ${
-                  imageViewerData.machineStatus === 'Working' ? 'bg-[#4CAF50]' : 
+                className={`w-2 h-2 rounded-full ${imageViewerData.machineStatus === 'Working' ? 'bg-[#4CAF50]' :
                   imageViewerData.machineStatus === 'Not Working' || imageViewerData.machineStatus === 'Machine Dead' ? 'bg-[#F44336]' :
-                  imageViewerData.machineStatus === 'Under Repair' ? 'bg-[#FF9800]' :
-                  'bg-[#9E9E9E]'
-                }`}
+                    imageViewerData.machineStatus === 'Under Repair' ? 'bg-[#FF9800]' :
+                      'bg-[#9E9E9E]'
+                  }`}
               ></span>
               <p
-                className={`text-[12px] font-medium ${
-                  imageViewerData.machineStatus === 'Working' ? 'text-[#4CAF50]' : 
+                className={`text-[12px] font-medium ${imageViewerData.machineStatus === 'Working' ? 'text-[#4CAF50]' :
                   imageViewerData.machineStatus === 'Not Working' || imageViewerData.machineStatus === 'Machine Dead' ? 'text-[#F44336]' :
-                  imageViewerData.machineStatus === 'Under Repair' ? 'text-[#FF9800]' :
-                  'text-[#9E9E9E]'
-                }`}
+                    imageViewerData.machineStatus === 'Under Repair' ? 'text-[#FF9800]' :
+                      'text-[#9E9E9E]'
+                  }`}
               >
                 {imageViewerData.machineStatus === 'Not Working' ? 'Machine Dead' : imageViewerData.machineStatus}
               </p>
@@ -935,16 +975,16 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
       {/* Bottom Sheet Modal */}
       {showBottomSheet && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-end"
           onClick={handleCloseBottomSheet}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           {/* Semi-transparent overlay */}
           <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-          
+
           {/* Bottom Sheet */}
-          <div 
+          <div
             className="relative z-10 w-full bg-white rounded-t-[20px] shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
@@ -956,7 +996,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                 className="w-6 h-6 flex items-center justify-center"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M18 6L6 18M6 6L18 18" stroke="#F44336" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M18 6L6 18M6 6L18 18" stroke="#F44336" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
             </div>
@@ -975,14 +1015,14 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   <span className={`text-[14px] ${selectedStatus ? 'text-black' : 'text-gray-400'}`}>
                     {(statusOptions.find(o => o.value === selectedStatus)?.label) || 'Select Status'}
                   </span>
-                  <svg 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
                     xmlns="http://www.w3.org/2000/svg"
                   >
-                    <path d="M6 9L12 15L18 9" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M6 9L12 15L18 9" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
               </div>
@@ -1007,14 +1047,14 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
           {/* Select Status Modal - centered overlay when Machine Status dropdown is clicked */}
           {showStatusDropdown && (
-            <div 
+            <div
               className="fixed inset-0 z-[60] flex items-center justify-center px-4"
               onClick={() => setShowStatusDropdown(false)}
             >
-              <div 
+              <div
                 className="absolute inset-0 bg-black bg-opacity-40"
               />
-              <div 
+              <div
                 className="relative z-10 w-full max-w-[340px] bg-white rounded-[12px] shadow-xl p-4"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -1026,7 +1066,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                     className="w-6 h-6 flex items-center justify-center"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M18 6L6 18M6 6L18 18" stroke="#F44336" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M18 6L6 18M6 6L18 18" stroke="#F44336" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
                 </div>
@@ -1057,21 +1097,19 @@ const ServiceHistory = ({ user, onTabChange }) => {
                           setShowStatusDropdown(false);
                           setStatusSearchQuery('');
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[8px] text-left ${
-                          selectedStatus === option.value
-                            ? 'bg-[#FFF3E0]'
-                            : 'hover:bg-gray-50'
-                        }`}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[8px] text-left ${selectedStatus === option.value
+                          ? 'bg-[#FFF3E0]'
+                          : 'hover:bg-gray-50'
+                          }`}
                       >
                         <span className={`text-[14px] ${selectedStatus === option.value ? 'font-medium' : ''}`}>
                           {option.label}
                         </span>
                         <span
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                            selectedStatus === option.value
-                              ? 'border-[#E07C24] bg-white'
-                              : 'border-gray-300 bg-white'
-                          }`}
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selectedStatus === option.value
+                            ? 'border-[#E07C24] bg-white'
+                            : 'border-gray-300 bg-white'
+                            }`}
                         >
                           {selectedStatus === option.value && (
                             <span className="w-2.5 h-2.5 rounded-full bg-[#E07C24]" />
@@ -1083,6 +1121,334 @@ const ServiceHistory = ({ user, onTabChange }) => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Filter Bottom Sheet Modal */}
+      {showFilterBottomSheet && (
+        <div
+          className="fixed inset-0 z-50 flex items-end"
+          onClick={handleCloseFilterBottomSheet}
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          {/* Semi-transparent overlay */}
+          <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+
+          {/* Bottom Sheet */}
+          <div
+            className="relative z-10 w-full bg-white rounded-t-[20px] shadow-lg max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-5">
+              <p className="text-[16px] font-bold text-black">Select Filters</p>
+              <button
+                onClick={handleCloseFilterBottomSheet}
+                className="text-[#e06256] text-xl font-bold leading-none"
+              >
+                <img src={Close} alt="close" className="w-[11px] h-[11px]" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-4 space-y-[6px]">
+              {/* Item Name */}
+              <div>
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Item Name</p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowFilterItemNameModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{ color: filterItemName ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+                  >
+                    {filterItemName || 'Select'}
+                  </div>
+                  {filterItemName && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setFilterItemName(''); }}
+                      className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  )}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Machine Number */}
+              <div>
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Machine Number</p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowFilterMachineNumberModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{ color: filterMachineNumber ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+                  >
+                    {filterMachineNumber || 'Select'}
+                  </div>
+                  {filterMachineNumber && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setFilterMachineNumber(''); }}
+                      className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  )}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </div>
+                </div>
+              </div>
+              {/* Item ID */}
+              <div className='flex gap-2'>
+                <div className='flex-1'>
+                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Item ID</p>
+                  <div className="relative">
+                    <div
+                      onClick={() => setShowFilterItemIdModal(true)}
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      style={{ color: filterItemId ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+                    >
+                      {filterItemId || 'Select'}
+                    </div>
+                    {filterItemId && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setFilterItemId(''); }}
+                        className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                    )}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
+                  </div>
+                </div>
+                {/* Project Incharge */}
+                <div className='flex-1'>
+                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Project Incharge</p>
+                  <div className="relative">
+                    <div
+                      onClick={() => setShowFilterProjectInchargeModal(true)}
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      style={{ color: filterProjectIncharge ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+                    >
+                      {filterProjectIncharge || 'Select'}
+                    </div>
+                    {filterProjectIncharge && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setFilterProjectIncharge(''); }}
+                        className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                    )}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Date */}
+              <div className='flex gap-2'>
+                <div className='flex-1'>
+                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Date</p>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      readOnly
+                      value={filterDate || ''}
+                      onClick={() => setShowFilterDatePicker(true)}
+                      onFocus={() => setShowFilterDatePicker(true)}
+                      placeholder="dd-mm-yyyy"
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] pl-3 pr-10 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500 cursor-pointer"
+                      style={{ color: filterDate ? '#000' : '#9E9E9E' }}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2H4C2.89543 2 2 2.89543 2 4V12C2 13.1046 2.89543 14 4 14H12C13.1046 14 14 13.1046 14 12V4C14 2.89543 13.1046 2 12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M11 1V4M5 1V4M2 7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                {/* Status */}
+                <div className='flex-1'>
+                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Status</p>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowFilterStatusDropdown(true)}
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer text-left"
+                      style={{ color: filterStatus ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+                    >
+                      {(statusOptions.find(o => o.value === filterStatus)?.label) || 'Select'}
+                    </button>
+                    {filterStatus && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setFilterStatus(''); }}
+                        className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                    )}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 px-6 pb-6 pt-2">
+              <button
+                onClick={handleCloseFilterBottomSheet}
+                className="flex-1 h-[40px] border border-black rounded-[8px] text-[14px] font-bold text-black bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveFilterBottomSheet}
+                className="flex-1 h-[40px] rounded-[8px] text-[14px] font-bold text-white bg-black"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Modals */}
+      <SelectOptionModal
+        isOpen={showFilterItemNameModal}
+        onClose={() => setShowFilterItemNameModal(false)}
+        onSelect={(value) => {
+          setFilterItemName(value);
+          setShowFilterItemNameModal(false);
+        }}
+        selectedValue={filterItemName}
+        options={filterItemNameOptions}
+        fieldName="Item Name"
+      />
+      <SelectOptionModal
+        isOpen={showFilterMachineNumberModal}
+        onClose={() => setShowFilterMachineNumberModal(false)}
+        onSelect={(value) => {
+          setFilterMachineNumber(value);
+          setShowFilterMachineNumberModal(false);
+        }}
+        selectedValue={filterMachineNumber}
+        options={filterMachineNumberOptions}
+        fieldName="Machine Number"
+      />
+      <SelectOptionModal
+        isOpen={showFilterItemIdModal}
+        onClose={() => setShowFilterItemIdModal(false)}
+        onSelect={(value) => {
+          setFilterItemId(value);
+          setShowFilterItemIdModal(false);
+        }}
+        selectedValue={filterItemId}
+        options={filterItemIdOptions}
+        fieldName="Item ID"
+      />
+      <SelectOptionModal
+        isOpen={showFilterProjectInchargeModal}
+        onClose={() => setShowFilterProjectInchargeModal(false)}
+        onSelect={(value) => {
+          setFilterProjectIncharge(value);
+          setShowFilterProjectInchargeModal(false);
+        }}
+        selectedValue={filterProjectIncharge}
+        options={filterProjectInchargeOptions}
+        fieldName="Project Incharge"
+      />
+      <DatePickerModal
+        isOpen={showFilterDatePicker}
+        onClose={() => setShowFilterDatePicker(false)}
+        onConfirm={(formattedDate) => {
+          setFilterDate(formattedDate);
+          setShowFilterDatePicker(false);
+        }}
+        initialDate={filterDate}
+      />
+
+      {/* Filter Status Dropdown Modal */}
+      {showFilterBottomSheet && showFilterStatusDropdown && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          onClick={() => setShowFilterStatusDropdown(false)}
+        >
+          <div className="absolute inset-0 bg-black bg-opacity-40" />
+          <div
+            className="relative z-10 w-full max-w-[340px] bg-white rounded-[12px] shadow-xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[16px] font-semibold text-black">Select Status</p>
+              <button
+                onClick={() => setShowFilterStatusDropdown(false)}
+                className="w-6 h-6 flex items-center justify-center"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M18 6L6 18M6 6L18 18" stroke="#F44336" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="relative mb-3">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search"
+                value={filterStatusSearchQuery}
+                onChange={(e) => setFilterStatusSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 text-[14px] border border-gray-300 rounded-[8px] focus:outline-none focus:ring-1 focus:ring-gray-400"
+              />
+            </div>
+            <div className="space-y-0">
+              {statusOptions
+                .filter((opt) =>
+                  opt.label.toLowerCase().includes(filterStatusSearchQuery.toLowerCase())
+                )
+                .map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      setFilterStatus(option.value);
+                      setShowFilterStatusDropdown(false);
+                      setFilterStatusSearchQuery('');
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[8px] text-left ${filterStatus === option.value
+                      ? 'bg-[#FFF3E0]'
+                      : 'hover:bg-gray-50'
+                      }`}
+                  >
+                    <span className={`text-[14px] ${filterStatus === option.value ? 'font-medium' : ''}`}>
+                      {option.label}
+                    </span>
+                    <span
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${filterStatus === option.value
+                        ? 'border-[#E07C24] bg-white'
+                        : 'border-gray-300 bg-white'
+                        }`}
+                    >
+                      {filterStatus === option.value && (
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#E07C24]" />
+                      )}
+                    </span>
+                  </button>
+                ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
