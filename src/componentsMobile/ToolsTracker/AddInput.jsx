@@ -9,6 +9,7 @@ const AddInput = ({ user }) => {
   const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
   const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
   const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_stock_management';
+  const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
   const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
   const GOOGLE_UPLOAD_URL = 'https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive';
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -39,6 +40,7 @@ const AddInput = ({ user }) => {
   const [homeLocationFullData, setHomeLocationFullData] = useState([]); // Full project objects with id, siteName, and branch
   const [stockManagementData, setStockManagementData] = useState([]); // For checking item_ids_id usage
   const [machineStatusData, setMachineStatusData] = useState([]); // Machine status data from new API
+  const [machineNumbersList, setMachineNumbersList] = useState([]); // For resolving machine_number_id to text
   const [addSheetForm, setAddSheetForm] = useState({
     itemName: '',
     itemNameId: null, // Store the ID
@@ -83,11 +85,20 @@ const AddInput = ({ user }) => {
     return statusMap;
   }, [machineStatusData]);
 
+  const resolveMachineNumFromStock = React.useCallback((item) => {
+    const mnId = item?.machine_number_id ?? item?.machineNumberId;
+    if (mnId && machineNumbersList.length > 0) {
+      const rec = machineNumbersList.find(m => String(m?.id ?? m?._id) === String(mnId));
+      return rec ? (rec.machine_number ?? rec.machineNumber ?? '').trim() : '';
+    }
+    return (item?.machine_number ?? item?.machineNumber ?? '').trim();
+  }, [machineNumbersList]);
+
   const usedItemIds = React.useMemo(() => {
     const usedIds = new Set();
     stockManagementData.forEach(item => {
       const itemIdId = item?.item_ids_id ?? item?.itemIdsId;
-      const machineNum = item?.machine_number ?? item?.machineNumber;
+      const machineNum = resolveMachineNumFromStock(item);
       
       if (itemIdId && machineNum) {
         // Check machine status from new API
@@ -111,7 +122,7 @@ const AddInput = ({ user }) => {
       }
     });
     return usedIds;
-  }, [stockManagementData, getLatestMachineStatus]);
+  }, [stockManagementData, getLatestMachineStatus, resolveMachineNumFromStock]);
   // Helper function to check if an itemId has any machine with Dead/Not Working status
   const hasDeadOrNotWorkingMachine = React.useMemo(() => {
     const itemIdsWithDeadStatus = new Set();
@@ -218,7 +229,7 @@ const AddInput = ({ user }) => {
       itemId: d?.item_ids_id ?? d?.itemIdsId ?? '',
       brand: d?.brand_id ?? d?.brandId ?? '',
       model: d?.model ?? '',
-      machine: d?.machine_number ?? d?.machineNumber ?? ''
+      machine: resolveMachineNumFromStock(d)
     }));
     setTableData(mappedTable);
     const idsFromDetails = details
@@ -226,7 +237,7 @@ const AddInput = ({ user }) => {
       .filter(Boolean);
     const allIds = Array.from(new Set([...apiItemIdOptions, ...idsFromDetails]));
     setItemIdOptions(allIds);
-  }, [selectedItemName, toolsItemNameListData, apiItemIdOptions]);
+  }, [selectedItemName, toolsItemNameListData, apiItemIdOptions, machineNumbersList, resolveMachineNumFromStock]);
   useEffect(() => {
     const fetchBrands = async () => {
       try {
@@ -289,6 +300,26 @@ const AddInput = ({ user }) => {
       }
     };
     fetchStockManagement();
+  }, []);
+
+  // Fetch machine numbers (to resolve machine_number_id for display)
+  useEffect(() => {
+    const fetchMachineNumbers = async () => {
+      try {
+        const res = await fetch(`${TOOLS_MACHINE_NUMBER_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMachineNumbersList(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Error fetching machine numbers:', err);
+      }
+    };
+    fetchMachineNumbers();
   }, []);
 
   // Fetch machine status data from the new API
@@ -630,10 +661,10 @@ const AddInput = ({ user }) => {
   const isItemIdInUseWithMachine = (itemIdDbId, itemIdName) => {
     if (!itemIdDbId && !itemIdName) return { inUse: false, machineNumber: null };
     
-    // Find matching items in stock management
+    // Find matching items in stock management (stock has machine_number_id, resolve to text for status lookup)
     const matchingStockItems = stockManagementData.filter(item => {
       const storedItemIdId = item?.item_ids_id ?? item?.itemIdsId;
-      const machineNum = item?.machine_number ?? item?.machineNumber;
+      const machineNum = resolveMachineNumFromStock(item);
       const idMatches = itemIdDbId
         ? String(storedItemIdId) === String(itemIdDbId)
         : String(storedItemIdId) === String(itemIdName);
@@ -643,7 +674,7 @@ const AddInput = ({ user }) => {
     // Check machine status from new API for each matching item
     for (const stockItem of matchingStockItems) {
       const itemIdsId = String(stockItem?.item_ids_id ?? stockItem?.itemIdsId);
-      const machineNum = String(stockItem?.machine_number ?? stockItem?.machineNumber);
+      const machineNum = String(resolveMachineNumFromStock(stockItem));
       const key = `${itemIdsId}_${machineNum}`;
       const latestStatus = getLatestMachineStatus.get(key);
       
@@ -671,12 +702,12 @@ const AddInput = ({ user }) => {
     
     return { inUse: false, machineNumber: null };
   };
-  const buildNewToolDetail = () => ({
+  const buildNewToolDetail = (machineNumberId) => ({
     timestamp: toLocalDateTimeString(new Date()),
     item_ids_id: addSheetForm.itemIdDbId ? String(addSheetForm.itemIdDbId) : null,
     brand_id: addSheetForm.brandId ? String(addSheetForm.brandId) : null,
     model: (addSheetForm.model || '').trim() || null,
-    machine_number: (addSheetForm.machineNumber || '').trim() || null,
+    machine_number_id: machineNumberId ? String(machineNumberId) : null,
     tool_status: 'Available'
   });
   const handleAddNewItemName = async (newItemName) => {
@@ -841,12 +872,31 @@ const AddInput = ({ user }) => {
         }
       );
       let itemNameId = existingItemName?.id ?? addSheetForm.itemNameId;
+      let machineNumberId = '';
+      const machineNumberTrimmed = addSheetForm.machineNumber?.trim() || '';
+      if (machineNumberTrimmed) {
+        const machineNumPayload = {
+          machine_number: machineNumberTrimmed,
+          tool_status: 'Available'
+        };
+        const machineNumRes = await fetch(`${TOOLS_MACHINE_NUMBER_BASE_URL}/save`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(machineNumPayload)
+        });
+        if (!machineNumRes.ok) {
+          throw new Error(`Failed to save machine number: ${machineNumRes.status} ${machineNumRes.statusText}`);
+        }
+        const savedMachine = await machineNumRes.json();
+        machineNumberId = savedMachine?.id ? String(savedMachine.id) : '';
+      }
       const stockManagementPayload = {
         item_name_id: itemNameId ? String(itemNameId) : itemName,
         brand_name_id: addSheetForm.brandId ? String(addSheetForm.brandId) : '',
         item_ids_id: addSheetForm.itemIdDbId ? String(addSheetForm.itemIdDbId) : '',
         model: addSheetForm.model?.trim() || '',
-        machine_number: addSheetForm.machineNumber?.trim() || '',
+        machine_number_id: machineNumberId,
         purchase_store_id: addSheetForm.purchaseStoreId ? String(addSheetForm.purchaseStoreId) : '',
         home_location_id: addSheetForm.homeLocationId ? String(addSheetForm.homeLocationId) : '',
         purchase_date: addSheetForm.purchaseDate || '',
@@ -869,7 +919,7 @@ const AddInput = ({ user }) => {
       // Only update ToolsItemNameList if quantity is not entered (quantity is empty, '0', or not set)
       const hasQuantity = addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '';
       if (!hasQuantity) {
-        const newDetail = buildNewToolDetail();
+        const newDetail = buildNewToolDetail(machineNumberId);
         if (existingItemName?.id) {
           const existingDetails = Array.isArray(existingItemName?.tools_details)
             ? existingItemName.tools_details
@@ -1079,9 +1129,9 @@ const AddInput = ({ user }) => {
     </div>
   );
   return (
-    <div className="flex flex-col min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      <div className="flex-shrink-0 pt-1.5 pb-1.5">
-        <div className="flex items-center px-4 pb-1.5 justify-between border-b border-gray-200 gap-2">
+    <div className="flex flex-col  min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      <div className="flex-shrink-0  px-4 pt-1.5 pb-1.5">
+        <div className="flex items-center pb-1.5 justify-between border-b border-gray-200 gap-2">
           <p className="text-[12px] font-semibold text-black leading-normal">Category</p>
           <button onClick={() => setShowVendorsModal(true)} className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity">
             Manage shops

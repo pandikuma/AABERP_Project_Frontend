@@ -824,7 +824,7 @@ const NetStock = ({ user }) => {
       </div>
 
       {/* Main Content Area */}
-      <div key={viewMode} className="flex-1 px-4 pb-4 mt-4 min-h-[400px]">
+      <div key={viewMode} className="flex-1 pb-4 mt-2 min-h-[400px]">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <p className="text-[14px] text-gray-500">Loading...</p>
@@ -837,10 +837,10 @@ const NetStock = ({ user }) => {
             ) : (
               <>
                 {/* Download Link */}
-                <div className="flex justify-end mb-2">
+                <div className="flex justify-end mb-0.5">
                   <span className="text-[12px] text-gray-400 font-semibold cursor-pointer">Download</span>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-0.5">
                 {tableData.map((item, index) => {
                   const itemId = item.id || index;
                   const swipeState = swipeStates[itemId];
@@ -857,7 +857,7 @@ const NetStock = ({ user }) => {
                       : 0;
 
                   return (
-                    <div key={itemId} className="relative overflow-hidden">
+                    <div key={itemId} className="overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] h-[100px]">
                       {/* Edit Button - Behind the card on the right, revealed on swipe */}
                       {canEdit && (
                         <div
@@ -888,7 +888,7 @@ const NetStock = ({ user }) => {
                       )}                      
                       {/* Card */}
                       <div
-                        className="border border-gray-200 rounded-lg p-3 bg-white relative transition-all duration-300 ease-out"
+                        className="bg-white rounded-[8px] h-full px-3 py-3 transition-all duration-300 ease-out"
                         style={{
                           transform: `translateX(${swipeOffset}px)`,
                           touchAction: canEdit ? 'pan-y' : 'auto',

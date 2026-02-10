@@ -697,30 +697,30 @@ const ServiceHistory = ({ user, onTabChange }) => {
   return (
     <div className="flex flex-col bg-white min-h-[calc(100vh-90px-80px)]" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Top Header Section */}
-      <div className="flex-shrink-0 pt-1.5">
-        <div className="flex justify-between px-4 items-start border-b border-gray-200 pb-2">
+      <div className="flex-shrink-0 px-4 pt-1.5">
+        <div className="flex justify-between  items-start border-b border-gray-200 pb-2">
           <div>
             <p className="text-[12px] font-semibold text-black leading-normal">Shop Name</p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[12px] text-[#848484] leading-normal flex items-center gap-1">
+            <span className="text-[10px] text-[#848484] leading-normal flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#848484]" />
               Purchase Cost: 0
             </span>
-            <span className="text-[12px] text-[#E07C24] leading-normal flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#E07C24]" />
+            <span className="text-[10px] font-semibold text-[#BF9853] leading-normal flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#BF9853]" />
               Service Cost: 0
             </span>
           </div>
         </div>
       </div>
       {/* Filter and Download Row */}
-      <div className="flex justify-between items-center px-4 pb-3 mt-2">
+      <div className="flex justify-between items-center px-4 pb-1 mt-2">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowFilterBottomSheet(true)}>
           <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
-          <span className="text-[12px] font-medium text-black">Filter</span>
+          <span className="text-[12px] font-medium text-gray-500">Filter</span>
         </div>
-        <button className="text-[14px] font-medium text-black cursor-pointer hover:opacity-80">
+        <button className="text-[12px] font-semibold text-gray-500 cursor-pointer hover:opacity-80">
           Download
         </button>
       </div>
@@ -736,7 +736,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
             <p className="text-[12px] text-gray-500">No service history entries found.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-0.5">
             {historyData.map((entry) => {
               const { date, time } = formatDateTime(entry.createdDateTime);
 
@@ -772,11 +772,11 @@ const ServiceHistory = ({ user, onTabChange }) => {
                     : 0;
 
               return (
-                <div key={entry.id} className="relative overflow-hidden">
+                <div key={entry.id} className="overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] h-[100px]">
                   {/* Card */}
                   <div
                     data-entry-id={entryId}
-                    className="bg-white border-2 border-[#E0E0E0] rounded-[8px] px-3 py-2 cursor-pointer transition-transform duration-300 ease-out select-none"
+                    className="bg-white rounded-[8px] h-full px-3 py-2.5 cursor-pointer transition-all duration-300 ease-out select-none"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',

@@ -21,7 +21,6 @@ const SearchableDropdown = ({
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
   const [dropdownStyle, setDropdownStyle] = useState({});
-  const isClosingRef = useRef(false);
 
   // Debug: Log options for Type dropdown
   useEffect(() => {
@@ -208,18 +207,10 @@ const SearchableDropdown = ({
     }
   };
   
-  const handleInputFocus = (e) => {
-    // Don't open if we're in the process of closing
-    if (isClosingRef.current) {
-      isClosingRef.current = false;
-      return;
-    }
-    // Open dropdown when focusing (if not already open)
-    if (!isOpen) {
-      setIsOpen(true);
-      // When focusing, clear search to show all options
-      setSearchQuery('');
-    }
+  const handleInputFocus = () => {
+    setIsOpen(true);
+    // When focusing, clear search to show all options
+    setSearchQuery('');
   };
   
   const handleInputBlur = (e) => {
@@ -300,25 +291,9 @@ const SearchableDropdown = ({
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isOpen) {
-              // Close dropdown
-              isClosingRef.current = true;
-              setIsOpen(false);
-              setSearchQuery(value || ''); // Reset search query to current value when closing
-              // Blur after a short delay to prevent focus handler from reopening
-              setTimeout(() => {
-                if (inputRef.current) {
-                  inputRef.current.blur();
-                }
-                isClosingRef.current = false;
-              }, 10);
-            } else {
-              // Open dropdown immediately
-              setIsOpen(true);
-              setSearchQuery(''); // Clear search to show all options including selected one
-            }
+          onClick={() => {
+            setIsOpen(true);
+            setSearchQuery(''); // Clear search to show all options including selected one
           }}
           className={`${className || 'w-full h-[32px]'} border border-[rgba(0,0,0,0.16)] rounded pl-3 text-[12px] font-medium text-black bg-white focus:outline-none`}
           style={{ 

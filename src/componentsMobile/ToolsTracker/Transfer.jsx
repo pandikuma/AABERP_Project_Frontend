@@ -100,6 +100,7 @@ const Transfer = ({ user }) => {
   const [stockManagementData, setStockManagementData] = useState([]);
   const [toolsTrackerManagementData, setToolsTrackerManagementData] = useState([]);
   const [machineStatusData, setMachineStatusData] = useState([]); // Machine status data from new API
+  const [machineNumbersList, setMachineNumbersList] = useState([]); // For resolving machine_number_id to machine_number
   const [selectedItemNameQuantity, setSelectedItemNameQuantity] = useState(0);
   const [selectedItemMachineNumber, setSelectedItemMachineNumber] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -112,6 +113,7 @@ const Transfer = ({ user }) => {
   const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_stock_management';
   const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
   const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
+  const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -141,6 +143,20 @@ const Transfer = ({ user }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editEntryId, setEditEntryId] = useState(null);
   const [originalEditData, setOriginalEditData] = useState(null);
+  const [customAlert, setCustomAlert] = useState({
+    isOpen: false,
+    message: ''
+  });
+  const closeCustomAlert = () => {
+    setCustomAlert({ isOpen: false, message: '' });
+  };
+  // Route existing alert(...) calls to a styled in-app modal.
+  const alert = (message) => {
+    setCustomAlert({
+      isOpen: true,
+      message: String(message ?? '')
+    });
+  };
   useEffect(() => {
     const fetchSites = async () => {
       try {
@@ -641,6 +657,26 @@ const Transfer = ({ user }) => {
     fetchToolsTrackerManagement();
   }, []);
 
+  // Fetch machine numbers (for resolving machine_number_id to display text)
+  useEffect(() => {
+    const fetchMachineNumbers = async () => {
+      try {
+        const response = await fetch(`${TOOLS_MACHINE_NUMBER_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setMachineNumbersList(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching machine numbers:', error);
+      }
+    };
+    fetchMachineNumbers();
+  }, []);
+
   // Fetch machine status data from the new API
   useEffect(() => {
     const fetchMachineStatus = async () => {
@@ -952,6 +988,138 @@ const Transfer = ({ user }) => {
     setIsUploading(false);
     e.target.value = '';
   };
+  const normalizeMachineNumberValue = (value) => {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+  };
+  const getMachineNumberCandidates = (machineNumber, machineNumberId) => {
+    const candidates = new Set();
+    const addCandidate = (value) => {
+      const normalized = normalizeMachineNumberValue(value);
+      if (normalized) candidates.add(normalized);
+    };
+
+    addCandidate(machineNumber);
+    addCandidate(machineNumberId);
+
+    const machineNumberNormalized = normalizeMachineNumberValue(machineNumber);
+    const machineNumberIdNormalized = normalizeMachineNumberValue(machineNumberId);
+
+    if (machineNumberNormalized) {
+      const byId = machineNumbersList.find((m) => String(m?.id ?? m?._id) === machineNumberNormalized);
+      if (byId) {
+        addCandidate(byId?.machine_number ?? byId?.machineNumber);
+        addCandidate(byId?.id ?? byId?._id);
+      }
+      const byNumber = machineNumbersList.find(
+        (m) => normalizeMachineNumberValue(m?.machine_number ?? m?.machineNumber) === machineNumberNormalized
+      );
+      if (byNumber) {
+        addCandidate(byNumber?.machine_number ?? byNumber?.machineNumber);
+        addCandidate(byNumber?.id ?? byNumber?._id);
+      }
+    }
+
+    if (machineNumberIdNormalized) {
+      const byId = machineNumbersList.find((m) => String(m?.id ?? m?._id) === machineNumberIdNormalized);
+      if (byId) {
+        addCandidate(byId?.machine_number ?? byId?.machineNumber);
+        addCandidate(byId?.id ?? byId?._id);
+      }
+    }
+
+    return candidates;
+  };
+  const isMachineNumberMatch = (sourceMachineNumber, sourceMachineNumberId, targetMachineNumber) => {
+    const targetNormalized = normalizeMachineNumberValue(targetMachineNumber);
+    if (!targetNormalized) return true;
+    const sourceCandidates = getMachineNumberCandidates(sourceMachineNumber, sourceMachineNumberId);
+    return sourceCandidates.has(targetNormalized);
+  };
+  const getLocationLabelById = (locationId) => {
+    const locationIdStr = String(locationId);
+    const projectOption =
+      toOptions.find(opt => String(opt.id) === locationIdStr) ||
+      fromOptions.find(opt => String(opt.id) === locationIdStr);
+    if (projectOption) return projectOption?.label || projectOption?.name || '';
+
+    const vendorOption = vendorOptions.find(opt => String(opt.id) === locationIdStr);
+    if (vendorOption) return vendorOption?.label || vendorOption?.name || '';
+
+    return '';
+  };
+  const getItemIdLabelById = (itemIdsId) => {
+    if (itemIdsId === null || itemIdsId === undefined || itemIdsId === '') return '';
+    const itemIdsIdStr = String(itemIdsId);
+    const itemIdObj = toolsItemIdFullData.find(item => String(item?.id) === itemIdsIdStr);
+    return itemIdObj?.item_id || itemIdObj?.itemId || '';
+  };
+  const getBrandLabelById = (brandId) => {
+    if (brandId === null || brandId === undefined || brandId === '') return '';
+    const brandIdStr = String(brandId);
+    const brandObj = toolsBrandFullData.find(brand => String(brand?.id) === brandIdStr);
+    return brandObj?.tools_brand || brandObj?.toolsBrand || '';
+  };
+  const getItemNameLabelById = (itemNameId) => {
+    if (itemNameId === null || itemNameId === undefined || itemNameId === '') return '';
+    const itemNameIdStr = String(itemNameId);
+    const itemNameObj = toolsItemNameListData.find(item => String(item?.id) === itemNameIdStr);
+    return itemNameObj?.item_name || itemNameObj?.itemName || '';
+  };
+  const getEntryTypeNormalized = (entry) => {
+    return String(entry?.tools_entry_type || entry?.toolsEntryType || '').toLowerCase();
+  };
+  const isRelocateEntryType = (entryType) => {
+    return entryType === 'relocate' || entryType === 'relocation';
+  };
+  const isMovementEntryType = (entryType) => {
+    return entryType === 'entry' || isRelocateEntryType(entryType);
+  };
+  const getEntrySortTime = (entry) => {
+    const rawDate = entry?.created_date_time || entry?.createdDateTime || entry?.timestamp || '';
+    const parsed = Date.parse(rawDate);
+    if (!Number.isNaN(parsed)) return parsed;
+    const numeric = Number(rawDate);
+    return Number.isFinite(numeric) ? numeric : 0;
+  };
+  const findMatchingItemSetInEntry = (entry, itemIdsIdStr, brandIdStr, machineNumberStr) => {
+    const entryItems = entry?.tools_tracker_item_name_table || entry?.toolsTrackerItemNameTable || [];
+    return entryItems.find(entryItem => {
+      const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
+      const entryBrandId = entryItem.brand_id || entryItem.brandId;
+      const entryMachineNumber = entryItem.machine_number || entryItem.machineNumber || '';
+      const entryMachineNumberId = entryItem.machine_number_id || entryItem.machineNumberId;
+
+      const itemIdsMatch = entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
+      const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
+      const machineMatch = isMachineNumberMatch(entryMachineNumber, entryMachineNumberId, machineNumberStr);
+
+      return itemIdsMatch && brandMatch && machineMatch;
+    }) || null;
+  };
+  const getLatestItemSetMovement = (itemIdsIdStr, brandIdStr, machineNumberStr) => {
+    let latestMovement = null;
+
+    for (const entry of toolsTrackerManagementData) {
+      const entryType = getEntryTypeNormalized(entry);
+      if (!isMovementEntryType(entryType)) continue;
+
+      const matchingEntryItem = findMatchingItemSetInEntry(entry, itemIdsIdStr, brandIdStr, machineNumberStr);
+      if (!matchingEntryItem) continue;
+
+      const entrySortTime = getEntrySortTime(entry);
+      if (!latestMovement || entrySortTime > latestMovement.entrySortTime) {
+        latestMovement = {
+          entry,
+          entryType,
+          matchingEntryItem,
+          entrySortTime
+        };
+      }
+    }
+
+    return latestMovement;
+  };
   // Helper function to get current location of an item (quantity-based: itemNameId + brandId)
   const getItemCurrentLocation = (itemNameId, brandId) => {
     if (!itemNameId) return null;
@@ -1027,69 +1195,41 @@ const Transfer = ({ user }) => {
     const machineNumberStr = machineNumber ? String(machineNumber).trim() : '';
     const locationIdStr = String(locationId);
 
-    // First check stock management - if item is at home location
+    const latestMovement = getLatestItemSetMovement(itemIdsIdStr, brandIdStr, machineNumberStr);
+    if (latestMovement) {
+      if (isRelocateEntryType(latestMovement.entryType)) {
+        const relocatedHomeLocationId = latestMovement.matchingEntryItem?.home_location_id || latestMovement.matchingEntryItem?.homeLocationId;
+        return relocatedHomeLocationId && String(relocatedHomeLocationId) === locationIdStr;
+      }
+
+      const entryToProjectId = latestMovement.entry?.to_project_id || latestMovement.entry?.toProjectId;
+      if (entryToProjectId) {
+        return String(entryToProjectId) === locationIdStr;
+      }
+
+      const movementHomeLocationId = latestMovement.matchingEntryItem?.home_location_id || latestMovement.matchingEntryItem?.homeLocationId;
+      if (movementHomeLocationId) {
+        return String(movementHomeLocationId) === locationIdStr;
+      }
+    }
+
+    // Fallback to stock management when no movement entry is found
     const stockItem = stockManagementData.find(stock => {
       const stockItemIdsId = stock.item_ids_id || stock.itemIdsId;
       const stockBrandId = stock.brand_name_id || stock.brandNameId;
       const stockMachineNumber = stock.machine_number || stock.machineNumber || '';
+      const stockMachineNumberId = stock.machine_number_id || stock.machineNumberId;
 
       const itemIdsMatch = stockItemIdsId && String(stockItemIdsId) === itemIdsIdStr;
       const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
-      const machineMatch = !machineNumberStr || (stockMachineNumber && String(stockMachineNumber).trim() === machineNumberStr);
+      const machineMatch = isMachineNumberMatch(stockMachineNumber, stockMachineNumberId, machineNumberStr);
 
       return itemIdsMatch && brandMatch && machineMatch;
     });
 
-    if (stockItem) {
-      const homeLocationId = stockItem.home_location_id || stockItem.homeLocationId;
-      if (homeLocationId && String(homeLocationId) === locationIdStr) {
-        // Item set is at home location matching the requested location
-        return true;
-      }
-    }
-
-    // Track transfers to find current location of this specific item set
-    // Find the most recent transfer entry that includes this exact item set
-    let mostRecentEntry = null;
-    let mostRecentDate = null;
-
-    for (const entry of toolsTrackerManagementData) {
-      const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
-      if (entryType.toLowerCase() !== 'entry') continue; // Only check Entry type, not Service
-
-      const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
-      const hasMatchingItemSet = entryItems.some(entryItem => {
-        const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
-        const entryBrandId = entryItem.brand_id || entryItem.brandId;
-        const entryMachineNumber = entryItem.machine_number || entryItem.machineNumber || '';
-
-        const itemIdsMatch = entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
-        const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
-        const machineMatch = !machineNumberStr || (entryMachineNumber && String(entryMachineNumber).trim() === machineNumberStr);
-
-        return itemIdsMatch && brandMatch && machineMatch;
-      });
-
-      if (hasMatchingItemSet) {
-        const entryDate = entry.created_date_time || entry.createdDateTime || entry.timestamp || '';
-        if (!mostRecentDate || entryDate > mostRecentDate) {
-          mostRecentDate = entryDate;
-          mostRecentEntry = entry;
-        }
-      }
-    }
-
-    // If item set was found in transfer history, check its current location
-    if (mostRecentEntry) {
-      const entryToProjectId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
-      if (entryToProjectId && String(entryToProjectId) === locationIdStr) {
-        // Item set is currently at this location
-        return true;
-      }
-    }
-
-    // If item set not found in transfers and not at home location, it's not available
-    return false;
+    if (!stockItem) return false;
+    const homeLocationId = stockItem.home_location_id || stockItem.homeLocationId;
+    return !!homeLocationId && String(homeLocationId) === locationIdStr;
   };
 
   // Helper function to get current location of an item set (itemIdsId + brandId + machineNumber)
@@ -1102,43 +1242,29 @@ const Transfer = ({ user }) => {
     let currentLocationId = null;
     let locationType = null; // 'project' or 'home'
 
-    // First, check in tools_tracker_management entries (transfer history)
-    // Find the most recent entry for this item set to determine its current location
-    let mostRecentEntry = null;
-    let mostRecentDate = null;
-
-    for (const entry of toolsTrackerManagementData) {
-      const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
-      if (entryType.toLowerCase() !== 'entry') continue; // Only check Entry type, not Service
-
-      const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
-      const hasMatchingItemSet = entryItems.some(entryItem => {
-        const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
-        const entryBrandId = entryItem.brand_id || entryItem.brandId;
-        const entryMachineNumber = entryItem.machine_number || entryItem.machineNumber || '';
-
-        const itemIdsMatch = entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
-        const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
-        const machineMatch = !machineNumberStr || (entryMachineNumber && String(entryMachineNumber).trim() === machineNumberStr);
-
-        return itemIdsMatch && brandMatch && machineMatch;
-      });
-
-      if (hasMatchingItemSet) {
-        const entryDate = entry.created_date_time || entry.createdDateTime || entry.timestamp || '';
-        if (!mostRecentDate || entryDate > mostRecentDate) {
-          mostRecentDate = entryDate;
-          mostRecentEntry = entry;
+    // First, check in tools_tracker_management entries (entry + relocate history)
+    const latestMovement = getLatestItemSetMovement(itemIdsIdStr, brandIdStr, machineNumberStr);
+    if (latestMovement) {
+      if (isRelocateEntryType(latestMovement.entryType)) {
+        const relocatedHomeLocationId = latestMovement.matchingEntryItem?.home_location_id || latestMovement.matchingEntryItem?.homeLocationId;
+        if (relocatedHomeLocationId) {
+          currentLocationId = String(relocatedHomeLocationId);
+          locationType = 'home';
+          return { locationId: currentLocationId, locationType };
         }
       }
-    }
 
-    // If item set is found in transfer history, get its toProjectId
-    if (mostRecentEntry) {
-      const entryToProjectId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
+      const entryToProjectId = latestMovement.entry?.to_project_id || latestMovement.entry?.toProjectId;
       if (entryToProjectId) {
         currentLocationId = String(entryToProjectId);
         locationType = 'project';
+        return { locationId: currentLocationId, locationType };
+      }
+
+      const movementHomeLocationId = latestMovement.matchingEntryItem?.home_location_id || latestMovement.matchingEntryItem?.homeLocationId;
+      if (movementHomeLocationId) {
+        currentLocationId = String(movementHomeLocationId);
+        locationType = 'home';
         return { locationId: currentLocationId, locationType };
       }
     }
@@ -1148,10 +1274,11 @@ const Transfer = ({ user }) => {
       const stockItemIdsId = stock.item_ids_id || stock.itemIdsId;
       const stockBrandId = stock.brand_name_id || stock.brandNameId;
       const stockMachineNumber = stock.machine_number || stock.machineNumber || '';
+      const stockMachineNumberId = stock.machine_number_id || stock.machineNumberId;
 
       const itemIdsMatch = stockItemIdsId && String(stockItemIdsId) === itemIdsIdStr;
       const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
-      const machineMatch = !machineNumberStr || (stockMachineNumber && String(stockMachineNumber).trim() === machineNumberStr);
+      const machineMatch = isMachineNumberMatch(stockMachineNumber, stockMachineNumberId, machineNumberStr);
 
       return itemIdsMatch && brandMatch && machineMatch;
     });
@@ -1298,9 +1425,11 @@ const Transfer = ({ user }) => {
         const projectOption = toOptions.find(opt => String(opt.id) === fromProjectIdStr);
         const projectName = projectOption?.label || projectOption?.name || fromProjectIdStr;
 
+        const resolvedBrand = getBrandLabelById(brandId);
+        const resolvedItemName = itemName || getItemNameLabelById(itemNameId);
         const itemDetails = [
-          `Item Name ID: ${itemNameId}`,
-          brandId ? `Brand ID: ${brandId}` : null
+          resolvedItemName ? `Item Name: ${resolvedItemName}` : `Item Name ID: ${itemNameId}`,
+          brandId ? `Brand: ${resolvedBrand || brandId}` : null
         ].filter(Boolean).join(', ');
 
         const currentLocations = getLocationsWithAvailableQuantity(itemNameId, brandId);
@@ -1322,16 +1451,17 @@ const Transfer = ({ user }) => {
       const { locationId, locationType } = locationInfo;
       if (locationId !== fromProjectIdStr) {
         let locationName = locationId;
-        if (locationType === 'project') {
-          const projectOption = toOptions.find(opt => String(opt.id) === locationId);
-          locationName = projectOption?.label || projectOption?.name || locationId;
+        const resolvedLocationName = getLocationLabelById(locationId);
+        if (resolvedLocationName) {
+          locationName = resolvedLocationName;
         } else if (locationType === 'home') {
-          const projectOption = toOptions.find(opt => String(opt.id) === locationId);
-          locationName = projectOption?.label || projectOption?.name || `Home Location (ID: ${locationId})`;
+          locationName = `Home Location (ID: ${locationId})`;
         }
+        const resolvedBrand = getBrandLabelById(brandId);
+        const resolvedItemName = itemName || getItemNameLabelById(itemNameId);
         const itemDetails = [
-          `Item Name ID: ${itemNameId}`,
-          brandId ? `Brand ID: ${brandId}` : null
+          resolvedItemName ? `Item Name: ${resolvedItemName}` : `Item Name ID: ${itemNameId}`,
+          brandId ? `Brand: ${resolvedBrand || brandId}` : null
         ].filter(Boolean).join(', ');
         return {
           isValid: false,
@@ -1349,79 +1479,29 @@ const Transfer = ({ user }) => {
     if (!isAvailable) {
       const projectOption = toOptions.find(opt => String(opt.id) === fromProjectIdStr);
       const projectName = projectOption?.label || projectOption?.name || fromProjectIdStr;
-      // Find where the item set currently is
+      // Find where the item set currently is (entry + relocate aware)
       let currentLocation = null;
       let currentLocationName = 'unknown location';
-      const itemIdsIdStr = String(itemIdsId);
-      const brandIdStr = brandId ? String(brandId) : null;
-      const machineNumberStr = machineNumber ? String(machineNumber).trim() : '';
-      // Check stock management
-      const stockItem = stockManagementData.find(stock => {
-        const stockItemIdsId = stock.item_ids_id || stock.itemIdsId;
-        const stockBrandId = stock.brand_name_id || stock.brandNameId;
-        const stockMachineNumber = stock.machine_number || stock.machineNumber || '';
-        const itemIdsMatch = stockItemIdsId && String(stockItemIdsId) === itemIdsIdStr;
-        const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
-        const machineMatch = !machineNumberStr || (stockMachineNumber && String(stockMachineNumber).trim() === machineNumberStr);
-        return itemIdsMatch && brandMatch && machineMatch;
-      });
-
-      if (stockItem) {
-        const homeLocationId = stockItem.home_location_id || stockItem.homeLocationId;
-        if (homeLocationId) {
-          currentLocation = String(homeLocationId);
-          const homeOption = toOptions.find(opt => String(opt.id) === currentLocation);
-          currentLocationName = homeOption?.label || homeOption?.name || `Home Location (ID: ${currentLocation})`;
-        }
+      const currentLocationInfo = getItemSetCurrentLocation(itemIdsId, brandId, machineNumber);
+      if (currentLocationInfo?.locationId) {
+        currentLocation = String(currentLocationInfo.locationId);
+        currentLocationName = getLocationLabelById(currentLocation)
+          || (currentLocationInfo.locationType === 'home'
+            ? `Home Location (ID: ${currentLocation})`
+            : currentLocation);
       }
 
-      // Check transfer history for current location
-      let mostRecentEntry = null;
-      let mostRecentDate = null;
-      for (const entry of toolsTrackerManagementData) {
-        const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
-        if (entryType.toLowerCase() !== 'entry') continue;
-
-        const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
-        const hasMatchingItemSet = entryItems.some(entryItem => {
-          const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
-          const entryBrandId = entryItem.brand_id || entryItem.brandId;
-          const entryMachineNumber = entryItem.machine_number || entryItem.machineNumber || '';
-
-          const itemIdsMatch = entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
-          const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
-          const machineMatch = !machineNumberStr || (entryMachineNumber && String(entryMachineNumber).trim() === machineNumberStr);
-
-          return itemIdsMatch && brandMatch && machineMatch;
-        });
-
-        if (hasMatchingItemSet) {
-          const entryDate = entry.created_date_time || entry.createdDateTime || entry.timestamp || '';
-          if (!mostRecentDate || entryDate > mostRecentDate) {
-            mostRecentDate = entryDate;
-            mostRecentEntry = entry;
-          }
-        }
-      }
-
-      if (mostRecentEntry) {
-        const entryToProjectId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
-        if (entryToProjectId) {
-          currentLocation = String(entryToProjectId);
-          const currentOption = toOptions.find(opt => String(opt.id) === currentLocation);
-          currentLocationName = currentOption?.label || currentOption?.name || currentLocation;
-        }
-      }
-
+      const resolvedItemId = getItemIdLabelById(itemIdsId);
+      const resolvedBrand = getBrandLabelById(brandId);
       const itemSetDetails = [
-        `Item ID: ${itemIdsId}`,
-        brandId ? `Brand ID: ${brandId}` : null,
+        `Item ID: ${resolvedItemId || itemIdsId}`,
+        brandId ? `Brand: ${resolvedBrand || brandId}` : null,
         machineNumber ? `Machine Number: ${machineNumber}` : null
       ].filter(Boolean).join(', ');
 
       return {
         isValid: false,
-        errorMessage: `Cannot transfer item "${itemName}" (${itemSetDetails}). This item set is currently at "${currentLocationName}" (ID: ${currentLocation || 'unknown'}), not at the selected "From" project "${projectName}" (Project ID: ${fromProjectIdStr}).`
+        errorMessage: `Cannot transfer item "${itemName}" (${itemSetDetails}). This item set is currently at "${currentLocationName}", not at the selected "From" project "${projectName}".`
       };
     }
 
@@ -1542,29 +1622,64 @@ const Transfer = ({ user }) => {
     }
     setIsSaving(true);
     try {
+      const statusItemsForApi = [];
+      const updatedItemRows = [];
+      for (const item of items) {
+        const origItemIds = (originalEditData?.items || []).map(it => it.id).filter(Boolean);
+        const isExistingItem = origItemIds.some(oid => String(oid) === String(item.id));
+        const itemRow = {
+          id: isExistingItem && item.id ? item.id : null,
+          timestamp: item.timestamp || new Date().toISOString().slice(0, 19),
+          item_name_id: item.item_name_id || null,
+          item_ids_id: item.item_ids_id || null,
+          brand_id: item.brand_id || null,
+          model: item.model || '',
+          quantity: item.quantity || 0,
+          machine_status: item.machine_status || 'Working',
+          description: item.description || '',
+          tools_item_live_images: item.tools_item_live_images || []
+        };
+
+        if (itemRow.item_ids_id) {
+          const machineNumberId = resolveMachineNumberIdForItemSet(
+            itemRow.item_ids_id,
+            itemRow.brand_id,
+            item.machine_number || ''
+          );
+          const hasMachineNumberIdConfigured = hasMachineNumberIdConfiguredForItemSet(
+            itemRow.item_ids_id,
+            itemRow.brand_id,
+            item.machine_number || ''
+          );
+          if (hasMachineNumberIdConfigured && !machineNumberId) {
+            const itemIdLabel = item.itemId || getItemIdLabelById(itemRow.item_ids_id) || itemRow.item_ids_id;
+            alert(`Machine Number ID is required for Item ID "${itemIdLabel}". Please select this item again and try.`);
+            setIsSaving(false);
+            return;
+          }
+          if (machineNumberId) {
+            itemRow.machine_number_id = String(machineNumberId);
+          }
+        }
+
+        updatedItemRows.push(itemRow);
+
+        if (itemRow.item_ids_id && item.machine_number && itemRow.machine_status) {
+          statusItemsForApi.push({
+            item_ids_id: itemRow.item_ids_id,
+            machine_number: item.machine_number,
+            machine_status: itemRow.machine_status
+          });
+        }
+      }
+
       const payload = {
         from_project_id: selectedFrom?.id ? String(selectedFrom.id) : null,
         to_project_id: entryServiceMode === 'Entry' && selectedTo?.id ? String(selectedTo.id) : null,
         project_incharge_id: selectedIncharge?.id ? String(selectedIncharge.id) : null,
         service_store_id: entryServiceMode === 'Service' && selectedServiceStore?.id ? String(selectedServiceStore.id) : null,
         tools_entry_type: entryServiceMode.toLowerCase(),
-        tools_tracker_item_name_table: items.map(item => {
-          const origItemIds = (originalEditData?.items || []).map(it => it.id).filter(Boolean);
-          const isExistingItem = origItemIds.some(oid => String(oid) === String(item.id));
-          return {
-            id: isExistingItem && item.id ? item.id : null,
-            timestamp: item.timestamp || new Date().toISOString().slice(0, 19),
-            item_name_id: item.item_name_id || null,
-            item_ids_id: item.item_ids_id || null,
-            brand_id: item.brand_id || null,
-            model: item.model || '',
-            machine_number: item.machine_number || '',
-            quantity: item.quantity || 0,
-            machine_status: item.machine_status || 'Working',
-            description: item.description || '',
-            tools_item_live_images: item.tools_item_live_images || []
-          };
-        })
+        tools_tracker_item_name_table: updatedItemRows
       };
       const editedBy = user?.name || user?.username || 'mobile';
       const response = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/update/${editEntryId}?editedBy=${encodeURIComponent(editedBy)}`, {
@@ -1578,7 +1693,7 @@ const Transfer = ({ user }) => {
       }
 
       // Save machine_status to the new API for each item that has itemIdsId and machine_number
-      const machineStatusPromises = payload.tools_tracker_item_name_table
+      const machineStatusPromises = statusItemsForApi
         .filter(item => item.item_ids_id && item.machine_number && item.machine_status)
         .map(async (item) => {
           try {
@@ -1728,12 +1843,14 @@ const Transfer = ({ user }) => {
               const projectOption = toOptions.find(opt => String(opt.id) === currentProjectId);
               const projectName = projectOption?.label || projectOption?.name || currentProjectId;
               const itemName = item.itemName || 'Unknown Item';
+              const resolvedItemId = item.itemId || getItemIdLabelById(item.item_ids_id) || item.item_ids_id;
+              const resolvedBrand = item.brand || getBrandLabelById(item.brand_id) || item.brand_id;
               const itemSetDetails = [
-                `Item ID: ${item.itemId || item.item_ids_id}`,
-                item.brand_id ? `Brand ID: ${item.brand_id}` : null,
+                `Item ID: ${resolvedItemId}`,
+                item.brand_id ? `Brand: ${resolvedBrand}` : null,
                 item.machine_number ? `Machine Number: ${item.machine_number}` : null
               ].filter(Boolean).join(', ');
-              alert(`Cannot transfer item "${itemName}" (${itemSetDetails}). This item set is currently in project "${projectName}" (Project ID: ${currentProjectId}). Please return it to home location first or transfer it from the current project.`);
+              alert(`Cannot transfer item "${itemName}" (${itemSetDetails}). This item set is currently in project "${projectName}". Please return it to home location first or transfer it from the current project.`);
               setIsSaving(false);
               return;
             }
@@ -1755,7 +1872,8 @@ const Transfer = ({ user }) => {
               const projectOption = toOptions.find(opt => String(opt.id) === currentProjectId);
               const projectName = projectOption?.label || projectOption?.name || currentProjectId;
               const itemName = item.itemName || 'Unknown Item';
-              alert(`Cannot transfer item "${itemName}" (Item Name ID: ${item.item_name_id}). This item is currently in project "${projectName}" (Project ID: ${currentProjectId}). Please return it to home location first or transfer it from the current project.`);
+              const resolvedItemName = itemName || getItemNameLabelById(item.item_name_id) || item.item_name_id;
+              alert(`Cannot transfer item "${itemName}" (Item Name: ${resolvedItemName}). This item is currently in project "${projectName}". Please return it to home location first or transfer it from the current project.`);
               setIsSaving(false);
               return;
             }
@@ -1767,6 +1885,7 @@ const Transfer = ({ user }) => {
     setIsSaving(true);
     try {
       let payload;
+      const statusItemsForApi = [];
 
       if (entryServiceMode === 'Relocate') {
         // For Relocate mode, get item details from stock management
@@ -1781,29 +1900,102 @@ const Transfer = ({ user }) => {
           return;
         }
 
+        const relocateMachineNumberId = resolveMachineNumberIdForItemSet(
+          selectedRelocateItemId,
+          stockItem.brand_id || stockItem.brandId || stockItem.brand_name_id || stockItem.brandNameId || null,
+          stockItem.machine_number || stockItem.machineNumber || ''
+        );
+        const relocateHasMachineNumberIdConfigured = hasMachineNumberIdConfiguredForItemSet(
+          selectedRelocateItemId,
+          stockItem.brand_id || stockItem.brandId || stockItem.brand_name_id || stockItem.brandNameId || null,
+          stockItem.machine_number || stockItem.machineNumber || ''
+        );
+        if (relocateHasMachineNumberIdConfigured && !relocateMachineNumberId) {
+          alert('Machine Number ID is required for this selected Item ID. Please reselect the item and try again.');
+          setIsSaving(false);
+          return;
+        }
+
+        const relocateItemRow = {
+          timestamp: new Date().toISOString().slice(0, 19),
+          item_name_id: stockItem.item_name_id || stockItem.itemNameId || null,
+          item_ids_id: String(selectedRelocateItemId),
+          brand_id: stockItem.brand_id || stockItem.brandId || stockItem.brand_name_id || stockItem.brandNameId || null,
+          model: stockItem.model || '',
+          quantity: stockItem.quantity || 0,
+          machine_status: stockItem.machine_status || stockItem.machineStatus || 'Working',
+          description: '',
+          home_location_id: selectedRelocateLocation?.id ? String(selectedRelocateLocation.id) : null,
+          tools_item_live_images: []
+        };
+        if (relocateMachineNumberId) {
+          relocateItemRow.machine_number_id = String(relocateMachineNumberId);
+        }
+
         payload = {
           from_project_id: selectedCurrentLocation?.id ? String(selectedCurrentLocation.id) : null,
           to_project_id: null,
           project_incharge_id: null,
           service_store_id: null,
           created_by: user?.name || user?.username || 'mobile',
-          tools_entry_type: 'relocation',
+          tools_entry_type: 'relocate',
           eno: String(entryNo),
-          tools_tracker_item_name_table: [{
-            timestamp: new Date().toISOString().slice(0, 19),
-            item_name_id: stockItem.item_name_id || stockItem.itemNameId || null,
-            item_ids_id: String(selectedRelocateItemId),
-            brand_id: stockItem.brand_id || stockItem.brandId || stockItem.brand_name_id || stockItem.brandNameId || null,
-            model: stockItem.model || '',
-            machine_number: stockItem.machine_number || stockItem.machineNumber || '',
-            quantity: stockItem.quantity || 0,
-            machine_status: stockItem.machine_status || stockItem.machineStatus || 'Working',
-            description: '',
-            home_location_id: selectedRelocateLocation?.id ? String(selectedRelocateLocation.id) : null,
-            tools_item_live_images: []
-          }]
+          tools_tracker_item_name_table: [relocateItemRow]
         };
+        if (relocateItemRow.item_ids_id && (stockItem.machine_number || stockItem.machineNumber || '') && relocateItemRow.machine_status) {
+          statusItemsForApi.push({
+            item_ids_id: relocateItemRow.item_ids_id,
+            machine_number: stockItem.machine_number || stockItem.machineNumber || '',
+            machine_status: relocateItemRow.machine_status
+          });
+        }
       } else {
+        const itemRows = [];
+        for (const item of items) {
+          const itemRow = {
+            timestamp: item.timestamp || new Date().toISOString().slice(0, 19),
+            item_name_id: item.item_name_id || null,
+            item_ids_id: item.item_ids_id || null,
+            brand_id: item.brand_id || null,
+            model: item.model || '',
+            quantity: item.quantity || 0,
+            machine_status: item.machine_status || 'Working',
+            description: item.description || '',
+            tools_item_live_images: item.tools_item_live_images || []
+          };
+
+          if (itemRow.item_ids_id) {
+            const machineNumberId = resolveMachineNumberIdForItemSet(
+              itemRow.item_ids_id,
+              itemRow.brand_id,
+              itemRow.machine_number
+            );
+            const hasMachineNumberIdConfigured = hasMachineNumberIdConfiguredForItemSet(
+              itemRow.item_ids_id,
+              itemRow.brand_id,
+              itemRow.machine_number
+            );
+            if (hasMachineNumberIdConfigured && !machineNumberId) {
+              const itemIdLabel = item.itemId || getItemIdLabelById(itemRow.item_ids_id) || itemRow.item_ids_id;
+              alert(`Machine Number ID is required for Item ID "${itemIdLabel}". Please select this item again and try.`);
+              setIsSaving(false);
+              return;
+            }
+            if (machineNumberId) {
+              itemRow.machine_number_id = String(machineNumberId);
+            }
+            if (item.machine_number && itemRow.machine_status) {
+              statusItemsForApi.push({
+                item_ids_id: itemRow.item_ids_id,
+                machine_number: item.machine_number,
+                machine_status: itemRow.machine_status
+              });
+            }
+          }
+
+          itemRows.push(itemRow);
+        }
+
         payload = {
           from_project_id: selectedFrom?.id ? String(selectedFrom.id) : null,
           to_project_id: entryServiceMode === 'Entry' && selectedTo?.id ? String(selectedTo.id) : null,
@@ -1812,18 +2004,7 @@ const Transfer = ({ user }) => {
           created_by: user?.name || user?.username || 'mobile',
           tools_entry_type: entryServiceMode.toLowerCase(), // "entry" or "service"
           eno: String(entryNo),
-          tools_tracker_item_name_table: items.map(item => ({
-            timestamp: item.timestamp || new Date().toISOString().slice(0, 19),
-            item_name_id: item.item_name_id || null,
-            item_ids_id: item.item_ids_id || null,
-            brand_id: item.brand_id || null,
-            model: item.model || '',
-            machine_number: item.machine_number || '',
-            quantity: item.quantity || 0,
-            machine_status: item.machine_status || 'Working',
-            description: item.description || '',
-            tools_item_live_images: item.tools_item_live_images || []
-          }))
+          tools_tracker_item_name_table: itemRows
         };
       }
       const response = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/save`, {
@@ -1840,7 +2021,7 @@ const Transfer = ({ user }) => {
       const result = await response.json();
 
       // Save machine_status to the new API for each item that has itemIdsId and machine_number
-      const machineStatusPromises = payload.tools_tracker_item_name_table
+      const machineStatusPromises = statusItemsForApi
         .filter(item => item.item_ids_id && item.machine_number && item.machine_status)
         .map(async (item) => {
           try {
@@ -2143,6 +2324,132 @@ const Transfer = ({ user }) => {
       return '';
     }
   };
+  const resolveMachineNumberText = (machineNumberOrId) => {
+    if (machineNumberOrId === null || machineNumberOrId === undefined || machineNumberOrId === '') return '';
+    const value = String(machineNumberOrId).trim();
+    if (!value) return '';
+
+    const byId = machineNumbersList.find((m) => String(m?.id ?? m?._id) === value);
+    if (byId) {
+      return (byId?.machine_number ?? byId?.machineNumber ?? '').trim();
+    }
+
+    const byNumber = machineNumbersList.find(
+      (m) => String(m?.machine_number ?? m?.machineNumber ?? '').trim() === value
+    );
+    if (byNumber) {
+      return (byNumber?.machine_number ?? byNumber?.machineNumber ?? '').trim();
+    }
+    return value;
+  };
+  const resolveMachineNumFromStock = (item) => {
+    if (!item) return '';
+    const machineNumberId = item?.machine_number_id ?? item?.machineNumberId;
+    if (machineNumberId) {
+      const resolved = resolveMachineNumberText(machineNumberId);
+      if (resolved) return resolved;
+    }
+    return resolveMachineNumberText(item?.machine_number ?? item?.machineNumber ?? '');
+  };
+  const resolveMachineNumberId = (machineNumberOrId) => {
+    if (machineNumberOrId === null || machineNumberOrId === undefined || machineNumberOrId === '') return null;
+    const value = String(machineNumberOrId).trim();
+    if (!value) return null;
+
+    const byId = machineNumbersList.find((m) => String(m?.id ?? m?._id) === value);
+    if (byId) return String(byId?.id ?? byId?._id);
+
+    const byNumber = machineNumbersList.find(
+      (m) => String(m?.machine_number ?? m?.machineNumber ?? '').trim() === value
+    );
+    if (byNumber) return String(byNumber?.id ?? byNumber?._id);
+
+    return null;
+  };
+  const hasMachineNumberIdConfiguredForItemSet = (itemIdsId, brandId, machineNumber) => {
+    if (!itemIdsId) return false;
+
+    const itemIdsIdStr = String(itemIdsId);
+    const brandIdStr = brandId ? String(brandId) : null;
+    const machineNumberStr = machineNumber ? String(machineNumber).trim() : '';
+
+    const matchingStockRows = stockManagementData.filter(stock => {
+      const stockItemIdsId = stock?.item_ids_id ?? stock?.itemIdsId;
+      const stockBrandId = stock?.brand_id ?? stock?.brandId ?? stock?.brand_name_id ?? stock?.brandNameId;
+      const stockMachineNumber = stock?.machine_number ?? stock?.machineNumber ?? '';
+      const stockMachineNumberId = stock?.machine_number_id ?? stock?.machineNumberId;
+      const itemIdsMatch = stockItemIdsId && String(stockItemIdsId) === itemIdsIdStr;
+      const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+      const machineMatch = !machineNumberStr || isMachineNumberMatch(stockMachineNumber, stockMachineNumberId, machineNumberStr);
+      return itemIdsMatch && brandMatch && machineMatch;
+    });
+
+    if (matchingStockRows.length > 0) {
+      return matchingStockRows.some(stock => (stock?.machine_number_id ?? stock?.machineNumberId));
+    }
+
+    return !!resolveMachineNumberId(machineNumber);
+  };
+  const resolveMachineNumberIdForItemSet = (itemIdsId, brandId, machineNumber) => {
+    if (!itemIdsId) return null;
+
+    const itemIdsIdStr = String(itemIdsId);
+    const brandIdStr = brandId ? String(brandId) : null;
+    const machineNumberStr = machineNumber ? String(machineNumber).trim() : '';
+
+    const exactStock = stockManagementData.find(stock => {
+      const stockItemIdsId = stock?.item_ids_id ?? stock?.itemIdsId;
+      const stockBrandId = stock?.brand_id ?? stock?.brandId ?? stock?.brand_name_id ?? stock?.brandNameId;
+      const stockMachineNumber = stock?.machine_number ?? stock?.machineNumber ?? '';
+      const stockMachineNumberId = stock?.machine_number_id ?? stock?.machineNumberId;
+      const itemIdsMatch = stockItemIdsId && String(stockItemIdsId) === itemIdsIdStr;
+      const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+      const machineMatch = !machineNumberStr || isMachineNumberMatch(stockMachineNumber, stockMachineNumberId, machineNumberStr);
+      return itemIdsMatch && brandMatch && machineMatch;
+    });
+    const exactStockMachineNumberId = exactStock?.machine_number_id ?? exactStock?.machineNumberId;
+    if (exactStockMachineNumberId) return String(exactStockMachineNumberId);
+
+    const fallbackStock = stockManagementData.find(stock => {
+      const stockItemIdsId = stock?.item_ids_id ?? stock?.itemIdsId;
+      const stockBrandId = stock?.brand_id ?? stock?.brandId ?? stock?.brand_name_id ?? stock?.brandNameId;
+      const itemIdsMatch = stockItemIdsId && String(stockItemIdsId) === itemIdsIdStr;
+      const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+      return itemIdsMatch && brandMatch;
+    });
+    const fallbackStockMachineNumberId = fallbackStock?.machine_number_id ?? fallbackStock?.machineNumberId;
+    if (fallbackStockMachineNumberId) return String(fallbackStockMachineNumberId);
+
+    return resolveMachineNumberId(machineNumber);
+  };
+  const getItemCountByNameAndBrand = (itemNameId, brandId) => {
+    if (!itemNameId) return 0;
+    const itemNameIdStr = String(itemNameId);
+    const brandIdStr = brandId ? String(brandId) : null;
+
+    const quantityBasedStock = stockManagementData.filter(item => {
+      const stockItemNameId = item?.item_name_id ?? item?.itemNameId;
+      const stockItemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+      const stockBrandId = item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId;
+      const itemNameMatch = String(stockItemNameId) === itemNameIdStr;
+      const noItemIdsId = !stockItemIdsId;
+      const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+      return itemNameMatch && noItemIdsId && brandMatch;
+    });
+
+    const itemSetStock = stockManagementData.filter(item => {
+      const stockItemNameId = item?.item_name_id ?? item?.itemNameId;
+      const stockItemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+      const stockBrandId = item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId;
+      const itemNameMatch = String(stockItemNameId) === itemNameIdStr;
+      const hasItemIdsId = !!stockItemIdsId;
+      const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+      return itemNameMatch && hasItemIdsId && brandMatch;
+    });
+
+    const quantitySum = quantityBasedStock.reduce((sum, item) => sum + parseInt(item?.quantity || 0, 10), 0);
+    return quantitySum + itemSetStock.length;
+  };
   const handleFieldChange = (field, value) => {
     setAddItemFormData(prev => {
       const updated = { ...prev, [field]: value };
@@ -2272,7 +2579,7 @@ const Transfer = ({ user }) => {
                 timestamp: item?.timestamp || item?.created_date_time || item?.createdDateTime || '',
                 item_name_id: item?.item_name_id ?? item?.itemNameId,
                 brand_id: item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId,
-                machine_number: item?.machine_number ?? item?.machineNumber ?? ''
+                machine_number: resolveMachineNumFromStock(item)
               });
             }
           });
@@ -2288,7 +2595,13 @@ const Transfer = ({ user }) => {
                   timestamp: entry?.created_date_time ?? entry?.createdDateTime ?? entry?.timestamp ?? '',
                   item_name_id: item?.item_name_id ?? item?.itemNameId,
                   brand_id: item?.brand_id ?? item?.brandId,
-                  machine_number: item?.machine_number ?? item?.machineNumber ?? ''
+                  machine_number: resolveMachineNumberText(
+                    item?.machine_number_id ??
+                    item?.machineNumberId ??
+                    item?.machine_number ??
+                    item?.machineNumber ??
+                    ''
+                  )
                 });
               }
             });
@@ -2311,6 +2624,8 @@ const Transfer = ({ user }) => {
 
           // Get the last (most recent) entry
           const lastEntry = allEntries.length > 0 ? allEntries[0] : null;
+          let countItemNameId = null;
+          let countBrandId = null;
 
           if (lastEntry) {
             // Set Item Name from the last entry
@@ -2321,6 +2636,7 @@ const Transfer = ({ user }) => {
               if (itemNameObj) {
                 updated.itemName = itemNameObj?.item_name ?? itemNameObj?.itemName ?? '';
                 updated.itemNameId = itemNameObj?.id ?? null;
+                countItemNameId = itemNameObj?.id ?? null;
               }
             }
 
@@ -2332,6 +2648,7 @@ const Transfer = ({ user }) => {
               if (brandObj) {
                 updated.brand = brandObj?.tools_brand ?? brandObj?.toolsBrand ?? '';
                 updated.brandId = brandObj?.id ?? null;
+                countBrandId = brandObj?.id ?? null;
               }
             }
 
@@ -2346,7 +2663,13 @@ const Transfer = ({ user }) => {
             // Group by machine number and get latest status for each
             const machineStatusMap = new Map();
             machineStatusesForItemId.forEach(status => {
-              const machineNum = String(status.machine_number || status.machineNumber || '');
+              const machineNum = resolveMachineNumberText(
+                status.machine_number_id ||
+                status.machineNumberId ||
+                status.machine_number ||
+                status.machineNumber ||
+                ''
+              );
               if (machineNum) {
                 const existing = machineStatusMap.get(machineNum);
                 if (!existing || (status.id || 0) > (existing.id || 0)) {
@@ -2410,6 +2733,12 @@ const Transfer = ({ user }) => {
                 setSelectedItemMachineNumber('');
               }
             }
+            if (!countItemNameId) {
+              countItemNameId = lastEntry.item_name_id ?? null;
+            }
+            if (!countBrandId) {
+              countBrandId = lastEntry.brand_id ?? null;
+            }
           } else {
             // If no entry found, try to get itemName from stockManagementData (fallback)
             const stockItem = stockManagementData.find(item => {
@@ -2424,8 +2753,10 @@ const Transfer = ({ user }) => {
               if (itemNameObj) {
                 updated.itemName = itemNameObj?.item_name ?? itemNameObj?.itemName ?? '';
                 updated.itemNameId = itemNameObj?.id ?? null;
+                countItemNameId = itemNameObj?.id ?? null;
               }
             }
+            countBrandId = stockItem?.brand_id ?? stockItem?.brandId ?? stockItem?.brand_name_id ?? stockItem?.brandNameId ?? null;
 
             // Get latest machine number from new API that doesn't have "Machine Dead" status
             const machineStatusesForItemId = Array.isArray(machineStatusData)
@@ -2438,7 +2769,13 @@ const Transfer = ({ user }) => {
             // Group by machine number and get latest status for each
             const machineStatusMap = new Map();
             machineStatusesForItemId.forEach(status => {
-              const machineNum = String(status.machine_number || status.machineNumber || '');
+              const machineNum = resolveMachineNumberText(
+                status.machine_number_id ||
+                status.machineNumberId ||
+                status.machine_number ||
+                status.machineNumber ||
+                ''
+              );
               if (machineNum) {
                 const existing = machineStatusMap.get(machineNum);
                 if (!existing || (status.id || 0) > (existing.id || 0)) {
@@ -2472,7 +2809,7 @@ const Transfer = ({ user }) => {
               setSelectedItemMachineNumber(latestMachineNumber);
             } else {
               // Check if stockItem.machine_number is NOT dead before using it as fallback
-              const stockMachineNum = stockItem?.machine_number ?? stockItem?.machineNumber ?? '';
+              const stockMachineNum = resolveMachineNumFromStock(stockItem);
               const stockMachineNumStr = stockMachineNum ? String(stockMachineNum).trim() : '';
               if (stockMachineNumStr) {
                 const stockMachineStatus = machineStatusMap.get(stockMachineNumStr);
@@ -2504,6 +2841,11 @@ const Transfer = ({ user }) => {
               }
             }
           }
+          // Keep UI badge in sync even if a branch above didn't call setter.
+          setSelectedItemMachineNumber(updated.machineNumber || '');
+          const finalItemNameId = countItemNameId ?? updated.itemNameId;
+          const finalBrandId = countBrandId ?? updated.brandId;
+          setSelectedItemNameQuantity(getItemCountByNameAndBrand(finalItemNameId, finalBrandId));
         }
       } else if (field === 'itemId' && !value) {
         updated.itemIdDbId = null;
@@ -2512,6 +2854,7 @@ const Transfer = ({ user }) => {
         updated.brand = '';
         updated.brandId = null;
         updated.machineNumber = '';
+        setSelectedItemNameQuantity(0);
         setSelectedItemMachineNumber('');
       }
       return updated;
@@ -3620,54 +3963,9 @@ const Transfer = ({ user }) => {
                                   if (itemIdObj) {
                                     setSelectedRelocateItemId(itemIdObj.id);
                                     const itemIdsIdStr = String(itemIdObj.id);
-
-                                    // First, check transfer history for the most recent toProjectId
-                                    let currentLocationId = null;
-                                    let mostRecentEntry = null;
-                                    let mostRecentDate = null;
-
-                                    // Find the most recent transfer entry for this itemId
-                                    for (const entry of toolsTrackerManagementData) {
-                                      const entryType = entry.tools_entry_type || entry.toolsEntryType || '';
-                                      if (entryType.toLowerCase() !== 'entry') continue; // Only check Entry type transfers
-
-                                      const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
-                                      const hasMatchingItemId = entryItems.some(entryItem => {
-                                        const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
-                                        return entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
-                                      });
-
-                                      if (hasMatchingItemId) {
-                                        const entryDate = entry.created_date_time || entry.createdDateTime || entry.timestamp || '';
-                                        if (!mostRecentDate || entryDate > mostRecentDate) {
-                                          mostRecentDate = entryDate;
-                                          mostRecentEntry = entry;
-                                        }
-                                      }
-                                    }
-
-                                    // If found a transfer entry with toProjectId, use that as current location
-                                    if (mostRecentEntry) {
-                                      const toProjectId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
-                                      if (toProjectId) {
-                                        currentLocationId = String(toProjectId);
-                                      }
-                                    }
-
-                                    // If no toProjectId found in transfer history, use home_location_id from stock management
-                                    if (!currentLocationId) {
-                                      const stockItem = stockManagementData.find(item => {
-                                        const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
-                                        return String(itemIdsId) === itemIdsIdStr;
-                                      });
-
-                                      if (stockItem) {
-                                        const homeLocationId = stockItem.home_location_id || stockItem.homeLocationId;
-                                        if (homeLocationId) {
-                                          currentLocationId = String(homeLocationId);
-                                        }
-                                      }
-                                    }
+                                    const latestMovement = getLatestItemSetMovement(itemIdsIdStr, null, '');
+                                    const currentLocationInfo = getItemSetCurrentLocation(itemIdObj.id, null, '');
+                                    const currentLocationId = currentLocationInfo?.locationId ? String(currentLocationInfo.locationId) : null;
 
                                     // Set the current location
                                     let locationOption = null;
@@ -3707,22 +4005,14 @@ const Transfer = ({ user }) => {
 
                                       // Get last updated image from transfer history
                                       let lastImageUrl = '';
-                                      if (mostRecentEntry) {
-                                        const entryItems = mostRecentEntry.tools_tracker_item_name_table || mostRecentEntry.toolsTrackerItemNameTable || [];
-                                        const matchingEntryItem = entryItems.find(entryItem => {
-                                          const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
-                                          return entryItemIdsId && String(entryItemIdsId) === itemIdsIdStr;
-                                        });
-
-                                        if (matchingEntryItem) {
-                                          const images = matchingEntryItem.tools_item_live_images || matchingEntryItem.toolsItemLiveImages || [];
-                                          if (images.length > 0) {
-                                            // Get the last image (most recent)
-                                            const lastImage = images[images.length - 1];
-                                            if (lastImage.tools_image || lastImage.toolsImage) {
-                                              const base64Data = lastImage.tools_image || lastImage.toolsImage;
-                                              lastImageUrl = `data:image/jpeg;base64,${base64Data}`;
-                                            }
+                                      if (latestMovement?.matchingEntryItem) {
+                                        const images = latestMovement.matchingEntryItem.tools_item_live_images || latestMovement.matchingEntryItem.toolsItemLiveImages || [];
+                                        if (images.length > 0) {
+                                          // Get the last image (most recent)
+                                          const lastImage = images[images.length - 1];
+                                          if (lastImage.tools_image || lastImage.toolsImage) {
+                                            const base64Data = lastImage.tools_image || lastImage.toolsImage;
+                                            lastImageUrl = `data:image/jpeg;base64,${base64Data}`;
                                           }
                                         }
                                       }
@@ -4415,30 +4705,7 @@ const Transfer = ({ user }) => {
                       className={`w-full h-[32px] border border-[#d6d6d6] rounded px-3 pr-7 text-[12px] font-medium focus:outline-none text-black ${addItemFormData.itemId ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white'
                         }`}
                       placeholder="Enter"
-                    />
-                    {addItemFormData.quantity && addItemFormData.quantity.trim() !== '' && !addItemFormData.itemId && (
-                      <button
-                        type="button"
-                        onClick={() => handleFieldChange('quantity', '')}
-                        className="absolute top-1/2 transform -translate-y-1/2 right-2 w-5 h-5 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 12 12"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M9 3L3 9M3 3L9 9"
-                            stroke="#666"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                    )}
+                    />                    
                   </div>
                 </div>
               </div>
@@ -5029,6 +5296,38 @@ const Transfer = ({ user }) => {
             <div className="px-6 pb-6 pt-2 flex-shrink-0">
               <button onClick={handleConfirmSearchUpload} className="w-full h-[48px] rounded-lg text-[16px] font-bold text-white bg-black">
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {customAlert.isOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-[120] flex items-center justify-center p-4"
+          onClick={closeCustomAlert}
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          <div
+            className="bg-white w-full max-w-[360px] rounded-[16px] p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-[#FFF4F0] flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <h3 className="text-[16px] font-semibold text-black">Notice</h3>
+            </div>
+            <p className="text-[13px] text-[#333333] leading-relaxed whitespace-pre-line">
+              {customAlert.message}
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={closeCustomAlert}
+                className="min-w-[88px] h-[38px] px-5 rounded-full bg-[#8A4B2D] text-white text-[14px] font-semibold hover:opacity-90 transition-opacity"
+              >
+                OK
               </button>
             </div>
           </div>

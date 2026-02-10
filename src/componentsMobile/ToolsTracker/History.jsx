@@ -450,7 +450,7 @@ const History = ({ user, onTabChange }) => {
           Relocate History
         </button>
       </div>
-      <div className="flex-1 px-4 overflow-y-auto pb-4">
+      <div className="flex-1 overflow-y-auto pb-4">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <p className="text-[12px] text-gray-500">Loading...</p>
@@ -460,7 +460,7 @@ const History = ({ user, onTabChange }) => {
             <p className="text-[12px] text-gray-500">No history entries found.</p>
           </div>
         ) : (
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 space-y-0.5">
             {filteredHistoryData.map((entry) => {
               const { date, time } = formatDateTime(entry.createdDateTime);
               const fromLocation = getLocationName(entry.fromProjectId, false);
@@ -492,9 +492,9 @@ const History = ({ user, onTabChange }) => {
                     ? -buttonWidth
                     : 0;
               return (
-                <div key={entry.id} className="relative overflow-hidden">
+                <div key={entry.id} className=" overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] h-[100px]">
                   <div
-                    className="bg-white border border-[#E0E0E0] rounded-[8px] px-3 py-2 cursor-pointer transition-transform duration-300 ease-out select-none"
+                    className=" bg-white rounded-[8px] h-full px-3 py-3 cursor-pointer transition-all duration-300 ease-out select-none"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',
@@ -508,7 +508,7 @@ const History = ({ user, onTabChange }) => {
                     onClick={handleCardClick}
                   >
                     <div className="flex items-start justify-between mb-1">
-                      <p className="text-[12px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
+                      <p className="text-[12px] font-semibold text-black leading-snug truncate">
                         #{entry.eno}, {itemName}
                       </p>
                       <div className="flex flex-col items-end flex-shrink-0 ml-2">
