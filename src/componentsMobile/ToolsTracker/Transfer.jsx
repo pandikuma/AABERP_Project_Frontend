@@ -108,7 +108,7 @@ const Transfer = ({ user }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('Working');
   const [uploadDescription, setUploadDescription] = useState('');
-  const [statusOptions] = useState(['Working', 'Not Working', 'Under Repair', 'Dead']);
+  const [statusOptions] = useState(['Working', 'Not Working', 'Under Repair', 'Machine Dead']);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_stock_management';
   const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
@@ -530,6 +530,9 @@ const Transfer = ({ user }) => {
       ? (selectedRelocateItemId && selectedCurrentLocation && selectedRelocateLocation)
       : (selectedFrom && selectedServiceStore && selectedIncharge);
   const handleSwitchToEntry = () => {
+    if (isEditMode && originalEditData && (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate')) {
+      return;
+    }
     setEntryServiceMode('Entry');
     setSelectedServiceStore(null);
     setSelectedRelocateItemId(null);
@@ -538,6 +541,9 @@ const Transfer = ({ user }) => {
     setRelocateItemDetails(null);
   };
   const handleSwitchToService = () => {
+    if (isEditMode && originalEditData && ((originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') || (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate'))) {
+      return;
+    }
     setEntryServiceMode('Service');
     setSelectedTo(null);
     setSelectedRelocateItemId(null);
@@ -546,6 +552,9 @@ const Transfer = ({ user }) => {
     setRelocateItemDetails(null);
   };
   const handleSwitchToRelocate = () => {
+    if (isEditMode && originalEditData && (originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry')) {
+      return;
+    }
     setEntryServiceMode('Relocate');
     setSelectedTo(null);
     setSelectedServiceStore(null);
@@ -724,7 +733,13 @@ const Transfer = ({ user }) => {
             setDate(`${day}/${month}/${year}`);
           }
           const entryType = editData.tools_entry_type || editData.toolsEntryType || 'entry';
-          setEntryServiceMode(entryType === 'service' ? 'Service' : 'Entry');
+          if (entryType === 'service') {
+            setEntryServiceMode('Service');
+          } else if (entryType === 'relocate' || entryType === 'Relocate') {
+            setEntryServiceMode('Relocate');
+          } else {
+            setEntryServiceMode('Entry');
+          }
           const loadItems = () => {
             const entryItems = editData.tools_tracker_item_name_table || editData.toolsTrackerItemNameTable || [];
             const loadedItems = entryItems.map((item, index) => {
@@ -795,6 +810,63 @@ const Transfer = ({ user }) => {
               if (serviceStoreOption) {
                 setSelectedServiceStore(serviceStoreOption);
               }
+            } else if (entryType === 'relocate' || entryType === 'Relocate') {
+              // For Relocate entries, set Relocate-specific fields
+              const entryItems = editData.tools_tracker_item_name_table || editData.toolsTrackerItemNameTable || [];
+              if (entryItems.length > 0 && toolsItemIdFullData.length > 0) {
+                const firstItem = entryItems[0];
+                const itemIdsId = firstItem.item_ids_id || firstItem.itemIdsId;
+                if (itemIdsId) {
+                  setSelectedRelocateItemId(String(itemIdsId));
+                  // Populate relocateItemDetails
+                  const itemIdObj = toolsItemIdFullData.find(i => String(i.id) === String(itemIdsId));
+                  if (itemIdObj) {
+                    const itemIdsIdStr = String(itemIdsId);
+                    const currentLocationInfo = getItemSetCurrentLocation(itemIdObj.id, null, '');
+                    const currentLocationId = currentLocationInfo?.locationId ? String(currentLocationInfo.locationId) : null;
+                    let locationOption = null;
+                    if (currentLocationId) {
+                      locationOption = toOptions.find(opt => String(opt.id) === currentLocationId);
+                    }
+                    const stockItem = stockManagementData.find(item => {
+                      const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+                      return String(itemIdsId) === itemIdsIdStr;
+                    });
+                    if (stockItem) {
+                      const itemNameId = stockItem.item_name_id || stockItem.itemNameId;
+                      const itemNameObj = toolsItemNameListData.find(i => String(i?.id) === String(itemNameId));
+                      const itemName = itemNameObj?.item_name || itemNameObj?.itemName || '';
+                      const purchaseStoreId = stockItem.purchase_store_id || stockItem.purchaseStoreId;
+                      const purchaseStore = purchaseStoreId
+                        ? vendorOptions.find(v => String(v.id) === String(purchaseStoreId))?.label || ''
+                        : '';
+                      const birthLocationId = stockItem.home_location_id || stockItem.homeLocationId;
+                      const birthLocation = birthLocationId
+                        ? toOptions.find(opt => String(opt.id) === String(birthLocationId))?.label || ''
+                        : '';
+                      const currentLocationLabel = locationOption?.label || '';
+                      const imageUrl = stockItem.file_url || stockItem.fileUrl || '';
+                      setRelocateItemDetails({
+                        itemName: itemName,
+                        birthLocation: birthLocation,
+                        currentLocation: currentLocationLabel,
+                        purchaseStore: purchaseStore,
+                        imageUrl: imageUrl
+                      });
+                    }
+                  }
+                }
+              }
+              // Current Location is from_project_id in Relocate
+              const currentLocationOption = toOptions.find(opt => String(opt.id) === String(editData.from_project_id || editData.fromProjectId));
+              if (currentLocationOption) {
+                setSelectedCurrentLocation(currentLocationOption);
+              }
+              // Relocate Location is home_location_id in Relocate
+              const relocateLocationOption = toOptions.find(opt => String(opt.id) === String(editData.home_location_id || editData.homeLocationId));
+              if (relocateLocationOption) {
+                setSelectedRelocateLocation(relocateLocationOption);
+              }
             } else {
               const toOption = toOptions.find(opt => String(opt.id) === String(editData.to_project_id || editData.toProjectId));
               if (toOption) {
@@ -820,6 +892,63 @@ const Transfer = ({ user }) => {
                   const serviceStoreOption = serviceStoreOptions.find(opt => String(opt.id) === String(editData.service_store_id || editData.serviceStoreId));
                   if (serviceStoreOption) {
                     setSelectedServiceStore(serviceStoreOption);
+                  }
+                } else if (entryType === 'relocate' || entryType === 'Relocate') {
+                  // For Relocate entries, set Relocate-specific fields
+                  const entryItems = editData.tools_tracker_item_name_table || editData.toolsTrackerItemNameTable || [];
+                  if (entryItems.length > 0 && toolsItemIdFullData.length > 0) {
+                    const firstItem = entryItems[0];
+                    const itemIdsId = firstItem.item_ids_id || firstItem.itemIdsId;
+                    if (itemIdsId) {
+                      setSelectedRelocateItemId(String(itemIdsId));
+                      // Populate relocateItemDetails
+                      const itemIdObj = toolsItemIdFullData.find(i => String(i.id) === String(itemIdsId));
+                      if (itemIdObj) {
+                        const itemIdsIdStr = String(itemIdsId);
+                        const currentLocationInfo = getItemSetCurrentLocation(itemIdObj.id, null, '');
+                        const currentLocationId = currentLocationInfo?.locationId ? String(currentLocationInfo.locationId) : null;
+                        let locationOption = null;
+                        if (currentLocationId) {
+                          locationOption = toOptions.find(opt => String(opt.id) === currentLocationId);
+                        }
+                        const stockItem = stockManagementData.find(item => {
+                          const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+                          return String(itemIdsId) === itemIdsIdStr;
+                        });
+                        if (stockItem) {
+                          const itemNameId = stockItem.item_name_id || stockItem.itemNameId;
+                          const itemNameObj = toolsItemNameListData.find(i => String(i?.id) === String(itemNameId));
+                          const itemName = itemNameObj?.item_name || itemNameObj?.itemName || '';
+                          const purchaseStoreId = stockItem.purchase_store_id || stockItem.purchaseStoreId;
+                          const purchaseStore = purchaseStoreId
+                            ? vendorOptions.find(v => String(v.id) === String(purchaseStoreId))?.label || ''
+                            : '';
+                          const birthLocationId = stockItem.home_location_id || stockItem.homeLocationId;
+                          const birthLocation = birthLocationId
+                            ? toOptions.find(opt => String(opt.id) === String(birthLocationId))?.label || ''
+                            : '';
+                          const currentLocationLabel = locationOption?.label || '';
+                          const imageUrl = stockItem.file_url || stockItem.fileUrl || '';
+                          setRelocateItemDetails({
+                            itemName: itemName,
+                            birthLocation: birthLocation,
+                            currentLocation: currentLocationLabel,
+                            purchaseStore: purchaseStore,
+                            imageUrl: imageUrl
+                          });
+                        }
+                      }
+                    }
+                  }
+                  // Current Location is from_project_id in Relocate
+                  const currentLocationOption = toOptions.find(opt => String(opt.id) === String(editData.from_project_id || editData.fromProjectId));
+                  if (currentLocationOption) {
+                    setSelectedCurrentLocation(currentLocationOption);
+                  }
+                  // Relocate Location is home_location_id in Relocate
+                  const relocateLocationOption = toOptions.find(opt => String(opt.id) === String(editData.home_location_id || editData.homeLocationId));
+                  if (relocateLocationOption) {
+                    setSelectedRelocateLocation(relocateLocationOption);
                   }
                 } else {
                   const toOption = toOptions.find(opt => String(opt.id) === String(editData.to_project_id || editData.toProjectId));
@@ -1664,10 +1793,10 @@ const Transfer = ({ user }) => {
 
         updatedItemRows.push(itemRow);
 
-        if (itemRow.item_ids_id && item.machine_number && itemRow.machine_status) {
+        if (itemRow.item_ids_id && item.machine_number) {
           statusItemsForApi.push({
             item_ids_id: itemRow.item_ids_id,
-            machine_number: item.machine_number,
+            machine_number_id: itemRow.machine_number_id || null,
             machine_status: itemRow.machine_status
           });
         }
@@ -1692,9 +1821,9 @@ const Transfer = ({ user }) => {
         throw new Error(`Failed to update: ${response.status} ${response.statusText}`);
       }
 
-      // Save machine_status to the new API for each item that has itemIdsId and machine_number
+      // Save machine_status to the new API for each item that has itemIdsId and machine_number_id
       const machineStatusPromises = statusItemsForApi
-        .filter(item => item.item_ids_id && item.machine_number && item.machine_status)
+        .filter(item => item.item_ids_id && item.machine_number_id)
         .map(async (item) => {
           try {
             const statusResponse = await fetch(`${TOOLS_MACHINE_STATUS_BASE_URL}/save`, {
@@ -1703,13 +1832,13 @@ const Transfer = ({ user }) => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 item_ids_id: String(item.item_ids_id),
-                machine_number: String(item.machine_number),
+                machine_number_id: String(item.machine_number_id),
                 machine_status: item.machine_status || 'Working',
                 created_by: user?.name || user?.username || 'mobile'
               })
             });
             if (!statusResponse.ok) {
-              console.error(`Failed to save machine status for item ${item.item_ids_id}, machine ${item.machine_number}`);
+              console.error(`Failed to save machine status for item ${item.item_ids_id}, machineId ${item.machine_number_id}`);
             }
           } catch (error) {
             console.error('Error saving machine status:', error);
@@ -1942,10 +2071,10 @@ const Transfer = ({ user }) => {
           eno: String(entryNo),
           tools_tracker_item_name_table: [relocateItemRow]
         };
-        if (relocateItemRow.item_ids_id && (stockItem.machine_number || stockItem.machineNumber || '') && relocateItemRow.machine_status) {
+        if (relocateItemRow.item_ids_id && relocateItemRow.machine_number_id) {
           statusItemsForApi.push({
             item_ids_id: relocateItemRow.item_ids_id,
-            machine_number: stockItem.machine_number || stockItem.machineNumber || '',
+            machine_number_id: relocateItemRow.machine_number_id,
             machine_status: relocateItemRow.machine_status
           });
         }
@@ -1968,12 +2097,12 @@ const Transfer = ({ user }) => {
             const machineNumberId = resolveMachineNumberIdForItemSet(
               itemRow.item_ids_id,
               itemRow.brand_id,
-              itemRow.machine_number
+              item.machine_number || ''
             );
             const hasMachineNumberIdConfigured = hasMachineNumberIdConfiguredForItemSet(
               itemRow.item_ids_id,
               itemRow.brand_id,
-              itemRow.machine_number
+              item.machine_number || ''
             );
             if (hasMachineNumberIdConfigured && !machineNumberId) {
               const itemIdLabel = item.itemId || getItemIdLabelById(itemRow.item_ids_id) || itemRow.item_ids_id;
@@ -1984,10 +2113,10 @@ const Transfer = ({ user }) => {
             if (machineNumberId) {
               itemRow.machine_number_id = String(machineNumberId);
             }
-            if (item.machine_number && itemRow.machine_status) {
+            if (item.machine_number) {
               statusItemsForApi.push({
                 item_ids_id: itemRow.item_ids_id,
-                machine_number: item.machine_number,
+                machine_number_id: itemRow.machine_number_id || null,
                 machine_status: itemRow.machine_status
               });
             }
@@ -2020,9 +2149,9 @@ const Transfer = ({ user }) => {
       }
       const result = await response.json();
 
-      // Save machine_status to the new API for each item that has itemIdsId and machine_number
+      // Save machine_status to the new API for each item that has itemIdsId and machine_number_id
       const machineStatusPromises = statusItemsForApi
-        .filter(item => item.item_ids_id && item.machine_number && item.machine_status)
+        .filter(item => item.item_ids_id && item.machine_number_id)
         .map(async (item) => {
           try {
             const statusResponse = await fetch(`${TOOLS_MACHINE_STATUS_BASE_URL}/save`, {
@@ -2031,13 +2160,13 @@ const Transfer = ({ user }) => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 item_ids_id: String(item.item_ids_id),
-                machine_number: String(item.machine_number),
+                machine_number_id: String(item.machine_number_id),
                 machine_status: item.machine_status || 'Working',
                 created_by: user?.name || user?.username || 'mobile'
               })
             });
             if (!statusResponse.ok) {
-              console.error(`Failed to save machine status for item ${item.item_ids_id}, machine ${item.machine_number}`);
+              console.error(`Failed to save machine status for item ${item.item_ids_id}, machineId ${item.machine_number_id}`);
             }
           } catch (error) {
             console.error('Error saving machine status:', error);
@@ -3077,66 +3206,72 @@ const Transfer = ({ user }) => {
           </button>
         </div>
         <div className='flex gap-3'>
-          {!isEditMode && ((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled)) && (
-            <button onClick={() => setShowConfirmModal(true)} disabled={isSaving} className="flex items-center gap-1 text-[14px] font-medium text-black">
-              {isSaving ? (
-                <span className="text-gray-500">...</span>
-              ) : (
-                <span>{entryServiceMode === 'Service' ? 'Sent to service' : entryServiceMode === 'Relocate' ? 'Relocate' : 'Transfer'}</span>
-              )}
-            </button>
-          )}
-          {!isEditMode && (
-            <div>
+          {isEditMode ? (
+            <>
+              <button
+                onClick={handleUpdateTransfer}
+                disabled={isSaving || !areFieldsFilled || items.length === 0}
+                className="text-[12px] font-semibold leading-normal text-black"
+              >
+                {isSaving ? 'Updating...' : 'Update'}
+              </button>
               <button onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}>
                 <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
               </button>
-            </div>
+            </>
+          ) : (
+            <>
+              {((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled)) && (
+                <button onClick={() => setShowConfirmModal(true)} disabled={isSaving} className="flex items-center gap-1 text-[14px] font-medium text-black">
+                  {isSaving ? (
+                    <span className="text-gray-500">...</span>
+                  ) : (
+                    <span>{entryServiceMode === 'Service' ? 'Sent to service' : entryServiceMode === 'Relocate' ? 'Relocate' : 'Transfer'}</span>
+                  )}
+                </button>
+              )}
+              <div>
+                <button onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}>
+                  <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
       <div className="flex-shrink-0 px-4 pb-2">
-        {isEditMode ? (
-          <div className="flex bg-[#E0E0E0] items-center h-[36px] rounded-[8px]">
-            <button
-              onClick={handleUpdateTransfer}
-              disabled={isSaving || !areFieldsFilled || items.length === 0}
-              className="flex-1 h-full rounded text-[12px] font-semibold leading-normal bg-[#007233] text-white disabled:bg-gray-300 disabled:text-gray-500 transition-colors"
-            >
-              {isSaving ? 'Updating...' : 'Update'}
-            </button>
-          </div>
-        ) : (
-          <div className="flex bg-[#E0E0E0] items-center h-9 rounded-md">
-            <button
-              onClick={handleSwitchToEntry}
-              className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Entry'
-                ? 'bg-white text-black'
-                : 'bg-transparent text-[#848484]'
-                }`}
-            >
-              Entry
-            </button>
-            <button
-              onClick={handleSwitchToService}
-              className={`flex-1 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Service'
-                ? 'bg-white text-black'
-                : 'bg-transparent text-[#848484]'
-                }`}
-            >
-              Service
-            </button>
-            <button
-              onClick={handleSwitchToRelocate}
-              className={`flex-1 h-8 rounded mr-0.5 text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Relocate'
-                ? 'bg-white text-black'
-                : 'bg-transparent text-[#848484]'
-                }`}
-            >
-              Relocate
-            </button>
-          </div>
-        )}
+        <div className="flex bg-[#E0E0E0] items-center h-9 rounded-md">
+          <button
+            onClick={handleSwitchToEntry}
+            disabled={isEditMode && originalEditData && (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate')}
+            className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Entry'
+              ? 'bg-white text-black'
+              : 'bg-transparent text-[#848484]'
+              } ${isEditMode && originalEditData && (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate') ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Entry
+          </button>
+          <button
+            onClick={handleSwitchToService}
+            disabled={isEditMode && originalEditData && ((originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') || (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate'))}
+            className={`flex-1 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Service'
+              ? 'bg-white text-black'
+              : 'bg-transparent text-[#848484]'
+              } ${isEditMode && originalEditData && ((originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') || (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate')) ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Service
+          </button>
+          <button
+            onClick={handleSwitchToRelocate}
+            disabled={isEditMode && originalEditData && (originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry')}
+            className={`flex-1 h-8 rounded mr-0.5 text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Relocate'
+              ? 'bg-white text-black'
+              : 'bg-transparent text-[#848484]'
+              } ${isEditMode && originalEditData && (originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Relocate
+          </button>
+        </div>
       </div>
       {items.length > 0 && !isEditingTransferDetails && entryServiceMode !== 'Relocate' && (
         <div className="flex-shrink-0 px-4">
@@ -3845,7 +3980,32 @@ const Transfer = ({ user }) => {
           )}
         </div>
       )}
-      {entryServiceMode === 'Relocate' && (
+      {items.length > 0 && !isEditingTransferDetails && entryServiceMode === 'Relocate' && (
+        <div className="flex-shrink-0 px-4">
+          <div className="border border-gray-200 rounded-lg p-3">
+            <div className="space-y-1">
+              <div className="flex items-center">
+                <span className="text-[12px] text-gray-500 w-[120px]">Item ID</span>
+                <span className="text-[12px] text-gray-500 mx-2">:</span>
+                <span className="text-[12px] text-gray-700">
+                  {selectedRelocateItemId ? (toolsItemIdFullData.find(i => String(i?.id) === String(selectedRelocateItemId))?.item_id || toolsItemIdFullData.find(i => String(i?.id) === String(selectedRelocateItemId))?.itemId || '-') : '-'}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-[12px] text-gray-500 w-[120px]">Current Location</span>
+                <span className="text-[12px] text-gray-500 mx-2">:</span>
+                <span className="text-[12px] text-gray-700">{selectedCurrentLocation?.label || '-'}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-[12px] text-gray-500 w-[120px]">Relocate Location</span>
+                <span className="text-[12px] text-gray-500 mx-2">:</span>
+                <span className="text-[12px] text-gray-700">{selectedRelocateLocation?.label || '-'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {(items.length === 0 || isEditingTransferDetails) && entryServiceMode === 'Relocate' && (
         <div className="flex-shrink-0 px-4 space-y-[6px]">
           <div className="relative dropdown-container">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
@@ -4176,44 +4336,6 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           </div>
-          {selectedRelocateItemId && relocateItemDetails && (
-            <div className="mb-4">
-              <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                <p className="text-[14px] font-semibold text-black mb-3">Product Detail</p>
-                <div className="space-y-2">
-                  <div className="flex items-start">
-                    <span className="text-[12px] font-medium text-gray-600 w-[120px] flex-shrink-0">Item Name</span>
-                    <span className="text-[12px] font-medium text-black flex-1">: {relocateItemDetails.itemName || '-'}</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="text-[12px] font-medium text-gray-600 w-[120px] flex-shrink-0">Birth Location</span>
-                    <span className="text-[12px] font-medium text-black flex-1">: {relocateItemDetails.birthLocation || '-'}</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="text-[12px] font-medium text-gray-600 w-[120px] flex-shrink-0">Current Location</span>
-                    <span className="text-[12px] font-medium text-black flex-1">: {relocateItemDetails.currentLocation || '-'}</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="text-[12px] font-medium text-gray-600 w-[120px] flex-shrink-0">Purchase Store</span>
-                    <span className="text-[12px] font-medium text-black flex-1">: {relocateItemDetails.purchaseStore || '-'}</span>
-                  </div>
-                </div>
-              </div>
-              {relocateItemDetails.imageUrl && (
-                <div className="mt-4 flex justify-center">
-                  <img
-                    src={relocateItemDetails.imageUrl}
-                    alt={relocateItemDetails.itemName || 'Product'}
-                    className="max-w-full h-auto rounded-lg shadow-md"
-                    style={{ maxHeight: '300px' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
       {showRelocateLocationDropdown && (

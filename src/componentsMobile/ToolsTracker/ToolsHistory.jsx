@@ -322,6 +322,18 @@ const ToolsHistory = ({ user }) => {
     }
     return (item?.machine_number ?? item?.machineNumber ?? '').trim();
   }, [machineNumbersList]);
+  const resolveMachineNumberFromStatus = React.useCallback((status) => {
+    const statusMachineNumberId = status?.machine_number_id ?? status?.machineNumberId;
+    if (statusMachineNumberId != null && machineNumbersList.length > 0) {
+      const rec = machineNumbersList.find(
+        m => String(m?.id ?? m?._id) === String(statusMachineNumberId)
+      );
+      if (rec) {
+        return (rec.machine_number ?? rec.machineNumber ?? '').trim();
+      }
+    }
+    return String(status?.machine_number ?? status?.machineNumber ?? '').trim();
+  }, [machineNumbersList]);
 
   // Machine Number dropdown: one itemId can have multiple machine numbers (current + old), so show all in popup
   const machineNumberOptions = useMemo(() => {
@@ -376,7 +388,7 @@ const ToolsHistory = ({ user }) => {
           // Group by machine number to detect changes
           const statusByMachineNumber = new Map();
           sortedStatuses.forEach(status => {
-            const machineNum = String(status.machine_number || status.machineNumber || '').trim();
+            const machineNum = resolveMachineNumberFromStatus(status);
             if (machineNum) {
               if (!statusByMachineNumber.has(machineNum)) {
                 statusByMachineNumber.set(machineNum, []);
@@ -387,7 +399,7 @@ const ToolsHistory = ({ user }) => {
           
           // Process each status entry
           sortedStatuses.forEach((status, index) => {
-            const machineNum = String(status.machine_number || status.machineNumber || '').trim();
+            const machineNum = resolveMachineNumberFromStatus(status);
             const machineStatus = String(status.machine_status || status.machineStatus || '').trim();
             const statusId = status.id || 0;
             
@@ -400,7 +412,7 @@ const ToolsHistory = ({ user }) => {
             
             if (index > 0 && machineNum) {
               const prevStatus = sortedStatuses[index - 1];
-              const prevMachineNum = String(prevStatus.machine_number || prevStatus.machineNumber || '').trim();
+              const prevMachineNum = resolveMachineNumberFromStatus(prevStatus);
               
               if (prevMachineNum && machineNum !== prevMachineNum) {
                 isMachineNumberChange = true;
@@ -474,7 +486,7 @@ const ToolsHistory = ({ user }) => {
     };
     
     fetchMachineStatusHistory();
-  }, [selectedItemIdDbId]);
+  }, [selectedItemIdDbId, resolveMachineNumberFromStatus]);
 
   // Location name from project or vendor ID (like NetStock.jsx)
   const getLocationName = (id) => {

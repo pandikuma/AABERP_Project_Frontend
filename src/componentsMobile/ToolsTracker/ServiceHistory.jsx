@@ -14,6 +14,7 @@ const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools
 const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
 const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
 const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
+const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
 
 const ServiceHistory = ({ user, onTabChange }) => {
   const [historyData, setHistoryData] = useState([]);
@@ -24,6 +25,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
   const [itemNamesMap, setItemNamesMap] = useState({});
   const [brandsMap, setBrandsMap] = useState({});
   const [itemIdsMap, setItemIdsMap] = useState({});
+  const [machineNumbersMap, setMachineNumbersMap] = useState({});
 
   // Image viewer state
   const [showImageViewer, setShowImageViewer] = useState(false);
@@ -58,7 +60,8 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
   const statusOptions = [
     { value: 'Working', label: 'Problem Solved' },
-    { value: 'Under Repair', label: 'Not Working' },
+    { value: 'Not Working', label: 'Not Working' },
+    { value: 'Under Repair', label: 'Under Repair' },
     { value: 'Machine Dead', label: 'Machine Dead' }
   ];
   const [statusSearchQuery, setStatusSearchQuery] = useState('');
@@ -72,38 +75,19 @@ const ServiceHistory = ({ user, onTabChange }) => {
     expandedEntryIdRef.current = expandedEntryId;
   }, [expandedEntryId]);
 
-  // Helper function to fetch latest machine status from the new API
-  const fetchLatestMachineStatus = async (itemIdsId, machineNumber) => {
-    if (!itemIdsId || !machineNumber) return null;
-    try {
-      const response = await fetch(`${TOOLS_MACHINE_STATUS_BASE_URL}/item/${itemIdsId}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (response.ok) {
-        const statusList = await response.json();
-        if (Array.isArray(statusList) && statusList.length > 0) {
-          // Filter by machine number and get the latest one (by id, assuming higher id = newer)
-          const matchingStatuses = statusList.filter(
-            status => String(status.machine_number || status.machineNumber || '').trim() === String(machineNumber).trim()
-          );
-          if (matchingStatuses.length > 0) {
-            // Sort by id descending to get the latest
-            matchingStatuses.sort((a, b) => (b.id || 0) - (a.id || 0));
-            return matchingStatuses[0].machine_status || matchingStatuses[0].machineStatus || null;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching machine status:', error);
-    }
-    return null;
+  const getMachineStatusKey = (itemIdsId, machineNumberId, machineNumber) => {
+    const itemId = String(itemIdsId || '').trim();
+    const machineId = String(machineNumberId || '').trim();
+    const machineNum = String(machineNumber || '').trim();
+    if (!itemId) return '';
+    if (machineId) return `${itemId}::id::${machineId}`;
+    if (machineNum) return `${itemId}::num::${machineNum}`;
+    return '';
   };
 
   // Helper function to save/update machine status
-  const saveMachineStatus = async (itemIdsId, machineNumber, machineStatus) => {
-    if (!itemIdsId || !machineNumber || !machineStatus) {
+  const saveMachineStatus = async (itemIdsId, machineNumberId, machineStatus) => {
+    if (!itemIdsId || !machineNumberId || !machineStatus) {
       console.error('Missing required fields for saving machine status');
       return false;
     }
@@ -114,7 +98,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           item_ids_id: String(itemIdsId),
-          machine_number: String(machineNumber),
+          machine_number_id: String(machineNumberId),
           machine_status: machineStatus,
           created_by: user?.name || user?.username || 'mobile'
         })
@@ -129,6 +113,15 @@ const ServiceHistory = ({ user, onTabChange }) => {
       console.error('Error saving machine status:', error);
       return false;
     }
+  };
+
+  const resolveMachineNumberText = (entry) => {
+    const machineNumberId = entry?.machineNumberId;
+    if (machineNumberId) {
+      const byId = machineNumbersMap[String(machineNumberId)];
+      if (byId) return byId;
+    }
+    return entry?.machineNumber || '-';
   };
 
   // Fetch lookup data for mapping IDs to names
@@ -234,6 +227,34 @@ const ServiceHistory = ({ user, onTabChange }) => {
     fetchLookupData();
   }, []);
 
+  // Fetch machine numbers (for resolving machine_number_id to display text)
+  useEffect(() => {
+    const fetchMachineNumbers = async () => {
+      try {
+        const response = await fetch(`${TOOLS_MACHINE_NUMBER_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const map = {};
+          (Array.isArray(data) ? data : []).forEach((m) => {
+            const id = m?.id ?? m?._id;
+            const machineNumber = (m?.machine_number ?? m?.machineNumber ?? '').trim();
+            if (id != null && machineNumber) {
+              map[String(id)] = machineNumber;
+            }
+          });
+          setMachineNumbersMap(map);
+        }
+      } catch (error) {
+        console.error('Error fetching machine numbers:', error);
+      }
+    };
+    fetchMachineNumbers();
+  }, []);
+
   // Fetch history data from tools tracker management API
   useEffect(() => {
     const fetchHistory = async () => {
@@ -304,6 +325,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   brandId: item.brand_id || item.brandId || '',
                   itemIdsId: item.item_ids_id || item.itemIdsId || '',
                   machineNumber: item.machine_number || item.machineNumber || '',
+                  machineNumberId: item.machine_number_id || item.machineNumberId || '',
                   machineStatus: item.machine_status || item.machineStatus || 'Working',
                   quantity: item.quantity || 0,
                   description: item.description || '',
@@ -322,18 +344,56 @@ const ServiceHistory = ({ user, onTabChange }) => {
           // Filter to only show 'Service' type data (exclude Entry and other types)
           const filteredData = flattenedData.filter(entry => entry.toolsEntryType === 'service');
 
-          // Fetch latest machine status from the new API for each entry
-          const enrichedData = await Promise.all(
-            filteredData.map(async (entry) => {
-              if (entry.itemIdsId && entry.machineNumber) {
-                const latestStatus = await fetchLatestMachineStatus(entry.itemIdsId, entry.machineNumber);
-                if (latestStatus) {
-                  return { ...entry, machineStatus: latestStatus };
-                }
-              }
-              return entry;
-            })
-          );
+          // Fetch latest status list once and resolve current status by item_ids_id + machine_number_id
+          let machineStatusList = [];
+          try {
+            const statusResponse = await fetch(`${TOOLS_MACHINE_STATUS_BASE_URL}/all`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              machineStatusList = Array.isArray(statusData) ? statusData : [];
+            }
+          } catch (error) {
+            console.error('Error fetching machine status list:', error);
+          }
+
+          const latestStatusByKey = new Map();
+          machineStatusList.forEach((statusRow) => {
+            const key = getMachineStatusKey(
+              statusRow.item_ids_id || statusRow.itemIdsId,
+              statusRow.machine_number_id || statusRow.machineNumberId,
+              statusRow.machine_number || statusRow.machineNumber
+            );
+            if (!key) return;
+            const existing = latestStatusByKey.get(key);
+            const existingId = Number(existing?.id || 0);
+            const currentId = Number(statusRow?.id || 0);
+            if (!existing || currentId >= existingId) {
+              latestStatusByKey.set(key, statusRow);
+            }
+          });
+
+          const enrichedData = filteredData.map((entry) => {
+            const key = getMachineStatusKey(entry.itemIdsId, entry.machineNumberId, entry.machineNumber);
+            const latestStatusRow = key ? latestStatusByKey.get(key) : null;
+            const apiStatus = latestStatusRow
+              ? (latestStatusRow.machine_status || latestStatusRow.machineStatus || '')
+              : '';
+
+            if (apiStatus) {
+              return { ...entry, machineStatus: apiStatus };
+            }
+
+            // If this entry has machine_number_id but no status in /all, avoid showing stale dead status.
+            if (entry.machineNumberId) {
+              return { ...entry, machineStatus: 'Working' };
+            }
+
+            return { ...entry, machineStatus: entry.machineStatus || 'Working' };
+          });
 
           setHistoryData(enrichedData);
         } else {
@@ -445,8 +505,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
   // Bottom sheet handlers
   const handleCardClickForBottomSheet = (entry) => {
     setSelectedEntry(entry);
-    // Map "Not Working" to "Machine Dead" for consistency
-    const statusToSet = entry.machineStatus === 'Not Working' ? 'Machine Dead' : (entry.machineStatus || '');
+    const statusToSet = entry.machineStatus || '';
     setSelectedStatus(statusToSet);
     setShowBottomSheet(true);
   };
@@ -468,7 +527,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
     // Save machine status to the new API
     const success = await saveMachineStatus(
       selectedEntry.itemIdsId,
-      selectedEntry.machineNumber,
+      selectedEntry.machineNumberId,
       selectedStatus
     );
 
@@ -657,23 +716,27 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
   // Get status display text and color
   const getStatusDisplay = (status) => {
-    switch (status) {
-      case 'Working':
-        return { text: 'Problem Solved', color: 'text-[#BF9853]' };
-      case 'Not Working':
-        return { text: 'Machine Dead', color: 'text-[#F44336]' };
-      case 'Machine Dead':
-        return { text: 'Machine Dead', color: 'text-[#F44336]' };
-      case 'Under Repair':
-        return { text: 'Pending', color: 'text-[#BF9853]' };
-      default:
-        return { text: status || 'Pending', color: 'text-[#BF9853]' };
+    const normalized = String(status || '').trim();
+    if (normalized === 'Machine Dead') {
+      return { text: 'Machine Dead', color: 'text-[#F44336]' };
     }
+    if (normalized === 'Not Working') {
+      return { text: 'Not Working', color: 'text-[#F44336]' };
+    }
+    if (normalized === 'Under Repair') {
+      return { text: 'Under Repair', color: 'text-[#FF9800]' };
+    }
+    if (normalized === 'Working') {
+      return { text: 'Working', color: 'text-[#4CAF50]' };
+    }
+    return { text: normalized || 'Pending', color: 'text-[#BF9853]' };
   };
 
   // Get filter options
   const filterItemNameOptions = Object.values(itemNamesMap).filter(Boolean);
-  const filterMachineNumberOptions = Array.from(new Set(historyData.map(entry => entry.machineNumber).filter(Boolean)));
+  const filterMachineNumberOptions = Array.from(
+    new Set(historyData.map((entry) => resolveMachineNumberText(entry)).filter(Boolean))
+  );
   const filterItemIdOptions = Object.values(itemIdsMap).filter(Boolean);
   const filterProjectInchargeOptions = Object.values(employeesMap).filter(Boolean);
 
@@ -752,6 +815,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
               // Get item ID name (like "AA DM 01") from the map using item_ids_id
               const itemIdName = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
               const hasImages = entry.images.length > 0;
+              const machineNumberText = resolveMachineNumberText(entry);
 
               // Get status display
               const statusDisplay = getStatusDisplay(entry.machineStatus);
@@ -772,7 +836,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                     : 0;
 
               return (
-                <div key={entry.id} className="overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] h-[100px]">
+                <div key={entry.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] h-[100px]">
                   {/* Card */}
                   <div
                     data-entry-id={entryId}
@@ -799,7 +863,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                     {/* Row 2: Machine Number | Person Name */}
                     <div className="flex items-start justify-between mb-1">
                       <p className="text-[14px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
-                        {entry.machineNumber || '-'}
+                        {machineNumberText}
                       </p>
                       <p className="text-[12px] text-black leading-snug flex-shrink-0 ml-2">
                         {inchargeName}
@@ -966,7 +1030,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                       'text-[#9E9E9E]'
                   }`}
               >
-                {imageViewerData.machineStatus === 'Not Working' ? 'Machine Dead' : imageViewerData.machineStatus}
+                {imageViewerData.machineStatus}
               </p>
             </div>
           </div>

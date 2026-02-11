@@ -64,26 +64,41 @@ const AddInput = ({ user }) => {
   const [homeLocationOptions, setHomeLocationOptions] = useState([]); // Project names from project_Names API
   const [showNewItemIdInput, setShowNewItemIdInput] = useState(false);
   const [newItemIdValue, setNewItemIdValue] = useState('');
+  const machineNumberTextById = React.useMemo(() => {
+    const map = {};
+    machineNumbersList.forEach((m) => {
+      const id = m?.id ?? m?._id;
+      const machineText = (m?.machine_number ?? m?.machineNumber ?? '').trim();
+      if (id != null && machineText) {
+        map[String(id)] = machineText;
+      }
+    });
+    return map;
+  }, [machineNumbersList]);
+
   // Helper to get latest machine status for an itemIdsId + machineNumber combination
   const getLatestMachineStatus = React.useMemo(() => {
-    const statusMap = new Map();
-    
+    const statusMap = new Map();    
     // Group machine statuses by itemIdsId + machineNumber and get latest for each
     machineStatusData.forEach(status => {
       const itemIdsId = String(status.item_ids_id || status.itemIdsId || '');
-      const machineNum = String(status.machine_number || status.machineNumber || '');
-      const key = `${itemIdsId}_${machineNum}`;
-      
+      const machineNumId = status.machine_number_id || status.machineNumberId;
+      const machineNum = String(
+        (machineNumId != null ? machineNumberTextById[String(machineNumId)] : null) ||
+        status.machine_number ||
+        status.machineNumber ||
+        ''
+      ).trim();
+      const key = `${itemIdsId}_${machineNum}`;      
       if (itemIdsId && machineNum) {
         const existing = statusMap.get(key);
         if (!existing || (status.id || 0) > (existing.id || 0)) {
           statusMap.set(key, status);
         }
       }
-    });
-    
+    });    
     return statusMap;
-  }, [machineStatusData]);
+  }, [machineStatusData, machineNumberTextById]);
 
   const resolveMachineNumFromStock = React.useCallback((item) => {
     const mnId = item?.machine_number_id ?? item?.machineNumberId;
@@ -109,13 +124,13 @@ const AddInput = ({ user }) => {
           // Use status from new API
           const machineStatus = (latestStatus.machine_status || latestStatus.machineStatus || '').toLowerCase();
           // Only mark as used if status is NOT "Machine Dead" or "Not Working"
-          if (machineStatus !== 'machine dead') {
+          if (machineStatus !== 'machine dead' && machineStatus !== 'not working') {
             usedIds.add(String(itemIdId));
           }
         } else {
           // If no status in new API, fallback to checking tool_status from stock management
           const toolStatus = (item?.tool_status ?? item?.toolStatus)?.toLowerCase();
-          if (toolStatus && toolStatus !== 'machine dead') {
+          if (toolStatus && toolStatus !== 'machine dead' && toolStatus !== 'not working') {
             usedIds.add(String(itemIdId));
           }
         }
@@ -123,49 +138,49 @@ const AddInput = ({ user }) => {
     });
     return usedIds;
   }, [stockManagementData, getLatestMachineStatus, resolveMachineNumFromStock]);
-  // Helper function to check if an itemId has any machine with Dead/Not Working status
-  const hasDeadOrNotWorkingMachine = React.useMemo(() => {
-    const itemIdsWithDeadStatus = new Set();
-    
+  // Helper function to check if an itemId has any machine with Machine Dead status
+  const hasMachineDeadStatus = React.useMemo(() => {
+    const itemIdsWithDeadStatus = new Set();    
     // Group machine statuses by itemIdsId
     const statusByItemId = {};
     machineStatusData.forEach(status => {
       const itemIdsId = String(status.item_ids_id || status.itemIdsId || '');
-      const machineStatus = (status.machine_status || status.machineStatus || '')      
-      if (itemIdsId && (machineStatus === 'Machine Dead')) {
+      const machineStatus = String(status.machine_status || status.machineStatus || '').trim().toLowerCase();
+      if (itemIdsId && machineStatus === 'machine dead') {
         if (!statusByItemId[itemIdsId]) {
           statusByItemId[itemIdsId] = [];
         }
         statusByItemId[itemIdsId].push(status);
       }
-    });
-    
+    });    
     // For each itemIdsId, get the latest status for each machine number
     Object.keys(statusByItemId).forEach(itemIdsId => {
       const statuses = statusByItemId[itemIdsId];
       // Group by machine number and get latest status for each
       const byMachineNumber = {};
       statuses.forEach(status => {
-        const machineNum = String(status.machine_number || status.machineNumber || '');
+        const machineNumId = status.machine_number_id || status.machineNumberId;
+        const machineNum = String(
+          (machineNumId != null ? machineNumberTextById[String(machineNumId)] : null) ||
+          status.machine_number ||
+          status.machineNumber ||
+          ''
+        ).trim();
         if (!byMachineNumber[machineNum] || (status.id || 0) > (byMachineNumber[machineNum].id || 0)) {
           byMachineNumber[machineNum] = status;
         }
-      });
-      
-      // Check if any machine has Dead or Not Working status
+      });      
+      // Check if any machine has Machine Dead status
       const hasDeadMachine = Object.values(byMachineNumber).some(status => {
-        const statusLower = (status.machine_status || status.machineStatus || '')
-        return statusLower === 'Machine Dead';
-      });
-      
+        const statusLower = String(status.machine_status || status.machineStatus || '').trim().toLowerCase();
+        return statusLower === 'machine dead';
+      });      
       if (hasDeadMachine) {
         itemIdsWithDeadStatus.add(itemIdsId);
       }
-    });
-    
+    });    
     return itemIdsWithDeadStatus;
-  }, [machineStatusData]);
-
+  }, [machineStatusData, machineNumberTextById]);
   const sheetItemIdOptions = React.useMemo(() => {
     return apiItemIdOptions.filter(itemIdName => {
       const itemIdObj = toolsItemIdFullData.find(
@@ -176,15 +191,13 @@ const AddInput = ({ user }) => {
         // If itemId not found in database, check if it exists in machine status data
         // This handles cases where itemId might be referenced in status but not in tools_item_id table
         return false;
-      }
-      
-      // Check if this itemId has any machine with Dead/Not Working status
-      const hasDeadStatus = hasDeadOrNotWorkingMachine.has(String(dbId));
-      
-      // Only show itemIds that have Dead/Not Working status AND are not currently in use
+      }      
+      // Check if this itemId has any machine with Machine Dead status
+      const hasDeadStatus = hasMachineDeadStatus.has(String(dbId));      
+      // Only show itemIds that have Machine Dead status AND are not currently in use
       return hasDeadStatus && !usedItemIds.has(String(dbId));
     });
-  }, [apiItemIdOptions, toolsItemIdFullData, usedItemIds, hasDeadOrNotWorkingMachine]);
+  }, [apiItemIdOptions, toolsItemIdFullData, usedItemIds, hasMachineDeadStatus]);
   const [tableData, setTableData] = useState([]);
   useEffect(() => {
     const fetchItemNames = async () => {
@@ -235,9 +248,21 @@ const AddInput = ({ user }) => {
     const idsFromDetails = details
       .map(d => d?.item_ids_id ?? d?.itemIdsId)
       .filter(Boolean);
-    const allIds = Array.from(new Set([...apiItemIdOptions, ...idsFromDetails]));
-    setItemIdOptions(allIds);
-  }, [selectedItemName, toolsItemNameListData, apiItemIdOptions, machineNumbersList, resolveMachineNumFromStock]);
+    const detailItemIdOptions = idsFromDetails
+      .map((itemIdDbId) => {
+        const match = toolsItemIdFullData.find(
+          (item) => String(item?.id) === String(itemIdDbId)
+        );
+        return (match?.item_id ?? match?.itemId ?? '').trim();
+      })
+      .filter(Boolean);
+    if (detailItemIdOptions.length > 0) {
+      const detailSet = new Set(detailItemIdOptions.map((x) => x.toLowerCase()));
+      setItemIdOptions(apiItemIdOptions.filter((x) => detailSet.has(String(x).toLowerCase())));
+    } else {
+      setItemIdOptions(apiItemIdOptions);
+    }
+  }, [selectedItemName, toolsItemNameListData, apiItemIdOptions, machineNumbersList, resolveMachineNumFromStock, toolsItemIdFullData]);
   useEffect(() => {
     const fetchBrands = async () => {
       try {
@@ -301,7 +326,6 @@ const AddInput = ({ user }) => {
     };
     fetchStockManagement();
   }, []);
-
   // Fetch machine numbers (to resolve machine_number_id for display)
   useEffect(() => {
     const fetchMachineNumbers = async () => {
@@ -321,7 +345,6 @@ const AddInput = ({ user }) => {
     };
     fetchMachineNumbers();
   }, []);
-
   // Fetch machine status data from the new API
   useEffect(() => {
     const fetchMachineStatus = async () => {
