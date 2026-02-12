@@ -805,10 +805,10 @@ const NetStock = ({ user }) => {
       
       {/* Table/List Segmented Control */}
       <div className="flex-shrink-0">
-        <div className="flex bg-gray-100 items-center h-9 shadow-sm flex-1 rounded-md">
+        <div className="flex bg-[#F2F4F7] items-center h-9 shadow-sm rounded-md">
           <button
             onClick={() => setViewMode('table')}
-            className={`flex-1 py-1 px-4 ml-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${viewMode === 'table'
+            className={`flex-1 px-4 ml-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${viewMode === 'table'
               ? 'bg-white text-black'
               : 'bg-gray-100 text-gray-600'
               }`}
@@ -817,7 +817,7 @@ const NetStock = ({ user }) => {
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`flex-1 py-1 px-4 mr-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${viewMode === 'list'
+            className={`flex-1 px-4 mr-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${viewMode === 'list'
               ? 'bg-white text-black'
               : 'bg-gray-100 text-gray-600'
               }`}

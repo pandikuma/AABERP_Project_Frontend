@@ -64,6 +64,10 @@ const AddInput = ({ user }) => {
   const [homeLocationOptions, setHomeLocationOptions] = useState([]); // Project names from project_Names API
   const [showNewItemIdInput, setShowNewItemIdInput] = useState(false);
   const [newItemIdValue, setNewItemIdValue] = useState('');
+  const [showNewItemNameInput, setShowNewItemNameInput] = useState(false);
+  const [newItemNameValue, setNewItemNameValue] = useState('');
+  const [showNewBrandInput, setShowNewBrandInput] = useState(false);
+  const [newBrandValue, setNewBrandValue] = useState('');
   const machineNumberTextById = React.useMemo(() => {
     const map = {};
     machineNumbersList.forEach((m) => {
@@ -78,7 +82,7 @@ const AddInput = ({ user }) => {
 
   // Helper to get latest machine status for an itemIdsId + machineNumber combination
   const getLatestMachineStatus = React.useMemo(() => {
-    const statusMap = new Map();    
+    const statusMap = new Map();
     // Group machine statuses by itemIdsId + machineNumber and get latest for each
     machineStatusData.forEach(status => {
       const itemIdsId = String(status.item_ids_id || status.itemIdsId || '');
@@ -89,14 +93,14 @@ const AddInput = ({ user }) => {
         status.machineNumber ||
         ''
       ).trim();
-      const key = `${itemIdsId}_${machineNum}`;      
+      const key = `${itemIdsId}_${machineNum}`;
       if (itemIdsId && machineNum) {
         const existing = statusMap.get(key);
         if (!existing || (status.id || 0) > (existing.id || 0)) {
           statusMap.set(key, status);
         }
       }
-    });    
+    });
     return statusMap;
   }, [machineStatusData, machineNumberTextById]);
 
@@ -114,12 +118,12 @@ const AddInput = ({ user }) => {
     stockManagementData.forEach(item => {
       const itemIdId = item?.item_ids_id ?? item?.itemIdsId;
       const machineNum = resolveMachineNumFromStock(item);
-      
+
       if (itemIdId && machineNum) {
         // Check machine status from new API
         const key = `${String(itemIdId)}_${String(machineNum)}`;
         const latestStatus = getLatestMachineStatus.get(key);
-        
+
         if (latestStatus) {
           // Use status from new API
           const machineStatus = (latestStatus.machine_status || latestStatus.machineStatus || '').toLowerCase();
@@ -140,7 +144,7 @@ const AddInput = ({ user }) => {
   }, [stockManagementData, getLatestMachineStatus, resolveMachineNumFromStock]);
   // Helper function to check if an itemId has any machine with Machine Dead status
   const hasMachineDeadStatus = React.useMemo(() => {
-    const itemIdsWithDeadStatus = new Set();    
+    const itemIdsWithDeadStatus = new Set();
     // Group machine statuses by itemIdsId
     const statusByItemId = {};
     machineStatusData.forEach(status => {
@@ -152,7 +156,7 @@ const AddInput = ({ user }) => {
         }
         statusByItemId[itemIdsId].push(status);
       }
-    });    
+    });
     // For each itemIdsId, get the latest status for each machine number
     Object.keys(statusByItemId).forEach(itemIdsId => {
       const statuses = statusByItemId[itemIdsId];
@@ -169,16 +173,16 @@ const AddInput = ({ user }) => {
         if (!byMachineNumber[machineNum] || (status.id || 0) > (byMachineNumber[machineNum].id || 0)) {
           byMachineNumber[machineNum] = status;
         }
-      });      
+      });
       // Check if any machine has Machine Dead status
       const hasDeadMachine = Object.values(byMachineNumber).some(status => {
         const statusLower = String(status.machine_status || status.machineStatus || '').trim().toLowerCase();
         return statusLower === 'machine dead';
-      });      
+      });
       if (hasDeadMachine) {
         itemIdsWithDeadStatus.add(itemIdsId);
       }
-    });    
+    });
     return itemIdsWithDeadStatus;
   }, [machineStatusData, machineNumberTextById]);
   const sheetItemIdOptions = React.useMemo(() => {
@@ -191,9 +195,9 @@ const AddInput = ({ user }) => {
         // If itemId not found in database, check if it exists in machine status data
         // This handles cases where itemId might be referenced in status but not in tools_item_id table
         return false;
-      }      
+      }
       // Check if this itemId has any machine with Machine Dead status
-      const hasDeadStatus = hasMachineDeadStatus.has(String(dbId));      
+      const hasDeadStatus = hasMachineDeadStatus.has(String(dbId));
       // Only show itemIds that have Machine Dead status AND are not currently in use
       return hasDeadStatus && !usedItemIds.has(String(dbId));
     });
@@ -670,7 +674,7 @@ const AddInput = ({ user }) => {
     // Convert to Indian Standard Time (IST = UTC+5:30)
     const istOffset = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
     const istDate = new Date(date.getTime() + istOffset);
-    
+
     // Format as YYYY-MM-DDTHH:mm:ss (ISO-8601 format for Java LocalDateTime)
     const year = istDate.getUTCFullYear();
     const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
@@ -678,12 +682,12 @@ const AddInput = ({ user }) => {
     const hours = String(istDate.getUTCHours()).padStart(2, '0');
     const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
     const seconds = String(istDate.getUTCSeconds()).padStart(2, '0');
-    
+
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   };
   const isItemIdInUseWithMachine = (itemIdDbId, itemIdName) => {
     if (!itemIdDbId && !itemIdName) return { inUse: false, machineNumber: null };
-    
+
     // Find matching items in stock management (stock has machine_number_id, resolve to text for status lookup)
     const matchingStockItems = stockManagementData.filter(item => {
       const storedItemIdId = item?.item_ids_id ?? item?.itemIdsId;
@@ -693,14 +697,14 @@ const AddInput = ({ user }) => {
         : String(storedItemIdId) === String(itemIdName);
       return idMatches && machineNum;
     });
-    
+
     // Check machine status from new API for each matching item
     for (const stockItem of matchingStockItems) {
       const itemIdsId = String(stockItem?.item_ids_id ?? stockItem?.itemIdsId);
       const machineNum = String(resolveMachineNumFromStock(stockItem));
       const key = `${itemIdsId}_${machineNum}`;
       const latestStatus = getLatestMachineStatus.get(key);
-      
+
       if (latestStatus) {
         // Use status from new API
         const machineStatus = (latestStatus.machine_status || latestStatus.machineStatus || '').toLowerCase();
@@ -722,7 +726,7 @@ const AddInput = ({ user }) => {
         }
       }
     }
-    
+
     return { inUse: false, machineNumber: null };
   };
   const buildNewToolDetail = (machineNumberId) => ({
@@ -1028,20 +1032,164 @@ const AddInput = ({ user }) => {
     setSheetPickerSearch('');
     setShowNewItemIdInput(false);
     setNewItemIdValue('');
+    setShowNewItemNameInput(false);
+    setNewItemNameValue('');
+    setShowNewBrandInput(false);
+    setNewBrandValue('');
   };
   const closeSheetPicker = () => {
     setSheetOpenPicker(null);
     setSheetPickerSearch('');
     setShowNewItemIdInput(false);
     setNewItemIdValue('');
+    setShowNewItemNameInput(false);
+    setNewItemNameValue('');
+    setShowNewBrandInput(false);
+    setNewBrandValue('');
   };
-  const handleSheetPickerSelect = (field, value) => {
+  const handleSheetPickerSelect = async (field, value) => {
     if (field === 'itemId' && value === '__CREATE_NEW__') {
       setShowNewItemIdInput(true);
       return;
     }
+    if (value === '__CREATE_FROM_SEARCH__') {
+      const searchTerm = (sheetPickerSearch || '').trim();
+      if (!searchTerm) return;
+
+      if (field === 'itemName') {
+        await handleCreateNewItemNameFromSheet(searchTerm);
+      } else if (field === 'itemId') {
+        await handleCreateNewItemIdFromSheet(searchTerm);
+      } else if (field === 'brand') {
+        await handleCreateNewBrandFromSheet(searchTerm);
+      }
+      return;
+    }
     handleAddSheetFieldChange(field, value);
     closeSheetPicker();
+  };
+  const handleCreateNewItemNameFromSheet = async (newItemName) => {
+    if (!newItemName || !newItemName.trim()) {
+      return;
+    }
+    const trimmedName = newItemName.trim();
+    try {
+      const payload = {
+        category_id: selectedCategory ?? null,
+        item_name: trimmedName,
+        tools_details: []
+      };
+      const res = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/save`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
+      }
+      const refreshed = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (refreshed.ok) {
+        const data = await refreshed.json();
+        setToolsItemNameListData(Array.isArray(data) ? data : []);
+        const names = (Array.isArray(data) ? data : [])
+          .map(item => item?.item_name ?? item?.itemName)
+          .filter(Boolean);
+        setItemNameOptions(Array.from(new Set(names)));
+        handleAddSheetFieldChange('itemName', trimmedName);
+        closeSheetPicker();
+      }
+    } catch (e) {
+      console.error('Error saving new Item Name:', e);
+      alert('Failed to save new Item Name. Please try again.');
+    }
+  };
+  const handleCreateNewBrandFromSheet = async (newBrand) => {
+    if (!newBrand || !newBrand.trim()) {
+      return;
+    }
+    const trimmedBrand = newBrand.trim();
+    try {
+      const payload = {
+        tools_brand: trimmedBrand
+      };
+      const res = await fetch(`${TOOLS_BRAND_BASE_URL}/save`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
+      }
+      const refreshed = await fetch(`${TOOLS_BRAND_BASE_URL}/getAll`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (refreshed.ok) {
+        const data = await refreshed.json();
+        setToolsBrandFullData(Array.isArray(data) ? data : []);
+        const brandOpts = (Array.isArray(data) ? data : [])
+          .map(b => b?.tools_brand?.trim() ?? b?.toolsBrand?.trim())
+          .filter(b => b);
+        setBrandOptions(Array.from(new Set(brandOpts)));
+        handleAddSheetFieldChange('brand', trimmedBrand);
+        closeSheetPicker();
+      }
+    } catch (e) {
+      console.error('Error saving new Brand:', e);
+      alert('Failed to save new Brand. Please try again.');
+    }
+  };
+  const handleCreateNewItemIdFromSheet = async (newItemId) => {
+    if (!newItemId || !newItemId.trim()) {
+      return;
+    }
+    const trimmedItemId = newItemId.trim();
+    try {
+      const payload = { item_id: trimmedItemId };
+      const res = await fetch(`${TOOLS_ITEM_ID_BASE_URL}/save`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
+      }
+      const refreshed = await fetch(`${TOOLS_ITEM_ID_BASE_URL}/getAll`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (refreshed.ok) {
+        const data = await refreshed.json();
+        const dataArray = Array.isArray(data) ? data : [];
+        setToolsItemIdFullData(dataArray);
+        const itemIdOpts = dataArray
+          .map(item => item?.item_id?.trim() ?? item?.itemId?.trim())
+          .filter(item => item);
+        setApiItemIdOptions(itemIdOpts);
+        const newItemIdObj = dataArray.find(
+          item => (item?.item_id?.trim() ?? item?.itemId?.trim())?.toLowerCase() === trimmedItemId.toLowerCase()
+        );
+        const newItemIdDbId = newItemIdObj?.id ?? null;
+        setAddSheetForm(prev => ({
+          ...prev,
+          itemId: trimmedItemId,
+          itemIdDbId: newItemIdDbId,
+        }));
+        closeSheetPicker();
+      }
+    } catch (e) {
+      console.error('Error saving new Item ID:', e);
+      alert('Failed to save new Item ID. Please try again.');
+    }
   };
   const handleCreateNewItemId = async () => {
     if (!newItemIdValue || !newItemIdValue.trim()) {
@@ -1093,6 +1241,110 @@ const AddInput = ({ user }) => {
       alert('Failed to save new Item ID. Please try again.');
     }
   };
+  const handleCreateNewItemName = async () => {
+    if (!newItemNameValue || !newItemNameValue.trim()) {
+      alert('Please enter an Item Name');
+      return;
+    }
+    const trimmedName = newItemNameValue.trim();
+    if (itemNameOptions.some(name => name.toLowerCase() === trimmedName.toLowerCase())) {
+      alert('This Item Name already exists. Please enter a different one.');
+      return;
+    }
+    try {
+      const payload = {
+        category_id: selectedCategory ?? null,
+        item_name: trimmedName,
+        tools_details: []
+      };
+      const res = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/save`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
+      }
+      const refreshed = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (refreshed.ok) {
+        const data = await refreshed.json();
+        setToolsItemNameListData(Array.isArray(data) ? data : []);
+        const names = (Array.isArray(data) ? data : [])
+          .map(item => item?.item_name ?? item?.itemName)
+          .filter(Boolean);
+        setItemNameOptions(Array.from(new Set(names)));
+        const newItemNameObj = (Array.isArray(data) ? data : []).find(
+          item => (item?.item_name ?? item?.itemName)?.toLowerCase() === trimmedName.toLowerCase()
+        );
+        const newItemNameId = newItemNameObj?.id ?? null;
+        setAddSheetForm(prev => ({
+          ...prev,
+          itemName: trimmedName,
+          itemNameId: newItemNameId,
+        }));
+        closeSheetPicker();
+      }
+    } catch (e) {
+      console.error('Error saving new Item Name:', e);
+      alert('Failed to save new Item Name. Please try again.');
+    }
+  };
+  const handleCreateNewBrand = async () => {
+    if (!newBrandValue || !newBrandValue.trim()) {
+      alert('Please enter a Brand');
+      return;
+    }
+    const trimmedBrand = newBrandValue.trim();
+    if (brandOptions.some(b => b.toLowerCase() === trimmedBrand.toLowerCase())) {
+      alert('This Brand already exists. Please enter a different one.');
+      return;
+    }
+    try {
+      const payload = {
+        tools_brand: trimmedBrand
+      };
+      const res = await fetch(`${TOOLS_BRAND_BASE_URL}/save`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to save: ${res.status} ${res.statusText}`);
+      }
+      const refreshed = await fetch(`${TOOLS_BRAND_BASE_URL}/getAll`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (refreshed.ok) {
+        const data = await refreshed.json();
+        setToolsBrandFullData(Array.isArray(data) ? data : []);
+        const brandOpts = (Array.isArray(data) ? data : [])
+          .map(b => b?.tools_brand?.trim() ?? b?.toolsBrand?.trim())
+          .filter(b => b);
+        setBrandOptions(Array.from(new Set(brandOpts)));
+        const newBrandObj = (Array.isArray(data) ? data : []).find(
+          b => (b?.tools_brand?.trim() ?? b?.toolsBrand?.trim())?.toLowerCase() === trimmedBrand.toLowerCase()
+        );
+        const newBrandId = newBrandObj?.id ?? null;
+        setAddSheetForm(prev => ({
+          ...prev,
+          brand: trimmedBrand,
+          brandId: newBrandId,
+        }));
+        closeSheetPicker();
+      }
+    } catch (e) {
+      console.error('Error saving new Brand:', e);
+      alert('Failed to save new Brand. Please try again.');
+    }
+  };
   // Helper functions to convert between date formats
   // DatePickerModal returns "dd/mm/yyyy", but we store dates in "dd/mm/yyyy" format for display
   const formatDateForDisplay = (dateStr) => {
@@ -1131,13 +1383,25 @@ const AddInput = ({ user }) => {
 
   const renderSheetDropdown = (field, value, placeholder) => (
     <div className="relative w-full">
-      <div onClick={() => openSheetPicker(field)}
-        className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
-        style={{ color: value ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
-      >
-        {value || placeholder}
-      </div>
-      {value && (
+      {showAddNewSheet && sheetOpenPicker === field ? (
+        <input
+          type="text"
+          value={sheetPickerSearch}
+          onChange={(e) => setSheetPickerSearch(e.target.value)}
+          placeholder={placeholder}
+          className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white focus:outline-none"
+          style={{ color: '#000', boxSizing: 'border-box', paddingRight: '40px' }}
+          autoFocus
+        />
+      ) : (
+        <div onClick={() => openSheetPicker(field)}
+          className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+          style={{ color: value ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+        >
+          {value || placeholder}
+        </div>
+      )}
+      {value && !(showAddNewSheet && sheetOpenPicker === field) && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); handleAddSheetFieldChange(field, ''); }}
@@ -1149,6 +1413,162 @@ const AddInput = ({ user }) => {
       <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
         <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </div>
+      {/* Dropdown options */}
+      {showAddNewSheet && sheetOpenPicker === field && (
+        <div className={`absolute ${field === 'purchaseStore' ? 'bottom-full mb-1' : 'top-full mt-1'} left-0 right-0 bg-white border border-[rgba(0,0,0,0.16)] rounded-[8px] shadow-lg max-h-[150px] overflow-hidden flex flex-col`} style={{ zIndex: 60 }}>
+          {/* Show input form for creating new Item ID */}
+          {showNewItemIdInput && field === 'itemId' ? (
+            <div className="p-3">
+              <p className="text-[12px] font-medium text-gray-600 mb-2">Enter a new Item ID:</p>
+              <input
+                type="text"
+                value={newItemIdValue}
+                onChange={(e) => setNewItemIdValue(e.target.value)}
+                placeholder="e.g., AA DM 07"
+                className="w-full h-[32px] px-3 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none mb-2"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button type="button" onClick={handleCreateNewItemId} className="flex-1 h-[32px] rounded-[8px] text-[12px] font-bold text-white bg-black">
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewItemIdInput(false);
+                    setNewItemIdValue('');
+                  }}
+                  className="flex-1 h-[32px] border border-black rounded-[8px] text-[12px] font-bold text-black bg-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : showNewItemNameInput && field === 'itemName' ? (
+            <div className="p-3">
+              <p className="text-[12px] font-medium text-gray-600 mb-2">Enter new item name:</p>
+              <input
+                type="text"
+                value={newItemNameValue}
+                onChange={(e) => setNewItemNameValue(e.target.value)}
+                placeholder="Enter new item name"
+                className="w-full h-[32px] px-3 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none mb-2"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button type="button" onClick={handleCreateNewItemName} className="flex-1 h-[32px] rounded-[8px] text-[12px] font-bold text-white bg-black">
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewItemNameInput(false);
+                    setNewItemNameValue('');
+                  }}
+                  className="flex-1 h-[32px] border border-black rounded-[8px] text-[12px] font-bold text-black bg-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : showNewBrandInput && field === 'brand' ? (
+            <div className="p-3">
+              <p className="text-[12px] font-medium text-gray-600 mb-2">Enter new brand:</p>
+              <input
+                type="text"
+                value={newBrandValue}
+                onChange={(e) => setNewBrandValue(e.target.value)}
+                placeholder="Enter new brand"
+                className="w-full h-[32px] px-3 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none mb-2"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button type="button" onClick={handleCreateNewBrand} className="flex-1 h-[32px] rounded-[8px] text-[12px] font-bold text-white bg-black">
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewBrandInput(false);
+                    setNewBrandValue('');
+                  }}
+                  className="flex-1 h-[32px] border border-black rounded-[8px] text-[12px] font-bold text-black bg-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-y-auto max-h-[200px]">
+              {(() => {
+                const searchTerm = (sheetPickerSearch || '').trim();
+                const isCreatable = ['itemName', 'itemId', 'brand'].includes(field);
+                const hasMatches = getPickerOptions().length > 0;
+                const showCreateFromSearch = isCreatable && searchTerm && !hasMatches;
+                const fieldLabels = {
+                  itemName: 'Item Name',
+                  itemId: 'Item ID',
+                  brand: 'Brand'
+                };
+
+                return (
+                  <>
+                    {/* "+ Add New [Field]" option for creatable fields when search is empty */}
+                    {isCreatable && !searchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (field === 'itemId') {
+                            setShowNewItemIdInput(true);
+                          } else if (field === 'itemName') {
+                            setShowNewItemNameInput(true);
+                          } else if (field === 'brand') {
+                            setShowNewBrandInput(true);
+                          }
+                        }}
+                        className="w-full h-[36px] px-3 flex items-center text-left hover:bg-[#F5F5F5] transition-colors text-[12px] font-medium text-black border-b border-gray-100"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mr-2">
+                          <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        Add New {fieldLabels[field]}
+                      </button>
+                    )}
+                    {/* "+ 'search term'" option for creatable fields when no matches */}
+                    {showCreateFromSearch && (
+                      <button
+                        type="button"
+                        onClick={() => handleSheetPickerSelect(field, '__CREATE_FROM_SEARCH__')}
+                        className="w-full h-[36px] px-3 flex items-center text-left hover:bg-[#F5F5F5] transition-colors text-[12px] font-medium text-black border-b border-gray-100"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mr-2">
+                          <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        '{searchTerm}'
+                      </button>
+                    )}
+                    {hasMatches ? (
+                      getPickerOptions().map((opt) => (
+                        <button key={opt} type="button" onClick={() => handleSheetPickerSelect(field, opt)}
+                          className="w-full h-[36px] px-3 flex items-center text-left hover:bg-[#F5F5F5] transition-colors text-[12px] font-medium text-black"
+                        >
+                          {opt}
+                        </button>
+                      ))
+                    ) : (
+                      !showCreateFromSearch && !isCreatable && (
+                        <p className="text-[12px] font-medium text-[#9E9E9E] text-center py-3">
+                          {searchTerm ? 'No options found' : 'No options available'}
+                        </p>
+                      )
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
   return (
@@ -1264,8 +1684,15 @@ const AddInput = ({ user }) => {
                 <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
               </button>
             </div>
+            {/* Backdrop for dropdown */}
+            {sheetOpenPicker && (
+              <div
+                className="fixed inset-0 z-[45]"
+                onClick={closeSheetPicker}
+              />
+            )}
             {/* Form - scrollable */}
-            <div className="flex-1 overflow-y-auto px-6 py-1">
+            <div className="flex-1 overflow-hidden px-6 py-1">
               {/* Row 1: Item Name* + Quantity (half) */}
               <div className="flex gap-3 mb-2">
                 <div className="flex-1">
@@ -1380,8 +1807,8 @@ const AddInput = ({ user }) => {
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2H4C2.89543 2 2 2.89543 2 4V12C2 13.1046 2.89543 14 4 14H12C13.1046 14 14 13.1046 14 12V4C14 2.89543 13.1046 2 12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M11 1V4M5 1V4M2 7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M12 2H4C2.89543 2 2 2.89543 2 4V12C2 13.1046 2.89543 14 4 14H12C13.1046 14 14 13.1046 14 12V4C14 2.89543 13.1046 2 12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M11 1V4M5 1V4M2 7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
                   </div>
@@ -1402,8 +1829,8 @@ const AddInput = ({ user }) => {
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2H4C2.89543 2 2 2.89543 2 4V12C2 13.1046 2.89543 14 4 14H12C13.1046 14 14 13.1046 14 12V4C14 2.89543 13.1046 2 12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M11 1V4M5 1V4M2 7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M12 2H4C2.89543 2 2 2.89543 2 4V12C2 13.1046 2.89543 14 4 14H12C13.1046 14 14 13.1046 14 12V4C14 2.89543 13.1046 2 12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M11 1V4M5 1V4M2 7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </div>
                   </div>
@@ -1450,7 +1877,7 @@ const AddInput = ({ user }) => {
               </div>
             </div>
             {/* Footer: Cancel + Save */}
-            <div className="flex-shrink-0 flex gap-4 px-6 pb-6 pt-2">
+            <div className=" flex gap-4 px-6 pb-6 pt-2">
               <button type="button" onClick={handleCloseAddNewSheet} disabled={isSaving || isUploading}
                 className={`flex-1 h-[40px] border border-black rounded-[8px] text-[14px] font-bold text-black bg-white ${(isSaving || isUploading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
@@ -1462,99 +1889,6 @@ const AddInput = ({ user }) => {
                 {isSaving ? 'Saving...' : isUploading ? 'Uploading...' : 'Save'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-      {/* Sheet dropdown picker modal (Transfer-style) */}
-      {showAddNewSheet && sheetOpenPicker && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4"
-          onClick={(e) => e.target === e.currentTarget && closeSheetPicker()}
-          style={{ fontFamily: "'Manrope', sans-serif" }}
-        >
-          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center px-6 pt-5">
-              <p className="text-[16px] font-semibold text-black">
-                {showNewItemIdInput ? 'Create New Item ID' : `Select ${({ itemName: 'Item Name', itemId: 'Item ID', brand: 'Brand', purchaseStore: 'Purchase Store', homeLocation: 'Home Location' })[sheetOpenPicker]}`}
-              </p>
-              <button type="button" onClick={closeSheetPicker} className="text-red-500 text-[20px] font-semibold hover:opacity-80">
-                ×
-              </button>
-            </div>
-            {/* Show input form for creating new Item ID */}
-            {showNewItemIdInput && sheetOpenPicker === 'itemId' ? (
-              <div className="px-6 pt-4 pb-6">
-                <p className="text-[12px] font-medium text-gray-600 mb-2">Enter a new Item ID:</p>
-                <input
-                  type="text"
-                  value={newItemIdValue}
-                  onChange={(e) => setNewItemIdValue(e.target.value)}
-                  placeholder="e.g., AA DM 07"
-                  className="w-full h-[40px] px-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[14px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none mb-4"
-                  autoFocus
-                />
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowNewItemIdInput(false);
-                      setNewItemIdValue('');
-                    }}
-                    className="flex-1 h-[40px] border border-black rounded-[8px] text-[14px] font-bold text-black bg-white"
-                  >
-                    Back
-                  </button>
-                  <button type="button" onClick={handleCreateNewItemId} className="flex-1 h-[40px] rounded-[8px] text-[14px] font-bold text-white bg-black">
-                    Create
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="px-6 pt-4 pb-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={sheetPickerSearch}
-                      onChange={(e) => setSheetPickerSearch(e.target.value)}
-                      placeholder="Search"
-                      className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
-                    />
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" /><path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto mb-4 px-6">
-                  <div className="shadow-md rounded-lg overflow-hidden">
-                    {/* "+ Create new" option for Item ID */}
-                    {sheetOpenPicker === 'itemId' && !sheetPickerSearch.trim() && (
-                      <button type="button" onClick={() => handleSheetPickerSelect('itemId', '__CREATE_NEW__')}
-                        className="w-full h-[40px] px-6 flex items-center text-left hover:bg-[#F5F5F5] transition-colors text-[14px] font-medium text-[#E4572E] border-b border-gray-100"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="mr-2">
-                          <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        </svg>
-                        Create new Item ID
-                      </button>
-                    )}
-                    {getPickerOptions().length > 0 ? (
-                      getPickerOptions().map((opt) => (
-                        <button key={opt} type="button" onClick={() => handleSheetPickerSelect(sheetOpenPicker, opt)}
-                          className="w-full h-[40px] px-6 flex items-center text-left hover:bg-[#F5F5F5] transition-colors text-[14px] font-medium text-black"
-                        >
-                          {opt}
-                        </button>
-                      ))
-                    ) : (
-                      <p className="text-[14px] font-medium text-[#9E9E9E] text-center py-4">
-                        {sheetPickerSearch.trim() ? 'No options found' : 'No options available'}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
           </div>
         </div>
       )}

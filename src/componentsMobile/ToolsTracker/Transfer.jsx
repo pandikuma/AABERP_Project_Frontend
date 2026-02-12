@@ -1201,8 +1201,11 @@ const Transfer = ({ user }) => {
   const isRelocateEntryType = (entryType) => {
     return entryType === 'relocate' || entryType === 'relocation';
   };
+  const isServiceEntryType = (entryType) => {
+    return entryType === 'service';
+  };
   const isMovementEntryType = (entryType) => {
-    return entryType === 'entry' || isRelocateEntryType(entryType);
+    return entryType === 'entry' || isRelocateEntryType(entryType) || isServiceEntryType(entryType);
   };
   const getEntrySortTime = (entry) => {
     const rawDate = entry?.created_date_time || entry?.createdDateTime || entry?.timestamp || '';
@@ -1331,6 +1334,11 @@ const Transfer = ({ user }) => {
         return relocatedHomeLocationId && String(relocatedHomeLocationId) === locationIdStr;
       }
 
+      if (isServiceEntryType(latestMovement.entryType)) {
+        const serviceStoreId = latestMovement.entry?.service_store_id || latestMovement.entry?.serviceStoreId;
+        return serviceStoreId && String(serviceStoreId) === locationIdStr;
+      }
+
       const entryToProjectId = latestMovement.entry?.to_project_id || latestMovement.entry?.toProjectId;
       if (entryToProjectId) {
         return String(entryToProjectId) === locationIdStr;
@@ -1369,7 +1377,7 @@ const Transfer = ({ user }) => {
     const brandIdStr = brandId ? String(brandId) : null;
     const machineNumberStr = machineNumber ? String(machineNumber).trim() : '';
     let currentLocationId = null;
-    let locationType = null; // 'project' or 'home'
+    let locationType = null; // 'project', 'home', or 'service'
 
     // First, check in tools_tracker_management entries (entry + relocate history)
     const latestMovement = getLatestItemSetMovement(itemIdsIdStr, brandIdStr, machineNumberStr);
@@ -1379,6 +1387,15 @@ const Transfer = ({ user }) => {
         if (relocatedHomeLocationId) {
           currentLocationId = String(relocatedHomeLocationId);
           locationType = 'home';
+          return { locationId: currentLocationId, locationType };
+        }
+      }
+
+      if (isServiceEntryType(latestMovement.entryType)) {
+        const serviceStoreId = latestMovement.entry?.service_store_id || latestMovement.entry?.serviceStoreId;
+        if (serviceStoreId) {
+          currentLocationId = String(serviceStoreId);
+          locationType = 'service';
           return { locationId: currentLocationId, locationType };
         }
       }
@@ -1628,9 +1645,16 @@ const Transfer = ({ user }) => {
         machineNumber ? `Machine Number: ${machineNumber}` : null
       ].filter(Boolean).join(', ');
 
+      const locationTypeLabel =
+        currentLocationInfo?.locationType === 'service'
+          ? 'in service store'
+          : currentLocationInfo?.locationType === 'home'
+            ? 'at home location'
+            : 'in project';
+
       return {
         isValid: false,
-        errorMessage: `Cannot transfer item "${itemName}" (${itemSetDetails}). This item set is currently at "${currentLocationName}", not at the selected "From" project "${projectName}".`
+        errorMessage: `Cannot transfer item "${itemName}" (${itemSetDetails}). This item set is currently ${locationTypeLabel} "${currentLocationName}", not at the selected "From" project "${projectName}".`
       };
     }
 
@@ -2807,17 +2831,15 @@ const Transfer = ({ user }) => {
               }
             });
 
-            // Find the latest machine number that doesn't have "Machine Dead" status
+            // Find the latest machine number that isn't marked as "Machine Dead"
             let latestMachineNumber = null;
             let latestStatusId = 0;
 
             machineStatusMap.forEach((status, machineNum) => {
               const machineStatus = (status.machine_status || status.machineStatus || '').trim();
               const machineStatusLower = machineStatus.toLowerCase();
-              // Include all statuses EXCEPT "Machine Dead" and "Not Working"
-              // This includes: "Working", "Under Repair", empty string, or any other status
-              if (machineStatusLower !== 'machine dead' &&
-                machineStatusLower !== 'not working') {
+              // Include all statuses except "Machine Dead"
+              if (machineStatusLower !== 'machine dead') {
                 const statusId = status.id || 0;
                 if (statusId > latestStatusId) {
                   latestStatusId = statusId;
@@ -2839,15 +2861,13 @@ const Transfer = ({ user }) => {
                   // Machine number exists in new API - check its status
                   const lastEntryMachineStatus = (lastEntryStatus.machine_status || lastEntryStatus.machineStatus || '').trim();
                   const lastEntryMachineStatusLower = lastEntryMachineStatus.toLowerCase();
-                  // Only use fallback if it's not "Machine Dead" or "Not Working"
+                  // Only skip fallback when status is "Machine Dead"
                   if (lastEntryMachineStatusLower !== 'machine dead' &&
-                    lastEntryMachineStatusLower !== 'not working' &&
-                    lastEntryMachineStatus !== 'Machine Dead' &&
-                    lastEntryMachineStatus !== 'Not Working') {
+                    lastEntryMachineStatus !== 'Machine Dead') {
                     updated.machineNumber = lastEntryMachineNum;
                     setSelectedItemMachineNumber(lastEntryMachineNum);
                   } else {
-                    // Last entry machine is dead, don't use it
+                    // Last entry machine is "Machine Dead", don't use it
                     updated.machineNumber = '';
                     setSelectedItemMachineNumber('');
                   }
@@ -2913,17 +2933,15 @@ const Transfer = ({ user }) => {
               }
             });
 
-            // Find the latest machine number that doesn't have "Machine Dead" status
+            // Find the latest machine number that isn't marked as "Machine Dead"
             let latestMachineNumber = null;
             let latestStatusId = 0;
 
             machineStatusMap.forEach((status, machineNum) => {
               const machineStatus = (status.machine_status || status.machineStatus || '').trim();
               const machineStatusLower = machineStatus.toLowerCase();
-              // Include all statuses EXCEPT "Machine Dead" and "Not Working"
-              // This includes: "Working", "Under Repair", empty string, or any other status
-              if (machineStatusLower !== 'machine dead' &&
-                machineStatusLower !== 'not working') {
+              // Include all statuses except "Machine Dead"
+              if (machineStatusLower !== 'machine dead') {
                 const statusId = status.id || 0;
                 if (statusId > latestStatusId) {
                   latestStatusId = statusId;
@@ -2946,21 +2964,17 @@ const Transfer = ({ user }) => {
                   // Machine number exists in new API - check its status
                   const stockMachineStatusValue = (stockMachineStatus.machine_status || stockMachineStatus.machineStatus || '').trim();
                   const stockMachineStatusLower = stockMachineStatusValue.toLowerCase();
-                  // Only use fallback if it's not "Machine Dead" or "Not Working"
+                  // Only skip fallback when status is "Machine Dead"
                   if (stockMachineStatusLower !== 'machine dead' &&
-                    stockMachineStatusLower !== 'not working' &&
-                    stockMachineStatusValue !== 'Machine Dead' &&
-                    stockMachineStatusValue !== 'Not Working') {
+                    stockMachineStatusValue !== 'Machine Dead') {
                     updated.machineNumber = stockMachineNumStr;
                     setSelectedItemMachineNumber(stockMachineNumStr);
                   } else {
-                    // Stock machine is dead, don't use it
+                    // Stock machine is "Machine Dead", don't use it
                     updated.machineNumber = '';
                     setSelectedItemMachineNumber('');
                   }
                 } else {
-                  // No status found in new API for stock machine - safe to use it
-                  // (It's probably a new machine or status hasn't been set yet)
                   updated.machineNumber = stockMachineNumStr;
                   setSelectedItemMachineNumber(stockMachineNumStr);
                 }
@@ -3024,7 +3038,6 @@ const Transfer = ({ user }) => {
       } catch {
         // If response doesn't have JSON, continue to refresh
       }
-
       const refreshed = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
@@ -3037,7 +3050,6 @@ const Transfer = ({ user }) => {
           .map(item => item?.item_name ?? item?.itemName)
           .filter(Boolean);
         setItemNameOptions(Array.from(new Set(names)));
-
         // Find the ID from refreshed data if not in response
         if (!savedItemId) {
           const newItem = (Array.isArray(data) ? data : []).find(
@@ -3045,7 +3057,6 @@ const Transfer = ({ user }) => {
           );
           savedItemId = newItem?.id ?? newItem?._id ?? null;
         }
-
         // Set both itemName and itemNameId
         setAddItemFormData(prev => ({
           ...prev,
@@ -3091,7 +3102,6 @@ const Transfer = ({ user }) => {
       } catch {
         // If response doesn't have JSON, continue to refresh
       }
-
       const refreshed = await fetch(`${TOOLS_BRAND_BASE_URL}/getAll`, {
         method: 'GET',
         credentials: 'include',
@@ -3104,7 +3114,6 @@ const Transfer = ({ user }) => {
           .map(b => b?.tools_brand?.trim() ?? b?.toolsBrand?.trim())
           .filter(b => b);
         setBrandOptions(Array.from(new Set(brandOpts)));
-
         // Find the ID from refreshed data if not in response
         if (!savedBrandId) {
           const newBrand = (Array.isArray(data) ? data : []).find(
@@ -3112,7 +3121,6 @@ const Transfer = ({ user }) => {
           );
           savedBrandId = newBrand?.id ?? newBrand?._id ?? null;
         }
-
         // Set both brand and brandId
         setAddItemFormData(prev => ({
           ...prev,
@@ -3240,7 +3248,7 @@ const Transfer = ({ user }) => {
         </div>
       </div>
       <div className="flex-shrink-0 px-4 pb-2">
-        <div className="flex bg-[#E0E0E0] items-center h-9 rounded-md">
+        <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md">
           <button
             onClick={handleSwitchToEntry}
             disabled={isEditMode && originalEditData && (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate')}
@@ -3410,7 +3418,6 @@ const Transfer = ({ user }) => {
                                   const invalidItems = [];
                                   for (const item of items) {
                                     if (!item.item_name_id) continue;
-
                                     // If itemId is selected, only check the full set (itemIdsId + brandId + machineNumber)
                                     // Don't check itemNameId separately when itemId is selected
                                     if (item.item_ids_id) {
@@ -3422,7 +3429,6 @@ const Transfer = ({ user }) => {
                                         item.itemName,
                                         option.id
                                       );
-
                                       if (!itemSetValidation.isValid) {
                                         invalidItems.push({
                                           name: item.itemName || 'Unknown Item',
@@ -3439,7 +3445,6 @@ const Transfer = ({ user }) => {
                                         item.quantity,
                                         option.id
                                       );
-
                                       if (!validation.isValid) {
                                         invalidItems.push({
                                           name: item.itemName || 'Unknown Item',
@@ -3448,7 +3453,6 @@ const Transfer = ({ user }) => {
                                       }
                                     }
                                   }
-
                                   if (invalidItems.length > 0) {
                                     const errorMessage = invalidItems
                                       .map(inv => inv.error)
@@ -3458,7 +3462,6 @@ const Transfer = ({ user }) => {
                                     return;
                                   }
                                 }
-
                                 setSelectedFrom(option);
                                 setShowFromDropdown(false);
                                 setIsEditingTransferDetails(false);
@@ -3610,7 +3613,7 @@ const Transfer = ({ user }) => {
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select To</p>
                   <button onClick={() => setShowToDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
-                  <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+                    <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
                 <div className="px-6 pt-4 pb-4">
@@ -3719,13 +3722,11 @@ const Transfer = ({ user }) => {
               }}
               style={{ fontFamily: "'Manrope', sans-serif" }}
             >
-              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select Service Store</p>
                   <button onClick={() => setShowServiceStoreDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
-                  <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+                    <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
                 <div className="px-6 pt-4 pb-4">
@@ -3753,11 +3754,7 @@ const Transfer = ({ user }) => {
                       const normalizedQuery = normalizeSearchText(serviceStoreSearchQuery.trim());
                       return normalizedOpt === normalizedQuery;
                     }) && (
-                        <button
-                          onClick={() => {
-                          }}
-                          className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
-                        >
+                        <button onClick={() => { }} className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors">
                           <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M7 3V11M3 7H11" stroke="#000" strokeWidth="1.5" strokeLinecap="round" />
@@ -3868,18 +3865,13 @@ const Transfer = ({ user }) => {
           </div>
           {showInchargeDropdown && (
             <div className="fixed inset-0 bg-black -top-4 bg-opacity-50 z-50 flex items-center justify-center p-4"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) {
-                  setShowInchargeDropdown(false);
-                }
-              }}
-              style={{ fontFamily: "'Manrope', sans-serif" }}
+              onClick={(e) => { if (e.target === e.currentTarget) { setShowInchargeDropdown(false); } }} style={{ fontFamily: "'Manrope', sans-serif" }}
             >
               <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()} >
                 <div className="flex justify-between items-center px-6 pt-5">
                   <p className="text-[16px] font-semibold text-black">Select Project Incharge</p>
                   <button onClick={() => setShowInchargeDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity" >
-                  <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+                    <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
                 <div className="px-6 pt-4 pb-4">
@@ -4063,7 +4055,7 @@ const Transfer = ({ user }) => {
                   <div className="flex justify-between items-center px-6 pt-5">
                     <p className="text-[16px] font-semibold text-black">Select Item ID</p>
                     <button onClick={() => setShowRelocateItemIdDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
-                    <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+                      <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                     </button>
                   </div>
                   <div className="px-6 pt-4 pb-4">
@@ -4574,7 +4566,7 @@ const Transfer = ({ user }) => {
       )}
       {entryServiceMode !== 'Relocate' && (
         <div className="flex-shrink-0 px-4 pt-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <p className="text-[12px] font-semibold text-black leading-normal">Items</p>
               <div className="w-[20px] h-[20px] rounded-full bg-[#E0E0E0] flex items-center justify-center">
@@ -4827,7 +4819,7 @@ const Transfer = ({ user }) => {
                       className={`w-full h-[32px] border border-[#d6d6d6] rounded px-3 pr-7 text-[12px] font-medium focus:outline-none text-black ${addItemFormData.itemId ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white'
                         }`}
                       placeholder="Enter"
-                    />                    
+                    />
                   </div>
                 </div>
               </div>
@@ -5224,7 +5216,7 @@ const Transfer = ({ user }) => {
                       i => String(i?.id) === String(item?.item_ids_id ?? item?.itemIdsId)
                     );
                     const brandObj = toolsBrandFullData.find(
-                      i => String(i?.id) === String(item?.brand_id ?? item?.brandId)
+                      i => String(i?.id) === String(item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId)
                     );
                     const inchargeObj = inchargeOptions.find(
                       i => String(i?.id) === String(item?.project_incharge_id ?? item?.projectInchargeId)
@@ -5232,7 +5224,7 @@ const Transfer = ({ user }) => {
                     const itemName = itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown';
                     const itemIdName = itemIdObj?.item_id || itemIdObj?.itemId || '';
                     const brandName = brandObj?.tools_brand || brandObj?.toolsBrand || '';
-                    const machineNumber = item?.machine_number ?? item?.machineNumber ?? '';
+                    const machineNumber = resolveMachineNumFromStock(item);
                     const machineStatus = item?.machine_status ?? item?.machineStatus ?? 'Working';
                     const inchargeName = inchargeObj?.label || '';
                     const dateTime = formatSearchItemDate(item?.created_date_time ?? item?.createdDateTime);
@@ -5246,7 +5238,7 @@ const Transfer = ({ user }) => {
                           <p className="text-[13px] font-medium text-black">{itemIdName}</p>
                         </div>
                         <div className="flex items-start justify-between mb-1">
-                          <p className="text-[12px] text-gray-600">{brandName}</p>
+                          <p className="text-[12px] text-gray-600">{brandName || '-'}</p>
                           <div className="flex items-center gap-1">
                             <span className={`w-1.5 h-1.5 rounded-full ${machineStatus === 'Working' ? 'bg-[#4CAF50]' :
                               machineStatus === 'Not Working' ? 'bg-[#F44336]' :

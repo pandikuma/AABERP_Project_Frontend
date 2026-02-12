@@ -491,7 +491,7 @@ const History = ({ user, onTabChange }) => {
       <div className="flex items-center justify-between pt-1.5 pb-1.5">
         <p className="text-[12px] text-black font-semibold">Category</p>
       </div>
-      <div className="flex bg-[#E0E0E0] items-center h-9 rounded-md">
+      <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md">
         <button
           onClick={() => setHistoryType('entry')}
           className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${historyType === 'entry'
