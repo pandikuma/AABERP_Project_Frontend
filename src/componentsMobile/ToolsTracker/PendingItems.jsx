@@ -130,7 +130,7 @@ const PendingItems = ({ user }) => {
           const data = await transferRes.json();
           const entries = (Array.isArray(data) ? data : []).filter(entry => {
             const entryType = entry.tools_entry_type || entry.toolsEntryType || 'Entry';
-            return entryType.toLowerCase() === 'entry' || entryType.toLowerCase() === 'relocation';
+            return entryType.toLowerCase() === 'entry' || entryType.toLowerCase() === 'relocate';
           });
           setToolsTrackerManagementData(entries);
         }

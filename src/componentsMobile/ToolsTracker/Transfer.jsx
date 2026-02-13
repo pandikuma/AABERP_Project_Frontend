@@ -90,6 +90,7 @@ const Transfer = ({ user }) => {
     brandId: null,
     itemId: '',
     itemIdDbId: null,
+    model: '',
     quantity: '',
     machineNumber: ''
   });
@@ -520,9 +521,41 @@ const Transfer = ({ user }) => {
     setRelocateItemIdFavorites(newFavorites);
     localStorage.setItem('favoriteItemIds', JSON.stringify(newFavorites));
   };
-  const formatDate = (dateString) => {
-    const [day, month, year] = dateString.split('/');
-    return `${day}/${month}/${year}`;
+  const normalizeDisplayDate = (dateValue) => {
+    const raw = String(dateValue || '').trim();
+    if (!raw) return '';
+
+    const ddMmYyyyMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (ddMmYyyyMatch) {
+      const day = ddMmYyyyMatch[1].padStart(2, '0');
+      const month = ddMmYyyyMatch[2].padStart(2, '0');
+      const year = ddMmYyyyMatch[3];
+      return `${day}/${month}/${year}`;
+    }
+
+    const isoDateMatch = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoDateMatch) {
+      const year = isoDateMatch[1];
+      const month = isoDateMatch[2].padStart(2, '0');
+      const day = isoDateMatch[3].padStart(2, '0');
+      return `${day}/${month}/${year}`;
+    }
+
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      const day = String(parsed.getDate()).padStart(2, '0');
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const year = parsed.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
+    return '';
+  };
+  const getApiDateTimeFromDisplayDate = (displayDate) => {
+    const normalized = normalizeDisplayDate(displayDate);
+    if (!normalized) return null;
+    const [day, month, year] = normalized.split('/');
+    return `${year}-${month}-${day}T00:00:00`;
   };
   const areFieldsFilled = entryServiceMode === 'Entry'
     ? (selectedFrom && selectedTo && selectedIncharge)
@@ -726,11 +759,10 @@ const Transfer = ({ user }) => {
             setEntryNo(editData.eno);
           }
           if (editData.created_date_time || editData.createdDateTime) {
-            const date = new Date(editData.created_date_time || editData.createdDateTime);
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            setDate(`${day}/${month}/${year}`);
+            const normalizedDate = normalizeDisplayDate(editData.created_date_time || editData.createdDateTime);
+            if (normalizedDate) {
+              setDate(normalizedDate);
+            }
           }
           const entryType = editData.tools_entry_type || editData.toolsEntryType || 'entry';
           if (entryType === 'service') {
@@ -788,6 +820,7 @@ const Transfer = ({ user }) => {
             service_store_id: editData.service_store_id || editData.serviceStoreId,
             project_incharge_id: editData.project_incharge_id || editData.projectInchargeId,
             tools_entry_type: editData.tools_entry_type || editData.toolsEntryType,
+            created_date_time: normalizeDisplayDate(editData.created_date_time || editData.createdDateTime || ''),
             items: (editData.tools_tracker_item_name_table || editData.toolsTrackerItemNameTable || []).map(it => ({
               id: it.id,
               item_name_id: it.item_name_id ? String(it.item_name_id) : null,
@@ -989,6 +1022,7 @@ const Transfer = ({ user }) => {
       brandId: null,
       itemId: '',
       itemIdDbId: null,
+      model: '',
       quantity: '',
       machineNumber: ''
     });
@@ -1001,6 +1035,38 @@ const Transfer = ({ user }) => {
     setIsUploading(false);
     setUploadStatus('Working');
     setUploadDescription('');
+  };
+  const validateDraftItemBeforeAdd = (draft) => {
+    if (!selectedFrom || !draft?.itemNameId) return true;
+
+    if (draft.itemIdDbId) {
+      const itemSetValidation = validateItemSetAvailability(
+        draft.itemIdDbId,
+        draft.brandId,
+        draft.machineNumber,
+        draft.itemNameId,
+        draft.itemName,
+        selectedFrom.id
+      );
+      if (!itemSetValidation.isValid) {
+        alert(itemSetValidation.errorMessage);
+        return false;
+      }
+      return true;
+    }
+
+    const validation = validateItemLocation(
+      draft.itemNameId,
+      draft.itemName,
+      draft.brandId,
+      draft.quantity,
+      selectedFrom.id
+    );
+    if (!validation.isValid) {
+      alert(validation.errorMessage);
+      return false;
+    }
+    return true;
   };
   const handleAddItemSubmit = () => {
     if (addItemFormData.itemName) {
@@ -1050,6 +1116,7 @@ const Transfer = ({ user }) => {
           item_name_id: newItemNameId,
           item_ids_id: addItemFormData.itemIdDbId ? String(addItemFormData.itemIdDbId) : editingItem.item_ids_id,
           brand_id: addItemFormData.brandId ? String(addItemFormData.brandId) : editingItem.brand_id,
+          model: addItemFormData.model ?? editingItem.model ?? '',
           machine_number: addItemFormData.machineNumber || '',
           quantity: addItemFormData.quantity ? parseInt(addItemFormData.quantity, 10) : editingItem.quantity || 0,
           itemName: addItemFormData.itemName,
@@ -1062,6 +1129,17 @@ const Transfer = ({ user }) => {
         setEditingItem(null);
         handleCloseAddItemsModal();
       } else {
+        const isValidToAdd = validateDraftItemBeforeAdd({
+          itemName: addItemFormData.itemName,
+          itemNameId: addItemFormData.itemNameId,
+          brandId: addItemFormData.brandId ? String(addItemFormData.brandId) : null,
+          itemIdDbId: addItemFormData.itemIdDbId ? String(addItemFormData.itemIdDbId) : null,
+          machineNumber: addItemFormData.machineNumber || '',
+          quantity: addItemFormData.quantity
+        });
+        if (!isValidToAdd) {
+          return;
+        }
         setShowUploadModal(true);
       }
     }
@@ -1709,7 +1787,7 @@ const Transfer = ({ user }) => {
       item_name_id: addItemFormData.itemNameId ? String(addItemFormData.itemNameId) : null,
       item_ids_id: addItemFormData.itemIdDbId ? String(addItemFormData.itemIdDbId) : null,
       brand_id: addItemFormData.brandId ? String(addItemFormData.brandId) : null,
-      model: '', // Can be added if needed
+      model: addItemFormData.model || '',
       machine_number: addItemFormData.machineNumber || '',
       quantity: addItemFormData.quantity ? parseInt(addItemFormData.quantity, 10) : 0,
       machine_status: uploadStatus,
@@ -1727,6 +1805,7 @@ const Transfer = ({ user }) => {
   const hasEditChanges = () => {
     if (!originalEditData) return true;
     const orig = originalEditData;
+    if (normalizeDisplayDate(orig.created_date_time || '') !== normalizeDisplayDate(date || '')) return true;
     const fromId = selectedFrom?.id ? String(selectedFrom.id) : null;
     const toId = selectedTo?.id ? String(selectedTo.id) : null;
     const storeId = selectedServiceStore?.id ? String(selectedServiceStore.id) : null;
@@ -1831,11 +1910,12 @@ const Transfer = ({ user }) => {
         to_project_id: entryServiceMode === 'Entry' && selectedTo?.id ? String(selectedTo.id) : null,
         project_incharge_id: selectedIncharge?.id ? String(selectedIncharge.id) : null,
         service_store_id: entryServiceMode === 'Service' && selectedServiceStore?.id ? String(selectedServiceStore.id) : null,
+        created_date_time: getApiDateTimeFromDisplayDate(date),
         tools_entry_type: entryServiceMode.toLowerCase(),
         tools_tracker_item_name_table: updatedItemRows
       };
       const editedBy = user?.name || user?.username || 'mobile';
-      const response = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/update/${editEntryId}?editedBy=${encodeURIComponent(editedBy)}`, {
+      const response = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/edit/${editEntryId}?editedBy=${encodeURIComponent(editedBy)}`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -2090,6 +2170,7 @@ const Transfer = ({ user }) => {
           to_project_id: null,
           project_incharge_id: null,
           service_store_id: null,
+          created_date_time: getApiDateTimeFromDisplayDate(date),
           created_by: user?.name || user?.username || 'mobile',
           tools_entry_type: 'relocate',
           eno: String(entryNo),
@@ -2154,6 +2235,7 @@ const Transfer = ({ user }) => {
           to_project_id: entryServiceMode === 'Entry' && selectedTo?.id ? String(selectedTo.id) : null,
           project_incharge_id: selectedIncharge?.id ? String(selectedIncharge.id) : null,
           service_store_id: entryServiceMode === 'Service' && selectedServiceStore?.id ? String(selectedServiceStore.id) : null,
+          created_date_time: getApiDateTimeFromDisplayDate(date),
           created_by: user?.name || user?.username || 'mobile',
           tools_entry_type: entryServiceMode.toLowerCase(), // "entry" or "service"
           eno: String(entryNo),
@@ -2230,6 +2312,7 @@ const Transfer = ({ user }) => {
       brandId: item.brand_id ? String(item.brand_id) : null,
       itemId: item.itemId || '',
       itemIdDbId: item.item_ids_id ? String(item.item_ids_id) : null,
+      model: item.model || '',
       quantity: item.quantity ? String(item.quantity) : '',
       machineNumber: item.machine_number || item.machineNumber || ''
     });
@@ -2351,6 +2434,27 @@ const Transfer = ({ user }) => {
     setUniversalSearchQuery('');
   };
   const handleSelectSearchItem = (item) => {
+    const itemNameObj = toolsItemNameListData.find(
+      i => String(i?.id) === String(item?.item_name_id ?? item?.itemNameId)
+    );
+    const brandObj = toolsBrandFullData.find(
+      i => String(i?.id) === String(item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId)
+    );
+    const itemIdObj = toolsItemIdFullData.find(
+      i => String(i?.id) === String(item?.item_ids_id ?? item?.itemIdsId)
+    );
+    const isValidToAdd = validateDraftItemBeforeAdd({
+      itemName: itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown Item',
+      itemNameId: item?.item_name_id ?? item?.itemNameId ?? null,
+      brandId: item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId ?? null,
+      itemIdDbId: item?.item_ids_id ?? item?.itemIdsId ?? null,
+      machineNumber: resolveMachineNumFromStock(item),
+      quantity: item?.quantity || 1
+    });
+    if (!isValidToAdd) {
+      return;
+    }
+
     setSelectedSearchItem(item);
     setShowUniversalSearchModal(false);
     setShowSearchConfirmModal(true);
@@ -2405,32 +2509,43 @@ const Transfer = ({ user }) => {
   };
   const handleConfirmSearchUpload = () => {
     if (!selectedSearchItem) return;
+    const selectedItemNameId = selectedSearchItem?.item_name_id ?? selectedSearchItem?.itemNameId ?? null;
+    const selectedBrandId = selectedSearchItem?.brand_id ?? selectedSearchItem?.brandId ?? selectedSearchItem?.brand_name_id ?? selectedSearchItem?.brandNameId ?? null;
+    const selectedItemIdsId = selectedSearchItem?.item_ids_id ?? selectedSearchItem?.itemIdsId ?? null;
+    const resolvedMachineNumber = resolveMachineNumFromStock(selectedSearchItem);
+
     const itemNameObj = toolsItemNameListData.find(
-      item => String(item?.id) === String(selectedSearchItem?.item_name_id ?? selectedSearchItem?.itemNameId)
+      item => String(item?.id) === String(selectedItemNameId)
     );
     const brandObj = toolsBrandFullData.find(
-      item => String(item?.id) === String(selectedSearchItem?.brand_id ?? selectedSearchItem?.brandId)
+      item => String(item?.id) === String(selectedBrandId)
     );
     const itemIdObj = toolsItemIdFullData.find(
-      item => String(item?.id) === String(selectedSearchItem?.item_ids_id ?? selectedSearchItem?.itemIdsId)
+      item => String(item?.id) === String(selectedItemIdsId)
     );
+    const uploadedImages = searchUploadFiles
+      .filter(f => f.base64)
+      .map(f => ({ tools_image: f.base64 }));
+
     const newItem = {
       id: Date.now(),
-      itemName: itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown',
-      itemNameId: selectedSearchItem?.item_name_id ?? selectedSearchItem?.itemNameId,
-      brand: brandObj?.tools_brand || brandObj?.toolsBrand || '',
-      brandId: selectedSearchItem?.brand_id ?? selectedSearchItem?.brandId,
-      itemId: itemIdObj?.item_id || itemIdObj?.itemId || '',
-      itemIdDbId: selectedSearchItem?.item_ids_id ?? selectedSearchItem?.itemIdsId,
-      machineNumber: selectedSearchItem?.machine_number ?? selectedSearchItem?.machineNumber ?? '',
-      machine_number: selectedSearchItem?.machine_number ?? selectedSearchItem?.machineNumber ?? '',
+      timestamp: new Date().toISOString().slice(0, 19),
+      item_name_id: selectedItemNameId ? String(selectedItemNameId) : null,
+      item_ids_id: selectedItemIdsId ? String(selectedItemIdsId) : null,
+      brand_id: selectedBrandId ? String(selectedBrandId) : null,
+      model: selectedSearchItem?.model || '',
+      machine_number: resolvedMachineNumber || '',
       quantity: selectedSearchItem?.quantity || 1,
       machine_status: searchUploadStatus,
       description: searchUploadDescription,
+      tools_item_live_images: uploadedImages,
+      itemName: itemNameObj?.item_name || itemNameObj?.itemName || selectedSearchItem?.item_name || selectedSearchItem?.itemName || 'Unknown',
+      brand: brandObj?.tools_brand || brandObj?.toolsBrand || selectedSearchItem?.brand || '',
+      itemId: itemIdObj?.item_id || itemIdObj?.itemId || selectedSearchItem?.item_id || selectedSearchItem?.itemId || '',
       localImageUrls: searchUploadFiles.filter(f => f.base64).map(f => `data:image/jpeg;base64,${f.base64}`),
       imageBase64List: searchUploadFiles.filter(f => f.base64).map(f => f.base64)
     };
-    setItems([...items, newItem]);
+    setItems(prev => [...prev, newItem]);
     handleCloseSearchUploadModal();
   };
   const getFilteredSearchItems = () => {
@@ -2603,6 +2718,77 @@ const Transfer = ({ user }) => {
     const quantitySum = quantityBasedStock.reduce((sum, item) => sum + parseInt(item?.quantity || 0, 10), 0);
     return quantitySum + itemSetStock.length;
   };
+  const getLinkedBrandOptionsForItemName = (itemNameId) => {
+    if (!itemNameId) return brandOptions;
+    const itemNameIdStr = String(itemNameId);
+    const linkedBrandIds = new Set();
+
+    const itemNameObj = toolsItemNameListData.find((item) => String(item?.id) === itemNameIdStr);
+    const toolsDetails = Array.isArray(itemNameObj?.tools_details)
+      ? itemNameObj.tools_details
+      : Array.isArray(itemNameObj?.toolsDetails)
+        ? itemNameObj.toolsDetails
+        : [];
+    toolsDetails.forEach((detail) => {
+      const brandId = detail?.brand_id ?? detail?.brandId;
+      if (brandId) linkedBrandIds.add(String(brandId));
+    });
+
+    stockManagementData.forEach((item) => {
+      const stockItemNameId = item?.item_name_id ?? item?.itemNameId;
+      if (String(stockItemNameId) !== itemNameIdStr) return;
+      const stockBrandId = item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId;
+      if (stockBrandId) linkedBrandIds.add(String(stockBrandId));
+    });
+
+    if (linkedBrandIds.size === 0) return [];
+    return toolsBrandFullData
+      .filter((brand) => linkedBrandIds.has(String(brand?.id)))
+      .map((brand) => brand?.tools_brand?.trim() ?? brand?.toolsBrand?.trim())
+      .filter(Boolean);
+  };
+  const getLinkedItemIdOptions = (itemNameId, brandId) => {
+    if (!itemNameId) return itemIdOptions;
+    const itemNameIdStr = String(itemNameId);
+    const brandIdStr = brandId ? String(brandId) : null;
+    const linkedItemIds = new Set();
+
+    const itemNameObj = toolsItemNameListData.find((item) => String(item?.id) === itemNameIdStr);
+    const toolsDetails = Array.isArray(itemNameObj?.tools_details)
+      ? itemNameObj.tools_details
+      : Array.isArray(itemNameObj?.toolsDetails)
+        ? itemNameObj.toolsDetails
+        : [];
+    toolsDetails.forEach((detail) => {
+      const detailBrandId = detail?.brand_id ?? detail?.brandId;
+      const detailItemId = detail?.item_ids_id ?? detail?.itemIdsId;
+      const brandMatch = !brandIdStr || (detailBrandId && String(detailBrandId) === brandIdStr);
+      if (brandMatch && detailItemId) linkedItemIds.add(String(detailItemId));
+    });
+
+    stockManagementData.forEach((item) => {
+      const stockItemNameId = item?.item_name_id ?? item?.itemNameId;
+      const stockBrandId = item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId;
+      const stockItemId = item?.item_ids_id ?? item?.itemIdsId;
+      const itemNameMatch = String(stockItemNameId) === itemNameIdStr;
+      const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+      if (itemNameMatch && brandMatch && stockItemId) linkedItemIds.add(String(stockItemId));
+    });
+
+    if (linkedItemIds.size === 0) return [];
+    return toolsItemIdFullData
+      .filter((itemId) => linkedItemIds.has(String(itemId?.id)))
+      .map((itemId) => itemId?.item_id?.trim() ?? itemId?.itemId?.trim())
+      .filter(Boolean);
+  };
+  const filteredAddModalBrandOptions = React.useMemo(
+    () => getLinkedBrandOptionsForItemName(addItemFormData.itemNameId),
+    [addItemFormData.itemNameId, brandOptions, toolsItemNameListData, toolsBrandFullData, stockManagementData]
+  );
+  const filteredAddModalItemIdOptions = React.useMemo(
+    () => getLinkedItemIdOptions(addItemFormData.itemNameId, addItemFormData.brandId),
+    [addItemFormData.itemNameId, addItemFormData.brandId, itemIdOptions, toolsItemNameListData, toolsItemIdFullData, stockManagementData]
+  );
   const handleFieldChange = (field, value) => {
     setAddItemFormData(prev => {
       const updated = { ...prev, [field]: value };
@@ -2613,6 +2799,7 @@ const Transfer = ({ user }) => {
         updated.itemId = '';
         updated.itemIdDbId = null;
         updated.machineNumber = '';
+        updated.model = '';
         setSelectedItemMachineNumber('');
       }
       if (field === 'itemName' && value) {
@@ -2620,6 +2807,13 @@ const Transfer = ({ user }) => {
           item => (item?.item_name ?? item?.itemName) === value
         );
         updated.itemNameId = itemNameObj?.id ?? null;
+        // Changing item name invalidates previously selected brand/item-id/model.
+        updated.brand = '';
+        updated.brandId = null;
+        updated.itemId = '';
+        updated.itemIdDbId = null;
+        updated.machineNumber = '';
+        updated.model = '';
         const toolsDetails = Array.isArray(itemNameObj?.tools_details)
           ? itemNameObj.tools_details
           : Array.isArray(itemNameObj?.toolsDetails)
@@ -2650,6 +2844,12 @@ const Transfer = ({ user }) => {
         setSelectedItemNameQuantity(totalCount);
       } else if (field === 'itemName' && !value) {
         updated.itemNameId = null;
+        updated.brand = '';
+        updated.brandId = null;
+        updated.itemId = '';
+        updated.itemIdDbId = null;
+        updated.machineNumber = '';
+        updated.model = '';
         setSelectedItemNameQuantity(0);
       }
       if (field === 'brand' && value) {
@@ -2657,6 +2857,12 @@ const Transfer = ({ user }) => {
           b => (b?.tools_brand?.trim() ?? b?.toolsBrand?.trim()) === value
         );
         updated.brandId = brandObj?.id ?? null;
+        // Brand change invalidates previously selected item-id/model.
+        updated.itemId = '';
+        updated.itemIdDbId = null;
+        updated.machineNumber = '';
+        updated.model = '';
+        setSelectedItemMachineNumber('');
         if (updated.itemNameId && updated.itemName) {
           const itemNameObj = toolsItemNameListData.find(
             i => String(i?.id) === String(updated.itemNameId)
@@ -2687,6 +2893,11 @@ const Transfer = ({ user }) => {
         }
       } else if (field === 'brand' && !value) {
         updated.brandId = null;
+        updated.itemId = '';
+        updated.itemIdDbId = null;
+        updated.machineNumber = '';
+        updated.model = '';
+        setSelectedItemMachineNumber('');
         if (updated.itemNameId && updated.itemName) {
           const itemNameObj = toolsItemNameListData.find(
             i => String(i?.id) === String(updated.itemNameId)
@@ -2732,6 +2943,7 @@ const Transfer = ({ user }) => {
                 timestamp: item?.timestamp || item?.created_date_time || item?.createdDateTime || '',
                 item_name_id: item?.item_name_id ?? item?.itemNameId,
                 brand_id: item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId,
+                model: item?.model || '',
                 machine_number: resolveMachineNumFromStock(item)
               });
             }
@@ -2748,6 +2960,7 @@ const Transfer = ({ user }) => {
                   timestamp: entry?.created_date_time ?? entry?.createdDateTime ?? entry?.timestamp ?? '',
                   item_name_id: item?.item_name_id ?? item?.itemNameId,
                   brand_id: item?.brand_id ?? item?.brandId,
+                  model: item?.model || '',
                   machine_number: resolveMachineNumberText(
                     item?.machine_number_id ??
                     item?.machineNumberId ??
@@ -2804,6 +3017,7 @@ const Transfer = ({ user }) => {
                 countBrandId = brandObj?.id ?? null;
               }
             }
+            updated.model = lastEntry.model || '';
 
             // Get latest machine number from new API that doesn't have "Machine Dead" status
             const machineStatusesForItemId = Array.isArray(machineStatusData)
@@ -2906,6 +3120,7 @@ const Transfer = ({ user }) => {
               }
             }
             countBrandId = stockItem?.brand_id ?? stockItem?.brandId ?? stockItem?.brand_name_id ?? stockItem?.brandNameId ?? null;
+            updated.model = stockItem?.model || '';
 
             // Get latest machine number from new API that doesn't have "Machine Dead" status
             const machineStatusesForItemId = Array.isArray(machineStatusData)
@@ -2997,6 +3212,7 @@ const Transfer = ({ user }) => {
         updated.brand = '';
         updated.brandId = null;
         updated.machineNumber = '';
+        updated.model = '';
         setSelectedItemNameQuantity(0);
         setSelectedItemMachineNumber('');
       }
@@ -4668,6 +4884,11 @@ const Transfer = ({ user }) => {
                   setExpandedItemId(null);
                 }
               };
+              const resolvedBrandText = item.brand || getBrandLabelById(item.brand_id || item.brandId || item.brand_name_id || item.brandNameId) || '';
+              const resolvedModelText = (item.model || '').trim();
+              const brandModelText = resolvedBrandText && resolvedModelText
+                ? `${resolvedBrandText}, ${resolvedModelText}`
+                : (resolvedBrandText || resolvedModelText);
               return (
                 <div key={itemId} className="relative overflow-hidden">
                   <div
@@ -4687,17 +4908,17 @@ const Transfer = ({ user }) => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] font-semibold text-black leading-snug truncate">
-                          {item.itemName || 'Unknown Item'}
+                          {item.itemName || getItemNameLabelById(item.item_name_id || item.itemNameId) || 'Unknown Item'}
                         </p>
                         <div className="mt-1 space-y-1 min-h-[32px]">
-                          {item.machine_number || item.machineNumber ? (
+                          {item.machine_number || item.machineNumber || resolveMachineNumberText(item.machine_number_id || item.machineNumberId) ? (
                             <p className="text-[11px] font-medium text-[#777777] leading-snug truncate">
-                              {item.machine_number || item.machineNumber}
+                              {item.machine_number || item.machineNumber || resolveMachineNumberText(item.machine_number_id || item.machineNumberId)}
                             </p>
                           ) : null}
-                          {item.brand && (
+                          {brandModelText && (
                             <p className="text-[11px] font-medium text-[#9E9E9E] leading-snug truncate">
-                              {item.brand}
+                              {brandModelText}
                             </p>
                           )}
                         </div>
@@ -4720,7 +4941,7 @@ const Transfer = ({ user }) => {
                           </div>
                         )}
                         <p className="text-[12px] font-semibold text-black leading-snug">
-                          {item.itemId || (item.quantity > 0 ? `${item.quantity} Qty` : '')}
+                          {item.itemId || getItemIdLabelById(item.item_ids_id || item.itemIdsId) || (item.quantity > 0 ? `${item.quantity} Qty` : '')}
                         </p>
                       </div>
                     </div>
@@ -4831,7 +5052,7 @@ const Transfer = ({ user }) => {
                   value={addItemFormData.brand}
                   onChange={(value) => handleFieldChange('brand', value)}
                   onAddNew={handleAddNewBrand}
-                  options={brandOptions}
+                  options={filteredAddModalBrandOptions}
                   placeholder="Stanley"
                   fieldName="Brand"
                   showAllOptions={true}
@@ -4851,7 +5072,7 @@ const Transfer = ({ user }) => {
                     value={addItemFormData.itemId}
                     onChange={(value) => handleFieldChange('itemId', value)}
                     onAddNew={handleAddNewItemId}
-                    options={itemIdOptions}
+                    options={filteredAddModalItemIdOptions}
                     placeholder="AA DM 01"
                     fieldName="Item ID"
                     showAllOptions={true}
@@ -5224,6 +5445,10 @@ const Transfer = ({ user }) => {
                     const itemName = itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown';
                     const itemIdName = itemIdObj?.item_id || itemIdObj?.itemId || '';
                     const brandName = brandObj?.tools_brand || brandObj?.toolsBrand || '';
+                    const modelName = (item?.model || '').trim();
+                    const brandModelText = brandName && modelName
+                      ? `${brandName}, ${modelName}`
+                      : (brandName || modelName || '');
                     const machineNumber = resolveMachineNumFromStock(item);
                     const machineStatus = item?.machine_status ?? item?.machineStatus ?? 'Working';
                     const inchargeName = inchargeObj?.label || '';
@@ -5238,7 +5463,7 @@ const Transfer = ({ user }) => {
                           <p className="text-[13px] font-medium text-black">{itemIdName}</p>
                         </div>
                         <div className="flex items-start justify-between mb-1">
-                          <p className="text-[12px] text-gray-600">{brandName || '-'}</p>
+                          <p className="text-[12px] text-gray-600">{brandModelText || '-'}</p>
                           <div className="flex items-center gap-1">
                             <span className={`w-1.5 h-1.5 rounded-full ${machineStatus === 'Working' ? 'bg-[#4CAF50]' :
                               machineStatus === 'Not Working' ? 'bg-[#F44336]' :

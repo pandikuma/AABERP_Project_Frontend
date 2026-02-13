@@ -198,9 +198,12 @@ const History = ({ user, onTabChange }) => {
             }
           });
           flattenedData.sort((a, b) => {
-            const dateA = new Date(a.createdDateTime);
-            const dateB = new Date(b.createdDateTime);
-            return dateB - dateA;
+            const idA = Number(a.entryId ?? a.id ?? 0);
+            const idB = Number(b.entryId ?? b.id ?? 0);
+            if (!Number.isNaN(idA) && !Number.isNaN(idB)) {
+              return idB - idA; // latest entry id first
+            }
+            return String(b.entryId ?? b.id ?? '').localeCompare(String(a.entryId ?? a.id ?? ''));
           });
           setHistoryData(flattenedData);
         } else {
