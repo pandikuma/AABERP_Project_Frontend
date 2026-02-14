@@ -1479,7 +1479,6 @@ const AddInput = ({ user }) => {
                   itemId: 'Item ID',
                   brand: 'Brand'
                 };
-
                 return (
                   <>
                     {/* "+ Add New [Field]" option for creatable fields when search is empty */}
@@ -1598,15 +1597,15 @@ const AddInput = ({ user }) => {
       </div>
       {/* Table */}
       <div className="flex-1 overflow-y-auto px-4 pb-20">
-        <div className="bg-white rounded-[8px] border border-[#E0E0E0]">
+        <div className="bg-white rounded-[18px] ">
           {/* Table Header */}
           <div className="bg-[#F5F5F5] px-2 py-2 border-b border-[#E0E0E0]">
-            <div className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] gap-2">
-              <div className="text-[10px] font-bold text-black leading-normal"></div>
-              <div className="text-[10px] font-bold text-black leading-normal">Item ID</div>
-              <div className="text-[10px] font-bold text-black leading-normal">Brand</div>
-              <div className="text-[10px] font-bold text-black leading-normal">Model</div>
-              <div className="text-[10px] font-bold text-black leading-normal">Machine</div>
+            <div className="grid grid-cols-[16px_1.1fr_0.8fr_1.2fr_1.6fr]">
+              <div className="text-[12px] font-semibold text-black leading-normal"></div>
+              <div className="text-[12px] font-semibold text-black leading-normal">Item ID</div>
+              <div className="text-[12px] font-semibold text-black leading-normal">Brand</div>
+              <div className="text-[12px] font-semibold text-black leading-normal">Model</div>
+              <div className="text-[12px] font-semibold text-black leading-normal">Machine</div>
             </div>
           </div>
           {/* Table Body */}
@@ -1616,12 +1615,12 @@ const AddInput = ({ user }) => {
                 const itemIdName = row.itemId ? (toolsItemIdFullData.find(item => String(item?.id) === String(row.itemId))?.item_id || toolsItemIdFullData.find(item => String(item?.id) === String(row.itemId))?.itemId || row.itemId || '-') : '-';
                 const brandName = row.brand ? (toolsBrandFullData.find(b => String(b?.id) === String(row.brand))?.tools_brand || toolsBrandFullData.find(b => String(b?.id) === String(row.brand))?.toolsBrand || row.brand || '-') : '-';
                 return (
-                  <div key={row.id || index} className="grid grid-cols-[24px_1fr_1fr_1fr_1fr] gap-2 px-2 py-2 border-b border-[#E0E0E0] last:border-b-0">
-                    <div className="text-[12px] font-medium text-black leading-normal">{index + 1}</div>
-                    <div className="text-[12px] font-medium text-black leading-normal truncate">{itemIdName}</div>
-                    <div className="text-[12px] font-medium text-black leading-normal truncate">{brandName}</div>
-                    <div className="text-[12px] font-medium text-black leading-normal truncate">{row.model || '-'}</div>
-                    <div className="text-[12px] font-medium text-black leading-normal truncate">{row.machine || '-'}</div>
+                  <div key={row.id || index} className="grid grid-cols-[16px_1.1fr_0.8fr_1.2fr_1.6fr] px-2 py-2 border-b border-[#E0E0E0] last:border-b-0">
+                    <div className="text-[11px] font-medium text-black leading-normal text-left">{index + 1}</div>
+                    <div className="text-[11px] font-medium text-black leading-normal truncate text-left">{itemIdName}</div>
+                    <div className="text-[11px] font-medium text-black leading-normal truncate text-left">{brandName}</div>
+                    <div className="text-[11px] font-medium text-black leading-normal truncate text-left">{row.model || '-'}</div>
+                    <div className="text-[11px] font-medium text-black leading-normal truncate text-left">{row.machine || '-'}</div>
                   </div>
                 );
               })

@@ -7,7 +7,8 @@ import FlottingButton from '../Images/Flotting Button Black.png'
 import FlottingButtonWhite from '../Images/Flotting Button.png'
 import Close from '../Images/close.png'
 import Edit from '../Images/edit.png'
-
+import Swap from '../Images/up-and-down-arrow.png'
+import Swap1 from '../Images/swap.png'
 const Transfer = ({ user }) => {
   const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
   const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
@@ -77,6 +78,7 @@ const Transfer = ({ user }) => {
     return saved ? JSON.parse(saved) : [];
   });
   const [entryServiceMode, setEntryServiceMode] = useState('Entry');
+  const [isSwapIconToggled, setIsSwapIconToggled] = useState(false);
   const [showAddItemsModal, setShowAddItemsModal] = useState(false);
   const [itemNameOptions, setItemNameOptions] = useState([]);
   const [brandOptions, setBrandOptions] = useState([]);
@@ -132,6 +134,7 @@ const Transfer = ({ user }) => {
   const [swipeStates, setSwipeStates] = useState({});
   const [isEditingTransferDetails, setIsEditingTransferDetails] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
+  const [showImageViewerStatusDropdown, setShowImageViewerStatusDropdown] = useState(false);
   const [imageViewerData, setImageViewerData] = useState({
     images: [],
     currentIndex: 0,
@@ -593,6 +596,17 @@ const Transfer = ({ user }) => {
     setSelectedServiceStore(null);
     setSelectedFrom(null);
     setRelocateLocationSearchQuery('');
+  };
+  const handleSwapFromTo = () => {
+    if (entryServiceMode !== 'Entry') return;
+    const currentFrom = selectedFrom || null;
+    const currentTo = selectedTo || null;
+    setSelectedFrom(currentTo);
+    setSelectedTo(currentFrom);
+    setIsSwapIconToggled(prev => !prev);
+    setShowFromDropdown(false);
+    setShowToDropdown(false);
+    setShowInchargeDropdown(false);
   };
   useEffect(() => {
     const fetchToolsItemNames = async () => {
@@ -1287,10 +1301,29 @@ const Transfer = ({ user }) => {
   };
   const getEntrySortTime = (entry) => {
     const rawDate = entry?.created_date_time || entry?.createdDateTime || entry?.timestamp || '';
+    const rawString = String(rawDate || '').trim();
+
+    // Handle dd/MM/yyyy with optional time, which Date.parse may not parse reliably.
+    const ddMmYyyyMatch = rawString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+    if (ddMmYyyyMatch) {
+      const day = Number(ddMmYyyyMatch[1]);
+      const month = Number(ddMmYyyyMatch[2]) - 1;
+      const year = Number(ddMmYyyyMatch[3]);
+      const hour = Number(ddMmYyyyMatch[4] || 0);
+      const minute = Number(ddMmYyyyMatch[5] || 0);
+      const second = Number(ddMmYyyyMatch[6] || 0);
+      const parsedDdMm = new Date(year, month, day, hour, minute, second).getTime();
+      if (!Number.isNaN(parsedDdMm)) return parsedDdMm;
+    }
+
     const parsed = Date.parse(rawDate);
     if (!Number.isNaN(parsed)) return parsed;
     const numeric = Number(rawDate);
-    return Number.isFinite(numeric) ? numeric : 0;
+    if (Number.isFinite(numeric)) return numeric;
+
+    // Fallback to id when date fields are unusable.
+    const entryId = Number(entry?.id);
+    return Number.isFinite(entryId) ? entryId : 0;
   };
   const findMatchingItemSetInEntry = (entry, itemIdsIdStr, brandIdStr, machineNumberStr) => {
     const entryItems = entry?.tools_tracker_item_name_table || entry?.toolsTrackerItemNameTable || [];
@@ -1318,7 +1351,12 @@ const Transfer = ({ user }) => {
       if (!matchingEntryItem) continue;
 
       const entrySortTime = getEntrySortTime(entry);
-      if (!latestMovement || entrySortTime > latestMovement.entrySortTime) {
+      const entryId = Number(entry?.id || 0);
+      const latestId = Number(latestMovement?.entry?.id || 0);
+      const isMoreRecent = !latestMovement
+        || entrySortTime > latestMovement.entrySortTime
+        || (entrySortTime === latestMovement.entrySortTime && entryId > latestId);
+      if (isMoreRecent) {
         latestMovement = {
           entry,
           entryType,
@@ -2320,7 +2358,7 @@ const Transfer = ({ user }) => {
   };
   const handleOpenImageViewer = (item, imageIndex = 0) => {
     const images = item.localImageUrls || [];
-    if (images.length === 0) return;
+    setShowImageViewerStatusDropdown(false);
     setImageViewerData({
       images: images,
       currentIndex: imageIndex,
@@ -2334,6 +2372,25 @@ const Transfer = ({ user }) => {
   };
   const handleCloseImageViewer = () => {
     setShowImageViewer(false);
+    setShowImageViewerStatusDropdown(false);
+  };
+  const handleUpdateImageViewerStatus = (status) => {
+    const currentItemId = imageViewerData.itemUniqueId;
+    if (!currentItemId) return;
+    setItems(prev => prev.map(item => {
+      if (item.id === currentItemId) {
+        return {
+          ...item,
+          machine_status: status
+        };
+      }
+      return item;
+    }));
+    setImageViewerData(prev => ({
+      ...prev,
+      machineStatus: status
+    }));
+    setShowImageViewerStatusDropdown(false);
   };
   const handlePrevImage = () => {
     setImageViewerData(prev => ({
@@ -3729,9 +3786,18 @@ const Transfer = ({ user }) => {
           )}
           {entryServiceMode === 'Entry' && (
             <div className="relative dropdown-container">
-              <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                To<span className="text-[#eb2f8e]">*</span>
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                  To<span className="text-[#eb2f8e]">*</span>
+                </p>
+                <button onClick={() => handleSwapFromTo()} className="flex items-center justify-center">
+                  <img
+                    src={isSwapIconToggled ? Swap1 : Swap}
+                    alt="change"
+                    className="w-5 h-5"
+                  />
+                </button>
+              </div>
               <div className="relative">
                 <div
                   onClick={() => {
@@ -4544,6 +4610,45 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           </div>
+          {selectedRelocateItemId && relocateItemDetails && (
+            <div className="pt-1 pb-2">
+
+              <p className="text-[12px] leading-normal font-semibold text-black mb-2">Product Detail</p>
+              <div className="border border-[#BDBDBD] rounded-[8px] bg-white p-3">
+                <div className="space-y-1">
+                  <div className="flex items-start text-[12px] leading-normal ">
+                    <span className="w-[102px] text-black">Item Name</span>
+                    <span className="mx-2">:</span>
+                    <span className="flex-1 truncate text-[#4F4F4F]">{relocateItemDetails.itemName || '-'}</span>
+                  </div>
+                  <div className="flex items-start text-[12px] leading-normal ">
+                    <span className="w-[102px] text-black">Birth Location</span>
+                    <span className="mx-2">:</span>
+                    <span className="flex-1 truncate text-[#4F4F4F]">{relocateItemDetails.birthLocation || '-'}</span>
+                  </div>
+                  <div className="flex items-start text-[12px] leading-normal ">
+                    <span className="w-[102px] text-black">Current Location</span>
+                    <span className="mx-2">:</span>
+                    <span className="flex-1 truncate text-[#4F4F4F]">{relocateItemDetails.currentLocation || selectedCurrentLocation?.label || '-'}</span>
+                  </div>
+                  <div className="flex items-start text-[12px] leading-normal ">
+                    <span className="w-[102px] text-black">Purchase Store</span>
+                    <span className="mx-2">:</span>
+                    <span className="flex-1 truncate text-[#4F4F4F]">{relocateItemDetails.purchaseStore || '-'}</span>
+                  </div>
+                </div>
+              </div>
+              {relocateItemDetails.imageUrl && (
+                <div className="mt-2">
+                  <img
+                    src={relocateItemDetails.imageUrl}
+                    alt="Product"
+                    className="w-full rounded-[10px] object-cover"
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
       {showRelocateLocationDropdown && (
@@ -4664,22 +4769,14 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showCurrentLocationDropdown && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowCurrentLocationDropdown(false);
-            }
-          }}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+          onClick={(e) => {if (e.target === e.currentTarget) {setShowCurrentLocationDropdown(false);}}}
           style={{ fontFamily: "'Manrope', sans-serif", zIndex: 9999 }}
         >
           <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center px-6 pt-5">
               <p className="text-[16px] font-semibold text-black">Select Current Location</p>
-              <button onClick={() => {
-                setShowCurrentLocationDropdown(false);
-                setCurrentLocationSearchQuery('');
-              }} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
+              <button onClick={() => {setShowCurrentLocationDropdown(false); setCurrentLocationSearchQuery('');}} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                 <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
               </button>
             </div>
@@ -4708,11 +4805,7 @@ const Transfer = ({ user }) => {
                   const normalizedQuery = normalizeSearchText(currentLocationSearchQuery.trim());
                   return normalizedOpt === normalizedQuery;
                 }) && (
-                    <button
-                      onClick={() => {
-                      }}
-                      className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
-                    >
+                    <button onClick={() => { }} className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors">
                       <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M7 3V11M3 7H11" stroke="#000" strokeWidth="1.5" strokeLinecap="round" />
@@ -4925,13 +5018,7 @@ const Transfer = ({ user }) => {
                       </div>
                       <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                         {item.localImageUrls?.length > 0 && (
-                          <div
-                            className="flex items-center gap-1 text-[#E4572E] cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenImageViewer(item, 0);
-                            }}
-                          >
+                          <div className="flex items-center gap-1 text-[#E4572E] cursor-pointer" onClick={(e) => { e.stopPropagation(); handleOpenImageViewer(item, 0); }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" />
                               <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="2" />
@@ -4940,7 +5027,9 @@ const Transfer = ({ user }) => {
                             <span className="text-[10px] font-medium">Image</span>
                           </div>
                         )}
-                        <p className="text-[12px] font-semibold text-black leading-snug">
+                        <p className={`text-[12px] font-semibold text-black leading-snug ${item.localImageUrls?.length > 0 ? '' : 'cursor-pointer'}`}
+                          onClick={(e) => { if (item.localImageUrls?.length > 0) return; e.stopPropagation();  handleOpenImageViewer(item, 0); }}
+                        >
                           {item.itemId || getItemIdLabelById(item.item_ids_id || item.itemIdsId) || (item.quantity > 0 ? `${item.quantity} Qty` : '')}
                         </p>
                       </div>
@@ -4958,22 +5047,12 @@ const Transfer = ({ user }) => {
                       pointerEvents: isExpanded ? 'auto' : 'none'
                     }}
                   >
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedItemId(null);
-                        handleEditItem(item);
-                      }}
+                    <button onClick={(e) => { e.stopPropagation(); setExpandedItemId(null); handleEditItem(item); }}
                       className="action-button w-[40px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
                     >
                       <img src={EditIcon} alt="Edit" className="w-[18px] h-[18px]" />
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedItemId(null);
-                        handleRemoveItem(item.id);
-                      }}
+                    <button onClick={(e) => { e.stopPropagation(); setExpandedItemId(null); handleRemoveItem(item.id); }}
                       className="action-button w-[40px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
                     >
                       <img src={DeleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
@@ -5021,7 +5100,7 @@ const Transfer = ({ user }) => {
                     onChange={(value) => handleFieldChange('itemName', value)}
                     onAddNew={handleAddNewItemName}
                     options={itemNameOptions}
-                    placeholder="Drilling Machine"
+                    placeholder="Select ..."
                     fieldName="Item Name"
                     showAllOptions={true}
                     disabled={!!addItemFormData.itemId}
@@ -5053,7 +5132,7 @@ const Transfer = ({ user }) => {
                   onChange={(value) => handleFieldChange('brand', value)}
                   onAddNew={handleAddNewBrand}
                   options={filteredAddModalBrandOptions}
-                  placeholder="Stanley"
+                  placeholder="Select ..."
                   fieldName="Brand"
                   showAllOptions={true}
                 />
@@ -5073,17 +5152,14 @@ const Transfer = ({ user }) => {
                     onChange={(value) => handleFieldChange('itemId', value)}
                     onAddNew={handleAddNewItemId}
                     options={filteredAddModalItemIdOptions}
-                    placeholder="AA DM 01"
+                    placeholder="Select ..."
                     fieldName="Item ID"
                     showAllOptions={true}
                   />
                 </div>
               </div>
               <div className="flex gap-4">
-                <button
-                  onClick={handleCloseAddItemsModal}
-                  className="flex-1 h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
-                >
+                <button onClick={handleCloseAddItemsModal} className="flex-1 h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal">
                   Cancel
                 </button>
                 <button
@@ -5102,11 +5178,7 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showUploadModal && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-          onClick={handleCloseUploadModal}
-          style={{ fontFamily: "'Manrope', sans-serif" }}
-        >
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={handleCloseUploadModal} style={{ fontFamily: "'Manrope', sans-serif" }}>
           <div className="bg-white w-full max-w-[360px] rounded-[16px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 pt-5 pb-2 flex-shrink-0">
               <div>
@@ -5119,8 +5191,7 @@ const Transfer = ({ user }) => {
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none">
               <div className="px-6 py-4">
-                <label
-                  htmlFor="file-upload-input"
+                <label htmlFor="file-upload-input"
                   className="flex flex-col items-center justify-center w-full h-[100px] border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                 >
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5290,13 +5361,33 @@ const Transfer = ({ user }) => {
               <p className="text-[12px] text-white">
                 To - {imageViewerData.toLocation || 'N/A'}
               </p>
-              <span className={`text-[11px] font-medium px-2 py-1 rounded ${imageViewerData.machineStatus === 'Working' ? 'bg-green-500 text-white' :
-                imageViewerData.machineStatus === 'Not Working' ? 'bg-red-500 text-white' :
-                  imageViewerData.machineStatus === 'Under Repair' ? 'bg-yellow-500 text-white' :
-                    'bg-gray-500 text-white'
-                }`}>
-                • {imageViewerData.machineStatus}
-              </span>
+              <div className="relative">
+                <button
+                  onClick={() => setShowImageViewerStatusDropdown(prev => !prev)}
+                  className={`text-[11px] font-medium px-2 py-1 rounded flex items-center gap-1 ${imageViewerData.machineStatus === 'Working' ? 'bg-green-500 text-white' :
+                    imageViewerData.machineStatus === 'Not Working' ? 'bg-red-500 text-white' :
+                      imageViewerData.machineStatus === 'Under Repair' ? 'bg-yellow-500 text-white' :
+                        'bg-gray-500 text-white'
+                    }`}
+                >
+                  <span>• {imageViewerData.machineStatus}</span>
+                  <svg width="10" height="6" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {showImageViewerStatusDropdown && (
+                  <div className="absolute right-0 bottom-full mb-2 w-[130px] bg-white border border-gray-300 rounded-lg shadow-lg z-10 overflow-hidden">
+                    {statusOptions.map((status) => (
+                      <button key={status} onClick={() => handleUpdateImageViewerStatus(status)}
+                        className={`w-full px-3 py-2 text-left text-[12px] text-black hover:bg-gray-100 ${imageViewerData.machineStatus === status ? 'bg-gray-50 font-semibold' : ''
+                          }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div className="px-4 py-2 bg-black bg-opacity-60 overflow-x-auto">
@@ -5314,11 +5405,7 @@ const Transfer = ({ user }) => {
                     />
                   </div>
                   {index === imageViewerData.currentIndex && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteViewerImage(index);
-                      }}
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteViewerImage(index); }}
                       className="absolute -top-1 -right-1 w-[18px] h-[18px] bg-[#E4572E] rounded-full flex items-center justify-center shadow-md"
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5368,12 +5455,7 @@ const Transfer = ({ user }) => {
               >
                 Cancel
               </button>
-              <button
-                onClick={() => {
-                  setShowConfirmModal(false);
-                  handleSaveTransfer();
-                }}
-                disabled={isSaving}
+              <button onClick={() => { setShowConfirmModal(false); handleSaveTransfer(); }} disabled={isSaving}
                 className="flex-1 h-[44px] bg-black rounded-[8px] text-[14px] font-semibold text-white hover:bg-gray-800 transition-colors disabled:bg-gray-400"
               >
                 {isSaving ? 'Saving...' : 'Confirm'}
@@ -5606,12 +5688,7 @@ const Transfer = ({ user }) => {
                   {showSearchStatusDropdown && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
                       {statusOptions.map((status) => (
-                        <button
-                          key={status}
-                          onClick={() => {
-                            setSearchUploadStatus(status);
-                            setShowSearchStatusDropdown(false);
-                          }}
+                        <button key={status} onClick={() => { setSearchUploadStatus(status); setShowSearchStatusDropdown(false);}}
                           className={`w-full px-4 py-2 text-left text-[14px] hover:bg-gray-100 ${searchUploadStatus === status ? 'bg-gray-50 font-semibold' : ''
                             }`}
                         >
@@ -5641,15 +5718,8 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {customAlert.isOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[120] flex items-center justify-center p-4"
-          onClick={closeCustomAlert}
-          style={{ fontFamily: "'Manrope', sans-serif" }}
-        >
-          <div
-            className="bg-white w-full max-w-[360px] rounded-[16px] p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[120] flex items-center justify-center p-4" onClick={closeCustomAlert} style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white w-full max-w-[360px] rounded-[16px] p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-[#FFF4F0] flex items-center justify-center">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5662,8 +5732,7 @@ const Transfer = ({ user }) => {
               {customAlert.message}
             </p>
             <div className="mt-5 flex justify-end">
-              <button
-                onClick={closeCustomAlert}
+              <button onClick={closeCustomAlert}
                 className="min-w-[88px] h-[38px] px-5 rounded-full bg-[#8A4B2D] text-white text-[14px] font-semibold hover:opacity-90 transition-opacity"
               >
                 OK

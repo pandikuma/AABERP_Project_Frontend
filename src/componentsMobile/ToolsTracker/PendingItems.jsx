@@ -487,13 +487,17 @@ const PendingItems = ({ user }) => {
               }
             }
             if (mostRecentEntry) {
+              console.log("Most Recent Entry: ", mostRecentEntry);
               const fromLocationId = mostRecentEntry.from_project_id || mostRecentEntry.fromProjectId;
               const toLocationId = mostRecentEntry.to_project_id || mostRecentEntry.toProjectId;
+              console.log("To Location ID: ", toLocationId);
+              console.log("From Location ID: ", fromLocationId);
               const createdDateTime = mostRecentEntry.created_date_time || mostRecentEntry.createdDateTime || mostRecentEntry.timestamp || '';
               const projectInchargeId = mostRecentEntry.project_incharge_id || mostRecentEntry.projectInchargeId;
               const eno = mostRecentEntry.eno || '';
               const fromLocation = getLocationName(fromLocationId);
               const toLocation = getLocationName(toLocationId);
+              console.log("To Location: ", toLocation);
               const inchargeName = employeesMap[projectInchargeId] || employeesMap[String(projectInchargeId)] || '-';
               const homeLocationName = getLocationName(homeLocationId);
               const dateObj = new Date(createdDateTime);

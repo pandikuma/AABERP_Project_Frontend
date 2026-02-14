@@ -524,7 +524,7 @@ const History = ({ user, onTabChange }) => {
             <p className="text-[12px] text-gray-500">No history entries found.</p>
           </div>
         ) : (
-          <div className="mt-3 space-y-0.5">
+          <div className="mt-3">
             {filteredHistoryData.map((entry) => {
               const { date, time } = formatDateTime(entry.createdDateTime);
               const fromLocation = getLocationName(entry.fromProjectId, false);
@@ -556,7 +556,7 @@ const History = ({ user, onTabChange }) => {
                     ? -buttonWidth
                     : 0;
               return (
-                <div key={entry.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] h-[100px]">
+                <div key={entry.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px]">
                   <div
                     className="bg-white rounded-[8px] h-full px-3 py-3 cursor-pointer transition-all duration-300 ease-out select-none"
                     style={{
@@ -571,7 +571,7 @@ const History = ({ user, onTabChange }) => {
                     onMouseDown={(e) => handleMouseDown(e, entryId)}
                     onClick={handleCardClick}
                   >
-                    <div className="flex items-start justify-between mb-1">
+                    <div className="flex items-start justify-between mb-0.5">
                       <p className="text-[12px] font-semibold text-black leading-snug truncate">
                         #{entry.eno}, {itemName}
                       </p>
@@ -591,7 +591,7 @@ const History = ({ user, onTabChange }) => {
                         ) : null}
                       </div>
                     </div>
-                    <div className="flex items-start justify-between mb-1">
+                    <div className="flex items-start justify-between mb-0.5">
                       <p className="text-[11px] text-[#848484] leading-snug truncate flex-1 min-w-0">
                         From - {fromLocation}
                       </p>
@@ -601,7 +601,7 @@ const History = ({ user, onTabChange }) => {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-start justify-between mb-1">
+                    <div className="flex items-start justify-between mb-0.5">
                       <p className="text-[11px] text-[#BF9853] leading-snug truncate flex-1 min-w-0">
                         To - {toLocation}
                       </p>

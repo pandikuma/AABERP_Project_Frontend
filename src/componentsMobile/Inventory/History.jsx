@@ -1014,7 +1014,7 @@ const History = ({ onTabChange }) => {
               }
 
               return (
-                <div key={item.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] min-w-[330px] border-opacity-30 bg-[#F8F8F8] rounded-[8px]">
+                <div key={item.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] min-w-[330px]">
                   {/* Clone Button - Behind the card on the left, revealed on right swipe */}
                   <div
                     className="absolute left-0 top-0 flex gap-2 flex-shrink-0 z-0"
@@ -1082,14 +1082,14 @@ const History = ({ onTabChange }) => {
 
                         {/* Customer/Location Name */}
                         <div className="mb-0.5">
-                          <p className="text-[12px] font-medium text-black leading-normal">
+                          <p className="text-[12px] font-semibold text-black leading-normal">
                             {customerLocation}
                           </p>
                         </div>
 
                         {/* Date and Time */}
                         <div>
-                          <p className="text-[11px] font-medium text-[#616161] leading-normal">
+                          <p className="text-[11px] font-medium text-[#777777] leading-normal">
                             {displayDate} • {displayTime}
                           </p>
                         </div>
