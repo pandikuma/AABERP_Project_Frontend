@@ -611,40 +611,43 @@ const History = ({ user, onTabChange }) => {
   });
 
   return (
-    <div className="flex flex-col px-4 bg-white min-h-[calc(100vh-90px-80px)]" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      <div className="flex items-center justify-between pt-1.5 pb-1.5">
+    <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden px-4 bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      <div className="flex items-center justify-between pt-1.5 pb-1.5 flex-shrink-0">
         <p className="text-[12px] text-black font-semibold">Category</p>
       </div>
-      <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md">
+      <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md flex-shrink-0">
         <button
           onClick={() => setHistoryType('entry')}
-          className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${historyType === 'entry'
+          className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'entry'
               ? 'bg-white text-black shadow-sm'
               : 'text-[#9E9E9E]'
             }`}
+          style={{ minWidth: 0 }}
         >
           Entry History
         </button>
         <button
           onClick={() => setHistoryType('service')}
-          className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${historyType === 'service'
+          className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'service'
               ? 'bg-white text-black shadow-sm'
               : 'text-[#9E9E9E]'
             }`}
+          style={{ minWidth: 0 }}
         >
           Service History
         </button>
         <button
           onClick={() => setHistoryType('relocate')}
-          className={`flex-1 mr-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${historyType === 'relocate'
+          className={`flex-1 mr-0.5 h-8 rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'relocate'
               ? 'bg-white text-black shadow-sm'
               : 'text-[#9E9E9E]'
             }`}
+          style={{ minWidth: 0 }}
         >
           Relocate History
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto pb-4">
+      <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pb-4">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <p className="text-[12px] text-gray-500">Loading...</p>
@@ -657,9 +660,9 @@ const History = ({ user, onTabChange }) => {
           <div className="mt-3">
             {filteredHistoryData.map((entry) => {
               const { date, time } = formatDateTime(entry.createdDateTime);
-              const fromLocation = getLocationName(entry.fromProjectId, false);
-              let toLocation = '-';
               const entryType = String(entry.toolsEntryType || '').toLowerCase();
+              let fromLocation = getLocationName(entry.fromProjectId, false);
+              let toLocation = '-';
               if (entryType === 'entry') {
                 toLocation = getLocationName(entry.toProjectId, false);
                 if (toLocation === '-') {
@@ -669,6 +672,12 @@ const History = ({ user, onTabChange }) => {
                 toLocation = getLocationName(entry.homeLocationId, false);
                 if (toLocation === '-') {
                   toLocation = getLocationName(entry.toProjectId, false);
+                }
+              } else if (entryType === 'service_return') {
+                fromLocation = getLocationName(entry.serviceStoreId, true);
+                toLocation = getLocationName(entry.toProjectId, false);
+                if (toLocation === '-') {
+                  toLocation = getLocationName(entry.fromProjectId, false);
                 }
               } else {
                 toLocation = getLocationName(entry.serviceStoreId, true);

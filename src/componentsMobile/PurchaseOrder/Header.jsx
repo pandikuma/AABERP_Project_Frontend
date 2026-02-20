@@ -37,7 +37,7 @@ const Header = ({ title = "Purchase Order", showBack = true, showNotification = 
           </p>
 
           {/* Right side icons */}
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-2">
             {showNotification && (
               <div className="w-[18.945px] h-[19.97px] cursor-pointer flex items-center">
                 <svg width="19" height="20" viewBox="0 0 19 20" fill="none" xmlns="http://www.w3.org/2000/svg">

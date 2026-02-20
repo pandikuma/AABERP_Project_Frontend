@@ -105,13 +105,10 @@ const Outgoing = ({ user }) => {
   useEffect(() => {
     const fetchOutgoingEmployeeList = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/site_engineers');
         if (response.ok) {
           const data = await response.json();
-          const siteEngineers = data.filter(
-            (emp) => emp.role_of_employee === 'Site Engineer'
-          );
-          setOutgoingEmployeeList(siteEngineers);
+          setOutgoingEmployeeList(data);
         }
       } catch (error) {
         console.error('Error:', error);
@@ -626,7 +623,7 @@ const Outgoing = ({ user }) => {
                   // Get amount and calculate price per unit
                   const amount = Number(invItem.amount) || 0;
                   if (amount > 0 && qty > 0) {
-                    const pricePerUnit = amount / Math.abs(qty); // Use absolute quantity for price calculation
+                    const pricePerUnit = amount; // Use absolute quantity for price calculation
                     matchingAmounts.push(pricePerUnit);
                   }
                 }
