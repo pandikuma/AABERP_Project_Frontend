@@ -1219,8 +1219,8 @@ const Outgoing = ({ user }) => {
     <div className="flex flex-col px-4 h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date and Actions Row - Only show when not in empty state */}
       {!isEmptyState && (
-        <div className="items-center px-4 border-b border-[#E0E0E0]">
-          <div className="sticky top-[100px] z-30 bg-white flex items-center justify-between mb-2 ">
+        <div className="items-center border-b border-[#E0E0E0] mb-2">
+          <div className="sticky top-[100px] z-30 bg-white flex items-center justify-between">
             <button
               type="button"
               onClick={() => setShowDatePicker(true)}
