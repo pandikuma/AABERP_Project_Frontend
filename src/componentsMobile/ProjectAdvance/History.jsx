@@ -183,11 +183,17 @@ const History = () => {
         }
         const ref = `${prefix} - ${year} - ${entryNo}`;
 
+        // Get transfer site name for Transfer type
+        const transferSiteName = t === 'Transfer' && entry.transfer_site_id
+          ? getProjectName(entry.transfer_site_id) || ''
+          : '';
+
         return {
           id: entry.advancePortalId || entry.id || `${entry.entry_no}-${entry.date}`,
           ref,
           entityName,
           projectName,
+          transferSiteName,
           timestamp: dateStr,
           type: t || 'Advance',
           paymentMode: entry.payment_mode || '',
@@ -223,7 +229,7 @@ const History = () => {
       case 'Refund':
         return 'bg-[#FFF3E0] text-[#F57C00]';
       case 'Transfer':
-        return ' text-[#7B1FA2]';
+        return 'bg-[#FFF3E0] text-black';
       default:
         return 'bg-gray-100 text-gray-600';
     }
@@ -238,7 +244,7 @@ const History = () => {
       <div className="px-4 pt-2">
         <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-2">
           <button className="text-[12px] font-semibold text-black leading-normal">#Week</button>
-          <button className="text-[12px] font-semibold text-black leading-normal">Category</button>
+          <button className="text-[12px] font-semibold text-black leading-normal">Type</button>
         </div>
       </div>
       {/* Filter */}
@@ -287,30 +293,12 @@ const History = () => {
               style={{ height: '95px' }}
             >
               <div className="flex-1 bg-white rounded-[8px] h-full px-3 py-3 transition-all duration-300 ease-out">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[12px] font-semibold text-black leading-snug">
-                        {item.ref}
-                      </span>
-                    </div>
-                    <p
-                      className="text-[12px] font-semibold text-black leading-snug break-words mb-0.5"
-                      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-                    >
-                      {item.entityName || 'N/A'}
-                    </p>
-                    <p
-                      className="text-[11px] font-medium text-[#777777] leading-snug break-words"
-                      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-                    >
-                      {item.projectName || 'N/A'}
-                    </p>
-                    <span className="text-[11px] font-medium text-[#777777] leading-snug">
-                      {formatDateTime(item.timestamp)}
+                <div className="flex flex-col gap-0.5">
+                  {/* Row 1: ref and payment mode */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] font-semibold text-black leading-snug">
+                      {item.ref}
                     </span>
-                  </div>
-                  <div className="flex-shrink-0 flex flex-col items-end gap-1">
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${getTypeBadgeClass(
                         item.type
@@ -329,15 +317,55 @@ const History = () => {
                                   : ''
                         }`}
                       />
-                      {item.paymentMode || ''}
+                      {item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '')}
                     </span>
-                    <p className="text-[12px] font-semibold text-black block leading-snug mt-1">
-                      ₹{Math.abs(item.amount).toLocaleString('en-IN')}
-                      {item.amount < 0 ? ' (Refund)' : ''}
+                  </div>
+                  {/* Row 2: entityName and empty space */}
+                  <div className="flex items-center justify-between">
+                    <p
+                      className="text-[12px] font-semibold text-black leading-snug break-words"
+                      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                    >
+                      {item.entityName || 'N/A'}
                     </p>
-                    {item.paymentMode && (
-                      <p className="text-[10px] font-medium text-[#9E9E9E]">{item.paymentMode}</p>
-                    )}
+                    <span></span>
+                  </div>
+                  {/* Row 3: projectName and amount */}
+                  <div className="flex items-center justify-between">
+                    <p
+                      className="text-[11px] font-medium text-[#777777] leading-snug break-words"
+                      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                    >
+                      {item.projectName || 'N/A'}
+                    </p>
+                    <p
+                      className={`text-[12px] font-semibold block leading-snug ${
+                        item.amount < 0
+                          ? 'text-[#E4572E]'
+                          : item.type === 'Advance'
+                            ? 'text-[#E4572E]'
+                            : item.type === 'Refund' || item.type === 'Transfer'
+                              ? 'text-[#007233]'
+                              : 'text-[#007233]'
+                      }`}
+                    >
+                      {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                  {/* Row 4: date/time and transfer site name */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-[#777777] leading-snug">
+                      {formatDateTime(item.timestamp)}
+                    </span>
+                    {item.type === 'Transfer' && item.transferSiteName ? (
+                      <p className={`text-[10px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#BF9853]' : 'text-[#007233]'}`}>
+                        {item.transferSiteName}
+                      </p>
+                    ) : item.type === 'Bill Settlement' && item.entry.amount ? (
+                      <span className="text-[10px] font-medium text-[#777777] leading-snug">
+                        ₹{parseFloat(item.entry.amount || 0).toLocaleString('en-IN')}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>
