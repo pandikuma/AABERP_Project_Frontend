@@ -2,6 +2,35 @@ import React, { useState, useEffect, useRef } from 'react';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 
 const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] }) => {
+  const resolveActiveBranchId = () => {
+    try {
+      const selectedBranchId = localStorage.getItem("selectedBranchId");
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const fallbackBranchId = user?.branchId ?? user?.branch_id ?? user?.brachId;
+      const resolved = Number(selectedBranchId || fallbackBranchId);
+      return Number.isFinite(resolved) && resolved > 0 ? resolved : null;
+    } catch {
+      return null;
+    }
+  };
+  const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
+  const withBranchUrl = (baseUrl) => {
+    const url = new URL(baseUrl);
+    if (activeBranchId !== null && activeBranchId !== undefined && activeBranchId !== "") {
+      url.searchParams.set("branchId", String(activeBranchId));
+    }
+    return url.toString();
+  };
+  useEffect(() => {
+    const syncBranch = () => {
+      const nextBranchId = resolveActiveBranchId();
+      setActiveBranchId((prevBranchId) => (prevBranchId === nextBranchId ? prevBranchId : nextBranchId));
+    };
+    syncBranch();
+    window.addEventListener("branchSelectionChanged", syncBranch);
+    return () => window.removeEventListener("branchSelectionChanged", syncBranch);
+  }, []);
+
   // Use paymentModeOptions from props, fallback to default if not provided
   const defaultPaymentModeOptions = [
     { value: 'Cash', label: 'Cash' },
@@ -272,22 +301,23 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
   }, []);
 
   // Fetch advance data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('https://backendaab.in/aabuilderDash/api/advance_portal/getAll');
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const data = await response.json();
-        setAdvanceData(data);
-        const maxEntryNo = data.length > 0 ? Math.max(...data.map(item => item.entry_no || 0)) : 0;
-        setEntryNo(maxEntryNo + 1);
-      } catch (error) {
-        console.error('Error fetching advance portal data:', error);
+  const fetchAdvanceData = async () => {
+    try {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/getAll');
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-    };
-    fetchData();
+      const data = await response.json();
+      setAdvanceData(data);
+      const maxEntryNo = data.length > 0 ? Math.max(...data.map(item => item.entry_no || 0)) : 0;
+      setEntryNo(maxEntryNo + 1);
+    } catch (error) {
+      console.error('Error fetching advance portal data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdvanceData();
   }, []);
 
   // Combine vendor and contractor options
@@ -304,7 +334,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
       localStorage.removeItem("advanceContractorVendor");
     }
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/advance_portal/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/getAll');
       if (!response.ok) {
         throw new Error('Failed to fetch data');
       }
@@ -337,7 +367,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
       return;
     }
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/advance_portal/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/getAll');
       if (!response.ok) throw new Error('Failed to fetch advance portal data');
       const data = await response.json();
       const isVendor = vendorOrContractor.type === 'Vendor';
@@ -472,7 +502,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
           return;
         }
       }
-      const res = await fetch('https://backendaab.in/aabuilderDash/api/advance_portal/getAll');
+      const res = await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/getAll');
       if (!res.ok) throw new Error('Failed to fetch entry numbers');
       const allData = await res.json();
       const maxEntryNo = allData.length > 0 ? Math.max(...allData.map(item => item.entry_no || 0)) : 0;
@@ -495,6 +525,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
         week_no: getWeekNumber(),
         description: description,
         file_url: fileUrl,
+        branch_id: activeBranchId,
         ...overrides
       });
       if (selectedType === 'Transfer') {
@@ -516,9 +547,10 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
             labour_id: 0,
             project_id: 0,
             description: "Transfer from Advance Portal",
-            file_url: ""
+            file_url: "",
+            branch_id: activeBranchId
           };
-          const loanResponse = await fetch("https://backendaab.in/aabuilderDash/api/loans/save", {
+          const loanResponse = await fetch(withBranchUrl("https://backendaab.in/aabuildersDash/api/loans/save"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(loanPayload)
@@ -532,7 +564,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
             amount: -Math.abs(amountValue),
             loan_portal_id: loanPortalId
           });
-          await fetch('https://backendaab.in/aabuilderDash/api/advance_portal/save', {
+          await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(advancePayload)
@@ -547,7 +579,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
             bill_amount: 0,
             refund_amount: 0
           };
-          const vendorCarryForwardResponse = await fetch("https://backendaab.in/aabuilderDash/api/vendor_carry_forward/save", {
+          const vendorCarryForwardResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/save", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(vendorCarryForwardPayload)
@@ -561,7 +593,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
             amount: -Math.abs(amountValue),
             vendor_carry_forward_id: vendorCarryForwardId
           });
-          await fetch('https://backendaab.in/aabuilderDash/api/advance_portal/save', {
+          await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(advancePayload)
@@ -574,12 +606,12 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
             amount: Math.abs(amountValue)
           });
           await Promise.all([
-            fetch('https://backendaab.in/aabuilderDash/api/advance_portal/save', {
+            fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(firstPayload)
             }),
-            fetch('https://backendaab.in/aabuilderDash/api/advance_portal/save', {
+            fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(secondPayload)
@@ -588,7 +620,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
         }
       } else {
         const payload = createPayload();
-        await fetch('https://backendaab.in/aabuilderDash/api/advance_portal/save', {
+        await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -618,8 +650,9 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
             machineTools: '',
             billCopyUrl: fileUrl || '',
             source: "Advance Portal",
+            branchId: activeBranchId,
           };
-          const expensesResponse = await fetch("https://backendaab.in/aabuilderDash/expenses_form/save", {
+          const expensesResponse = await fetch(withBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/save"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -634,6 +667,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
         }
       }
       alert('Advance saved successfully!');
+      window.dispatchEvent(new CustomEvent('advanceUpdated'));
       setAdvanceAmount('');
       setDescription('');
       setPaymentMode('');
@@ -644,6 +678,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
         fileInputRef.current.value = '';
       }
       setEntryNo(nextEntryNo);
+      fetchAdvanceData();
       if (selectedOption) handleChange(selectedOption);
       if (selectedOption && selectedSite) calculateProjectAdvance(selectedOption, selectedSite);
     } catch (error) {
@@ -662,12 +697,13 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
     submitAdvanceData();
   };
 
-  // Handle file attach
+  // Handle file attach (same as AdvancePortal handleFileChange)
   const handleFileAttach = (e) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedAdvanceFile(file);
     }
+    e.target.value = ''; // Allow re-selecting the same file
   };
 
   // Get button label
@@ -696,13 +732,13 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
         <div className="flex items-center gap-2 mt-0.5">
           <button
             type="button"
-            className="text-[12px] font-medium text-black leading-normal underline-offset-2 hover:underline"
+            className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
           >
             #NO {entryNo || '09/08/2025'}
           </button>
           <button
             type="button"
-            className="text-[12px] font-medium text-black leading-normal underline-offset-2 hover:underline"
+            className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
           >
             {'09/08/2025'}
           </button>
@@ -711,7 +747,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
           <button
             type="button"
             onClick={() => setShowTypeModal(true)}
-            className="text-[12px] font-medium text-black leading-normal underline-offset-2 hover:underline"
+            className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
           >
             {selectedType || 'Select Type'}
           </button>
@@ -1002,31 +1038,30 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
           />
         </div>
       </div>
-      {/* Attach File */}
-      <div className="">
-        <div className="flex items-center gap-2 mb-0.5">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 2V10M5 5L8 2L11 5M3 12H13" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span className="text-[12px] font-medium text-[#9E9E9E]">Attach File</span>
-        </div>
+      {/* Attach File - same pattern as AdvancePortal: label wraps clickable area */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 w-full max-w-[328px]">
         <input
           type="file"
           id="fileInput"
           ref={fileInputRef}
           className="hidden"
           onChange={handleFileAttach}
+          accept="image/*,.pdf,.doc,.docx"
         />
-        <label htmlFor="fileInput" className="cursor-pointer">
-          {selectedAdvanceFile && (
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#F5F5F5] rounded-full text-[12px] font-medium text-[#9E9E9E]">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 1L2 5H5V9H7V5H10L6 1Z" fill="#9E9E9E" />
-              </svg>
-              <span>Image X</span>
-            </div>
-          )}
+        <label
+          htmlFor="fileInput"
+          className="cursor-pointer flex items-center gap-2 text-orange-600 hover:text-orange-700 active:opacity-80 flex-shrink-0"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 2V10M5 5L8 2L11 5M3 12H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="text-[12px] font-medium underline">Attach File</span>
         </label>
+        {selectedAdvanceFile && (
+          <span className="text-[11px] font-medium text-[#666] break-words min-w-0 flex-1">
+            {selectedAdvanceFile.name}
+          </span>
+        )}
       </div>
       {/* Pay Advance Button */}
       <button
@@ -1036,6 +1071,154 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
       >
         {isSubmitting ? 'Submitting...' : getButtonLabel()}
       </button>
+
+      {/* Advance Records - Card View (same data as AdvancePortal table) */}
+      <div className="mt-6 w-full max-w-[328px]">
+        <p className="text-[14px] font-semibold text-black mb-3">Advance Records</p>
+        {!selectedOption || !selectedSite ? (
+          <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-4 py-6 text-center">
+            <p className="text-[12px] font-medium text-[#9E9E9E]">
+              Please select a contractor/vendor and project to view advance records.
+            </p>
+          </div>
+        ) : (() => {
+          const filteredEntries = advanceData
+            .filter(entry => {
+              const isMatchingVendor =
+                selectedOption?.type === 'Vendor'
+                  ? entry.vendor_id === selectedOption.id
+                  : selectedOption?.type === 'Contractor'
+                    ? entry.contractor_id === selectedOption.id
+                    : false;
+              const isForCurrentProject = entry.project_id === selectedSite.id;
+              return isMatchingVendor && isForCurrentProject;
+            })
+            .sort((a, b) => {
+              const entryNoA = a.entry_no || 0;
+              const entryNoB = b.entry_no || 0;
+              return entryNoB - entryNoA;
+            });
+          if (filteredEntries.length === 0) {
+            return (
+              <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-4 py-6 text-center">
+                <p className="text-[12px] font-medium text-[#9E9E9E]">
+                  No records found for the selected contractor/vendor and project.
+                </p>
+              </div>
+            );
+          }
+          return (
+            <div className=" max-h-[400px] overflow-y-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+              {filteredEntries.map((entry, index) => {
+                const {
+                  date,
+                  amount,
+                  bill_amount,
+                  type,
+                  transfer_site_id,
+                  payment_mode,
+                  refund_amount,
+                  file_url,
+                  description
+                } = entry;
+                const advanceAmount = (() => {
+                  if (type === 'Refund') {
+                    return `-${parseFloat(refund_amount || 0).toLocaleString('en-IN')}`;
+                  }
+                  return parseFloat(amount || 0).toLocaleString('en-IN');
+                })();
+                const billAmount =
+                  type === 'Bill Settlement'
+                    ? parseFloat(bill_amount || 0).toLocaleString('en-IN')
+                    : '';
+                let transferOrRefund = '';
+                if (type === 'Refund') {
+                  transferOrRefund = 'Refund';
+                } else if (type === 'Transfer') {
+                  const siteLabel = siteOptions.find(site => site.id === parseInt(transfer_site_id))?.label;
+                  transferOrRefund =
+                    parseFloat(amount) < 0
+                      ? `Transfer to ${siteLabel || 'Unknown'}`
+                      : `Transfer from ${siteLabel || 'Unknown'}`;
+                }
+                return (
+                  <div
+                    key={entry.advancePortalId || index}
+                    className="bg-white border border-[#E0E0E0] rounded-[8px] px-3 py-3 flex flex-col gap-1.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-semibold text-black">
+                          {new Date(date).toLocaleDateString('en-GB')}
+                        </p>
+                        <span className={`inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                          type === 'Advance' ? 'bg-[#E8F5E9] text-[#2E7D32]' :
+                          type === 'Bill Settlement' ? 'bg-[#E3F2FD] text-[#1976D2]' :
+                          type === 'Refund' ? 'bg-[#FFF3E0] text-[#F57C00]' :
+                          type === 'Transfer' ? 'bg-[#F3E5F5] text-[#7B1FA2]' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {type}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {file_url ? (
+                          <a
+                            href={file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-8 h-8 flex items-center justify-center rounded-[6px] bg-[#F5F5F5] hover:bg-[#EEEEEE]"
+                            title="View File"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14 2 14 8 20 8" />
+                              <line x1="16" y1="13" x2="8" y2="13" />
+                              <line x1="16" y1="17" x2="8" y2="17" />
+                              <polyline points="10 9 9 9 8 9" />
+                            </svg>
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                      {type !== 'Transfer' && type !== 'Refund' && advanceAmount ? (
+                        <div className="flex justify-between">
+                          <span className="text-[#9E9E9E]">Advance</span>
+                          <span className="font-semibold text-black">{advanceAmount}</span>
+                        </div>
+                      ) : null}
+                      {billAmount ? (
+                        <div className="flex justify-between">
+                          <span className="text-[#9E9E9E]">Bill</span>
+                          <span className="font-semibold text-black">{billAmount}</span>
+                        </div>
+                      ) : null}
+                      {(transferOrRefund || type === 'Refund') ? (
+                        <div className="flex justify-between col-span-2">
+                          <span className="text-[#9E9E9E]">{type === 'Refund' ? 'Refund' : 'Transfer/Refund'}</span>
+                          <span className="font-semibold text-black">
+                            {type === 'Refund' ? `-${parseFloat(refund_amount || 0).toLocaleString('en-IN')}` : transferOrRefund}
+                          </span>
+                        </div>
+                      ) : null}
+                      {payment_mode ? (
+                        <div className="flex justify-between col-span-2">
+                          <span className="text-[#9E9E9E]">Mode</span>
+                          <span className="font-medium text-black">{payment_mode}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                    {description ? (
+                      <p className="text-[11px] text-[#9E9E9E] truncate" title={description}>{description}</p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </div>
 
       {/* Select Type Modal */}
       {showTypeModal && (
