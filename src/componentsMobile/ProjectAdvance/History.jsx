@@ -1,6 +1,47 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Filter from '../Images/Filter.png';
 
+// ISO 8601 week helpers (same as AdvanceReport.js)
+const getISOWeekNumber = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const dayOfWeek = d.getDay() || 7;
+  const thursday = new Date(d);
+  thursday.setDate(d.getDate() + 4 - dayOfWeek);
+  thursday.setHours(0, 0, 0, 0);
+  const weekYear = thursday.getFullYear();
+  const jan1 = new Date(weekYear, 0, 1);
+  jan1.setHours(0, 0, 0, 0);
+  const jan1DayOfWeek = jan1.getDay() || 7;
+  const firstThursday = new Date(jan1);
+  firstThursday.setDate(jan1.getDate() + 4 - jan1DayOfWeek);
+  firstThursday.setHours(0, 0, 0, 0);
+  const daysDiff = Math.floor((thursday - firstThursday) / 86400000);
+  return Math.floor(daysDiff / 7) + 1;
+};
+
+const getWeekYear = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const dayOfWeek = d.getDay() || 7;
+  const thursday = new Date(d);
+  thursday.setDate(d.getDate() + 4 - dayOfWeek);
+  return thursday.getFullYear();
+};
+
+const getCurrentWeekNumber = () => getISOWeekNumber(new Date());
+const getCurrentWeekYear = () => getWeekYear(new Date());
+
+// Get Monday of a given ISO week number and year
+const getMondayOfISOWeek = (weekNum, yearNum) => {
+  const jan4 = new Date(yearNum, 0, 4);
+  jan4.setHours(0, 0, 0, 0);
+  const jan4Day = jan4.getDay() || 7;
+  const monday = new Date(jan4);
+  monday.setDate(jan4.getDate() - jan4Day + 1 + (weekNum - 1) * 7);
+  return monday.toISOString().slice(0, 10);
+};
+
 const PREDEFINED_SITE_OPTIONS = [
   { value: 'Mason Advance', label: 'Mason Advance', id: 1, sNo: '1' },
   { value: 'Material Advance', label: 'Material Advance', id: 2, sNo: '2' },
@@ -42,6 +83,19 @@ const History = () => {
   const [contractorOptions, setContractorOptions] = useState([]);
   const [siteOptions, setSiteOptions] = useState([...PREDEFINED_SITE_OPTIONS]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [typeSearchQuery, setTypeSearchQuery] = useState('');
+  const [week, setWeek] = useState(() => String(getCurrentWeekNumber()).padStart(2, '0'));
+  const [year, setYear] = useState(() => String(getCurrentWeekYear()));
+  const [showWeekYearModal, setShowWeekYearModal] = useState(false);
+  const [modalWeek, setModalWeek] = useState('');
+  const [modalYear, setModalYear] = useState('');
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+  const [selectedDescription, setSelectedDescription] = useState('');
+
+  const weekNum = week ? parseInt(week, 10) : null;
+  const yearNum = year ? parseInt(year, 10) : null;
 
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return '';
@@ -152,6 +206,21 @@ const History = () => {
     return s?.label || s?.value || '';
   };
 
+  // Parse date from API (same as AdvanceReport: supports ISO or DD/MM/YYYY)
+  const parseItemDate = (item) => {
+    const raw = item.date || item.timestamp || item.createdAt || item.created_at || '';
+    if (!raw) return null;
+    const s = String(raw).trim();
+    const ddmmyy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (ddmmyy) {
+      const [, dd, mm, yyyy] = ddmmyy;
+      const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+      return isNaN(d.getTime()) ? new Date(s) : d;
+    }
+    const parsed = new Date(s);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  };
+
   const transformEntries = () => {
     return advanceData
       .map((entry) => {
@@ -210,15 +279,31 @@ const History = () => {
 
   const transformed = transformEntries();
 
-  const filtered = searchQuery
-    ? transformed.filter(
+  const filtered = (() => {
+    let result = transformed;
+    if (weekNum != null && yearNum != null) {
+      result = result.filter((item) => {
+        const d = parseItemDate(item.entry);
+        if (!d) return false;
+        const itemWeekYear = getWeekYear(d);
+        const itemWeekNumber = getISOWeekNumber(d);
+        return itemWeekYear === yearNum && itemWeekNumber === weekNum;
+      });
+    }
+    if (searchQuery) {
+      result = result.filter(
         (item) =>
           (item.entityName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.projectName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.ref || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
           (item.type || '').toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : transformed;
+      );
+    }
+    if (typeFilter) {
+      result = result.filter((item) => (item.type || '').toLowerCase() === typeFilter.toLowerCase());
+    }
+    return result;
+  })();
 
   const getTypeBadgeClass = (type) => {
     switch (type) {
@@ -235,16 +320,69 @@ const History = () => {
     }
   };
 
+  const openWeekYearModal = () => {
+    setModalWeek(week || String(getCurrentWeekNumber()).padStart(2, '0'));
+    setModalYear(year || String(getCurrentWeekYear()));
+    setShowWeekYearModal(true);
+  };
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 12 }, (_, i) => currentYear - 5 + i);
+  const weeks = Array.from({ length: 53 }, (_, i) => String(i + 1).padStart(2, '0'));
+
+  const getVisibleWeeks = () => {
+    const w = parseInt(modalWeek, 10) || 1;
+    const prev = w <= 1 ? 53 : w - 1;
+    const next = w >= 53 ? 1 : w + 1;
+    return [prev, w, next].map((n) => String(n).padStart(2, '0'));
+  };
+  const getVisibleYears = () => {
+    const y = parseInt(modalYear, 10) || currentYear;
+    return [y - 1, y, y + 1];
+  };
+  const handleWeekWheel = (e, delta) => {
+    e.preventDefault();
+    const w = parseInt(modalWeek, 10) || 1;
+    const next = delta > 0 ? (w >= 53 ? 1 : w + 1) : (w <= 1 ? 53 : w - 1);
+    setModalWeek(String(next).padStart(2, '0'));
+  };
+  const handleYearWheel = (e, delta) => {
+    e.preventDefault();
+    const y = parseInt(modalYear, 10) || currentYear;
+    setModalYear(String(y + (delta > 0 ? 1 : -1)));
+  };
+
+  const handleWeekYearOk = () => {
+    const w = parseInt(modalWeek, 10);
+    const y = parseInt(modalYear, 10);
+    if (w >= 1 && w <= 53 && y) {
+      setWeek(String(w).padStart(2, '0'));
+      setYear(String(y));
+    }
+    setShowWeekYearModal(false);
+  };
+
   return (
     <div
-      className="relative w-full h-screen bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden"
+      className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden"
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
       {/* Date and Category Section */}
       <div className="px-4 pt-2">
         <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-2">
-          <button className="text-[12px] font-semibold text-black leading-normal">#Week</button>
-          <button className="text-[12px] font-semibold text-black leading-normal">Type</button>
+          <button
+            type="button"
+            onClick={openWeekYearModal}
+            className="text-[12px] font-semibold text-black leading-normal cursor-pointer"
+          >
+            #Week {week && year ? `${week}, ${year}` : 'Select'}
+          </button>
+          <button
+            onClick={() => setShowTypeModal(true)}
+            className="text-[12px] font-semibold text-black leading-normal cursor-pointer"
+          >
+            {typeFilter || 'Type'}
+          </button>
         </div>
       </div>
       {/* Filter */}
@@ -296,7 +434,27 @@ const History = () => {
                 <div className="flex flex-col gap-0.5">
                   {/* Row 1: ref and payment mode */}
                   <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-semibold text-black leading-snug">
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        const desc = item.entry?.description || '';
+                        if (desc) {
+                          setSelectedDescription(desc);
+                          setShowDescriptionModal(true);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          const desc = item.entry?.description || '';
+                          if (desc) {
+                            setSelectedDescription(desc);
+                            setShowDescriptionModal(true);
+                          }
+                        }
+                      }}
+                      className={`text-[12px] font-semibold text-black leading-snug ${item.entry?.description ? 'cursor-pointer hover:underline' : ''}`}
+                    >
                       {item.ref}
                     </span>
                     <span
@@ -373,6 +531,202 @@ const History = () => {
           ))
         )}
       </div>
+
+      {/* Select Type Modal */}
+      {showTypeModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          onClick={() => {
+            setShowTypeModal(false);
+            setTypeSearchQuery('');
+          }}
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          <div
+            className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 pt-5">
+              <p className="text-[16px] font-semibold text-black">Select Type</p>
+              <button
+                onClick={() => {
+                  setShowTypeModal(false);
+                  setTypeSearchQuery('');
+                }}
+                className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"
+              >
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 1L10 10M10 1L1 10" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Search Bar */}
+            <div className="px-6 pt-4 pb-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={typeSearchQuery}
+                  onChange={(e) => setTypeSearchQuery(e.target.value)}
+                  placeholder="Search"
+                  className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                  autoFocus
+                />
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
+                    <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Options List */}
+            <div className="flex-1 overflow-y-auto mb-4 px-6 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div className="shadow-md rounded-lg overflow-hidden">
+                {(['Advance', 'Bill Settlement', 'Transfer', 'Refund']
+                  .filter(type => type.toLowerCase().includes(typeSearchQuery.toLowerCase()))
+                  .map((type, index) => {
+                    const isSelected = typeFilter === type;
+
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setTypeFilter(typeFilter === type ? '' : type);
+                          setShowTypeModal(false);
+                          setTypeSearchQuery('');
+                        }}
+                        className={`w-full h-[40px] px-6 flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                          }`}
+                      >
+                        {/* Left: Option Text */}
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <p className="text-[14px] font-medium text-black text-left truncate">{type}</p>
+                        </div>
+
+                        {/* Right: Radio Button */}
+                        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-3">
+                          {isSelected ? (
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <circle cx="10" cy="10" r="9" stroke="#e4572e" strokeWidth="2" fill="none" />
+                              <circle cx="10" cy="10" r="4" fill="#e4572e" />
+                            </svg>
+                          ) : (
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <circle cx="10" cy="10" r="9" stroke="#9E9E9E" strokeWidth="1.5" fill="none" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  }))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Select Week & Year modal */}
+      {showWeekYearModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center" onClick={() => setShowWeekYearModal(false)}>
+          <div className="bg-white w-[320px] rounded-[6px] p-6 relative" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[16px] font-medium text-black text-center mb-6">Select Week & Year</p>
+            <div className="flex justify-center gap-8 mb-6">
+              {/* Week column - show "Week 1", "Week 2", ... */}
+              <div
+                className="flex flex-col items-center relative"
+                onWheel={(e) => handleWeekWheel(e, e.deltaY > 0 ? 1 : -1)}
+              >
+                {getVisibleWeeks().map((w, idx) => (
+                  <div key={`${w}-${idx}`} className="relative w-full flex flex-col items-center">
+                    {idx > 0 && <div className="absolute top-0 left-0 right-0 h-[0.5px] bg-[rgba(0,0,0,0.16)]" />}
+                    <button
+                      type="button"
+                      onClick={() => setModalWeek(w)}
+                      className={`min-w-[72px] h-8 text-[14px] relative ${modalWeek === w ? 'font-medium text-black' : 'font-normal text-[#979ea3]'}`}
+                    >
+                      Week {parseInt(w, 10)}
+                    </button>
+                    {idx < 2 && <div className="absolute bottom-0 left-0 right-0 h-[0.5px] bg-[rgba(0,0,0,0.16)]" />}
+                  </div>
+                ))}
+              </div>
+              {/* Year column */}
+              <div
+                className="flex flex-col items-center relative"
+                onWheel={(e) => handleYearWheel(e, e.deltaY > 0 ? 1 : -1)}
+              >
+                {getVisibleYears().map((y, idx) => (
+                  <div key={`${y}-${idx}`} className="relative w-full flex flex-col items-center">
+                    {idx > 0 && <div className="absolute top-0 left-0 right-0 h-[0.5px] bg-[rgba(0,0,0,0.16)]" />}
+                    <button
+                      type="button"
+                      onClick={() => setModalYear(String(y))}
+                      className={`w-12 h-8 text-[14px] relative ${modalYear === String(y) ? 'font-medium text-black' : 'font-normal text-[#979ea3]'}`}
+                    >
+                      {y}
+                    </button>
+                    {idx < 2 && <div className="absolute bottom-0 left-0 right-0 h-[0.5px] bg-[rgba(0,0,0,0.16)]" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-4">
+              <button type="button" onClick={() => setShowWeekYearModal(false)} className="text-[#656565] text-[16px] font-semibold">
+                Cancel
+              </button>
+              <button type="button" onClick={handleWeekYearOk} className="text-[#bf9853] text-[16px] font-bold">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Description Modal */}
+      {showDescriptionModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setShowDescriptionModal(false)}
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          <div
+            className="bg-white w-full max-w-[320px] rounded-[12px] p-5 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon */}
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-[#FFF3E0] flex items-center justify-center">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M18.5 2.5C18.8978 2.10218 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10218 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10218 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-[18px] font-bold text-black text-center mb-4">Description!</h3>
+
+            {/* Description Content */}
+            <p className="text-[11px] font-medium text-black text-center mb-6 leading-relaxed">
+              {selectedDescription}
+            </p>
+
+            {/* Okay Button */}
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowDescriptionModal(false)}
+                className="px-8 py-2 bg-black text-white text-[14px] font-semibold rounded-[8px] hover:opacity-90 transition-opacity"
+              >
+                Okay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

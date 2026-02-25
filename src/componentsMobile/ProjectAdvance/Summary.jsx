@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import Filter from '../Images/Filter.png';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
+import Download from '../Images/Download.svg'
 
 const PREDEFINED_SITE_OPTIONS = [
   { value: 'Mason Advance', label: 'Mason Advance', id: 1, sNo: '1' },
@@ -52,13 +55,25 @@ const Summary = () => {
   const [totalBillAmount, setTotalBillAmount] = useState(0);
   const [totalPendingAdvance, setTotalPendingAdvance] = useState(0);
 
+  // Bottom sheet state for Bill/Advance/Status details (same content as AdvanceSummary popups)
+  const [showDetailsBottomSheet, setShowDetailsBottomSheet] = useState(false);
+  const [detailsBottomSheetType, setDetailsBottomSheetType] = useState('bill'); // 'bill' | 'advance' | 'status'
+  const [detailsPopupData, setDetailsPopupData] = useState(null);
+  const [detailsPopupTitle, setDetailsPopupTitle] = useState('');
+  const [detailsPopupContext, setDetailsPopupContext] = useState('');
+  const [detailsPopupSortConfig, setDetailsPopupSortConfig] = useState({ key: null, direction: 'asc' });
+  const [billStatusPopupData, setBillStatusPopupData] = useState({ advances: [], bills: [] });
+  const [billStatusPopupContext, setBillStatusPopupContext] = useState('');
+  const [billStatusPopupSortConfig, setBillStatusPopupSortConfig] = useState({ key: null, direction: 'asc' });
+  const [isDetailsFromProjectView, setIsDetailsFromProjectView] = useState(true);
+
   const fetchVendors = async () => {
     try {
       const res = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll');
       if (res.ok) {
         const data = await res.json();
-        setVendorOptions(data.map((item) => ({ 
-          id: item.id, 
+        setVendorOptions(data.map((item) => ({
+          id: item.id,
           label: item.vendorName,
           type: 'Vendor'
         })));
@@ -73,8 +88,8 @@ const Summary = () => {
       const res = await fetch('https://backendaab.in/aabuilderDash/api/contractor_Names/getAll');
       if (res.ok) {
         const data = await res.json();
-        setContractorOptions(data.map((item) => ({ 
-          id: item.id, 
+        setContractorOptions(data.map((item) => ({
+          id: item.id,
           label: item.contractorName,
           type: 'Contractor'
         })));
@@ -146,6 +161,359 @@ const Summary = () => {
     return s?.label || s?.value || '';
   };
 
+  // Same as AdvanceSummary: get bill details for popup
+  const getBillDetails = (projectId, contractorVendorId, contractorVendorType) => {
+    if (!advanceData.length) return [];
+    return advanceData.filter(item => {
+      const matchesProject = projectId ? item.project_id === projectId : true;
+      const matchesEntity = contractorVendorId
+        ? (contractorVendorType === 'Contractor'
+          ? item.contractor_id === contractorVendorId
+          : item.vendor_id === contractorVendorId)
+        : true;
+      return matchesProject && matchesEntity && item.bill_amount > 0;
+    }).map(item => ({
+      advancePortalId: item.advancePortalId || 0,
+      date: new Date(item.date).toLocaleDateString('en-GB'),
+      amount: parseFloat(item.bill_amount) || 0,
+      projectName: siteOptions.find(s => String(s.id) === String(item.project_id))?.label || 'Unknown Site',
+      contractorVendorName: item.contractor_id
+        ? contractorOptions.find(c => c.id === item.contractor_id)?.label || '-'
+        : vendorOptions.find(v => v.id === item.vendor_id)?.label || '-',
+      type: item.type || 'Bill',
+      file_url: (item.file_url && typeof item.file_url === 'string' && item.file_url.trim() !== '') ? item.file_url : null
+    }));
+  };
+
+  // Same as AdvanceSummary: get advance details for popup
+  const getAdvanceDetails = (projectId, contractorVendorId, contractorVendorType) => {
+    if (!advanceData.length) return [];
+    const bothFiltersApplied = contractorVendorId && projectId;
+    return advanceData.filter(item => {
+      const matchesProject = projectId ? item.project_id === projectId : true;
+      const matchesEntity = contractorVendorId
+        ? (contractorVendorType === 'Contractor'
+          ? item.contractor_id === contractorVendorId
+          : item.vendor_id === contractorVendorId)
+        : true;
+      const hasAmount = (parseFloat(item.amount) || 0) !== 0;
+      const hasRefund = (parseFloat(item.refund_amount) || 0) !== 0;
+      return matchesProject && matchesEntity && (hasAmount || hasRefund);
+    }).map(item => {
+      let amount = parseFloat(item.amount) || 0;
+      const refundAmount = parseFloat(item.refund_amount) || 0;
+      if (refundAmount !== 0) amount = -refundAmount;
+      if (bothFiltersApplied && item.type === 'Transfer') {
+        amount = parseFloat(item.amount) || 0;
+      }
+      return {
+        advancePortalId: item.advancePortalId || 0,
+        date: new Date(item.date).toLocaleDateString('en-GB'),
+        amount,
+        projectName: siteOptions.find(s => String(s.id) === String(item.project_id))?.label || 'Unknown Site',
+        contractorVendorName: item.contractor_id
+          ? contractorOptions.find(c => c.id === item.contractor_id)?.label || '-'
+          : vendorOptions.find(v => v.id === item.vendor_id)?.label || '-',
+        type: refundAmount !== 0 ? 'Refund' : (item.type || 'Advance'),
+        transferSiteName: item.transfer_site_id
+          ? siteOptions.find(s => String(s.id) === String(item.transfer_site_id))?.label || '-'
+          : null,
+        isRefund: refundAmount !== 0
+      };
+    });
+  };
+
+  const sortPopupData = (data, config) => {
+    if (!data || data.length === 0) return [];
+    const parseDate = (dateStr) => {
+      const [day, month, year] = dateStr.split('/');
+      return new Date(`${year}-${month}-${day}`);
+    };
+    if (!config.key) {
+      return [...data].sort((a, b) => {
+        const aDate = parseDate(a.date);
+        const bDate = parseDate(b.date);
+        return bDate - aDate;
+      });
+    }
+    return [...data].sort((a, b) => {
+      let aValue = a[config.key];
+      let bValue = b[config.key];
+      if (config.key === 'date') {
+        aValue = parseDate(aValue);
+        bValue = parseDate(bValue);
+        return config.direction === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return config.direction === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      aValue = String(aValue || '').toLowerCase();
+      bValue = String(bValue || '').toLowerCase();
+      if (aValue < bValue) return config.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return config.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const handleDetailsSort = (key) => {
+    const direction = detailsPopupSortConfig.key === key && detailsPopupSortConfig.direction === 'asc' ? 'desc' : 'asc';
+    setDetailsPopupSortConfig({ key, direction });
+  };
+
+  const handleBillStatusSort = (key) => {
+    const direction = billStatusPopupSortConfig.key === key && billStatusPopupSortConfig.direction === 'asc' ? 'desc' : 'asc';
+    setBillStatusPopupSortConfig({ key, direction });
+  };
+
+  // Click handlers - open bottom sheet with Bill or Advance or Status content
+  const handleBillAmountClick = (item) => {
+    let projectId, contractorVendorId, contractorVendorType, projectName, contractorVendorName;
+    if (viewMode === 'Contractor/Vendor') {
+      projectId = item.projectId;
+      contractorVendorId = selectedContractorOrVendorOption?.id ?? null;
+      contractorVendorType = selectedContractorOrVendorOption?.type ?? null;
+      projectName = item.name;
+      contractorVendorName = selectedContractorOrVendorOption ? selectedContractorOrVendorOption.label : 'All Contractors/Vendors';
+      setIsDetailsFromProjectView(true);
+    } else {
+      projectId = selectedProject?.id ?? null;
+      contractorVendorId = item.entityId;
+      contractorVendorType = item.entityType;
+      contractorVendorName = item.name;
+      projectName = selectedProject ? selectedProject.label : 'All Projects';
+      setIsDetailsFromProjectView(false);
+    }
+    const billDetails = getBillDetails(projectId, contractorVendorId, contractorVendorType);
+    if (billDetails.length > 0) {
+      setDetailsBottomSheetType('bill');
+      setDetailsPopupTitle('Bill Details');
+      setDetailsPopupData(billDetails);
+      setDetailsPopupContext(isDetailsFromProjectView ? `${contractorVendorName} - ${projectName}` : `${projectName} - ${contractorVendorName}`);
+      setDetailsPopupSortConfig({ key: null, direction: 'asc' });
+      setShowDetailsBottomSheet(true);
+    }
+  };
+
+  const handleAdvanceAmountClick = (item) => {
+    let projectId, contractorVendorId, contractorVendorType, projectName, contractorVendorName;
+    if (viewMode === 'Contractor/Vendor') {
+      projectId = item.projectId;
+      contractorVendorId = selectedContractorOrVendorOption?.id ?? null;
+      contractorVendorType = selectedContractorOrVendorOption?.type ?? null;
+      projectName = item.name;
+      contractorVendorName = selectedContractorOrVendorOption ? selectedContractorOrVendorOption.label : 'All Contractors/Vendors';
+      setIsDetailsFromProjectView(true);
+    } else {
+      projectId = selectedProject?.id ?? null;
+      contractorVendorId = item.entityId;
+      contractorVendorType = item.entityType;
+      contractorVendorName = item.name;
+      projectName = selectedProject ? selectedProject.label : 'All Projects';
+      setIsDetailsFromProjectView(false);
+    }
+    const advanceDetails = getAdvanceDetails(projectId, contractorVendorId, contractorVendorType);
+    if (advanceDetails.length > 0) {
+      setDetailsBottomSheetType('advance');
+      setDetailsPopupTitle('Advance Details');
+      setDetailsPopupData(advanceDetails);
+      setDetailsPopupContext(isDetailsFromProjectView ? `${contractorVendorName} - ${projectName}` : `${projectName} - ${contractorVendorName}`);
+      setDetailsPopupSortConfig({ key: null, direction: 'asc' });
+      setShowDetailsBottomSheet(true);
+    }
+  };
+
+  const handleStatusClick = (item) => {
+    let projectId, contractorVendorId, contractorVendorType, projectName, contractorVendorName;
+    if (viewMode === 'Contractor/Vendor') {
+      projectId = item.projectId;
+      contractorVendorId = selectedContractorOrVendorOption?.id ?? null;
+      contractorVendorType = selectedContractorOrVendorOption?.type ?? null;
+      projectName = item.name;
+      contractorVendorName = selectedContractorOrVendorOption ? selectedContractorOrVendorOption.label : 'All Contractors/Vendors';
+      setIsDetailsFromProjectView(true);
+    } else {
+      projectId = selectedProject?.id ?? null;
+      contractorVendorId = item.entityId;
+      contractorVendorType = item.entityType;
+      contractorVendorName = item.name;
+      projectName = selectedProject ? selectedProject.label : 'All Projects';
+      setIsDetailsFromProjectView(false);
+    }
+    const advanceDetails = getAdvanceDetails(projectId, contractorVendorId, contractorVendorType);
+    const billDetails = getBillDetails(projectId, contractorVendorId, contractorVendorType);
+    setBillStatusPopupData({ advances: advanceDetails, bills: billDetails });
+    setBillStatusPopupContext(isDetailsFromProjectView ? `${contractorVendorName} - ${projectName}` : `${projectName} - ${contractorVendorName}`);
+    setBillStatusPopupSortConfig({ key: null, direction: 'asc' });
+    setDetailsBottomSheetType('status');
+    setShowDetailsBottomSheet(true);
+  };
+
+  // Export PDF for Bill/Advance details bottom sheet (adapted from AdvanceSummary exportPopupPDF)
+  const exportDetailsPDF = () => {
+    if (detailsBottomSheetType === 'status') {
+      exportBillStatusPDF();
+      return;
+    }
+    const data = sortPopupData(detailsPopupData, detailsPopupSortConfig);
+    if (!data || data.length === 0) return;
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(detailsPopupContext, 14, 15);
+    doc.setFontSize(10);
+    doc.text(detailsPopupTitle, 14, 22);
+    const isProjectPopup = isDetailsFromProjectView;
+    const tableColumn = isProjectPopup && selectedContractorOrVendorOption
+      ? ['Date', 'Transfer', 'Amount']
+      : isProjectPopup ? ['Date', 'Contractor/Vendor', 'Amount'] : selectedProject
+        ? ['Date', 'Transfer', 'Amount']
+        : ['Date', 'Project Name', 'Amount'];
+    const tableRows = data.map(entry => {
+      const row = [entry.date];
+      if (isProjectPopup && selectedContractorOrVendorOption) {
+        let transferInfo = entry.isRefund ? 'Refund' : (entry.type === 'Transfer' && entry.transferSiteName ? `${entry.amount < 0 ? 'To: ' : 'From: '}${entry.transferSiteName}` : '');
+        row.push(transferInfo);
+      } else if (isProjectPopup) row.push(entry.contractorVendorName || '');
+      else if (selectedProject) {
+        let transferInfo = entry.isRefund ? 'Refund' : (entry.type === 'Transfer' && entry.transferSiteName ? `${entry.amount < 0 ? 'To: ' : 'From: '}${entry.transferSiteName}` : '');
+        row.push(transferInfo);
+      } else row.push(entry.projectName || '');
+      row.push(entry.amount.toLocaleString('en-IN'));
+      return row;
+    });
+    const total = data.reduce((sum, item) => sum + item.amount, 0);
+    tableRows.push(['Total', '', total.toLocaleString('en-IN')]);
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      startY: 28,
+      headStyles: { fillColor: [255, 255, 255], lineWidth: 0.2, lineColor: [100, 100, 100], fontStyle: 'bold' },
+      styles: { textColor: 0, lineWidth: 0.2, lineColor: [100, 100, 100] },
+      columnStyles: { 2: { halign: 'right' } }
+    });
+    doc.save(`${detailsPopupContext.replace(/[^a-z0-9]/gi, '_')}_${detailsPopupTitle.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+  };
+
+  const exportBillStatusPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(billStatusPopupContext, 14, 15);
+    doc.setFontSize(10);
+    doc.text('Bill Status Details', 14, 22);
+    let tableColumn = ['Date'];
+    if (!isDetailsFromProjectView && !selectedProject) tableColumn.push('Project Name');
+    else if (isDetailsFromProjectView && !selectedContractorOrVendorOption) tableColumn.push('Contractor/Vendor');
+    else tableColumn.push('Transfer');
+    tableColumn.push('Advance Amount', 'Bill Amount');
+    const combinedData = [];
+    const dateMap = new Map();
+    billStatusPopupData.advances.forEach(adv => {
+      dateMap.set(`${adv.date}-${adv.advancePortalId}`, {
+        date: adv.date, advancePortalId: adv.advancePortalId, advanceAmount: adv.amount, billAmount: 0,
+        projectName: adv.projectName, contractorVendorName: adv.contractorVendorName,
+        transferSiteName: adv.transferSiteName, type: adv.type, isRefund: adv.isRefund
+      });
+    });
+    billStatusPopupData.bills.forEach(bill => {
+      const key = `${bill.date}-${bill.advancePortalId}`;
+      if (dateMap.has(key)) dateMap.get(key).billAmount = bill.amount;
+      else dateMap.set(key, {
+        date: bill.date, advancePortalId: bill.advancePortalId, advanceAmount: 0, billAmount: bill.amount,
+        projectName: bill.projectName, contractorVendorName: bill.contractorVendorName,
+        transferSiteName: bill.transferSiteName, type: bill.type, isRefund: false
+      });
+    });
+    combinedData.push(...Array.from(dateMap.values()));
+    const parseDate = (dateStr) => {
+      const [d, m, y] = dateStr.split('/');
+      return new Date(`${y}-${m}-${d}`);
+    };
+    if (!billStatusPopupSortConfig.key) {
+      combinedData.sort((a, b) => {
+        const diff = parseDate(b.date) - parseDate(a.date);
+        return diff !== 0 ? diff : b.advancePortalId - a.advancePortalId;
+      });
+    } else {
+      combinedData.sort((a, b) => {
+        let av = a[billStatusPopupSortConfig.key];
+        let bv = b[billStatusPopupSortConfig.key];
+        if (billStatusPopupSortConfig.key === 'date') {
+          av = parseDate(av);
+          bv = parseDate(bv);
+          const p = billStatusPopupSortConfig.direction === 'asc' ? av - bv : bv - av;
+          return p !== 0 ? p : billStatusPopupSortConfig.direction === 'asc' ? a.advancePortalId - b.advancePortalId : b.advancePortalId - a.advancePortalId;
+        }
+        if (typeof av === 'number' && typeof bv === 'number') {
+          const p = billStatusPopupSortConfig.direction === 'asc' ? av - bv : bv - av;
+          return p !== 0 ? p : a.advancePortalId - b.advancePortalId;
+        }
+        av = String(av || '').toLowerCase();
+        bv = String(bv || '').toLowerCase();
+        if (av < bv) return billStatusPopupSortConfig.direction === 'asc' ? -1 : 1;
+        if (av > bv) return billStatusPopupSortConfig.direction === 'asc' ? 1 : -1;
+        return a.advancePortalId - b.advancePortalId;
+      });
+    }
+    const tableRows = combinedData.map(entry => {
+      const row = [entry.date];
+      if (!isDetailsFromProjectView && !selectedProject) row.push(entry.projectName || '-');
+      else if (isDetailsFromProjectView && !selectedContractorOrVendorOption) row.push(entry.contractorVendorName || '-');
+      else row.push(entry.isRefund ? 'Refund' : (entry.type === 'Transfer' && entry.transferSiteName ? `${entry.advanceAmount < 0 ? 'To: ' : 'From: '}${entry.transferSiteName}` : '-'));
+      row.push(entry.advanceAmount !== 0 ? entry.advanceAmount.toLocaleString('en-IN') : '-', entry.billAmount !== 0 ? entry.billAmount.toLocaleString('en-IN') : '-');
+      return row;
+    });
+    const totalAdvance = billStatusPopupData.advances.reduce((s, i) => s + i.amount, 0);
+    const totalBill = billStatusPopupData.bills.reduce((s, i) => s + i.amount, 0);
+    tableRows.push(['Total', '', totalAdvance.toLocaleString('en-IN'), totalBill.toLocaleString('en-IN')]);
+    tableRows.push(['Balance Advance', '', '', (totalAdvance - totalBill).toLocaleString('en-IN')]);
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      startY: 28,
+      headStyles: { fillColor: [255, 255, 255], lineWidth: 0.2, lineColor: [100, 100, 100], fontStyle: 'bold' },
+      styles: { textColor: 0, lineWidth: 0.2, lineColor: [100, 100, 100] },
+      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } }
+    });
+    doc.save(`${billStatusPopupContext.replace(/[^a-z0-9]/gi, '_')}_Bill_Status.pdf`);
+  };
+
+  // Main summary PDF export (like AdvanceSummary exportPDF / exportsiteNamePDF)
+  const exportSummaryPDF = () => {
+    const doc = new jsPDF();
+    if (viewMode === 'Contractor/Vendor' && selectedContractorOrVendorOption) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${selectedContractorOrVendorOption.type} - ${selectedContractorOrVendorOption.label}`, 14, 15);
+    } else if (viewMode === 'Project' && selectedProject) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Site Name - ${selectedProject.label}`, 14, 15);
+    } else if (viewMode === 'Project') {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('All Sites - Contractor/Vendor Summary', 14, 15);
+    }
+    const tableColumn = viewMode === 'Contractor/Vendor' ? ['Project Name', 'Pending Advance', 'Bill Amount', 'Bill Status'] : ['Contractor/Vendor', 'Pending Advance', 'Bill Amount', 'Bill Status'];
+    const tableRows = summaryData.map(item => {
+      const status = item.pendingAdvance > 0 ? 'Pending' : 'Settled';
+      return [item.name, item.pendingAdvance.toLocaleString('en-IN'), item.billAmount.toLocaleString('en-IN'), status];
+    });
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      startY: (viewMode === 'Contractor/Vendor' && selectedContractorOrVendorOption) || (viewMode === 'Project') ? 20 : 10,
+      headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.2, lineColor: [100, 100, 100], fontStyle: 'bold' },
+      styles: { textColor: 0, lineWidth: 0.2, lineColor: [100, 100, 100] },
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } }
+    });
+    const fileName = viewMode === 'Contractor/Vendor' ? 'Project_Report.pdf' : (selectedProject ? 'Site_Report.pdf' : 'All_Sites_Contractor_Report.pdf');
+    doc.save(fileName);
+  };
+
   // Calculate summary data based on view mode - matches AdvanceSummary logic
   useEffect(() => {
     if (!advanceData.length) {
@@ -162,7 +530,7 @@ const Summary = () => {
     if (viewMode === 'Contractor/Vendor') {
       // When Contractor/Vendor mode: group by Project (filtered by selected contractor/vendor if selected)
       let filteredData = advanceData;
-      
+
       if (selectedContractorOrVendorOption) {
         filteredData = advanceData.filter(item => {
           if (selectedContractorOrVendorOption.type === "Vendor") {
@@ -211,11 +579,19 @@ const Summary = () => {
         };
       });
 
+      // Sort: Pending first, then Settled; alphabetically by name within each group (same as AdvanceSummary.js)
+      summaryArray.sort((a, b) => {
+        const aStatus = a.pendingAdvance > 0 ? 1 : 0;
+        const bStatus = b.pendingAdvance > 0 ? 1 : 0;
+        if (aStatus !== bStatus) return bStatus - aStatus;
+        return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+      });
+
       setSummaryData(summaryArray);
     } else {
       // When Project mode: group by Contractor/Vendor (filtered by selected project if selected)
       let filteredData = advanceData;
-      
+
       if (selectedProject) {
         filteredData = advanceData.filter(item => item.project_id === selectedProject.id);
       }
@@ -223,8 +599,8 @@ const Summary = () => {
       filteredData.forEach((item) => {
         const entityId = item.vendor_id || item.contractor_id;
         const entityType = item.vendor_id ? 'Vendor' : 'Contractor';
-        const entityName = item.vendor_id 
-          ? getVendorName(item.vendor_id) 
+        const entityName = item.vendor_id
+          ? getVendorName(item.vendor_id)
           : getContractorName(item.contractor_id);
 
         if (!entityId || !entityName) return;
@@ -259,6 +635,14 @@ const Summary = () => {
         };
       });
 
+      // Sort: Pending first, then Settled; alphabetically by name within each group (same as AdvanceSummary.js)
+      summaryArray.sort((a, b) => {
+        const aStatus = a.pendingAdvance > 0 ? 1 : 0;
+        const bStatus = b.pendingAdvance > 0 ? 1 : 0;
+        if (aStatus !== bStatus) return bStatus - aStatus;
+        return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+      });
+
       setSummaryData(summaryArray);
     }
 
@@ -275,7 +659,13 @@ const Summary = () => {
       <div className="px-4 pt-2 mb-2">
         <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-2">
           <button className="text-[12px] font-semibold text-black leading-normal">#Week</button>
-          <button className="text-[12px] font-semibold text-black leading-normal">Type</button>
+          <button
+            onClick={exportSummaryPDF}
+            className="w-4 h-4 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-full"
+            title="Export PDF"
+          >
+            <img src={Download} alt="Download" className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -287,11 +677,10 @@ const Summary = () => {
               setViewMode('Contractor/Vendor');
               setSelectedProject(null);
             }}
-            className={`flex-1 py-2 px-3 rounded text-[12px] font-semibold transition-colors ${
-              viewMode === 'Contractor/Vendor'
+            className={`flex-1 py-2 px-3 rounded text-[12px] font-semibold transition-colors ${viewMode === 'Contractor/Vendor'
                 ? 'bg-white text-black shadow-sm'
                 : 'text-gray-600'
-            }`}
+              }`}
           >
             Contractor/Vendor
           </button>
@@ -300,11 +689,10 @@ const Summary = () => {
               setViewMode('Project');
               setSelectedContractorOrVendorOption(null);
             }}
-            className={`flex-1 py-2 px-3 rounded text-[12px] font-semibold transition-colors ${
-              viewMode === 'Project'
+            className={`flex-1 py-2 px-3 rounded text-[12px] font-semibold transition-colors ${viewMode === 'Project'
                 ? 'bg-white text-black shadow-sm'
                 : 'text-gray-600'
-            }`}
+              }`}
           >
             Project
           </button>
@@ -403,8 +791,8 @@ const Summary = () => {
         </div>
       )}
 
-      {/* Filter and Pending Advance */}
-      <div className="px-4 pt-2 pb-2 flex items-center justify-between">
+      {/* Filter, Pending Advance and Export PDF */}
+      <div className="px-4 pt-2 pb-2 flex items-center justify-between flex-wrap gap-2">
         <button
           type="button"
           className="flex items-center gap-1 text-[13px] font-semibold text-[#9E9E9E] leading-normal cursor-pointer"
@@ -412,8 +800,11 @@ const Summary = () => {
           <img src={Filter} alt="Filter" className="w-[12px] h-[11px]" />
           Filter
         </button>
-        <div className="text-[12px] font-semibold text-black">
-          Pending Advance : <span className="text-[#E4572E]">{totalPendingAdvance.toLocaleString('en-IN')}</span>
+        <div className="flex items-center gap-2">
+
+          <div className="text-[12px] font-semibold text-black">
+            Pending Advance : <span className="text-[#E4572E]">{totalPendingAdvance.toLocaleString('en-IN')}</span>
+          </div>
         </div>
       </div>
 
@@ -453,7 +844,7 @@ const Summary = () => {
               >
                 <div className="flex-1 bg-white rounded-[8px] h-full px-3 py-3 transition-all duration-300 ease-out">
                   <div className="flex flex-col gap-0.5">
-                    {/* Row 1: Name and Status */}
+                    {/* Row 1: Name and Status - Status clickable */}
                     <div className="flex items-center justify-between">
                       <p
                         className="text-[12px] font-medium text-black leading-snug break-words flex-1"
@@ -462,27 +853,36 @@ const Summary = () => {
                         {item.name}
                       </p>
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                          isSettled
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleStatusClick(item)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleStatusClick(item); }}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium cursor-pointer active:opacity-80 ${isSettled
                             ? 'bg-[#E8F5E9] text-[#2E7D32]'
                             : 'bg-[#FFF3E0] text-[#F57C00]'
-                        }`}
+                          }`}
                       >
                         {isSettled ? 'Settled' : 'Pending'}
                       </span>
                     </div>
-
-                    {/* Row 2: Bill Amount */}
-                    <div className="flex items-center justify-between">
-                      <p className="text-[12px] font-medium text-black leading-snug">
+                    {/* Row 2: Bill Amount and Pending Advance - flex layout */}
+                    <div className="flex items-center justify-between gap-2">
+                      <p
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleBillAmountClick(item)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleBillAmountClick(item); }}
+                        className="text-[12px] font-medium text-black leading-snug cursor-pointer active:opacity-80 hover:underline"
+                      >
                         Bill Amount - {item.billAmount.toLocaleString('en-IN')}
                       </p>
-                    </div>
-
-                    {/* Row 3: Pending Advance */}
-                    <div className="flex items-center justify-between">
-                      <span></span>
-                      <p className="text-[12px] font-semibold text-black leading-snug">
+                      <p
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleAdvanceAmountClick(item)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleAdvanceAmountClick(item); }}
+                        className="text-[12px] font-semibold text-black leading-snug cursor-pointer active:opacity-80 hover:underline"
+                      >
                         {item.pendingAdvance.toLocaleString('en-IN')}
                       </p>
                     </div>
@@ -525,6 +925,104 @@ const Summary = () => {
         options={siteOptions.map(opt => opt.label)}
         fieldName="Project"
       />
+
+      {/* Bottom Sheet - compact list, single scrollable page */}
+      {showDetailsBottomSheet && (() => {
+        const isStatus = detailsBottomSheetType === 'status';
+        const isBill = detailsBottomSheetType === 'bill';
+        const isAdvance = detailsBottomSheetType === 'advance';
+        // Type code for list prefix: BS, RF, AD, TF
+        const getAdvanceTypeCode = (entry) => {
+          if (entry.isRefund || entry.type === 'Refund') return 'RF';
+          if (entry.type === 'Transfer') return 'TF';
+          return 'AD';
+        };
+
+        let listItems = [];
+        if (!isStatus && detailsPopupData) {
+          listItems = sortPopupData(detailsPopupData, detailsPopupSortConfig);
+        } else if (isStatus) {
+          const parseDate = (str) => { const [d, m, y] = str.split('/'); return new Date(`${y}-${m}-${d}`); };
+          const rows = [];
+          billStatusPopupData.bills.forEach(bill => {
+            rows.push({ typeCode: 'BS', date: bill.date, amount: bill.amount, advancePortalId: bill.advancePortalId, transferSiteName: null });
+          });
+          billStatusPopupData.advances.forEach(adv => {
+            const typeCode = adv.isRefund || adv.type === 'Refund' ? 'RF' : adv.type === 'Transfer' ? 'TF' : 'AD';
+            rows.push({ typeCode, date: adv.date, amount: adv.amount, advancePortalId: adv.advancePortalId, transferSiteName: adv.transferSiteName || null });
+          });
+          listItems = rows.sort((a, b) => {
+            const d = parseDate(b.date) - parseDate(a.date);
+            return d !== 0 ? d : (b.advancePortalId - a.advancePortalId);
+          });
+        }
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end"
+            onClick={() => setShowDetailsBottomSheet(false)}
+            style={{ fontFamily: "'Manrope', sans-serif" }}
+          >
+            <div className="absolute inset-0 bg-black bg-opacity-40" />
+            <div
+              className="relative z-10 w-full max-w-[360px] mx-auto bg-white rounded-t-[20px] shadow-lg overflow-hidden flex flex-col"
+              style={{ maxHeight: '38vh' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header: title + download icon + close */}
+              <div className="flex items-start justify-between px-4 pt-4 pb-2 flex-shrink-0">
+                <div className="flex-1 min-w-0 pr-2">
+                  <h3 className="text-[14px] font-semibold leading-tight line-clamp-2">
+                    {isStatus ? billStatusPopupContext : detailsPopupContext}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={exportDetailsPDF}
+                    className="w-9 h-9 flex items-center justify-center rounded-full"
+                    title="Export PDF"
+                  >
+                    <img src={Download} alt="Download" className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content: single scrollable list with type codes (BS/RF/AD/TF) and transfer site for TF */}
+              <div className="flex-1 overflow-y-auto px-4 py-2 min-h-0">
+                {!isStatus && listItems.map((entry, idx) => {
+                  const typeCode = isBill ? 'BS' : getAdvanceTypeCode(entry);
+                  const amountColor = entry.amount < 0 ? 'text-red-600' : (typeCode === 'RF' ? 'text-green-600' : 'text-black');
+                  return (
+                    <div key={idx} className="py-2 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-gray-800">#{typeCode} - {entry.advancePortalId || idx + 1} {entry.date}</span>
+                        <span className={`text-[13px] font-semibold ${amountColor}`}>₹{entry.amount.toLocaleString('en-IN')}</span>
+                      </div>
+                      {isAdvance && typeCode === 'TF' && entry.transferSiteName && (
+                        <p className="text-[11px] text-gray-500 mt-0.5 pl-0">{entry.transferSiteName}</p>
+                      )}
+                    </div>
+                  );
+                })}
+                {isStatus && listItems.map((entry, idx) => {
+                  const amountColor = entry.amount < 0 ? 'text-red-600' : (entry.typeCode === 'RF' ? 'text-green-600' : 'text-black');
+                  return (
+                    <div key={idx} className="py-2 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-gray-800">#{entry.typeCode} - {entry.advancePortalId || idx + 1} {entry.date}</span>
+                        <span className={`text-[13px] font-semibold ${amountColor}`}>₹{entry.amount.toLocaleString('en-IN')}</span>
+                      </div>
+                      {entry.typeCode === 'TF' && entry.transferSiteName && (
+                        <p className="text-[11px] text-gray-500 mt-0.5 pl-0">{entry.transferSiteName}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
