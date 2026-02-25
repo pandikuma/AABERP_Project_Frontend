@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
+import DatePickerModal from '../PurchaseOrder/DatePickerModal';
+import Attach from '../Images/Attachfile.svg';
 
 const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] }) => {
   const resolveActiveBranchId = () => {
@@ -71,6 +73,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
   const [showPaymentModeModal, setShowPaymentModeModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showTransferSiteModal, setShowTransferSiteModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Format date helper
   const getTodayDate = () => {
@@ -694,7 +697,10 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
     if (!validateFormFields()) {
       return;
     }
-    submitAdvanceData();
+    const confirmed = window.confirm('Are you sure you want to submit?');
+    if (confirmed) {
+      submitAdvanceData();
+    }
   };
 
   // Handle file attach (same as AdvancePortal handleFileChange)
@@ -722,8 +728,47 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
     }
   };
 
-  // Format date for display
+  // Check if all required fields are filled (except description)
+  const areAllRequiredFieldsFilled = () => {
+    if (!selectedType) return false;
+    
+    if (selectedType === 'Advance' || selectedType === 'Refund') {
+      return !!(selectedOption && selectedSite && advanceAmount && paymentMode);
+    } else if (selectedType === 'Bill Settlement') {
+      const hasBillAmount = billAmount && billAmount.toString().trim() !== '';
+      const hasCategory = selectedCategory !== null;
+      const hasFile = selectedAdvanceFile !== null;
+      const rawAmount = advanceAmount ? advanceAmount.toString().replace(/,/g, '').trim() : '';
+      // If advanceAmount is filled, paymentMode is required
+      const paymentModeValid = !rawAmount || paymentMode;
+      return !!(selectedOption && selectedSite && hasBillAmount && hasCategory && hasFile && paymentModeValid);
+    } else if (selectedType === 'Transfer') {
+      return !!(selectedOption && selectedSite && advanceAmount && transferSiteId);
+    }
+    return false;
+  };
+
+  // Format date for display (DD/MM/YYYY)
   const formattedDate = dateValue ? new Date(dateValue).toLocaleDateString('en-GB') : getTodayDate();
+
+  // Convert DD/MM/YYYY to YYYY-MM-DD for dateValue state
+  const convertToDateValue = (ddmmyyyy) => {
+    const parts = ddmmyyyy.split('/');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+    return dateValue; // Return current dateValue if conversion fails
+  };
+
+  // Handle date confirmation from DatePickerModal
+  const handleDateConfirm = (dateString) => {
+    // dateString is in DD/MM/YYYY format from DatePickerModal
+    const convertedDate = convertToDateValue(dateString);
+    setDateValue(convertedDate);
+  };
 
   return (
     <div className="px-4 overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
@@ -734,13 +779,14 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
             type="button"
             className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
           >
-            # {entryNo || '09/08/2025'}
+            # {entryNo}
           </button>
           <button
             type="button"
+            onClick={() => setShowDatePicker(true)}
             className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
           >
-            {'09/08/2025'}
+            {formattedDate}
           </button>
         </div>
         <div>
@@ -1039,7 +1085,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
         </div>
       </div>
       {/* Attach File - same pattern as AdvancePortal: label wraps clickable area */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 w-full max-w-[328px]">
+      <div className="flex flex-wrap items-center gap-x-2 mb-1 gap-y-1 w-full max-w-[328px]">
         <input
           type="file"
           id="fileInput"
@@ -1050,11 +1096,9 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
         />
         <label
           htmlFor="fileInput"
-          className="cursor-pointer flex items-center gap-2 text-orange-600 hover:text-orange-700 active:opacity-80 flex-shrink-0"
+          className="cursor-pointer flex items-center gap-0.5 text-orange-600 hover:text-orange-700 active:opacity-80 flex-shrink-0"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 2V10M5 5L8 2L11 5M3 12H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <img className='w-4 h-3' alt='#' src={Attach}></img>
           <span className="text-[12px] font-medium underline">Attach File</span>
         </label>
         {selectedAdvanceFile && (
@@ -1066,8 +1110,12 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
       {/* Pay Advance Button */}
       <button
         onClick={handlePayAdvance}
-        disabled={isSubmitting}
-        className="w-[328px] h-[40px] bg-[#D9D9D9] text-black font-semibold rounded text-[14px] leading-normal"
+        disabled={isSubmitting || !areAllRequiredFieldsFilled()}
+        className={`w-[328px] h-[40px] font-semibold rounded text-[14px] leading-normal ${
+          areAllRequiredFieldsFilled() && !isSubmitting
+            ? 'bg-black text-white'
+            : 'bg-[#D9D9D9] text-black'
+        }`}
       >
         {isSubmitting ? 'Submitting...' : getButtonLabel()}
       </button>
@@ -1396,6 +1444,14 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [] })
         options={siteOptions.map(opt => opt.label)}
         fieldName="To Project"
         showStarIcon={false}
+      />
+
+      {/* Date Picker Modal */}
+      <DatePickerModal
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onConfirm={handleDateConfirm}
+        initialDate={formattedDate}
       />
     </div>
   );
