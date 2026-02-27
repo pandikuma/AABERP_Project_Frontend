@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Filter from '../Images/Filter.png';
+import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 
 // ISO 8601 week helpers (same as AdvanceReport.js)
 const getISOWeekNumber = (date) => {
@@ -57,7 +58,7 @@ const PREDEFINED_SITE_OPTIONS = [
   { value: 'Bill Payment Tracker', label: 'Bill Payment Tracker', id: 12, sNo: '12' },
 ];
 
-const History = () => {
+const History = ({ onVendorClick }) => {
   const resolveActiveBranchId = () => {
     try {
       const selectedBranchId = localStorage.getItem('selectedBranchId');
@@ -93,6 +94,15 @@ const History = () => {
   const [modalYear, setModalYear] = useState('');
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [selectedDescription, setSelectedDescription] = useState('');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [vendorContractorFilter, setVendorContractorFilter] = useState('');
+  const [entryNoFilter, setEntryNoFilter] = useState('');
+  const [projectNameFilter, setProjectNameFilter] = useState('');
+  const [paymentModeFilter, setPaymentModeFilter] = useState('');
+  const [showVendorContractorModal, setShowVendorContractorModal] = useState(false);
+  const [showEntryNoModal, setShowEntryNoModal] = useState(false);
+  const [showProjectNameModal, setShowProjectNameModal] = useState(false);
+  const [showPaymentModeModal, setShowPaymentModeModal] = useState(false);
 
   const weekNum = week ? parseInt(week, 10) : null;
   const yearNum = year ? parseInt(year, 10) : null;
@@ -302,6 +312,30 @@ const History = () => {
     if (typeFilter) {
       result = result.filter((item) => (item.type || '').toLowerCase() === typeFilter.toLowerCase());
     }
+    if (vendorContractorFilter) {
+      result = result.filter((item) => {
+        const entityName = item.entityName || '';
+        return entityName.toLowerCase() === vendorContractorFilter.toLowerCase();
+      });
+    }
+    if (entryNoFilter) {
+      result = result.filter((item) => {
+        const entryNo = String(item.entry.entry_no || '');
+        return entryNo === entryNoFilter;
+      });
+    }
+    if (projectNameFilter) {
+      result = result.filter((item) => {
+        const projectName = item.projectName || '';
+        return projectName.toLowerCase() === projectNameFilter.toLowerCase();
+      });
+    }
+    if (paymentModeFilter) {
+      result = result.filter((item) => {
+        const paymentMode = item.paymentMode || '';
+        return paymentMode.toLowerCase() === paymentModeFilter.toLowerCase();
+      });
+    }
     return result;
   })();
 
@@ -351,7 +385,6 @@ const History = () => {
     const y = parseInt(modalYear, 10) || currentYear;
     setModalYear(String(y + (delta > 0 ? 1 : -1)));
   };
-
   const handleWeekYearOk = () => {
     const w = parseInt(modalWeek, 10);
     const y = parseInt(modalYear, 10);
@@ -361,7 +394,6 @@ const History = () => {
     }
     setShowWeekYearModal(false);
   };
-
   return (
     <div
       className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden"
@@ -369,14 +401,8 @@ const History = () => {
     >
       {/* Date and Category Section */}
       <div className="px-4 pt-2">
-        <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-2">
-          <button
-            type="button"
-            onClick={openWeekYearModal}
-            className="text-[12px] font-semibold text-black leading-normal cursor-pointer"
-          >
-            #Week {week && year ? `${week}, ${year}` : 'Select'}
-          </button>
+        <div className="flex items-center justify-end border-b border-[#E0E0E0] pb-2">
+          
           <button
             onClick={() => setShowTypeModal(true)}
             className="text-[12px] font-semibold text-black leading-normal cursor-pointer"
@@ -388,8 +414,9 @@ const History = () => {
       {/* Filter */}
       <div className="flex-shrink-0 px-4 pt-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
+          <button 
+            type="button" 
+            onClick={() => setShowFilterModal(true)}
             className="flex items-center gap-1 text-[13px] font-semibold text-[#9E9E9E] leading-normal cursor-pointer"
           >
             <img src={Filter} alt="Filter" className="w-[12px] h-[11px]" />
@@ -398,9 +425,7 @@ const History = () => {
         </div>
       </div>
       {/* Cards List - Scrollable */}
-      <div
-        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 mt-1 max-h-[calc(100vh-160px-80px)]"
-      >
+      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 mt-1 max-h-[calc(100vh-160px-80px)]">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
             <div className="w-[64px] h-[64px] rounded-full bg-[#F5F5F5] flex items-center justify-center">
@@ -478,14 +503,54 @@ const History = () => {
                       {item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '')}
                     </span>
                   </div>
-                  {/* Row 2: entityName and empty space */}
+                  {/* Row 2: entityName (clickable – opens Advance form with vendor/project and bill details) and empty space */}
                   <div className="flex items-center justify-between">
-                    <p
-                      className="text-[12px] font-semibold text-black leading-snug break-words"
-                      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-                    >
-                      {item.entityName || 'N/A'}
-                    </p>
+                    {onVendorClick ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const entry = item.entry || {};
+                          const vendorId = entry.vendor_id;
+                          const contractorId = entry.contractor_id;
+                          const projectId = entry.project_id;
+                          let selectedOption = null;
+                          if (vendorId) {
+                            const v = vendorOptions.find((x) => x.id === vendorId);
+                            if (v) selectedOption = { value: v.label, label: v.label, id: v.id, type: 'Vendor' };
+                          }
+                          if (!selectedOption && contractorId) {
+                            const c = contractorOptions.find((x) => x.id === contractorId);
+                            if (c) selectedOption = { value: c.label, label: c.label, id: c.id, type: 'Contractor' };
+                          }
+                          const site = siteOptions.find((x) => x.id === projectId);
+                          const selectedSite = site ? { value: site.value || site.label, label: site.label, id: site.id, sNo: site.sNo } : null;
+                          onVendorClick({
+                            selectedOption,
+                            selectedSite,
+                            billDetails: {
+                              ref: item.ref,
+                              amount: item.amount,
+                              paymentMode: item.paymentMode,
+                              timestamp: item.timestamp,
+                              type: item.type,
+                              entryNo: entry.entry_no,
+                              date: entry.date || entry.timestamp,
+                            },
+                          });
+                        }}
+                        className="text-[12px] font-semibold text-black leading-snug break-words text-left cursor-pointer hover:underline focus:outline-none focus:underline"
+                        style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                      >
+                        {item.entityName || 'N/A'}
+                      </button>
+                    ) : (
+                      <p
+                        className="text-[12px] font-semibold text-black leading-snug break-words"
+                        style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                      >
+                        {item.entityName || 'N/A'}
+                      </p>
+                    )}
                     <span></span>
                   </div>
                   {/* Row 3: projectName and amount */}
@@ -498,13 +563,7 @@ const History = () => {
                     </p>
                     <p
                       className={`text-[12px] font-semibold block leading-snug ${
-                        item.amount < 0
-                          ? 'text-[#E4572E]'
-                          : item.type === 'Advance'
-                            ? 'text-[#E4572E]'
-                            : item.type === 'Refund' || item.type === 'Transfer'
-                              ? 'text-[#007233]'
-                              : 'text-[#007233]'
+                        item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'
                       }`}
                     >
                       {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}
@@ -684,6 +743,250 @@ const History = () => {
           </div>
         </div>
       )}
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/40"
+          onClick={() => setShowFilterModal(false)}
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          <div
+            className="bg-white rounded-t-2xl w-full max-w-[360px] p-4 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[16px] font-semibold text-black">Select Filters</p>
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(false)}
+                className="w-6 h-6 flex items-center justify-center"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M15 5L5 15M5 5L15 15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-[2fr_1fr] gap-4 mb-3">
+              {/* Contractor/Vendor Filter */}
+              <div>
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Contractor/Vendor</p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowVendorContractorModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{ boxSizing: 'border-box', color: vendorContractorFilter ? '#000' : '#9E9E9E' }}
+                  >
+                    {vendorContractorFilter || 'Select'}
+                    {vendorContractorFilter ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setVendorContractorFilter('');
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Entry. No Filter */}
+              <div>
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Entry. No</p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowEntryNoModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{ boxSizing: 'border-box', color: entryNoFilter ? '#000' : '#9E9E9E' }}
+                  >
+                    {entryNoFilter || 'Select'}
+                    {entryNoFilter ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEntryNoFilter('');
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Project Name Filter */}
+              <div>
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Project Name</p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowProjectNameModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{ boxSizing: 'border-box', color: projectNameFilter ? '#000' : '#9E9E9E' }}
+                  >
+                    {projectNameFilter || 'Select'}
+                    {projectNameFilter ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectNameFilter('');
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mode Filter */}
+              <div>
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Mode</p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowPaymentModeModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{ boxSizing: 'border-box', color: paymentModeFilter ? '#000' : '#9E9E9E' }}
+                  >
+                    {paymentModeFilter || 'Select'}
+                    {paymentModeFilter ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPaymentModeFilter('');
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setVendorContractorFilter('');
+                  setEntryNoFilter('');
+                  setProjectNameFilter('');
+                  setPaymentModeFilter('');
+                  setShowFilterModal(false);
+                }}
+                className="px-6 w-full py-2 text-[14px] font-semibold text-black border border-[rgba(0,0,0,0.16)] rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(false)}
+                className="px-6 py-2 w-full text-[14px] font-semibold text-white bg-black rounded-lg"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vendor/Contractor Modal */}
+      <SelectVendorModal
+        isOpen={showVendorContractorModal}
+        onClose={() => setShowVendorContractorModal(false)}
+        onSelect={(value) => {
+          setVendorContractorFilter(value);
+          setShowVendorContractorModal(false);
+        }}
+        selectedValue={vendorContractorFilter}
+        options={[...vendorOptions.map((opt) => opt.label), ...contractorOptions.map((opt) => opt.label)]}
+        fieldName="Contractor/Vendor"
+        showStarIcon={false}
+      />
+
+      {/* Entry No Modal */}
+      <SelectVendorModal
+        isOpen={showEntryNoModal}
+        onClose={() => setShowEntryNoModal(false)}
+        onSelect={(value) => {
+          setEntryNoFilter(value);
+          setShowEntryNoModal(false);
+        }}
+        selectedValue={entryNoFilter}
+        options={[...new Set(transformed.map((item) => String(item.entry.entry_no || '')))].sort((a, b) => Number(b) - Number(a))}
+        fieldName="Entry. No"
+        showStarIcon={false}
+      />
+
+      {/* Project Name Modal */}
+      <SelectVendorModal
+        isOpen={showProjectNameModal}
+        onClose={() => setShowProjectNameModal(false)}
+        onSelect={(value) => {
+          setProjectNameFilter(value);
+          setShowProjectNameModal(false);
+        }}
+        selectedValue={projectNameFilter}
+        options={siteOptions.map((opt) => opt.label || opt.value)}
+        fieldName="Project Name"
+        showStarIcon={false}
+      />
+
+      {/* Payment Mode Modal */}
+      <SelectVendorModal
+        isOpen={showPaymentModeModal}
+        onClose={() => setShowPaymentModeModal(false)}
+        onSelect={(value) => {
+          setPaymentModeFilter(value);
+          setShowPaymentModeModal(false);
+        }}
+        selectedValue={paymentModeFilter}
+        options={['Cash', 'GPay', 'PhonePe', 'Net Banking', 'Cheque', 'Online']}
+        fieldName="Mode"
+        showStarIcon={false}
+      />
 
       {/* Description Modal */}
       {showDescriptionModal && (

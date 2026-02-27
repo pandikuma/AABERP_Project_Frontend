@@ -42,7 +42,7 @@ const getMondayOfWeek = (date) => {
   const day = d.getDay() || 7;
   const monday = new Date(d);
   monday.setDate(d.getDate() - day + 1);
-  return monday.toISOString().slice(0, 10);
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
 };
 
 const getSundayOfWeek = (date) => {
@@ -51,7 +51,7 @@ const getSundayOfWeek = (date) => {
   const day = d.getDay() || 7;
   const sunday = new Date(d);
   sunday.setDate(d.getDate() - day + 7);
-  return sunday.toISOString().slice(0, 10);
+  return `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
 };
 
 // Get Monday of a given ISO week number and year
@@ -61,7 +61,34 @@ const getMondayOfISOWeek = (weekNum, yearNum) => {
   const jan4Day = jan4.getDay() || 7;
   const monday = new Date(jan4);
   monday.setDate(jan4.getDate() - jan4Day + 1 + (weekNum - 1) * 7);
-  return monday.toISOString().slice(0, 10);
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+};
+
+// Format a Date to YYYY-MM-DD in local time (avoids timezone off-by-one from toISOString)
+const toLocalDateString = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+// Parse YYYY-MM-DD as local midnight (so calendar highlight matches displayed range)
+const parseLocalDate = (dateStr) => {
+  if (!dateStr) return null;
+  const parts = String(dateStr).trim().split('-');
+  if (parts.length !== 3) return null;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  if (isNaN(y) || isNaN(m) || isNaN(day)) return null;
+  const d = new Date(y, m, day);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+// Format a Date to DD/MM/YYYY (local) for display
+const formatDateToDDMMYYYY = (d) => {
+  if (!d || !(d instanceof Date) || isNaN(d.getTime())) return '';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 };
 
 // Parse date from API (same as AdvanceReport: supports ISO or DD/MM/YYYY)
@@ -258,14 +285,19 @@ const Report = () => {
     if (!advanceData.length) return [];
     let filtered;
     if (useDateRangeFromCalendar && startDate && endDate) {
-      const s = new Date(startDate);
-      const e = new Date(endDate);
-      s.setHours(0, 0, 0, 0);
-      e.setHours(23, 59, 59, 999);
-      filtered = advanceData.filter((item) => {
-        const d = parseItemDate(item);
-        return d && d >= s && d <= e;
-      });
+      const s = parseLocalDate(startDate);
+      const e = parseLocalDate(endDate);
+      if (s && e) {
+        s.setHours(0, 0, 0, 0);
+        const eEnd = new Date(e);
+        eEnd.setHours(23, 59, 59, 999);
+        filtered = advanceData.filter((item) => {
+          const d = parseItemDate(item);
+          return d && d >= s && d <= eEnd;
+        });
+      } else {
+        filtered = [];
+      }
     } else if (weekNum != null && yearNum != null) {
       filtered = advanceData.filter((item) => {
         const d = parseItemDate(item);
@@ -359,29 +391,31 @@ const Report = () => {
     }
   };
 
-  // Same as AdvanceReport.js: show date range from actual filtered data (min/max dates in result)
+  // Show the selected date range (startDate/endDate) so input and calendar always match
   const dateRangeDisplayText = (() => {
+    if (startDate && endDate) {
+      const from = parseLocalDate(startDate);
+      const to = parseLocalDate(endDate);
+      if (from && to) {
+        const [a, b] = from <= to ? [from, to] : [to, from];
+        return `${formatDateToDDMMYYYY(a)} - ${formatDateToDDMMYYYY(b)}`;
+      }
+    }
     if (filteredData.length > 0) {
       const dates = filteredData.map((r) => parseItemDate(r)).filter(Boolean);
       if (dates.length > 0) {
         const minD = new Date(Math.min(...dates.map((d) => d.getTime())));
         const maxD = new Date(Math.max(...dates.map((d) => d.getTime())));
-        return `${formatDateOnly(minD.toISOString())} - ${formatDateOnly(maxD.toISOString())}`;
+        return `${formatDateToDDMMYYYY(minD)} - ${formatDateToDDMMYYYY(maxD)}`;
       }
-    }
-    if (startDate && endDate) {
-      const s = new Date(startDate);
-      const e = new Date(endDate);
-      const [from, to] = s <= e ? [startDate, endDate] : [endDate, startDate];
-      return `${formatDateOnly(from)} - ${formatDateOnly(to)}`;
     }
     return 'Select Date';
   })();
 
   const openDateRangeModal = () => {
-    setCalendarView(startDate ? new Date(startDate) : new Date());
-    setRangeStart(startDate ? new Date(startDate) : null);
-    setRangeEnd(endDate ? new Date(endDate) : null);
+    setCalendarView(startDate ? (parseLocalDate(startDate) || new Date()) : new Date());
+    setRangeStart(startDate ? parseLocalDate(startDate) : null);
+    setRangeEnd(endDate ? parseLocalDate(endDate) : null);
     setShowDateRangeModal(true);
   };
 
@@ -390,8 +424,8 @@ const Report = () => {
       const e = rangeEnd || rangeStart;
       const s = rangeStart <= e ? rangeStart : e;
       const end = rangeStart <= e ? e : rangeStart;
-      setStartDate(s.toISOString().slice(0, 10));
-      setEndDate(end.toISOString().slice(0, 10));
+      setStartDate(toLocalDateString(s));
+      setEndDate(toLocalDateString(end));
       setUseDateRangeFromCalendar(true);
     }
     setShowDateRangeModal(false);
@@ -573,9 +607,9 @@ const Report = () => {
         const itemWeek = getISOWeekNumber(itemDate);
         const itemWeekYear = getWeekYear(itemDate);
         const itemType = normStr(item.type);
-        return itemWeekYear === selectedYear && 
-               itemWeek === selectedWeekNum && 
-               itemType === "bill settlement";
+        return itemWeekYear === selectedYear &&
+          itemWeek === selectedWeekNum &&
+          itemType === "bill settlement";
       });
       if (billSettlementData.length > 0) {
         const sortedBillSettlement = [...billSettlementData].sort((a, b) => {
@@ -589,21 +623,21 @@ const Report = () => {
         });
         const billSettlementFromDate = sortedBillSettlement.length
           ? (() => {
-              const dates = sortedBillSettlement.map((r) => {
-                const d = parseItemDate(r);
-                return d ? d.getTime() : (r.date ? new Date(r.date).getTime() : 0);
-              }).filter(t => t > 0);
-              return dates.length > 0 ? formatDateOnly(new Date(Math.min(...dates)).toISOString()) : "-";
-            })()
+            const dates = sortedBillSettlement.map((r) => {
+              const d = parseItemDate(r);
+              return d ? d.getTime() : (r.date ? new Date(r.date).getTime() : 0);
+            }).filter(t => t > 0);
+            return dates.length > 0 ? formatDateOnly(new Date(Math.min(...dates)).toISOString()) : "-";
+          })()
           : "-";
         const billSettlementToDate = sortedBillSettlement.length
           ? (() => {
-              const dates = sortedBillSettlement.map((r) => {
-                const d = parseItemDate(r);
-                return d ? d.getTime() : (r.date ? new Date(r.date).getTime() : 0);
-              }).filter(t => t > 0);
-              return dates.length > 0 ? formatDateOnly(new Date(Math.max(...dates)).toISOString()) : "-";
-            })()
+            const dates = sortedBillSettlement.map((r) => {
+              const d = parseItemDate(r);
+              return d ? d.getTime() : (r.date ? new Date(r.date).getTime() : 0);
+            }).filter(t => t > 0);
+            return dates.length > 0 ? formatDateOnly(new Date(Math.max(...dates)).toISOString()) : "-";
+          })()
           : "-";
         const totalBillAmount = sortedBillSettlement
           .reduce((sum, row) => sum + (parseFloat(row.bill_amount) || 0), 0);
@@ -708,7 +742,7 @@ const Report = () => {
       }
     }
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
-    const fileName = fromDate && toDate 
+    const fileName = fromDate && toDate
       ? `AdvanceReport_${fromDate.replace(/\//g, "-")}_to_${toDate.replace(/\//g, "-")}_${timestamp}.pdf`
       : `AdvanceReport_Week_${week}_${year}_${timestamp}.pdf`;
     doc.save(fileName);
@@ -859,23 +893,34 @@ const Report = () => {
                     )}
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-[12px] font-medium text-black leading-snug break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                      {item.projectName || 'N/A'}
-                    </p>
-                    {item.type === 'Bill Settlement' && item.billAmount ? (
-                      <p className="text-[12px] font-semibold text-black leading-snug">₹{item.billAmount.toLocaleString('en-IN')}</p>
-                    ) : item.type !== 'Transfer' && (
-                      <p className="text-[12px] font-semibold text-black leading-snug">₹{item.amount.toLocaleString('en-IN')}</p>
+                    {item.type === 'Transfer' && item.transferSiteName ? (
+                      <>
+                        <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
+                        <p className="text-[12px] font-medium text-black leading-snug">{item.transferSiteName}</p>
+                      </>
+                    ) : item.type === 'Bill Settlement' ? (
+                      <>
+                        <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
+                        <p className={`text-[12px] font-semibold leading-snug ${(item.amount || 0) < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>₹{(item.amount || 0).toLocaleString('en-IN')}</p>
+                      </>
+                    ) : item.type === 'Transfer' && item.amount ? (
+                      <>
+                        <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
+                        <p className={`text-[12px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>₹{item.amount.toLocaleString('en-IN')}</p>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
+                        <p className={`text-[12px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>₹{item.amount.toLocaleString('en-IN')}</p>
+                      </>
                     )}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
-                    {item.type === 'Transfer' && item.transferSiteName ? (
-                      <p className="text-[12px] font-medium text-black leading-snug">{item.transferSiteName}</p>
-                    ) : item.type === 'Bill Settlement' && item.amount ? (
-                      <p className="text-[12px] font-semibold text-black leading-snug">₹{item.amount.toLocaleString('en-IN')}</p>
-                    ) : item.type === 'Transfer' && item.amount ? (
-                      <p className="text-[12px] font-semibold text-black leading-snug">₹{item.amount.toLocaleString('en-IN')}</p>
+                    <p className="text-[12px] font-medium text-black leading-snug break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                      {item.projectName || 'N/A'}
+                    </p>
+                    {item.type === 'Bill Settlement' ? (
+                      <p className={`text-[12px] font-semibold leading-snug ${(item.billAmount || 0) < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>₹{(item.billAmount || 0).toLocaleString('en-IN')}</p>
                     ) : null}
                   </div>
                 </div>

@@ -54,6 +54,7 @@ const Summary = () => {
   const [summaryData, setSummaryData] = useState([]);
   const [totalBillAmount, setTotalBillAmount] = useState(0);
   const [totalPendingAdvance, setTotalPendingAdvance] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Bottom sheet state for Bill/Advance/Status details (same content as AdvanceSummary popups)
   const [showDetailsBottomSheet, setShowDetailsBottomSheet] = useState(false);
@@ -390,7 +391,14 @@ const Summary = () => {
       startY: 28,
       headStyles: { fillColor: [255, 255, 255], lineWidth: 0.2, lineColor: [100, 100, 100], fontStyle: 'bold' },
       styles: { textColor: 0, lineWidth: 0.2, lineColor: [100, 100, 100] },
-      columnStyles: { 2: { halign: 'right' } }
+      columnStyles: { 2: { halign: 'right' } },
+      didParseCell: function (data) {
+        // Highlight total row
+        if (data.row.index === tableRows.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [255, 255, 255];
+        }
+      }
     });
     doc.save(`${detailsPopupContext.replace(/[^a-z0-9]/gi, '_')}_${detailsPopupTitle.replace(/[^a-z0-9]/gi, '_')}.pdf`);
   };
@@ -475,7 +483,19 @@ const Summary = () => {
       startY: 28,
       headStyles: { fillColor: [255, 255, 255], lineWidth: 0.2, lineColor: [100, 100, 100], fontStyle: 'bold' },
       styles: { textColor: 0, lineWidth: 0.2, lineColor: [100, 100, 100] },
-      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } }
+      columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } },
+      didParseCell: function (data) {
+        // Highlight total and balance rows (same style as AdvanceSummary)
+        if (data.row.index === tableRows.length - 2 || data.row.index === tableRows.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          if (data.row.index === tableRows.length - 1) {
+            data.cell.styles.fillColor = [191, 152, 83]; // Gold for balance
+            data.cell.styles.textColor = [255, 255, 255]; // White text
+          } else {
+            data.cell.styles.fillColor = [248, 241, 229]; // Light beige for total
+          }
+        }
+      }
     });
     doc.save(`${billStatusPopupContext.replace(/[^a-z0-9]/gi, '_')}_Bill_Status.pdf`);
   };
@@ -650,6 +670,19 @@ const Summary = () => {
     setTotalPendingAdvance(totalPendingAll);
   }, [viewMode, selectedContractorOrVendorOption, selectedProject, advanceData, vendorOptions, contractorOptions, siteOptions]);
 
+  const filteredSummaryData = summaryData.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const name = (item.name || '').toLowerCase();
+    const bill = item.billAmount != null ? String(item.billAmount).toLowerCase() : '';
+    const pending = item.pendingAdvance != null ? String(item.pendingAdvance).toLowerCase() : '';
+    return (
+      name.includes(query) ||
+      bill.includes(query) ||
+      pending.includes(query)
+    );
+  });
+
   return (
     <div
       className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden"
@@ -701,7 +734,7 @@ const Summary = () => {
 
       {/* Contractor/Vendor Selection */}
       {viewMode === 'Contractor/Vendor' && (
-        <div className="px-4 mb-3">
+        <div className="px-4 mb-1">
           <div className="flex items-center justify-between mb-0.5">
             <p className="text-[12px] font-semibold text-black leading-normal">
               Contractor/Vendor<span className="text-[#eb2f8e]">*</span>
@@ -747,7 +780,7 @@ const Summary = () => {
 
       {/* Project Selection */}
       {viewMode === 'Project' && (
-        <div className="px-4 mb-3">
+        <div className="px-4 mb-1">
           <div className="flex items-center justify-between mb-0.5">
             <p className="text-[12px] font-semibold text-black leading-normal">
               Project<span className="text-[#eb2f8e]">*</span>
@@ -791,8 +824,27 @@ const Summary = () => {
         </div>
       )}
 
-      {/* Filter, Pending Advance and Export PDF */}
-      <div className="px-4 pt-2 pb-2 flex items-center justify-between flex-wrap gap-2">
+      {/* Search Bar */}
+      <div className="px-4 mb-1">
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="7" cy="7" r="5.5" stroke="#747474" strokeWidth="1.5" />
+              <path d="M11 11L14 14" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-[36px] pl-10 pr-3 text-[12px] rounded-full font-medium bg-white focus:outline-none border border-[rgba(0,0,0,0.12)]"
+          />
+        </div>
+      </div>
+
+      {/* Filter and Pending Advance */}
+      <div className="px-4 pt-1 pb-2 flex items-center justify-between flex-wrap gap-2">
         <button
           type="button"
           className="flex items-center gap-1 text-[13px] font-semibold text-[#9E9E9E] leading-normal cursor-pointer"
@@ -812,7 +864,7 @@ const Summary = () => {
       <div
         className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 mt-1 flex-1 max-h-[380px]"
       >
-        {summaryData.length === 0 ? (
+        {filteredSummaryData.length === 0 ? (
           <div className="flex flex-col items-center justify-center">
             <div className="w-[64px] h-[64px] rounded-full bg-[#F5F5F5] flex items-center justify-center">
               <svg
@@ -835,7 +887,7 @@ const Summary = () => {
             </p>
           </div>
         ) : (
-          summaryData.map((item, index) => {
+          filteredSummaryData.map((item, index) => {
             const isSettled = item.pendingAdvance <= 0;
             return (
               <div
@@ -957,6 +1009,18 @@ const Summary = () => {
           });
         }
 
+        const totalAdvanceForStatus = isStatus
+          ? billStatusPopupData.advances.reduce((sum, item) => sum + (item.amount || 0), 0)
+          : 0;
+        const totalBillForStatus = isStatus
+          ? billStatusPopupData.bills.reduce((sum, item) => sum + (item.amount || 0), 0)
+          : 0;
+        const balanceForStatus = isStatus ? (totalAdvanceForStatus - totalBillForStatus) : 0;
+
+        const totalForSingleType = !isStatus
+          ? listItems.reduce((sum, entry) => sum + (entry.amount || 0), 0)
+          : 0;
+
         return (
           <div
             className="fixed inset-0 z-50 flex items-end"
@@ -1018,6 +1082,35 @@ const Summary = () => {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Footer: totals and balance */}
+              <div className="border-t border-gray-200 px-4 py-2 bg-white flex-shrink-0">
+                {isStatus ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="font-semibold text-gray-700">Total</span>
+                      <span className="font-semibold text-gray-700">
+                        ₹{totalAdvanceForStatus.toLocaleString('en-IN')} - ₹{totalBillForStatus.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="font-semibold text-[#BF9853]">Balance Advance</span>
+                      <span className="font-semibold text-[#BF9853]">
+                        ₹{balanceForStatus.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="font-semibold text-gray-700">
+                      {isBill ? 'Total Bill' : 'Total Advance'}
+                    </span>
+                    <span className="font-semibold text-gray-700">
+                      ₹{totalForSingleType.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
