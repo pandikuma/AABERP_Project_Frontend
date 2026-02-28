@@ -167,7 +167,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
                     <button
                       key={index}
                       onClick={() => handleSelect(option)}
-                      className={`w-full h-[40px] px-6 flex items-center justify-between transition-colors ${
+                      className={`w-full h-[40px] px-4 flex items-center justify-between transition-colors ${
                         isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                       }`}
                     >

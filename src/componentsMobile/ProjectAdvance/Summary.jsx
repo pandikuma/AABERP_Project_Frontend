@@ -55,6 +55,11 @@ const Summary = () => {
   const [totalBillAmount, setTotalBillAmount] = useState(0);
   const [totalPendingAdvance, setTotalPendingAdvance] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [projectNameFilter, setProjectNameFilter] = useState('');
+  const [billStatusFilter, setBillStatusFilter] = useState('');
+  const [showProjectNameModal, setShowProjectNameModal] = useState(false);
+  const [showBillStatusModal, setShowBillStatusModal] = useState(false);
 
   // Bottom sheet state for Bill/Advance/Status details (same content as AdvanceSummary popups)
   const [showDetailsBottomSheet, setShowDetailsBottomSheet] = useState(false);
@@ -518,7 +523,7 @@ const Summary = () => {
     }
     const tableColumn = viewMode === 'Contractor/Vendor' ? ['Project Name', 'Pending Advance', 'Bill Amount', 'Bill Status'] : ['Contractor/Vendor', 'Pending Advance', 'Bill Amount', 'Bill Status'];
     const tableRows = summaryData.map(item => {
-      const status = item.pendingAdvance > 0 ? 'Pending' : 'Settled';
+      const status = item.pendingAdvance > 0 ? 'Pending' : 'Bill Settled';
       return [item.name, item.pendingAdvance.toLocaleString('en-IN'), item.billAmount.toLocaleString('en-IN'), status];
     });
     doc.autoTable({
@@ -671,16 +676,27 @@ const Summary = () => {
   }, [viewMode, selectedContractorOrVendorOption, selectedProject, advanceData, vendorOptions, contractorOptions, siteOptions]);
 
   const filteredSummaryData = summaryData.filter((item) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    const name = (item.name || '').toLowerCase();
-    const bill = item.billAmount != null ? String(item.billAmount).toLowerCase() : '';
-    const pending = item.pendingAdvance != null ? String(item.pendingAdvance).toLowerCase() : '';
-    return (
-      name.includes(query) ||
-      bill.includes(query) ||
-      pending.includes(query)
-    );
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const name = (item.name || '').toLowerCase();
+      const bill = item.billAmount != null ? String(item.billAmount).toLowerCase() : '';
+      const pending = item.pendingAdvance != null ? String(item.pendingAdvance).toLowerCase() : '';
+      if (
+        !name.includes(query) &&
+        !bill.includes(query) &&
+        !pending.includes(query)
+      ) return false;
+    }
+    if (projectNameFilter && viewMode === 'Contractor/Vendor') {
+      if ((item.name || '') !== projectNameFilter) return false;
+    }
+    if (billStatusFilter) {
+      const isSettled = item.pendingAdvance != null && item.pendingAdvance <= 0;
+      const status = billStatusFilter.toLowerCase();
+      if (status.includes('settled') && !isSettled) return false;
+      if (status.includes('pending') && isSettled) return false;
+    }
+    return true;
   });
 
   return (
@@ -845,15 +861,63 @@ const Summary = () => {
 
       {/* Filter and Pending Advance */}
       <div className="px-4 pt-1 pb-2 flex items-center justify-between flex-wrap gap-2">
-        <button
-          type="button"
-          className="flex items-center gap-1 text-[13px] font-semibold text-[#9E9E9E] leading-normal cursor-pointer"
-        >
-          <img src={Filter} alt="Filter" className="w-[12px] h-[11px]" />
-          Filter
-        </button>
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => setShowFilterModal(true)}
+            className="flex items-center gap-2 px-0 flex-shrink-0"
+          >
+            <img src={Filter} alt="Filter" className="w-[12px] h-[11px]" />
+            {!(projectNameFilter || billStatusFilter) && (
+              <span className="text-[13px] font-semibold flex-shrink-0 text-[#9E9E9E]">
+                Filter
+              </span>
+            )}
+          </button>
+          {/* Active Filter Tags - Next to Filter button */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {/* Project Name Filter Tag */}
+            {projectNameFilter && (
+              <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                <span className="text-[11px] font-medium text-black">Project</span>
+                <button
+                  onClick={() => setProjectNameFilter('')}
+                  className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {/* Bill Status Filter Tag */}
+            {billStatusFilter && (
+              <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                <span className="text-[11px] font-medium text-black">Bill Status</span>
+                <button
+                  onClick={() => setBillStatusFilter('')}
+                  className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
-
+          {(projectNameFilter || billStatusFilter) && (
+            <button 
+              onClick={() => {
+                setProjectNameFilter('');
+                setBillStatusFilter('');
+              }} 
+              className="text-[13px] font-semibold hover:text-black transition-colors flex-shrink-0 text-[#9E9E9E]"
+            >
+              x
+            </button>
+          )}
           <div className="text-[12px] font-semibold text-black">
             Pending Advance : <span className="text-[#E4572E]">{totalPendingAdvance.toLocaleString('en-IN')}</span>
           </div>
@@ -862,7 +926,7 @@ const Summary = () => {
 
       {/* Cards List - Scrollable */}
       <div
-        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 mt-1 flex-1 max-h-[380px]"
+        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 mt-1 flex-1 max-h-[380px] pb-[110px]"
       >
         {filteredSummaryData.length === 0 ? (
           <div className="flex flex-col items-center justify-center">
@@ -914,7 +978,7 @@ const Summary = () => {
                             : 'bg-[#FFF3E0] text-[#F57C00]'
                           }`}
                       >
-                        {isSettled ? 'Settled' : 'Pending'}
+                        {isSettled ? 'Bill Settled' : 'Pending'}
                       </span>
                     </div>
                     {/* Row 2: Bill Amount and Pending Advance - flex layout */}
@@ -978,6 +1042,147 @@ const Summary = () => {
         fieldName="Project"
       />
 
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/40" onClick={() => setShowFilterModal(false)}>
+          <div className="bg-white rounded-t-2xl w-full max-w-[360px] p-4 relative" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[16px] font-semibold text-black">Select Filters</p>
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(false)}
+                className="w-6 h-6 flex items-center justify-center"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M15 5L5 15M5 5L15 15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4 mb-3">
+              {/* Project Name Filter */}
+              <div>
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Project Name</p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowProjectNameModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{ boxSizing: 'border-box', color: projectNameFilter ? '#000' : '#9E9E9E' }}
+                  >
+                    {projectNameFilter || 'Select'}
+                    {projectNameFilter ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectNameFilter('');
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bill Status Filter */}
+              <div>
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Bill Status</p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowBillStatusModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{ boxSizing: 'border-box', color: billStatusFilter ? '#000' : '#9E9E9E' }}
+                  >
+                    {billStatusFilter || 'Select'}
+                    {billStatusFilter ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setBillStatusFilter('');
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setProjectNameFilter('');
+                  setBillStatusFilter('');
+                  setShowFilterModal(false);
+                }}
+                className="px-6 py-2 text-[14px] font-semibold text-black border border-[rgba(0,0,0,0.16)] rounded"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(false)}
+                className="px-6 py-2 text-[14px] font-semibold text-white bg-black rounded"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Name filter dropdown - higher z-index when opened from Filter sheet */}
+      <SelectVendorModal
+        isOpen={showProjectNameModal}
+        onClose={() => setShowProjectNameModal(false)}
+        onSelect={(value) => {
+          setProjectNameFilter(value);
+          setShowProjectNameModal(false);
+        }}
+        selectedValue={projectNameFilter}
+        options={siteOptions.map((opt) => opt.label || opt.value)}
+        fieldName="Project Name"
+        showStarIcon={false}
+        zIndex={10000}
+      />
+
+      {/* Bill Status filter dropdown - higher z-index when opened from Filter sheet */}
+      <SelectVendorModal
+        isOpen={showBillStatusModal}
+        onClose={() => setShowBillStatusModal(false)}
+        onSelect={(value) => {
+          setBillStatusFilter(value);
+          setShowBillStatusModal(false);
+        }}
+        selectedValue={billStatusFilter}
+        options={['Bill Settled', 'Pending']}
+        fieldName="Bill Status"
+        showStarIcon={false}
+        zIndex={10000}
+      />
+
       {/* Bottom Sheet - compact list, single scrollable page */}
       {showDetailsBottomSheet && (() => {
         const isStatus = detailsBottomSheetType === 'status';
@@ -1030,7 +1235,7 @@ const Summary = () => {
             <div className="absolute inset-0 bg-black bg-opacity-40" />
             <div
               className="relative z-10 w-full max-w-[360px] mx-auto bg-white rounded-t-[20px] shadow-lg overflow-hidden flex flex-col"
-              style={{ maxHeight: '38vh' }}
+              style={{ maxHeight: '68vh' }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header: title + download icon + close */}
@@ -1054,34 +1259,40 @@ const Summary = () => {
               {/* Content: single scrollable list with type codes (BS/RF/AD/TF) and transfer site for TF */}
               <div className="flex-1 overflow-y-auto px-4 py-2 min-h-0">
                 {!isStatus && listItems.map((entry, idx) => {
-                  const typeCode = isBill ? 'BS' : getAdvanceTypeCode(entry);
-                  const amountColor = entry.amount < 0 ? 'text-red-600' : (typeCode === 'RF' ? 'text-green-600' : 'text-black');
-                  return (
-                    <div key={idx} className="py-2 border-b border-gray-100 last:border-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-gray-800">#{typeCode} - {entry.advancePortalId || idx + 1} {entry.date}</span>
-                        <span className={`text-[13px] font-semibold ${amountColor}`}>₹{entry.amount.toLocaleString('en-IN')}</span>
-                      </div>
-                      {isAdvance && typeCode === 'TF' && entry.transferSiteName && (
-                        <p className="text-[11px] text-gray-500 mt-0.5 pl-0">{entry.transferSiteName}</p>
-                      )}
+                const typeCode = isBill ? 'BS' : getAdvanceTypeCode(entry);
+                const amountColor = entry.amount < 0 ? 'text-red-600' : (typeCode === 'RF' ? 'text-green-600' : 'text-black');
+                const displayAmount = Math.abs(entry.amount || 0).toLocaleString('en-IN');
+                return (
+                  <div key={idx} className="py-2 border-b border-gray-100 last:border-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-gray-800">#{typeCode} - {entry.advancePortalId || idx + 1} {entry.date}</span>
+                      <span className={`text-[13px] font-semibold ${amountColor}`}>
+                        {entry.amount < 0 ? '-' : ''}₹{displayAmount}
+                      </span>
                     </div>
-                  );
-                })}
+                    {isAdvance && typeCode === 'TF' && entry.transferSiteName && (
+                      <p className="text-[11px] text-gray-500 mt-0.5 pl-0">{entry.transferSiteName}</p>
+                    )}
+                  </div>
+                );
+              })}
                 {isStatus && listItems.map((entry, idx) => {
-                  const amountColor = entry.amount < 0 ? 'text-red-600' : (entry.typeCode === 'RF' ? 'text-green-600' : 'text-black');
-                  return (
-                    <div key={idx} className="py-2 border-b border-gray-100 last:border-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-gray-800">#{entry.typeCode} - {entry.advancePortalId || idx + 1} {entry.date}</span>
-                        <span className={`text-[13px] font-semibold ${amountColor}`}>₹{entry.amount.toLocaleString('en-IN')}</span>
-                      </div>
-                      {entry.typeCode === 'TF' && entry.transferSiteName && (
-                        <p className="text-[11px] text-gray-500 mt-0.5 pl-0">{entry.transferSiteName}</p>
-                      )}
+                const amountColor = entry.amount < 0 ? 'text-red-600' : (entry.typeCode === 'RF' ? 'text-green-600' : 'text-black');
+                const displayAmount = Math.abs(entry.amount || 0).toLocaleString('en-IN');
+                return (
+                  <div key={idx} className="py-2 border-b border-gray-100 last:border-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-gray-800">#{entry.typeCode} - {entry.advancePortalId || idx + 1} {entry.date}</span>
+                      <span className={`text-[13px] font-semibold ${amountColor}`}>
+                        {entry.amount < 0 ? '-' : ''}₹{displayAmount}
+                      </span>
                     </div>
-                  );
-                })}
+                    {entry.typeCode === 'TF' && entry.transferSiteName && (
+                      <p className="text-[11px] text-gray-500 mt-0.5 pl-0">{entry.transferSiteName}</p>
+                    )}
+                  </div>
+                );
+              })}
               </div>
 
               {/* Footer: totals and balance */}

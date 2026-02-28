@@ -179,6 +179,7 @@ const Report = () => {
   const [typeSearchQuery, setTypeSearchQuery] = useState('');
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [selectedDescription, setSelectedDescription] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const weekNum = week ? parseInt(week, 10) : null;
   const yearNum = year ? parseInt(year, 10) : null;
@@ -331,12 +332,31 @@ const Report = () => {
     if (typeFilter) {
       filtered = filtered.filter((item) => (item.type || '').toString().toLowerCase() === typeFilter.toLowerCase());
     }
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((item) => {
+        const vendorName = getVendorName(item.vendor_id);
+        const contractorName = getContractorName(item.contractor_id);
+        const entityName = vendorName || contractorName || item.contractor_vendor || '';
+        const projectName = getProjectName(item.project_id) || item.project_name || '';
+        const type = (item.type || '').toString();
+        const paymentMode = (item.payment_mode || '').toString();
+        const entryNo = String(item.entry_no || '');
+        return (
+          entityName.toLowerCase().includes(q) ||
+          projectName.toLowerCase().includes(q) ||
+          type.toLowerCase().includes(q) ||
+          paymentMode.toLowerCase().includes(q) ||
+          entryNo.toLowerCase().includes(q)
+        );
+      });
+    }
     return [...filtered].sort((a, b) => {
       const dateA = parseItemDate(a);
       const dateB = parseItemDate(b);
       return (dateB?.getTime() ?? 0) - (dateA?.getTime() ?? 0);
     });
-  }, [advanceData, startDate, endDate, weekNum, yearNum, paymentModeFilter, vendorContractorFilter, projectNameFilter, typeFilter, useDateRangeFromCalendar, vendorOptions, contractorOptions, siteOptions]);
+  }, [advanceData, startDate, endDate, weekNum, yearNum, paymentModeFilter, vendorContractorFilter, projectNameFilter, typeFilter, searchQuery, useDateRangeFromCalendar, vendorOptions, contractorOptions, siteOptions]);
 
   // Total Advance = Advance + Cash only (same as AdvanceReport.js)
   const totalAdvance = filteredData
@@ -351,7 +371,7 @@ const Report = () => {
       const projectName = getProjectName(entry.project_id) || entry.project_name || '';
       const t = entry.type || '';
       let amount = 0;
-      if (t === 'Refund') amount = parseFloat(entry.refund_amount) || 0;
+      if (t === 'Refund') amount = -(parseFloat(entry.refund_amount) || 0);
       else amount = parseFloat(entry.amount) || 0;
       let prefix = 'AD';
       if (t === 'Bill Settlement') prefix = 'BS';
@@ -834,13 +854,112 @@ const Report = () => {
         </div>
       </div>
 
+      {/* Search Bar */}
+      <div className="px-4 mb-1 mt-2">
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="7" cy="7" r="5.5" stroke="#747474" strokeWidth="1.5" />
+              <path d="M11 11L14 14" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-[36px] pl-10 pr-3 text-[12px] rounded-full font-medium bg-white focus:outline-none border border-[rgba(0,0,0,0.12)]"
+          />
+        </div>
+      </div>
+
       <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-        <button type="button" onClick={() => setShowFilterModal(true)} className="flex items-center gap-1 text-[13px] font-semibold text-[#9E9E9E] leading-normal cursor-pointer">
-          <img src={Filter} alt="Filter" className="w-[12px] h-[11px]" />
-          Filter
-        </button>
-        <div className="text-[12px] font-semibold text-black">
-          Total Advance : <span className="text-[#E4572E]">₹{Number(totalAdvance).toLocaleString('en-IN')}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <button type="button" onClick={() => setShowFilterModal(true)} className="flex items-center gap-2 px-0 flex-shrink-0">
+            <img src={Filter} alt="Filter" className="w-[12px] h-[11px]" />
+            {!(typeFilter || vendorContractorFilter || projectNameFilter || paymentModeFilter) && (
+              <span className="text-[13px] font-semibold flex-shrink-0 text-[#9E9E9E]">
+                Filter
+              </span>
+            )}
+          </button>
+          {/* Active Filter Tags - Next to Filter button */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {/* Type Filter Tag */}
+            {typeFilter && (
+              <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                <span className="text-[11px] font-medium text-black">{typeFilter}</span>
+                <button
+                  onClick={() => setTypeFilter('')}
+                  className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {/* Contractor/Vendor Filter Tag */}
+            {vendorContractorFilter && (
+              <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                <span className="text-[11px] font-medium text-black">Vendor/Contractor</span>
+                <button
+                  onClick={() => setVendorContractorFilter('')}
+                  className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {/* Project Name Filter Tag */}
+            {projectNameFilter && (
+              <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                <span className="text-[11px] font-medium text-black">Project</span>
+                <button
+                  onClick={() => setProjectNameFilter('')}
+                  className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {/* Mode Filter Tag */}
+            {paymentModeFilter && (
+              <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                <span className="text-[11px] font-medium text-black">Mode</span>
+                <button
+                  onClick={() => setPaymentModeFilter('')}
+                  className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {(typeFilter || vendorContractorFilter || projectNameFilter || paymentModeFilter) && (
+            <button 
+              onClick={() => {
+                setTypeFilter('');
+                setVendorContractorFilter('');
+                setProjectNameFilter('');
+                setPaymentModeFilter('');
+              }} 
+              className="text-[13px] font-semibold hover:text-black transition-colors flex-shrink-0 text-[#9E9E9E]"
+            >
+              x
+            </button>
+          )}
+          <div className="text-[12px] font-semibold text-black">
+            Total Advance : <span className="text-[#E4572E]">₹{Number(totalAdvance).toLocaleString('en-IN')}</span>
+          </div>
         </div>
       </div>
 
@@ -911,7 +1030,9 @@ const Report = () => {
                     ) : (
                       <>
                         <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
-                        <p className={`text-[12px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>₹{item.amount.toLocaleString('en-IN')}</p>
+                        <p className={`text-[12px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>
+                          {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount || 0).toLocaleString('en-IN')}
+                        </p>
                       </>
                     )}
                   </div>
@@ -1196,7 +1317,7 @@ const Report = () => {
         showStarIcon={false}
       />
 
-      {/* Vendor/Contractor Modal */}
+      {/* Vendor/Contractor Modal - higher z-index when opened from Filter sheet */}
       <SelectVendorModal
         isOpen={showVendorContractorModal}
         onClose={() => setShowVendorContractorModal(false)}
@@ -1208,9 +1329,10 @@ const Report = () => {
         options={[...vendorOptions.map((opt) => opt.label), ...contractorOptions.map((opt) => opt.label)]}
         fieldName="Vendor/Contractor"
         showStarIcon={false}
+        zIndex={10000}
       />
 
-      {/* Project Name Modal */}
+      {/* Project Name Modal - higher z-index when opened from Filter sheet */}
       <SelectVendorModal
         isOpen={showProjectNameModal}
         onClose={() => setShowProjectNameModal(false)}
@@ -1222,6 +1344,7 @@ const Report = () => {
         options={siteOptions.map((opt) => opt.label || opt.value)}
         fieldName="Project Name"
         showStarIcon={false}
+        zIndex={10000}
       />
 
       {/* Select Type Modal */}

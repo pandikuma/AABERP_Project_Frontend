@@ -43,7 +43,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
   ];
   const finalPaymentModeOptions = paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
 
-  const [selectedType, setSelectedType] = useState('');
+  const [selectedType, setSelectedType] = useState('Advance');
   const [selectedOption, setSelectedOption] = useState(null);
   const [combinedOptions, setCombinedOptions] = useState([]);
   const [vendorOptions, setVendorOptions] = useState([]);
@@ -1521,8 +1521,8 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                       )}
                       
                       {type === 'Refund' && (
-                        <span className="text-[12px] font-semibold text-[#007233]">
-                          ₹{parseFloat(refund_amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        <span className="text-[12px] font-semibold text-[#E4572E]">
+                          -₹{Math.abs(parseFloat(refund_amount || 0) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </span>
                       )}
                       
@@ -1662,6 +1662,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
         selectedValue={selectedOption ? selectedOption.label : ''}
         options={combinedOptions.map(opt => opt.label)}
         fieldName="Contractor/Vendor"
+        showStarIcon={false}
       />
 
       {/* Project Name Modal */}
@@ -1681,6 +1682,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
         selectedValue={selectedSite ? selectedSite.label : ''}
         options={siteOptions.map(opt => opt.label)}
         fieldName="Project Name"
+        showStarIcon={false}
       />
 
       {/* Payment Mode Modal */}
