@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import Select from 'react-select';
 import Change from '../Images/dropdownchange.png';
@@ -14,6 +14,32 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from 'xlsx';
 const DailyHistory = ({ username, userRoles = [] }) => {
+    const resolveActiveBranchId = () => {
+        try {
+            const selectedBranchId = localStorage.getItem("selectedBranchId");
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            const fallbackBranchId = user?.branchId ?? user?.branch_id ?? user?.brachId;
+            const resolved = Number(selectedBranchId || fallbackBranchId);
+            return Number.isFinite(resolved) && resolved > 0 ? resolved : null;
+        } catch {
+            return null;
+        }
+    };
+    const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
+    const withBranchParams = useCallback(() => (
+        activeBranchId !== null && activeBranchId !== undefined && activeBranchId !== ""
+            ? { params: { branchId: activeBranchId } }
+            : {}
+    ), [activeBranchId]);
+    useEffect(() => {
+        const syncBranch = () => {
+            const nextBranchId = resolveActiveBranchId();
+            setActiveBranchId((prevBranchId) => (prevBranchId === nextBranchId ? prevBranchId : nextBranchId));
+        };
+        syncBranch();
+        window.addEventListener("branchSelectionChanged", syncBranch);
+        return () => window.removeEventListener("branchSelectionChanged", syncBranch);
+    }, []);
     const [selectedWeek, setSelectedWeek] = useState("");
     const [weeks, setWeeks] = useState([]);
     const [selectedDate, setSelectedDate] = useState(null);
@@ -99,6 +125,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
     const [weeklyPaymentExpensesAudits, setWeeklyPaymentExpensesAudits] = useState([]);
     const [showWeeklyPaymentReceivedModal, setShowWeeklyPaymentReceivedModal] = useState(false);
     const [weeklyPaymentReceivedAudits, setWeeklyPaymentReceivedAudits] = useState([]);
+    const [lastEditableWeek, setLastEditableWeek] = useState(null); // { weekNumber, year }
     const [sendingToExpensesEntry, setSendingToExpensesEntry] = useState(false);
     const [sendingProgress, setSendingProgress] = useState({ current: 0, total: 0 });
     const [showFilters, setShowFilters] = useState(false);
@@ -120,6 +147,10 @@ const DailyHistory = ({ username, userRoles = [] }) => {
     const years = Array.from({ length: currentYear - startYear + 1 }, (_, i) => startYear + i);
     const lastWeekNumber = weeks.length > 0 ? Math.max(...weeks.map(week => week.number)) : 0;
     const canEditDelete = userRoles.includes('Admin') || username === 'Mahalingam M';
+    // Allow editing only for the most recent week (across all years) that has data with status === true
+    const canEditSelectedWeek = selectedWeek && lastEditableWeek !== null &&
+        Number(selectedWeek) === Number(lastEditableWeek.weekNumber) &&
+        parseInt(year, 10) === lastEditableWeek.year;
     const handleMouseDown = (e, ref) => {
         if (!ref.current) return;
         isDragging.current = true;
@@ -211,12 +242,63 @@ const DailyHistory = ({ username, userRoles = [] }) => {
         thursday.setHours(0, 0, 0, 0);
         return thursday.getFullYear();
     };
+    // ISO 8601 week number calculation
+    // Week belongs to the year that contains the Thursday of that week
+    // Week 1 is the week with the year's first Thursday
+    const getISOWeekNumber = (date) => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+
+        // Get Thursday of the week containing the date
+        const dayOfWeek = d.getDay() || 7; // Convert Sunday (0) to 7
+        const thursday = new Date(d);
+        thursday.setDate(d.getDate() + 4 - dayOfWeek); // Thursday is 4 days after Monday
+        thursday.setHours(0, 0, 0, 0);
+
+        // Use the year that Thursday falls in (ISO 8601 rule)
+        const weekYear = thursday.getFullYear();
+
+        // Get January 1st of that year
+        const jan1 = new Date(weekYear, 0, 1);
+        jan1.setHours(0, 0, 0, 0);
+
+        // Get the Thursday of week 1 (first Thursday of the year)
+        const jan1DayOfWeek = jan1.getDay() || 7;
+        const firstThursday = new Date(jan1);
+        firstThursday.setDate(jan1.getDate() + 4 - jan1DayOfWeek);
+        firstThursday.setHours(0, 0, 0, 0);
+
+        // Calculate week number: difference in days divided by 7, plus 1
+        const daysDiff = Math.floor((thursday - firstThursday) / 86400000);
+        const weekNo = Math.floor(daysDiff / 7) + 1;
+
+        return weekNo;
+    };
+
+    const getCurrentISOWeekNumber = () => {
+        return getISOWeekNumber(new Date());
+    };
+
+    function getStartAndEndDateOfISOWeek(weekNo, year) {
+        const simple = new Date(year, 0, 1 + (weekNo - 1) * 7);
+        let dayOfWeek = simple.getDay();
+        if (dayOfWeek === 0) {
+            dayOfWeek = 7;
+        }
+        const ISOweekStart = new Date(simple);
+        ISOweekStart.setDate(simple.getDate() - dayOfWeek + 1);
+        const ISOweekEnd = new Date(ISOweekStart);
+        ISOweekEnd.setDate(ISOweekStart.getDate() + 6);
+        ISOweekStart.setHours(0, 0, 0, 0);
+        ISOweekEnd.setHours(23, 59, 59, 999);
+        return { startDate: ISOweekStart, endDate: ISOweekEnd };
+    }
     useEffect(() => {
         const fetchWeeks = async () => {
             try {
-                const response = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/active_weeks');
+                const response = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/active_weeks', withBranchParams());
                 const selectedYear = parseInt(year, 10);
-                
+
                 // Filter and enrich weeks for the selected year
                 const enrichedWeeks = response.data
                     .map((weekNumber) => {
@@ -225,7 +307,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                         // Check if this week actually belongs to the selected year (ISO 8601)
                         const weekStartDate = new Date(weekInfo.start);
                         const weekYear = getWeekYear(weekStartDate);
-                        
+
                         // Only include weeks that belong to the selected year
                         if (weekYear === selectedYear) {
                             return weekInfo;
@@ -233,26 +315,75 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                         return null;
                     })
                     .filter(week => week !== null); // Remove weeks that don't belong to selected year
-                
+
                 setWeeks(enrichedWeeks);
             } catch (error) {
                 console.error('Error fetching active weeks:', error);
             }
         };
         fetchWeeks();
-    }, [year]);
+    }, [year, withBranchParams]);
     useEffect(() => {
         if (weeks.length > 0) {
             setSelectedWeek(weeks[weeks.length - 1].number);
+        } else {
+            setSelectedWeek("");
+            setSelectedDate(null);
+            setDailyExpenses([]);
+            setRefundPayments([]);
+            setExpenses([]);
+            setPayments([]);
         }
     }, [weeks]);
+    // Find the most recent week (across all years) that has data with status === true
+    useEffect(() => {
+        const computeEditableWeek = async () => {
+            try {
+                const now = new Date();
+                const currentWeekNumber = getISOWeekNumber(now);
+                const currentWeekYear = getWeekYear(now);
+                const paymentsResponse = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/getAll', withBranchParams());
+                const hasCurrentWeekTrue = Array.isArray(paymentsResponse.data) && paymentsResponse.data.some(payment => {
+                    if (payment?.status !== true || !payment?.period_end_date) return false;
+                    const paymentDate = new Date(payment.period_end_date);
+                    if (isNaN(paymentDate.getTime())) return false;
+                    const weekYear = getWeekYear(paymentDate);
+                    const weekNumber = getISOWeekNumber(paymentDate);
+                    return weekYear === currentWeekYear && weekNumber === currentWeekNumber;
+                });
+                if (hasCurrentWeekTrue) {
+                    setLastEditableWeek({ weekNumber: currentWeekNumber, year: currentWeekYear });
+                } else {
+                    const { startDate } = getStartAndEndDateOfISOWeek(currentWeekNumber, currentWeekYear);
+                    const prevDate = new Date(startDate);
+                    prevDate.setDate(prevDate.getDate() - 1);
+                    const prevWeekNumber = getISOWeekNumber(prevDate);
+                    const prevWeekYear = getWeekYear(prevDate);
+                    setLastEditableWeek({ weekNumber: prevWeekNumber, year: prevWeekYear });
+                }
+            } catch (error) {
+                console.error('Error computing editable week:', error);
+                // Fallback to previous ISO week if request fails
+                const now = new Date();
+                const currentWeekNumber = getISOWeekNumber(now);
+                const currentWeekYear = getWeekYear(now);
+                const { startDate } = getStartAndEndDateOfISOWeek(currentWeekNumber, currentWeekYear);
+                const prevDate = new Date(startDate);
+                prevDate.setDate(prevDate.getDate() - 1);
+                const prevWeekNumber = getISOWeekNumber(prevDate);
+                const prevWeekYear = getWeekYear(prevDate);
+                setLastEditableWeek({ weekNumber: prevWeekNumber, year: prevWeekYear });
+            }
+        };
+        computeEditableWeek();
+    }, [withBranchParams]); // Recompute when branch changes
     useEffect(() => {
         const fetchWeekData = async () => {
             if (!selectedWeek) return;
             try {
                 const [expensesRes, paymentsRes] = await Promise.all([
-                    axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`),
-                    axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`)
+                    axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
+                    axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
                 ]);
                 setExpenses(expensesRes.data);
                 const filteredPayments = paymentsRes.data.filter(
@@ -264,7 +395,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
             }
         };
         fetchWeekData();
-    }, [selectedWeek]);
+    }, [selectedWeek, withBranchParams]);
     useEffect(() => {
         fetchLaboursList();
         fetchSites();
@@ -390,7 +521,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
     };
     const fetchEmployeeDetails = async () => {
         try {
-            const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/basic/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -481,8 +612,8 @@ const DailyHistory = ({ username, userRoles = [] }) => {
             const fetchDataForDate = async (dateStr) => {
                 try {
                     const [dailyRes, refundRes] = await Promise.all([
-                        axios.get(`https://backendaab.in/aabuildersDash/api/daily-payments/date/${dateStr}`),
-                        axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${dateStr}`)
+                        axios.get(`https://backendaab.in/aabuildersDash/api/daily-payments/date/${dateStr}`, withBranchParams()),
+                        axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${dateStr}`, withBranchParams())
                     ]);
                     setDailyExpenses(dailyRes.data);
                     setRefundPayments(refundRes.data);
@@ -495,7 +626,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
 
             fetchDataForDate(defaultDate);
         }
-    }, [currentWeek]);
+    }, [currentWeek, withBranchParams]);
     const formatDate = (date) =>
         date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
     const handleDateClick = async (dateStr) => {
@@ -504,8 +635,8 @@ const DailyHistory = ({ username, userRoles = [] }) => {
         setNewRefundReceived((prev) => ({ ...prev, date: dateStr }));
         try {
             const [dailyRes, refundRes] = await Promise.all([
-                axios.get(`https://backendaab.in/aabuildersDash/api/daily-payments/date/${dateStr}`),
-                axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${dateStr}`)
+                axios.get(`https://backendaab.in/aabuildersDash/api/daily-payments/date/${dateStr}`, withBranchParams()),
+                axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${dateStr}`, withBranchParams())
             ]);
             setDailyExpenses(dailyRes.data);
             setRefundPayments(refundRes.data);
@@ -515,6 +646,10 @@ const DailyHistory = ({ username, userRoles = [] }) => {
             setRefundPayments([]);
         }
     };
+    useEffect(() => {
+        if (!selectedDate) return;
+        handleDateClick(selectedDate);
+    }, [activeBranchId]);
     const customStyles = {
         control: (provided, state) => ({
             ...provided,
@@ -599,13 +734,14 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                 employee_id: newRefundReceived.employee_id ? Number(newRefundReceived.employee_id) : null,
                 amount: Number(newRefundReceived.amount),
                 weekly_number: Number(selectedWeek),
+                branch_id: activeBranchId,
             };
             const response = await axios.post(
                 'https://backendaab.in/aabuildersDash/api/refund_received/save',
                 payload
             );
             if (response.status === 200) {
-                const refundRes = await axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${selectedDate}`);
+                const refundRes = await axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${selectedDate}`, withBranchParams());
                 setRefundPayments(refundRes.data);
                 setNewRefundReceived({
                     date: selectedDate,
@@ -652,14 +788,15 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                 extra_amount: newDailyExpense.extra_amount ? Number(newDailyExpense.extra_amount) : 0,
                 description: newDailyExpense.description || "",
                 weekly_number: Number(selectedWeek),
+                branch_id: activeBranchId,
             };
             await axios.post(
-                'https://backendaab.in/aabuildersDash/api/daily-payments',
+                'https://backendaab.in/aabuildersDash/api/daily-payments/save',
                 expenseData
             );
             const [dailyRes, refundRes] = await Promise.all([
-                axios.get(`https://backendaab.in/aabuildersDash/api/daily-payments/date/${selectedDate}`),
-                axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${selectedDate}`)
+                axios.get(`https://backendaab.in/aabuildersDash/api/daily-payments/date/${selectedDate}`, withBranchParams()),
+                axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${selectedDate}`, withBranchParams())
             ]);
             setDailyExpenses(dailyRes.data);
             setRefundPayments(refundRes.data);
@@ -1373,8 +1510,8 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                     const dateStr = day.toISOString().split("T")[0];
                     try {
                         const [dailyRes, refundRes] = await Promise.all([
-                            axios.get(`https://backendaab.in/aabuildersDash/api/daily-payments/date/${dateStr}`),
-                            axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${dateStr}`)
+                            axios.get(`https://backendaab.in/aabuildersDash/api/daily-payments/date/${dateStr}`, withBranchParams()),
+                            axios.get(`https://backendaab.in/aabuildersDash/api/refund_received/date/${dateStr}`, withBranchParams())
                         ]);
                         allDailyExpenses.push(...dailyRes.data);
                         allRefundPayments.push(...refundRes.data);
@@ -1582,7 +1719,8 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                 amount: Number(currentFileRow.amount),
                 extra_amount: Number(currentFileRow.extra_amount || 0),
                 description: currentFileRow.description || "",
-                file_url: pdfUrl
+                file_url: pdfUrl,
+                branch_id: currentFileRow.branch_id ?? currentFileRow.branchId ?? activeBranchId ?? null,
             };
             const response = await axios.put(
                 `https://backendaab.in/aabuildersDash/api/daily-payments/edit/${currentFileRow.id}?username=${encodeURIComponent(username)}`,
@@ -1624,6 +1762,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                 extra_amount: Number(currentExpense.extra_amount || 0),
                 description: description.trim(),
                 file_url: currentExpense.file_url || null,
+                branch_id: currentExpense.branch_id ?? currentExpense.branchId ?? activeBranchId ?? null,
             };
             await axios.put(
                 `https://backendaab.in/aabuildersDash/api/daily-payments/edits/${entryId}?username=${encodeURIComponent(username)}`,
@@ -1684,6 +1823,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                 extra_amount: Number(editDailyExpenseData.extra_amount || 0),
                 description: editDailyExpenseData.description || "",
                 file_url: editDailyExpenseData.file_url || null,
+                branch_id: row.branch_id ?? row.branchId ?? activeBranchId ?? null,
             };
             const response = await axios.put(
                 `https://backendaab.in/aabuildersDash/api/daily-payments/edit/${row.id}?username=${encodeURIComponent(username)}`,
@@ -1733,6 +1873,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                 contractor_id: editRefundPaymentData.contractor_id ? Number(editRefundPaymentData.contractor_id) : null,
                 employee_id: editRefundPaymentData.employee_id ? Number(editRefundPaymentData.employee_id) : null,
                 amount: Number(editRefundPaymentData.amount),
+                branch_id: refundPayments.find((row) => row.id === id)?.branch_id ?? activeBranchId ?? null,
             };
             await axios.put(
                 `https://backendaab.in/aabuildersDash/api/refund_received/edit/${id}?username=${encodeURIComponent(username)}`,
@@ -1808,64 +1949,54 @@ const DailyHistory = ({ username, userRoles = [] }) => {
             let allDailyPayments = [];
             try {
                 const allDailyPaymentsResponse = await axios.get(
-                    "https://backendaab.in/aabuildersDash/api/daily-payments/getAll"
+                    "https://backendaab.in/aabuildersDash/api/daily-payments/getAll",
+                    withBranchParams()
                 );
                 allDailyPayments = allDailyPaymentsResponse.data || [];
             } catch (error) {
                 console.warn("getAll endpoint not available, using current date's expenses:", error);
                 allDailyPayments = dailyExpenses;
             }
-            const getISOWeekNumber = (date) => {
-                const d = new Date(date);
-                d.setHours(0, 0, 0, 0);                
-                // Get Thursday of the week containing the date
-                const dayOfWeek = d.getDay() || 7; // Convert Sunday (0) to 7
-                const thursday = new Date(d);
-                thursday.setDate(d.getDate() + 4 - dayOfWeek); // Thursday is 4 days after Monday
-                thursday.setHours(0, 0, 0, 0);                
-                // Use the year that Thursday falls in (ISO 8601 rule)
-                const weekYear = thursday.getFullYear();                
-                // Get January 1st of that year
-                const jan1 = new Date(weekYear, 0, 1);
-                jan1.setHours(0, 0, 0, 0);                
-                // Get the Thursday of week 1 (first Thursday of the year)
-                const jan1DayOfWeek = jan1.getDay() || 7;
-                const firstThursday = new Date(jan1);
-                firstThursday.setDate(jan1.getDate() + 4 - jan1DayOfWeek);
-                firstThursday.setHours(0, 0, 0, 0);                
-                // Calculate week number: difference in days divided by 7, plus 1
-                const daysDiff = Math.floor((thursday - firstThursday) / 86400000);
-                const weekNo = Math.floor(daysDiff / 7) + 1;                
-                return weekNo;
-            };            
-            const getCurrentWeekNumber = () => {
-                return getISOWeekNumber(new Date());
-            };
-            const actualCurrentWeekNumber = getCurrentWeekNumber();
-            const currentYear = new Date().getFullYear();
-            const actualCurrentWeek = getStartAndEndDateOfWeek(actualCurrentWeekNumber, currentYear);
-            const lastWeekNumber = weeks.length > 0 ? Math.max(...weeks.map(w => w.number)) : null;
-            const lastWeek = weeks.find(w => w.number === lastWeekNumber);
+            // Get current week number and year using ISO calculation
+            const now = new Date();
+            const actualCurrentWeekNumber = getISOWeekNumber(now);
+            const actualCurrentWeekYear = getWeekYear(now);
+            
+            // Calculate previous week number and year by going back 7 days from current week start
+            // This correctly handles cases where previous week might be week 53 of previous year
+            const { startDate: currentWeekStart } = getStartAndEndDateOfISOWeek(actualCurrentWeekNumber, actualCurrentWeekYear);
+            const previousWeekDate = new Date(currentWeekStart);
+            previousWeekDate.setDate(previousWeekDate.getDate() - 7);
+            previousWeekDate.setHours(0, 0, 0, 0);
+            const previousWeekNumber = getISOWeekNumber(previousWeekDate);
+            const previousWeekYear = getWeekYear(previousWeekDate);
+            
+            // Filter expenses: exclude those from current week or previous week using ISO week calculation
             allDailyPayments = allDailyPayments.filter(expense => {
                 if (!expense.date) return true;
+                
                 const expenseDate = new Date(expense.date);
+                // Check if date is valid
+                if (isNaN(expenseDate.getTime())) {
+                    console.warn('Invalid date for expense:', expense);
+                    return true; // Include invalid dates (let them pass through)
+                }
                 expenseDate.setHours(0, 0, 0, 0);
-                const currentWeekStart = new Date(actualCurrentWeek.start);
-                currentWeekStart.setHours(0, 0, 0, 0);
-                const currentWeekEnd = new Date(actualCurrentWeek.end);
-                currentWeekEnd.setHours(23, 59, 59, 999);
-                if (expenseDate >= currentWeekStart && expenseDate <= currentWeekEnd) {
+                
+                // Calculate ISO week number and year for this expense
+                const expenseWeekNumber = getISOWeekNumber(expenseDate);
+                const expenseWeekYear = getWeekYear(expenseDate);
+                
+                // Exclude if expense is from current week
+                if (expenseWeekNumber === actualCurrentWeekNumber && expenseWeekYear === actualCurrentWeekYear) {
                     return false;
                 }
-                if (lastWeek) {
-                    const lastWeekStart = new Date(lastWeek.start);
-                    lastWeekStart.setHours(0, 0, 0, 0);
-                    const lastWeekEnd = new Date(lastWeek.end);
-                    lastWeekEnd.setHours(23, 59, 59, 999);
-                    if (expenseDate >= lastWeekStart && expenseDate <= lastWeekEnd) {
-                        return false;
-                    }
+                
+                // Exclude if expense is from previous week
+                if (expenseWeekNumber === previousWeekNumber && expenseWeekYear === previousWeekYear) {
+                    return false;
                 }
+                
                 return true;
             });
             let expensesToSend = allDailyPayments.filter(expense =>
@@ -1980,7 +2111,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                 ? `\n\nNote: ${combinedCount} group(s) of expenses with same labour, project, and date will be combined into single entries with "Company Labour" as contractor.`
                 : "";
             const confirmed = window.confirm(
-                `Are you sure you want to send ${expensesToSend.length} expense entry/entries (from ${originalExpenseCount} original expense(s)) to Expenses Entry?\n\nNote: Expenses from the actual current week (Week ${actualCurrentWeekNumber}) and last week (Week ${lastWeekNumber}) will be excluded.${combinedMessage}`
+                `Are you sure you want to send ${expensesToSend.length} expense entry/entries (from ${originalExpenseCount} original expense(s)) to Expenses Entry?\n\nNote: Expenses from the actual current week (Week ${actualCurrentWeekNumber} of ${actualCurrentWeekYear}) and previous week (Week ${previousWeekNumber} of ${previousWeekYear}) will be excluded.${combinedMessage}`
             );
             if (!confirmed) {
                 return;
@@ -2046,7 +2177,8 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                         machineTools: "",
                         billCopyUrl: expense.file_url || "",
                         source: "Cash Register",
-                        paymentMode: "Cash"
+                        paymentMode: "Cash",
+                        branchId: expense.branch_id ?? expense.branchId ?? activeBranchId,
                     };
                     const expensesResponse = await fetch(
                         "https://backendaab.in/aabuilderDash/expenses_form/save",
@@ -2130,11 +2262,8 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                         <div>
                             <h1 className='font-semibold'>Select Week</h1>
                             <div>
-                                <select
-                                    className="w-[303px] h-[45px] border-2 border-[#BF9853] border-opacity-25 rounded-lg px-3 py-2"
-                                    value={selectedWeek}
-                                    onChange={(e) => setSelectedWeek(e.target.value)}
-                                >
+                                <select className="w-[303px] h-[45px] border-2 border-[#BF9853] border-opacity-25 rounded-lg px-3 py-2"
+                                    value={selectedWeek} onChange={(e) => setSelectedWeek(e.target.value)}>
                                     <option value="">-- Select Week --</option>
                                     {weeks.map((week) => {
                                         const startDate = new Date(week.start);
@@ -2468,7 +2597,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                 </th>
                                             </tr>
                                         )}
-                                        {Number(selectedWeek) === Number(lastWeekNumber) && (
+                                        {canEditSelectedWeek && (
                                             <tr className="bg-white border-b border-gray-200">
                                                 <td className="px-1 py-2 font-bold">{sortedDailyExpenses.filter(row => row.date === selectedDate).length + 1}.</td>
                                                 <td className="flex items-center gap-2 py-2">
@@ -2628,7 +2757,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                     <td className="px-1 py-2 font-bold">{index + 1}</td>
                                                     <td className="px-1 py-2">
                                                         <div className="w-[200px] h-[40px] flex items-center">
-                                                            {editingDailyExpenseRowId === row.id && Number(selectedWeek) === Number(lastWeekNumber) ? (
+                                                            {editingDailyExpenseRowId === row.id && canEditSelectedWeek ? (
                                                                 <Select
                                                                     name="labour_id"
                                                                     className="w-[200px]"
@@ -2685,7 +2814,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                     </td>
                                                     <td className="px-1 py-2">
                                                         <div className="w-[220px] h-[40px] flex items-center">
-                                                            {editingDailyExpenseRowId === row.id && Number(selectedWeek) === Number(lastWeekNumber) ? (
+                                                            {editingDailyExpenseRowId === row.id && canEditSelectedWeek ? (
                                                                 <Select
                                                                     name="project"
                                                                     value={siteOptions.find(opt => opt.id === Number(editDailyExpenseData.project_id)) || null}
@@ -2710,7 +2839,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                     </td>
                                                     <td className="px-1 py-2 relative group flex">
                                                         <div className="flex items-center">
-                                                            {editingDailyExpenseRowId === row.id && Number(selectedWeek) === Number(lastWeekNumber) ? (
+                                                            {editingDailyExpenseRowId === row.id && canEditSelectedWeek ? (
                                                                 <div className="flex items-center gap-2">
                                                                     <input
                                                                         type="number"
@@ -2793,7 +2922,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                     </td>
                                                     <td className="px-1 py-2">
                                                         <div className="w-[120px] h-[40px] flex items-center">
-                                                            {editingDailyExpenseRowId === row.id && Number(selectedWeek) === Number(lastWeekNumber) ? (
+                                                            {editingDailyExpenseRowId === row.id && canEditSelectedWeek ? (
                                                                 <select
                                                                     name="type"
                                                                     value={editDailyExpenseData.type}
@@ -2814,7 +2943,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                     </td>
                                                     <td className="px-1 py-2">
                                                         <div className="w-[60px] h-[40px] flex items-center">
-                                                            {editingDailyExpenseRowId === row.id && Number(selectedWeek) === Number(lastWeekNumber) ? (
+                                                            {editingDailyExpenseRowId === row.id && canEditSelectedWeek ? (
                                                                 <input
                                                                     type="number"
                                                                     name="quantity"
@@ -2828,7 +2957,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                         </div>
                                                     </td>
                                                     <td className="px-1 py-2 relative">
-                                                        {Number(selectedWeek) === Number(lastWeekNumber) && (
+                                                        {canEditSelectedWeek && (
                                                             <div className="flex gap-2 w-[80px]">
                                                                 {canEditDelete && (
                                                                     <>
@@ -2880,7 +3009,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                         {refundPayments.map((row, index) => (
                                             <tr key={row.id || index} className="even:bg-[#FAF6ED] odd:bg-[#FFFFFF] text-left">
                                                 <td className="py-2">
-                                                    {editingPaymentId === row.id && Number(selectedWeek) === Number(lastWeekNumber) ? (
+                                                    {editingPaymentId === row.id && canEditSelectedWeek ? (
                                                         <Select
                                                             name="refund_party"
                                                             className="w-[200px]"
@@ -2927,7 +3056,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                     )}
                                                 </td>
                                                 <td className="py-2 text-center">
-                                                    {editingPaymentId === row.id && Number(selectedWeek) === Number(lastWeekNumber) ? (
+                                                    {editingPaymentId === row.id && canEditSelectedWeek ? (
                                                         <input
                                                             type="number"
                                                             name="amount"
@@ -2943,7 +3072,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                     )}
                                                 </td>
                                                 <td className="py-2">
-                                                    {Number(selectedWeek) === Number(lastWeekNumber) && (
+                                                    {canEditSelectedWeek && (
                                                         <div className="flex">
                                                             {canEditDelete && (
                                                                 <>
@@ -2969,7 +3098,7 @@ const DailyHistory = ({ username, userRoles = [] }) => {
                                                 </td>
                                             </tr>
                                         ))}
-                                        {Number(selectedWeek) === Number(lastWeekNumber) && (
+                                        {canEditSelectedWeek && (
                                             <tr>
                                                 <td className="py-2 text-left">
                                                     <div className="flex items-center gap-2">

@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Calendar } from 'lucide-react';
 import axios from 'axios';
 import Modal from 'react-modal';
+import DateRangePicker from './DateRangePicker';
 import edit from '../Images/Edit.svg';
 import history from '../Images/History.svg';
 import remove from '../Images/Delete.svg';
@@ -12,11 +14,24 @@ import autoTable from "jspdf-autotable";
 Modal.setAppElement('#root');
 
 const DatabaseExpenses = ({ username, userRoles = [] }) => {
+    const resolveActiveBranchId = useCallback(() => {
+        try {
+            const selectedBranchId = localStorage.getItem("selectedBranchId");
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            const fallbackBranchId = user?.branchId ?? user?.branch_id ?? user?.brachId;
+            const resolved = Number(selectedBranchId || fallbackBranchId);
+            return Number.isFinite(resolved) && resolved > 0 ? resolved : null;
+        } catch {
+            return null;
+        }
+    }, []);
+    const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [expenses, setExpenses] = useState([]);
     const [totalAmount, setTotalAmount] = useState(0);
     const [filteredExpenses, setFilteredExpenses] = useState([]);
     const [editId, setEditId] = useState(null);
+    const sentToWeeklyPaymentBillsRef = useRef(new Set());
     const [showModal, setShowModal] = useState(false);
     const [audits, setAudits] = useState([]);
     const [siteOptions, setSiteOptions] = useState([]);
@@ -64,10 +79,17 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     const [endDate, setEndDate] = useState(() => {
         return localStorage.getItem('expenseFilter_endDate') || '';
     });
+    const [timestampStartDate, setTimestampStartDate] = useState(() => {
+        return localStorage.getItem('expenseFilter_timestampStartDate') || '';
+    });
+    const [timestampEndDate, setTimestampEndDate] = useState(() => {
+        return localStorage.getItem('expenseFilter_timestampEndDate') || '';
+    });
     const [selectedAccountType, setSelectedAccountType] = useState(() => {
         return localStorage.getItem('expenseFilter_accountType') || '';
     });
     const [showFilters, setShowFilters] = useState(false);
+    const [showDateRangePicker, setShowDateRangePicker] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [sortField, setSortField] = useState('');
@@ -205,10 +227,39 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         localStorage.setItem('expenseFilter_endDate', endDate);
     }, [endDate]);
+    useEffect(() => {
+        localStorage.setItem('expenseFilter_timestampStartDate', timestampStartDate);
+    }, [timestampStartDate]);
+    useEffect(() => {
+        localStorage.setItem('expenseFilter_timestampEndDate', timestampEndDate);
+    }, [timestampEndDate]);
 
     useEffect(() => {
         localStorage.setItem('expenseFilter_eno', selectedEno);
     }, [selectedEno]);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [paymentModalData, setPaymentModalData] = useState({
+        chequeNo: '',
+        chequeDate: '',
+        transactionNumber: '',
+        accountNumber: ''
+    });
+    const [accountDetails, setAccountDetails] = useState([]);
+    const pendingUpdateFormDataRef = useRef(null);
+    useEffect(() => {
+        const fetchAccountDetails = async () => {
+            try {
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
+                if (response.ok) {
+                    const data = await response.json();
+                    setAccountDetails(data);
+                }
+            } catch (err) {
+                console.error('Error fetching account details:', err);
+            }
+        };
+        fetchAccountDetails();
+    }, []);
     const [formData, setFormData] = useState({
         accountType: '',
         date: '',
@@ -297,8 +348,23 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     }), []);
     const [modalIsOpen, setModalIsOpen] = useState(false);
     useEffect(() => {
+        const syncBranch = () => {
+            const nextBranchId = resolveActiveBranchId();
+            setActiveBranchId((prevBranchId) =>
+                prevBranchId === nextBranchId ? prevBranchId : nextBranchId
+            );
+        };
+        syncBranch();
+        window.addEventListener("branchSelectionChanged", syncBranch);
+        return () => {
+            window.removeEventListener("branchSelectionChanged", syncBranch);
+        };
+    }, [resolveActiveBranchId]);
+    useEffect(() => {
         axios
-            .get('https://backendaab.in/aabuilderDash/expenses_form/get_form')
+            .get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
+                params: activeBranchId ? { branchId: activeBranchId } : {},
+            })
             .then((response) => {
                 const sortedExpenses = response.data.sort((a, b) => {
                     const enoA = parseInt(a.eno, 10);
@@ -328,7 +394,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             .catch((error) => {
                 console.error('Error fetching expenses:', error);
             });
-    }, []);
+    }, [activeBranchId]);
     useEffect(() => {
         const fetchSites = async () => {
             try {
@@ -585,7 +651,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     };
     useEffect(() => {
         const filtered = expenses.filter(expense => {
-            // Date range filter (Start Date and End Date)
+            // Date range filter (Start Date and End Date) - filters expense.date
             if (startDate && endDate) {
                 const s = new Date(startDate);
                 const e = new Date(endDate);
@@ -602,6 +668,25 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 e.setHours(23, 59, 59, 999);
                 const expenseDate = new Date(expense.date);
                 if (expenseDate > e) return false;
+            }
+            // Timestamp range filter - filters expense.timestamp
+            if (timestampStartDate && timestampEndDate) {
+                const ts = new Date(timestampStartDate);
+                ts.setHours(0, 0, 0, 0);
+                const te = new Date(timestampEndDate);
+                te.setHours(23, 59, 59, 999);
+                const expenseTs = expense.timestamp ? new Date(expense.timestamp) : null;
+                if (!expenseTs || expenseTs < ts || expenseTs > te) return false;
+            } else if (timestampStartDate) {
+                const ts = new Date(timestampStartDate);
+                ts.setHours(0, 0, 0, 0);
+                const expenseTs = expense.timestamp ? new Date(expense.timestamp) : null;
+                if (!expenseTs || expenseTs < ts) return false;
+            } else if (timestampEndDate) {
+                const te = new Date(timestampEndDate);
+                te.setHours(23, 59, 59, 999);
+                const expenseTs = expense.timestamp ? new Date(expense.timestamp) : null;
+                if (!expenseTs || expenseTs > te) return false;
             }
             return (
                 (selectedSiteName ? expense.siteName === selectedSiteName : true) &&
@@ -636,7 +721,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         setAccountTypeOptions(getOptions(filtered, "accountType"));
         setEnoOptions([...new Set(filtered.map(item => item.eno).filter(Boolean))]);
 
-    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedAccountType, selectedDate, startDate, endDate, selectedEno, expenses]);
+    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedAccountType, selectedDate, startDate, endDate, timestampStartDate, timestampEndDate, selectedEno, expenses]);
     const handleChange = (e) => {
         const { name, type, value, files } = e.target;
         // Prevent clearing the date field
@@ -699,16 +784,87 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             billCopy: updatedBillCopy,
             editedBy: username,
         };
+        const isPaymentType = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
+        const isNonCashPaymentMode = ['GPay', 'PhonePe', 'Net Banking', 'Cheque'].includes(updatedFormData.paymentMode);
+        if (isPaymentType && isNonCashPaymentMode) {
+            pendingUpdateFormDataRef.current = updatedFormData;
+            setPaymentModalData({ chequeNo: '', chequeDate: '', transactionNumber: '', accountNumber: '' });
+            setShowPaymentModal(true);
+            setIsSubmitting(false);
+            return;
+        }
         try {
-            const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(updatedFormData)
-            });
-            if (!response.ok) throw new Error('Failed to update expense');
-            setExpenses(expenses.map(exp => (exp.id === editId ? { ...exp, ...updatedFormData } : exp)));
+            await performUpdateAndWeeklyBills(updatedFormData);
+            setModalIsOpen(false);
+            setIsSubmitting(false);
+            alert('Updated successfully!');
+            window.location.reload();
+        } catch (error) {
+            console.error('Error updating expense:', error);
+            alert('Failed to update expense');
+            setIsSubmitting(false);
+        }
+    };
+    const performUpdateAndWeeklyBills = async (updatedFormData, modalPaymentData = null) => {
+        const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedFormData)
+        });
+        if (!response.ok) throw new Error('Failed to update expense');
+        setExpenses(expenses.map(exp => (exp.id === editId ? { ...exp, ...updatedFormData } : exp)));
+        const isPaymentType = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
+        const isNonCashPaymentMode = ['GPay', 'PhonePe', 'Net Banking', 'Cheque'].includes(updatedFormData.paymentMode);
+        if (isPaymentType && isNonCashPaymentMode && editId && !sentToWeeklyPaymentBillsRef.current.has(editId)) {
+            try {
+                const weeklyPaymentBillPayload = {
+                    date: updatedFormData.date,
+                    created_at: new Date().toISOString(),
+                    contractor_id: updatedFormData.contractorId || null,
+                    vendor_id: updatedFormData.vendorId || null,
+                    employee_id: null,
+                    project_id: updatedFormData.projectId || null,
+                    type: updatedFormData.accountType === 'Claim' ? 'Claim Payment' : updatedFormData.accountType === 'Weekly Payment' ? 'Weekly Payment' : 'Utility Payment',
+                    bill_payment_mode: updatedFormData.paymentMode,
+                    amount: parseFloat(updatedFormData.amount) || 0,
+                    status: true,
+                    weekly_number: '',
+                    expenses_entry_id: editId,
+                    advance_portal_id: null,
+                    staff_advance_portal_id: null,
+                    claim_payment_id: null,
+                    cheque_number: (modalPaymentData && modalPaymentData.chequeNo) || null,
+                    cheque_date: (modalPaymentData && modalPaymentData.chequeDate) || null,
+                    transaction_number: (modalPaymentData && modalPaymentData.transactionNumber) || null,
+                    account_number: (modalPaymentData && modalPaymentData.accountNumber) || null
+                };
+                const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(weeklyPaymentBillPayload)
+                });
+                if (weeklyResponse.ok) sentToWeeklyPaymentBillsRef.current.add(editId);
+            } catch (weeklyErr) {
+                console.error('Weekly payment bills save error:', weeklyErr);
+            }
+        }
+    };
+    const handlePaymentModalSubmit = async () => {
+        if (!paymentModalData.accountNumber) {
+            alert('Please select account number.');
+            return;
+        }
+        if (formData.paymentMode === 'Cheque' && (!paymentModalData.chequeNo || !paymentModalData.chequeDate)) {
+            alert('Please enter cheque number and date.');
+            return;
+        }
+        const updatedFormData = pendingUpdateFormDataRef.current;
+        if (!updatedFormData) return;
+        setIsSubmitting(true);
+        try {
+            await performUpdateAndWeeklyBills(updatedFormData, paymentModalData);
+            setShowPaymentModal(false);
             setModalIsOpen(false);
             setIsSubmitting(false);
             alert('Updated successfully!');
@@ -929,6 +1085,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         setSelectedDate('');
         setStartDate('');
         setEndDate('');
+        setTimestampStartDate('');
+        setTimestampEndDate('');
         setSelectedEno('');
         setFilteredExpenses(expenses);
         setCurrentPage(1);
@@ -944,6 +1102,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         localStorage.removeItem('expenseFilter_date');
         localStorage.removeItem('expenseFilter_startDate');
         localStorage.removeItem('expenseFilter_endDate');
+        localStorage.removeItem('expenseFilter_timestampStartDate');
+        localStorage.removeItem('expenseFilter_timestampEndDate');
         localStorage.removeItem('expenseFilter_eno');
     };
     const exportToCSV = () => {
@@ -1040,22 +1200,28 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                         <div className="flex flex-wrap gap-5 items-end">
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-[168px] h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2"
-                                />
+                                <div className="relative w-[168px]">
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2 pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                    />
+                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                </div>
                             </div>
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">End Date</label>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-[168px] h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2"
-                                />
-                            </div>                            
+                                <div className="relative w-[168px]">
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2 pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                    />
+                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                </div>
+                            </div>
                             {Object.entries(accountTypeSummary)
                                 .sort(([a], [b]) => {
                                     if (a === 'Unknown') return 1;
@@ -1092,28 +1258,34 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                         <div className="flex flex-wrap gap-5 items-end">
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-[168px] h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2"
-                                />
+                                <div className="relative w-[168px]">
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2 pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                    />
+                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                </div>
                             </div>
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">End Date</label>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-[168px] h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2"
-                                />
+                                <div className="relative w-[168px]">
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2 pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                    />
+                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                </div>
                             </div>
                         </div>
                     </div>
-                )}                
+                )}
                 <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg overflow-x-auto">
                     <div
-                        className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || startDate || endDate
+                        className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || startDate || endDate || timestampStartDate || timestampEndDate
                             ? 'flex-col sm:flex-row sm:justify-between'
                             : 'flex-row justify-between items-center'
                             } mb-3 gap-2`}>
@@ -1125,8 +1297,22 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     className="w-7 h-7 border border-[#BF9853] rounded-md"
                                 />
                             </button>
-                            {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || startDate || endDate) && (
+                            {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || startDate || endDate || timestampStartDate || timestampEndDate) && (
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
+                                    {timestampStartDate && (
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
+                                            <span className="font-normal">Timestamp: </span>
+                                            <span className="font-bold">{timestampStartDate}{timestampEndDate ? ` – ${timestampEndDate}` : ' onwards'}</span>
+                                            <button onClick={() => { setTimestampStartDate(''); setTimestampEndDate(''); }} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        </span>
+                                    )}
+                                    {timestampEndDate && !timestampStartDate && (
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
+                                            <span className="font-normal">Timestamp until: </span>
+                                            <span className="font-bold">{timestampEndDate}</span>
+                                            <button onClick={() => setTimestampEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        </span>
+                                    )}
                                     {startDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">Start Date: </span>
@@ -1250,15 +1436,29 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     </tr>
                                     {showFilters && (
                                         <tr className="bg-[#FAF6ED]">
-                                            <th></th>
-                                            <th className=" py-3">
-                                                <input
-                                                    type="date"
-                                                    value={selectedDate}
-                                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                                    className="w-full px-1.5 py-2 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200"
-                                                    placeholder="Search Date..."
-                                                />
+                                            <th className="py-3 px-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowDateRangePicker(true)}
+                                                    className="w-full min-w-[140px] px-2 py-2 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200 hover:bg-[#FAF6ED] text-left flex items-center justify-between"
+                                                >
+                                                    <span className="text-gray-700 truncate">
+                                                        {timestampStartDate ? (timestampEndDate ? `${timestampStartDate} – ${timestampEndDate}` : `From ${timestampStartDate}`) : 'Timestamp...'}
+                                                    </span>
+                                                    <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                </button>
+                                            </th>
+                                            <th className="py-3">
+                                                <div className="relative">
+                                                    <input
+                                                        type="date"
+                                                        value={selectedDate}
+                                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                                        className="w-full px-1.5 py-2 pr-8 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                                        placeholder="Search Date..."
+                                                    />
+                                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                </div>
                                             </th>
                                             <th className="py-3">
                                                 <Select
@@ -1474,10 +1674,13 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                 <form className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-gray-500 font-semibold text-left">Date</label>
-                                        <input type="date" name="date" value={formData.date} onChange={handleChange}
-                                            required
-                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
-                                        />
+                                        <div className="relative mt-1">
+                                            <input type="date" name="date" value={formData.date} onChange={handleChange}
+                                                required
+                                                className="block w-full p-2 pr-9 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                            />
+                                            <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-gray-500 font-semibold text-left">Account Type *</label>
@@ -1700,7 +1903,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         <input type="file" className="hidden" id="fileInput" onChange={handleFileChange} />
                                     </div>                                    
                                     {/* Conditional fields based on Account Type */}
-                                    {(formData.accountType === 'Claim' || formData.accountType === 'Utility Bills') && (
+                                    {(formData.accountType === 'Claim' || formData.accountType === 'Utility Bills' || formData.accountType === 'Weekly Payment') && (
                                         <div>
                                             <label className="block text-gray-500 font-semibold text-left">Payment Mode *</label>
                                             <select
@@ -1789,10 +1992,135 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                 </form>
                             </div>
                         </Modal>
+            {showPaymentModal && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[9999]">
+                    <div className="bg-white text-left rounded-xl p-6 w-[800px] max-h-[90vh] overflow-y-auto flex flex-col relative">
+                        <h3 className="text-lg font-semibold mb-4 text-center">Payment Details</h3>
+                        <div className="flex-1 overflow-hidden">
+                            <div className="space-y-4 mb-4">
+                                <div className="border-2 border-[#BF9853] border-opacity-25 w-full rounded-lg p-4">
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="date"
+                                                    value={(pendingUpdateFormDataRef.current && pendingUpdateFormDataRef.current.date) || ''}
+                                                    readOnly
+                                                    className="border-2 border-[#BF9853] border-opacity-25 p-2 pr-9 rounded-lg w-full bg-gray-100 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                                />
+                                                <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                                            <input
+                                                type="text"
+                                                value={(pendingUpdateFormDataRef.current && pendingUpdateFormDataRef.current.amount) || ''}
+                                                readOnly
+                                                className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full text-gray-600 bg-gray-100"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Mode</label>
+                                            <input
+                                                type="text"
+                                                value={(pendingUpdateFormDataRef.current && pendingUpdateFormDataRef.current.paymentMode) || ''}
+                                                readOnly
+                                                className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full text-gray-600 bg-gray-100"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                {(formData.paymentMode === 'GPay' || formData.paymentMode === 'PhonePe' || formData.paymentMode === 'Net Banking' || formData.paymentMode === 'Cheque') && (
+                                    <div className="border-2 border-[#BF9853] border-opacity-25 w-full rounded-lg p-4">
+                                        <div className="space-y-4">
+                                            {formData.paymentMode === 'Cheque' && (
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">Cheque No <span className="text-red-500">*</span></label>
+                                                        <input
+                                                            type="text"
+                                                            value={paymentModalData.chequeNo}
+                                                            onChange={(e) => setPaymentModalData(prev => ({ ...prev, chequeNo: e.target.value }))}
+                                                            placeholder="Enter cheque number"
+                                                            className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Date <span className="text-red-500">*</span></label>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="date"
+                                                                value={paymentModalData.chequeDate}
+                                                                onChange={(e) => setPaymentModalData(prev => ({ ...prev, chequeDate: e.target.value }))}
+                                                                className="border-2 border-[#BF9853] border-opacity-25 p-2 pr-9 rounded-lg w-full focus:outline-none [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                                            />
+                                                            <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Number</label>
+                                                    <input
+                                                        type="text"
+                                                        value={paymentModalData.transactionNumber}
+                                                        onChange={(e) => setPaymentModalData(prev => ({ ...prev, transactionNumber: e.target.value }))}
+                                                        placeholder="Enter transaction number (optional)"
+                                                        className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Account Number <span className="text-red-500">*</span></label>
+                                                    <select
+                                                        value={paymentModalData.accountNumber}
+                                                        onChange={(e) => setPaymentModalData(prev => ({ ...prev, accountNumber: e.target.value }))}
+                                                        className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none"
+                                                    >
+                                                        <option value="">Select Account</option>
+                                                        {accountDetails.map((account) => (
+                                                            <option key={account.id} value={account.account_number}>
+                                                                {account.account_number}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6 p-4 bg-white border-t">
+                            <button type="button" onClick={() => setShowPaymentModal(false)} className="px-4 py-2 border border-[#BF9853] text-[#BF9853] rounded-lg">
+                                Cancel
+                            </button>
+                            <button type="button" onClick={handlePaymentModalSubmit} disabled={isSubmitting} className="px-4 py-2 bg-[#BF9853] text-white rounded-lg disabled:bg-gray-400">
+                                {isSubmitting ? 'Saving...' : 'Submit'}
+                            </button>
+                        </div>
+                        <button type="button" onClick={() => setShowPaymentModal(false)} className="absolute top-3 right-4 text-xl font-bold text-gray-500 hover:text-black">
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
                         <AuditModal show={showModal} onClose={() => setShowModal(false)} audits={audits} />
                     </div>
                 </div>
             </div>
+            <DateRangePicker
+                isOpen={showDateRangePicker}
+                onClose={() => setShowDateRangePicker(false)}
+                startDate={timestampStartDate}
+                endDate={timestampEndDate}
+                onApply={(from, to) => {
+                    setTimestampStartDate(from);
+                    setTimestampEndDate(to);
+                }}
+            />
         </body>
     );
 };

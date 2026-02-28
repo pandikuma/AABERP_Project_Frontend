@@ -52,7 +52,7 @@ const AdvanceHeading = ({ username, userRoles = [] }) => {
         const storedUser = localStorage.getItem('user');
         const user = storedUser ? JSON.parse(storedUser) : { username, userRoles };
         return (
-            <div style={{textAlign: 'left'}}>
+            <div style={{ textAlign: 'left' }}>
                 <MobileProjectAdvance user={user} onLogout={() => { }} />
             </div>
         );

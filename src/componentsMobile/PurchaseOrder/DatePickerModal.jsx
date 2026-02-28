@@ -171,7 +171,7 @@ const DatePickerModal = ({ isOpen, onClose, onConfirm, initialDate }) => {
   const visibleYears = getVisibleYears();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div className="bg-white w-[320px] rounded-[6px] p-6 relative">
         <p className="text-[16px] font-medium text-black text-center mb-6">Select the Date</p>
         

@@ -369,36 +369,97 @@ const Report = () => {
       const contractorName = getContractorName(entry.contractor_id);
       const entityName = vendorName || contractorName || entry.contractor_vendor || '';
       const projectName = getProjectName(entry.project_id) || entry.project_name || '';
-      const t = entry.type || '';
+
       let amount = 0;
-      if (t === 'Refund') amount = -(parseFloat(entry.refund_amount) || 0);
-      else amount = parseFloat(entry.amount) || 0;
+      const t = entry.type || '';
+      if (t === 'Refund') {
+        amount = -(parseFloat(entry.refund_amount) || 0);
+      } else if (t === 'Bill Settlement') {
+        amount = parseFloat(entry.bill_amount) || 0;
+      } else {
+        amount = parseFloat(entry.amount) || 0;
+      }
+
+      const dateStr = entry.timestamp || entry.createdAt || entry.created_at || '';
+      const entryNo = entry.entry_no || 0;
+      const year = dateStr ? new Date(dateStr).getFullYear() : new Date().getFullYear();
       let prefix = 'AD';
-      if (t === 'Bill Settlement') prefix = 'BS';
-      else if (t === 'Transfer') prefix = 'TF';
-      else if (t === 'Refund') prefix = 'RF';
-      const ref = `#${prefix} - ${entityName}`;
-      const transferSiteName = t === 'Transfer' && entry.transfer_site_id ? getProjectName(entry.transfer_site_id) || '' : '';
-      const parsed = parseItemDate(entry);
+      if (t === 'Bill Settlement') {
+        prefix = 'BS';
+      } else if (t === 'Transfer') {
+        prefix = 'TF';
+      } else if (t === 'Refund') {
+        prefix = 'RF';
+      }
+      const ref = `${prefix} - ${year} - ${entryNo}`;
+
+      // Get transfer site name for Transfer type
+      const transferSiteName = t === 'Transfer' && entry.transfer_site_id
+        ? getProjectName(entry.transfer_site_id) || ''
+        : '';
+
       return {
         id: entry.advancePortalId || entry.id || `${entry.entry_no}-${entry.date}`,
         ref,
+        entityName,
         projectName,
         transferSiteName,
-        date: parsed ? parsed.toISOString() : (entry.date || entry.timestamp || ''),
+        timestamp: dateStr,
         type: t || 'Advance',
         paymentMode: entry.payment_mode || '',
         amount,
-        billAmount: parseFloat(entry.bill_amount) || 0,
-        description: entry.description || '',
+        entry,
       };
+    })
+    .sort((a, b) => {
+      const noA = a.entry.entry_no || 0;
+      const noB = b.entry.entry_no || 0;
+      return noB - noA;
     });
   }, [filteredData, vendorOptions, contractorOptions, siteOptions]);
 
   const getTypeBadgeClass = (type) => {
-    if (type === 'Transfer') return 'bg-[#FFF3E0] text-black';
-    if (type === 'Advance' || type === 'Refund') return 'bg-[#E8F5E9] text-black';
-    return 'bg-[#FFF3E0] text-black';
+    switch (type) {
+      case 'Advance':
+        return 'bg-[#E8F5E9] text-[#2E7D32]';
+      case 'Bill Settlement':
+        return 'bg-[#E3F2FD] text-[#1976D2]';
+      case 'Refund':
+        return 'bg-[#FFF3E0] text-[#F57C00]';
+      case 'Transfer':
+        return 'bg-[#FFF3E0] text-black';
+      default:
+        return 'bg-gray-100 text-gray-600';
+    }
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return '';
+    try {
+      const date = new Date(dateTimeString);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      let hours = date.getHours();
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      const timeStr = `${hours}:${minutes} ${ampm}`;
+      if (dateOnly.getTime() === today.getTime()) {
+        return `Today • ${timeStr}`;
+      } else if (dateOnly.getTime() === yesterday.getTime()) {
+        return `Yesterday • ${timeStr}`;
+      } else {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year} • ${timeStr}`;
+      }
+    } catch {
+      return '';
+    }
   };
 
   const formatDateOnly = (dateString) => {
@@ -963,7 +1024,7 @@ const Report = () => {
         </div>
       </div>
 
-      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 flex-1 max-h-[430px]">
+      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-4 flex-1 max-h-[430px] pb-11">
         {transformed.length === 0 ? (
           <div className="flex flex-col items-center justify-center">
             <div className="w-[64px] h-[64px] rounded-full bg-[#F5F5F5] flex items-center justify-center">
@@ -981,12 +1042,13 @@ const Report = () => {
             >
               <div className="flex-1 bg-white rounded-[8px] h-full px-3 py-3 transition-all duration-300 ease-out">
                 <div className="flex flex-col gap-0.5">
+                  {/* Row 1: ref and payment mode */}
                   <div className="flex items-center justify-between">
                     <span
                       role="button"
                       tabIndex={0}
                       onClick={() => {
-                        const desc = item.description || '';
+                        const desc = item.entry?.description || '';
                         if (desc) {
                           setSelectedDescription(desc);
                           setShowDescriptionModal(true);
@@ -994,54 +1056,77 @@ const Report = () => {
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
-                          const desc = item.description || '';
+                          const desc = item.entry?.description || '';
                           if (desc) {
                             setSelectedDescription(desc);
                             setShowDescriptionModal(true);
                           }
                         }
                       }}
-                      className={`text-[12px] font-semibold text-black leading-snug ${item.description ? 'cursor-pointer hover:underline' : ''}`}
+                      className={`text-[12px] font-semibold text-black leading-snug ${item.entry?.description ? 'cursor-pointer hover:underline' : ''}`}
                     >
                       {item.ref}
                     </span>
-                    {(item.paymentMode || (item.type === 'Transfer' && !item.paymentMode)) && (
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${getTypeBadgeClass(item.type)}`}>
-                        {item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '')}
-                      </span>
-                    )}
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${getTypeBadgeClass(
+                        item.type
+                      )}`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          item.type === 'Advance'
+                            ? 'bg-[#2E7D32]'
+                            : item.type === 'Bill Settlement'
+                              ? 'bg-[#1976D2]'
+                              : item.type === 'Refund'
+                                ? 'bg-[#F57C00]'
+                                : item.type === 'Transfer'
+                                  ? ''
+                                  : ''
+                        }`}
+                      />
+                      {item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '')}
+                    </span>
                   </div>
+                  {/* Row 2: entityName and empty space */}
                   <div className="flex items-center justify-between">
-                    {item.type === 'Transfer' && item.transferSiteName ? (
-                      <>
-                        <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
-                        <p className="text-[12px] font-medium text-black leading-snug">{item.transferSiteName}</p>
-                      </>
-                    ) : item.type === 'Bill Settlement' ? (
-                      <>
-                        <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
-                        <p className={`text-[12px] font-semibold leading-snug ${(item.amount || 0) < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>₹{(item.amount || 0).toLocaleString('en-IN')}</p>
-                      </>
-                    ) : item.type === 'Transfer' && item.amount ? (
-                      <>
-                        <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
-                        <p className={`text-[12px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>₹{item.amount.toLocaleString('en-IN')}</p>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-[12px] font-medium text-black leading-snug">{formatDateOnly(item.date)}</span>
-                        <p className={`text-[12px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>
-                          {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount || 0).toLocaleString('en-IN')}
-                        </p>
-                      </>
-                    )}
+                    <p
+                      className="text-[12px] font-semibold text-black leading-snug break-words"
+                      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                    >
+                      {item.entityName || 'N/A'}
+                    </p>
+                    <span></span>
                   </div>
+                  {/* Row 3: projectName and amount */}
                   <div className="flex items-center justify-between">
-                    <p className="text-[12px] font-medium text-black leading-snug break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                    <p
+                      className="text-[11px] font-medium text-[#777777] leading-snug break-words"
+                      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                    >
                       {item.projectName || 'N/A'}
                     </p>
-                    {item.type === 'Bill Settlement' ? (
-                      <p className={`text-[12px] font-semibold leading-snug ${(item.billAmount || 0) < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>₹{(item.billAmount || 0).toLocaleString('en-IN')}</p>
+                    <p
+                      className={`text-[12px] font-semibold block leading-snug ${
+                        item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'
+                      }`}
+                    >
+                      {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                  {/* Row 4: date/time and transfer site name */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-[#777777] leading-snug">
+                      {formatDateTime(item.timestamp)}
+                    </span>
+                    {item.type === 'Transfer' && item.transferSiteName ? (
+                      <p className={`text-[10px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#BF9853]' : 'text-[#007233]'}`}>
+                        {item.transferSiteName}
+                      </p>
+                    ) : item.type === 'Bill Settlement' && item.entry?.amount ? (
+                      <span className="text-[12px] font-medium text-[#007233] leading-snug">
+                        ₹{parseFloat(item.entry.amount || 0).toLocaleString('en-IN')}
+                      </span>
                     ) : null}
                   </div>
                 </div>

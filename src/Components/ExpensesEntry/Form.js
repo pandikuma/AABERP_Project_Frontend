@@ -6,6 +6,25 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import jsPDF from 'jspdf';
 const Form = ({ username, userRoles = [] }) => {
+    const resolveActiveBranchId = () => {
+        try {
+            const selectedBranchId = localStorage.getItem("selectedBranchId");
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            const fallbackBranchId = user?.branchId ?? user?.branch_id ?? user?.brachId;
+            const resolved = Number(selectedBranchId || fallbackBranchId);
+            return Number.isFinite(resolved) && resolved > 0 ? resolved : null;
+        } catch {
+            return null;
+        }
+    };
+    const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
+    const buildBranchUrl = (baseUrl) => {
+        const url = new URL(baseUrl);
+        if (activeBranchId !== null && activeBranchId !== undefined && activeBranchId !== "") {
+            url.searchParams.set("branchId", String(activeBranchId));
+        }
+        return url.toString();
+    };
     const [eno, setEno] = useState(null);
     const [date, setDate] = useState('');
     const [amount, setAmount] = useState('');
@@ -51,6 +70,24 @@ const Form = ({ username, userRoles = [] }) => {
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [isReviewEditMode, setIsReviewEditMode] = useState(false);
     const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+    const [advanceData, setAdvanceData] = useState([]);
+    const [projectAdvance, setProjectAdvance] = useState('');
+    const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+    const [duplicateMatchedExpenses, setDuplicateMatchedExpenses] = useState([]);
+    const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+    useEffect(() => {
+        const syncBranch = () => {
+            const nextBranchId = resolveActiveBranchId();
+            setActiveBranchId((prevBranchId) =>
+                prevBranchId === nextBranchId ? prevBranchId : nextBranchId
+            );
+        };
+        syncBranch();
+        window.addEventListener("branchSelectionChanged", syncBranch);
+        return () => {
+            window.removeEventListener("branchSelectionChanged", syncBranch);
+        };
+    }, []);
     useEffect(() => {
         const fetchUserRoles = async () => {
             try {
@@ -204,6 +241,54 @@ const Form = ({ username, userRoles = [] }) => {
         };
         fetchMachinTools();
     }, []);
+    // Fetch advance portal data (for right-side advance history table)
+    useEffect(() => {
+        const fetchAdvanceData = async () => {
+            try {
+                const response = await fetch(
+                    buildBranchUrl("https://backendaab.in/aabuildersDash/api/advance_portal/getAll"),
+                    {
+                        method: "GET",
+                        credentials: "include",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+                if (!response.ok) {
+                    throw new Error("Network response was not ok: " + response.statusText);
+                }
+                const data = await response.json();
+                const list = Array.isArray(data) ? data : [];
+                setAdvanceData(list);
+            } catch (error) {
+                console.error("Error fetching advance portal data:", error);
+            }
+        };
+        fetchAdvanceData();
+    }, [activeBranchId]);
+
+    // Compute project advance locally whenever selection or data changes
+    useEffect(() => {
+        if (!selectedOption || !selectedSite || !advanceData.length) {
+            setProjectAdvance('');
+            return;
+        }
+        const isVendor = selectedOption.type === 'Vendor';
+        const vid = Number(selectedOption.id);
+        const pid = Number(selectedSite.id);
+        const relevant = advanceData.filter(item =>
+            (isVendor ? item.vendor_id === vid : item.contractor_id === vid) &&
+            item.project_id === pid
+        );
+        const total = relevant.reduce((sum, entry) => {
+            const amount = parseFloat(entry.amount) || 0;
+            const billAmount = parseFloat(entry.bill_amount) || 0;
+            const refundAmount = parseFloat(entry.refund_amount) || 0;
+            return sum + amount - billAmount - refundAmount;
+        }, 0);
+        setProjectAdvance(total.toLocaleString('en-IN'));
+    }, [advanceData, selectedOption, selectedSite]);
     useEffect(() => {
         const fetchAccountType = async () => {
             try {
@@ -268,7 +353,9 @@ const Form = ({ username, userRoles = [] }) => {
 
                 const fetchPreviousEntry = async () => {
                     try {
-                        const response = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/utility/electricity');
+                        const response = await axios.get(
+                            "https://backendaab.in/aabuilderDash/expenses_form/utility/electricity"
+                        );
                         const electricityEntries = Array.isArray(response.data) ? response.data : [];
 
                         const previousEntry = electricityEntries
@@ -382,11 +469,42 @@ const Form = ({ username, userRoles = [] }) => {
             }
         }
     }, [ebNumberOptions]);
-    const getCurrentWeekNumber = () => {
-        const now = new Date();
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
-        return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+    // ISO 8601 week number calculation
+    // Week belongs to the year that contains the Thursday of that week
+    // Week 1 is the week with the year's first Thursday
+    // Monday to Sunday weeks
+    const getISOWeekNumber = (date) => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);        
+        // Get Thursday of the week containing the date
+        // Monday = 1, Tuesday = 2, ..., Sunday = 0 (convert to 7)
+        const dayOfWeek = d.getDay() || 7; // Convert Sunday (0) to 7
+        const thursday = new Date(d);
+        thursday.setDate(d.getDate() + 4 - dayOfWeek); // Thursday is 4 days after Monday
+        thursday.setHours(0, 0, 0, 0);
+        
+        // Use the year that Thursday falls in (ISO 8601 rule)
+        const weekYear = thursday.getFullYear();
+        
+        // Get January 1st of that year
+        const jan1 = new Date(weekYear, 0, 1);
+        jan1.setHours(0, 0, 0, 0);
+        
+        // Get the Thursday of week 1 (first Thursday of the year)
+        const jan1DayOfWeek = jan1.getDay() || 7;
+        const firstThursday = new Date(jan1);
+        firstThursday.setDate(jan1.getDate() + 4 - jan1DayOfWeek);
+        firstThursday.setHours(0, 0, 0, 0);
+        
+        // Calculate week number: difference in days divided by 7, plus 1
+        const daysDiff = Math.floor((thursday - firstThursday) / 86400000);
+        const weekNo = Math.floor(daysDiff / 7) + 1;
+        
+        return weekNo;
+    };
+
+    const getCurrentWeekNumber = (date) => {
+        return getISOWeekNumber(date || new Date());
     };
     const fetchProjectData = async (projectId) => {
         try {
@@ -596,7 +714,7 @@ const Form = ({ username, userRoles = [] }) => {
     };
     const fetchLatestEno = async () => {
         try {
-            const response = await fetch('https://backendaab.in/aabuilderDash/expenses_form/get_form');
+            const response = await fetch("https://backendaab.in/aabuilderDash/expenses_form/get_form");
             if (!response.ok) {
                 throw new Error('Failed to fetch ENo');
             }
@@ -632,6 +750,88 @@ const Form = ({ username, userRoles = [] }) => {
         const year = date.getFullYear();
         return `${day}-${month}-${year}`;
     };
+    const formatDate = (dateString) => {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = date.getHours();
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const hour12 = hours % 12 || 12;
+        return `${day}/${month}/${year} ${hour12}:${minutes} ${ampm}`;
+    };
+    const toLocalDateStr = (val) => {
+        if (!val) return '';
+        const d = new Date(val);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+    const normalizeStr = (s) => (s == null ? '' : String(s).trim());
+    const checkForDuplicateEntry = async () => {
+        const vendorLabel = normalizeStr(selectedType === 'Vendor' && selectedOption ? selectedOption.label : '');
+        const contractorLabel = normalizeStr(selectedType === 'Contractor' && selectedOption ? selectedOption.label : '');
+        const siteLabel = normalizeStr(selectedSite ? selectedSite.label : '');
+        const amountNum = parseFloat(String(amount).replace(/,/g, '')) || 0;
+        const dateStr = date ? (date.includes('-') ? date.split('T')[0] : toLocalDateStr(date)) : '';
+
+        try {
+            const response = await fetch(buildBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/get_form"));
+            if (!response.ok) return [];
+            const allExpenses = await response.json();
+
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+            const matching = allExpenses.filter((exp) => {
+                const expDateStr = toLocalDateStr(exp.timestamp || exp.date);
+                const dateMatch = expDateStr === dateStr;
+                if (!dateMatch) return false;
+
+                const expAmount = Math.abs(parseFloat(exp.amount) || 0);
+                const amountMatch = Math.abs(expAmount - amountNum) < 0.01;
+                if (!amountMatch) return false;
+
+                const expSiteName = normalizeStr(exp.siteName || exp.projectName || '');
+                const expProjectId = exp.projectId ?? exp.project_id ?? null;
+                const selectedProjectId = selectedSite ? Number(selectedSite.id) : null;
+                const projectMatch =
+                    (siteLabel && expSiteName && expSiteName === siteLabel) ||
+                    (selectedProjectId && expProjectId != null && Number(expProjectId) === selectedProjectId);
+                if (!projectMatch) return false;
+
+                const expVendor = normalizeStr(exp.vendor || '');
+                const expContractor = normalizeStr(exp.contractor || '');
+                const expVendorId = exp.vendorId ?? exp.vendor_id ?? null;
+                const expContractorId = exp.contractorId ?? exp.contractor_id ?? null;
+                const selectedId = selectedOption ? Number(selectedOption.id) : null;
+
+                let vendorContractorMatch = false;
+                if (selectedType === 'Vendor') {
+                    vendorContractorMatch =
+                        (vendorLabel && expVendor === vendorLabel) ||
+                        (selectedId != null && expVendorId != null && Number(expVendorId) === selectedId);
+                } else if (selectedType === 'Contractor') {
+                    vendorContractorMatch =
+                        (contractorLabel && expContractor === contractorLabel) ||
+                        (selectedId != null && expContractorId != null && Number(expContractorId) === selectedId);
+                }
+                if (!vendorContractorMatch) return false;
+
+                const expDate = new Date(exp.timestamp || exp.date);
+                const isWithinLastMonth = expDate >= oneMonthAgo;
+                return isWithinLastMonth;
+            });
+
+            return matching;
+        } catch (err) {
+            console.error('Error checking duplicate:', err);
+            return [];
+        }
+    };
     const validateFormFields = () => {
         if (!selectedAccountType || !date || !selectedSite || !amount || !selectedCategory || !selectedOption) {
             alert('Please fill out all required fields.');
@@ -660,17 +860,40 @@ const Form = ({ username, userRoles = [] }) => {
         }
         return true;
     };
-    const handleFormSubmit = (e) => {
+    const handleFormSubmit = async (e) => {
         e.preventDefault();
         if (!validateFormFields()) {
             return;
         }
+        setCheckingDuplicate(true);
+        try {
+            const duplicates = await checkForDuplicateEntry();
+            if (duplicates && duplicates.length > 0) {
+                setDuplicateMatchedExpenses(duplicates);
+                setShowDuplicateModal(true);
+                return;
+            }
+        } catch (err) {
+            console.error('Duplicate check failed:', err);
+        } finally {
+            setCheckingDuplicate(false);
+        }
         setShowReviewModal(true);
         setIsReviewEditMode(false);
     };
+    const handleDuplicateIgnore = () => {
+        setShowDuplicateModal(false);
+        setDuplicateMatchedExpenses([]);
+        setShowReviewModal(true);
+        setIsReviewEditMode(false);
+    };
+    const handleDuplicateCancel = () => {
+        setShowDuplicateModal(false);
+        setDuplicateMatchedExpenses([]);
+    };
     const submitExpenseData = async () => {
         if (
-            (selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills') &&
+            (selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Weekly Payment') &&
             ["GPay", "PhonePe", "Net Banking", "Cheque"].includes(paymentMode)
         ) {
             setPaymentModalData({
@@ -754,9 +977,10 @@ const Form = ({ username, userRoles = [] }) => {
                 utilityType: utilityType || '',
                 utilityTypeNumber: selectedEbNumber ? selectedEbNumber.label : '',
                 utilityForTheMonth: selectedMonths || '',
-                utilityValidityDays: thirdInput || ''
+                utilityValidityDays: thirdInput || '',
+                branchId: activeBranchId
             };
-            const formResponse = await fetch("https://backendaab.in/aabuilderDash/expenses_form/save", {
+            const formResponse = await fetch(buildBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/save"), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -811,7 +1035,7 @@ const Form = ({ username, userRoles = [] }) => {
             }
             if (expensesId) {
                 try {
-                    const verifyResponse = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/get_form`);
+                    const verifyResponse = await fetch("https://backendaab.in/aabuilderDash/expenses_form/get_form");
                     if (verifyResponse.ok) {
                         const allForms = await verifyResponse.json();
                         const savedForm = allForms.find(f => f.id === expensesId);
@@ -835,7 +1059,7 @@ const Form = ({ username, userRoles = [] }) => {
                     vendor_id: vendorId,
                     employee_id: null,
                     project_id: projectId,
-                    type: utilityType,
+                    type: selectedAccountType === 'Claim' ? "Claim" : selectedAccountType === 'Weekly Payment' ? "Weekly Payment" : selectedAccountType === 'Utility Bills' ? (utilityType || "Utility Bills") : "Expense",
                     amount: selectedAccountType === 'Bill Refund' ? -Math.abs(parseFloat(amount)) : parseFloat(amount),
                     status: true,
                     weekly_number: getCurrentWeekNumber(),
@@ -845,7 +1069,8 @@ const Form = ({ username, userRoles = [] }) => {
                     rent_management_id: null,
                     expenses_entry_id: expensesId,
                     send_to_expenses_entry: false,
-                    bill_copy_url: pdfUrl || ''
+                    bill_copy_url: pdfUrl || '',
+                    branch_id: activeBranchId
                 };
                 try {
                     const weeklyExpenseResponse = await fetch("https://backendaab.in/aabuildersDash/api/weekly-expenses/save", {
@@ -1001,9 +1226,10 @@ const Form = ({ username, userRoles = [] }) => {
                 utilityType: utilityType || '',
                 utilityTypeNumber: selectedEbNumber ? selectedEbNumber.label : '',
                 utilityForTheMonth: selectedMonths || '',
-                utilityValidityDays: thirdInput || ''
+                utilityValidityDays: thirdInput || '',
+                branchId: activeBranchId
             };
-            const expensesResponse = await fetch("https://backendaab.in/aabuilderDash/expenses_form/save", {
+            const expensesResponse = await fetch(buildBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/save"), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -1069,7 +1295,7 @@ const Form = ({ username, userRoles = [] }) => {
             }
             if (expensesId) {
                 try {
-                    const verifyResponse = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/get_form`);
+                    const verifyResponse = await fetch("https://backendaab.in/aabuilderDash/expenses_form/get_form");
                     if (verifyResponse.ok) {
                         const allForms = await verifyResponse.json();
                         const savedForm = allForms.find(f => f.id === expensesId);
@@ -1085,7 +1311,7 @@ const Form = ({ username, userRoles = [] }) => {
                 vendor_id: selectedOption?.type === 'Vendor' ? selectedOption.id : null,
                 employee_id: null,
                 project_id: selectedSite?.id || null,
-                type: selectedAccountType === 'Claim' ? "Claim Payment" : "Utility Payment",
+                type: selectedAccountType === 'Claim' ? "Claim Payment" : selectedAccountType === 'Weekly Payment' ? "Weekly Payment" : "Utility Payment",
                 bill_payment_mode: paymentModalData.paymentMode,
                 amount: parseFloat(paymentModalData.amount),
                 status: true,
@@ -1097,7 +1323,8 @@ const Form = ({ username, userRoles = [] }) => {
                 cheque_number: paymentModalData.chequeNo || null,
                 cheque_date: paymentModalData.chequeDate || null,
                 transaction_number: paymentModalData.transactionNumber || null,
-                account_number: paymentModalData.accountNumber || null
+                account_number: paymentModalData.accountNumber || null,
+                branch_id: activeBranchId
             };
             const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
                 method: 'POST',
@@ -1319,7 +1546,7 @@ const Form = ({ username, userRoles = [] }) => {
                                         className="custom-select rounded-lg w-[290px] h-[45px]"
                                     />
                                 </div>
-                                {(selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills') && (
+                                {(selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Weekly Payment') && (
                                     <div className='text-left'>
                                         <label className="text-md font-semibold mb-2 block">Payment Mode <span className="text-red-500">*</span></label>
                                         <select
@@ -1328,7 +1555,7 @@ const Form = ({ username, userRoles = [] }) => {
                                             className="border-2 border-[#BF9853] rounded-lg px-4 py-2 w-[290px] h-[43px] focus:outline-none border-opacity-[0.20]"
                                         >
                                             <option value="">Select Payment Mode</option>
-                                            <option value="Cash">Cash</option>
+                                            {selectedAccountType !== 'Weekly Payment' && <option value="Cash">Cash</option>}
                                             <option value="GPay">GPay</option>
                                             <option value="PhonePe">PhonePe</option>
                                             <option value="Net Banking">Net Banking</option>
@@ -1383,6 +1610,45 @@ const Form = ({ username, userRoles = [] }) => {
                                     )}
                                 </>
                             )}
+                            {/* Comments + Attach + Submit kept in left column so there is no empty gap next to the advance table */}
+                            <div className="mt-6 text-left">
+                                <label className="text-md font-semibold mb-2 block">Comments</label>
+                                <input
+                                    type="text"
+                                    value={comments}
+                                    onChange={(e) => setComments(e.target.value)}
+                                    placeholder="Enter Your Comments ..."
+                                    className="border-2 border-[#BF9853] rounded-md px-4 py-2 lg:w-[604px] w-80 h-[45px] focus:outline-none border-opacity-[0.20]"
+                                />
+                            </div>
+                            <div className="mt-4 flex items-center justify-between">
+                                <div className='flex'>
+                                    <label htmlFor="fileInput" className="cursor-pointer flex items-center text-orange-600">
+                                        <img className='w-5 h-4' alt='' src={Attach}></img>
+                                        Attach file {(selectedAccountType === 'Utility Bills' || selectedAccountType === 'Bill Refund') && <span className="text-red-500 ml-1">*</span>}
+                                    </label>
+                                    <input
+                                        type="file"
+                                        id="fileInput"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        onChange={handleFileChange}
+                                        accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,image/*,application/pdf"
+                                    />
+                                </div>
+                                {selectedFile && <span className="text-gray-600">{selectedFile.name}</span>}
+                            </div>
+                            <div className="mt-4 flex">
+                                {userPermissions.includes("Create") && (
+                                    <button
+                                        type='submit'
+                                        disabled={isSubmitting || checkingDuplicate}
+                                        className={`bg-yellow-700 text-white px-6 py-2 rounded-md hover:bg-yellow-600 transition duration-200 ${isSubmitting || checkingDuplicate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        {checkingDuplicate ? 'Checking...' : isSubmitting ? 'Submitting...' : 'Submit'}
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         {showMachineTools && (
                             <div className='text-left lg:ml-[-570px]'>
@@ -1398,34 +1664,136 @@ const Form = ({ username, userRoles = [] }) => {
                                 />
                             </div>
                         )}
-                        <div className="md:col-span-2 text-left">
-                            <label className="text-md font-semibold mb-2 block">Comments</label>
-                            <input
-                                type="text"
-                                value={comments}
-                                onChange={(e) => setComments(e.target.value)}
-                                placeholder="Enter Your Comments ..."
-                                className="border-2 border-[#BF9853] rounded-md px-4 py-2 lg:w-[604px] w-80 h-[45px] focus:outline-none border-opacity-[0.20]"
-                            />
-                        </div>
-                        <div className="md:col-span-2 items-center justify-between">
-                            <div className='flex'>
-                                <label htmlFor="fileInput" className="cursor-pointer flex items-center text-orange-600">
-                                    <img className='w-5 h-4' alt='' src={Attach}></img>
-                                    Attach file {(selectedAccountType === 'Utility Bills' || selectedAccountType === 'Bill Refund') && <span className="text-red-500 ml-1">*</span>}
-                                </label>
-                                <input type="file" id="fileInput" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,image/*,application/pdf" />
+                        {/* Advance history table for selected project and vendor/contractor (same logic as Advance Portal) */}
+                        <div className="hidden lg:flex flex-col items-stretch -ml-[120px]">
+                            <div className="flex items-center mb-2">
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-base font-semibold text-[#E4572E]">Advance </h2>
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={projectAdvance}
+                                        className="border-2 w-[112px] p-2 border-[#E4572E] text-[#E4572E] font-bold border-opacity-10 rounded h-[33px] bg-[#F2F2F2] focus:outline-none text-xs"
+                                    />
+                                </div>
+                                <div className="flex flex-wrap gap-3 ml-44">
+                                    <span className="text-[#E4572E] font-semibold hover:underline cursor-pointer text-sm">Export PDF</span>
+                                    <span className="text-[#007233] font-semibold hover:underline cursor-pointer text-sm">Export XL</span>
+                                    <span className="text-[#BF9853] font-semibold hover:underline cursor-pointer text-sm">Print</span>
+                                </div>
                             </div>
-                            {selectedFile && <span className="text-gray-600 lg:-ml-[84rem] -ml-48">{selectedFile.name}</span>}
-                        </div>
-                        <div className="flex ">
-                            {userPermissions.includes("Create") && (
-                                <button type='submit' disabled={isSubmitting}
-                                    className={`bg-yellow-700 text-white px-6 py-2 rounded-md hover:bg-yellow-600 transition duration-200 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                    {isSubmitting ? 'Submitting...' : 'Submit'}
-                                </button>
-                            )}
+                            <div className="border-l-8 border-l-[#BF9853] rounded-lg overflow-hidden w-full max-w-[640px]">
+                                <div className="overflow-x-auto max-h-[430px] overflow-y-auto thin-scrollbar w-full">
+                                    <table className="w-full">
+                                        <thead className="bg-[#FAF6ED] text-left sticky top-0 z-10">
+                                            <tr>
+                                                <th className="px-4 py-2 text-xs sm:text-sm whitespace-nowrap">Date</th>
+                                                <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap text-right">Advance</th>
+                                                <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap text-right">Bill</th>
+                                                <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap">Transfer/Refund</th>
+                                                <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap">Mode</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {!selectedOption || !selectedSite ? (
+                                                <tr>
+                                                    <td colSpan="5" className="text-center py-4 text-sm text-gray-500">
+                                                        Please select a project and vendor/contractor to view advance records.
+                                                    </td>
+                                                </tr>
+                                            ) : (() => {
+                                                const filtered = advanceData
+                                                    .filter(entry => {
+                                                        const isMatchingVendor =
+                                                            selectedOption?.type === 'Vendor'
+                                                                ? entry.vendor_id === selectedOption.id
+                                                                : selectedOption?.type === 'Contractor'
+                                                                    ? entry.contractor_id === selectedOption.id
+                                                                    : false;
+                                                        const isForCurrentProject = entry.project_id === selectedSite.id;
+                                                        return isMatchingVendor && isForCurrentProject;
+                                                    })
+                                                    .sort((a, b) => {
+                                                        const entryNoA = a.entry_no || 0;
+                                                        const entryNoB = b.entry_no || 0;
+                                                        return entryNoB - entryNoA;
+                                                    });
+                                                if (!filtered.length) {
+                                                    return (
+                                                        <tr>
+                                                            <td colSpan="5" className="text-center py-4 text-sm text-gray-500">
+                                                                No advance records found for the selected project and vendor/contractor.
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                }
+                                                return filtered.map((entry, index) => {
+                                                    const {
+                                                        date: entryDate,
+                                                        amount: entryAmount,
+                                                        bill_amount,
+                                                        type,
+                                                        transfer_site_id,
+                                                        payment_mode,
+                                                        refund_amount,
+                                                        file_url,
+                                                    } = entry;
+                                                    const advanceAmount = (() => {
+                                                        if (type === 'Refund') {
+                                                            return `-${parseFloat(refund_amount || 0).toLocaleString('en-IN')}`;
+                                                        }
+                                                        return parseFloat(entryAmount || 0).toLocaleString('en-IN');
+                                                    })();
+                                                    const billAmount = type === 'Bill Settlement'
+                                                        ? parseFloat(bill_amount || 0).toLocaleString('en-IN')
+                                                        : '';
+                                                    let transferOrRefund = '';
+                                                    if (type === 'Refund') {
+                                                        transferOrRefund = 'Refund';
+                                                    } else if (type === 'Transfer') {
+                                                        const relatedSiteId = transfer_site_id;
+                                                        const siteLabel = siteOptions.find(site => site.id === parseInt(relatedSiteId))?.label;
+                                                        transferOrRefund =
+                                                            parseFloat(entryAmount) < 0
+                                                                ? `Transfer to ${siteLabel || 'Unknown Site'}`
+                                                                : `Transfer from ${siteLabel || 'Unknown Site'}`;
+                                                    }
+                                                    return (
+                                                        <tr key={index} className="border-t hover:bg-gray-50">
+                                                            <td className="px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">
+                                                                {entryDate ? new Date(entryDate).toLocaleDateString('en-GB') : ''}
+                                                            </td>
+                                                            <td className="px-2 py-2 text-xs sm:text-sm text-right font-semibold whitespace-nowrap">
+                                                                {advanceAmount}
+                                                            </td>
+                                                            <td className="px-2 py-2 text-xs sm:text-sm text-right font-semibold whitespace-nowrap">
+                                                                {billAmount && file_url ? (
+                                                                    <a
+                                                                        href={file_url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="hover:text-red-600 cursor-pointer"
+                                                                    >
+                                                                        {billAmount}
+                                                                    </a>
+                                                                ) : (
+                                                                    billAmount
+                                                                )}
+                                                            </td>
+                                                            <td className="px-2 py-2 text-xs sm:text-sm text-left font-semibold break-words min-w-[120px] sm:min-w-[200px]">
+                                                                {transferOrRefund}
+                                                            </td>
+                                                            <td className="px-2 py-2 text-xs sm:text-sm text-left font-semibold whitespace-nowrap">
+                                                                {payment_mode || ''}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                });
+                                            })()}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -1439,6 +1807,97 @@ const Form = ({ username, userRoles = [] }) => {
                 draggable
                 theme="colored"
             />
+            {showDuplicateModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg w-full max-w-[1600px] max-h-[90vh] shadow-lg flex flex-col">
+                        <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-bold text-black">
+                                    Possible Duplicate Entry - Matching expenses found
+                                </h3>
+                                <button
+                                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors duration-200 text-gray-500 text-xl font-bold"
+                                    onClick={handleDuplicateCancel}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <div className="mt-2 text-sm text-gray-600">
+                                Same date, vendor/contractor, project and amount detected. Total Entries: {duplicateMatchedExpenses.length} |
+                                Total Amount: ₹{duplicateMatchedExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4">
+                            <div className="overflow-x-auto border-l-8 border-l-[#BF9853] rounded-lg">
+                                <table className="table-fixed min-w-full border-collapse">
+                                    <thead>
+                                        <tr className="bg-[#FAF6ED]">
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">Time Stamp</th>
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">Date</th>
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">E.No</th>
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">Project Name</th>
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">Vendor</th>
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">Contractor</th>
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">A/C Type</th>
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">Amount</th>
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">Comments</th>
+                                            <th className="px-3 py-3 text-left font-bold text-sm border-b">Attach File</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {duplicateMatchedExpenses.map((expense, index) => (
+                                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-[#FAF6ED]'}>
+                                                <td className="px-3 py-2 text-left text-sm font-semibold border-b">{formatDate(expense.timestamp || expense.date)}</td>
+                                                <td className="px-3 py-2 text-left text-sm font-semibold border-b">{formatDateOnly(expense.date)}</td>
+                                                <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.eno || '-'}</td>
+                                                <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.siteName || '-'}</td>
+                                                <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.vendor || '-'}</td>
+                                                <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.contractor || '-'}</td>
+                                                <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.accountType || '-'}</td>
+                                                <td className="px-3 py-2 text-left text-sm font-semibold border-b">
+                                                    ₹{Number(expense.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </td>
+                                                <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.comments || '-'}</td>
+                                                <td className="px-3 py-2 text-left text-sm border-b">
+                                                    {(expense.billCopy || expense.billCopyUrl) ? (
+                                                        <a
+                                                            href={expense.billCopy || expense.billCopyUrl}
+                                                            className="text-red-500 underline font-semibold"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            View
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400">-</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-between">
+                            <span className="text-sm text-gray-600">Do you want to proceed anyway?</span>
+                            <div className="flex gap-3">
+                                <button
+                                    className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded font-medium hover:bg-gray-50 transition-colors duration-200"
+                                    onClick={handleDuplicateCancel}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="px-4 py-2 bg-[#BF9853] text-white rounded font-medium hover:bg-[#a67c3a] transition-colors duration-200"
+                                    onClick={handleDuplicateIgnore}
+                                >
+                                    Ignore & Continue
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             {showReviewModal && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
                     <div className="bg-white text-left rounded-xl p-6 w-[1400px] h-[680px] overflow-hidden flex flex-col">
@@ -1552,7 +2011,7 @@ const Form = ({ username, userRoles = [] }) => {
                                                     className="custom-select rounded-lg"
                                                 />
                                             </div>
-                                            {(selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills') && (
+                                            {(selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Weekly Payment') && (
                                                 <div>
                                                     <label className="text-sm font-semibold mb-1 block">Payment Mode</label>
                                                     <select
@@ -1561,7 +2020,7 @@ const Form = ({ username, userRoles = [] }) => {
                                                         className="w-full h-[45px] border-2 border-[#BF9853] rounded-lg px-3 border-opacity-20"
                                                     >
                                                         <option value="">Select Payment Mode</option>
-                                                        <option value="Cash">Cash</option>
+                                                        {selectedAccountType !== 'Weekly Payment' && <option value="Cash">Cash</option>}
                                                         <option value="GPay">GPay</option>
                                                         <option value="PhonePe">PhonePe</option>
                                                         <option value="Net Banking">Net Banking</option>

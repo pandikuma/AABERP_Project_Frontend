@@ -6,6 +6,40 @@ import deletes from '../Images/Delete.svg';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 const PendingBill = ({ username, userRoles = [] }) => {
+    const resolveActiveBranchId = () => {
+        try {
+            const selectedBranchId = localStorage.getItem("selectedBranchId")
+            const user = JSON.parse(localStorage.getItem("user") || "{}")
+            const fallbackBranchId = user?.branchId ?? user?.branch_id ?? user?.brachId
+            const resolved = Number(selectedBranchId || fallbackBranchId)
+            return Number.isFinite(resolved) && resolved > 0 ? resolved : null
+        } catch {
+            return null
+        }
+    }
+    const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId())
+    const withBranchUrl = (baseUrl) => {
+        const url = new URL(baseUrl);
+        if (activeBranchId !== null && activeBranchId !== undefined && activeBranchId !== "") {
+            url.searchParams.set("branchId", String(activeBranchId));
+        }
+        return url.toString();
+    };
+    const fetch = (input, init) => {
+        if (typeof input === 'string') {
+            return window.fetch(withBranchUrl(input), init)
+        }
+        return window.fetch(input, init)
+    }
+    useEffect(() => {
+        const syncBranch = () => {
+            const nextBranchId = resolveActiveBranchId()
+            setActiveBranchId((prevBranchId) => (prevBranchId === nextBranchId ? prevBranchId : nextBranchId))
+        }
+        syncBranch()
+        window.addEventListener('branchSelectionChanged', syncBranch)
+        return () => window.removeEventListener('branchSelectionChanged', syncBranch)
+    }, [])
     const [showModal, setShowModal] = useState(false)
     const [selectedBill, setSelectedBill] = useState(null)
     const [poNumbers, setPoNumbers] = useState([])
@@ -62,6 +96,9 @@ const PendingBill = ({ username, userRoles = [] }) => {
     const [extraNoPoSelections, setExtraNoPoSelections] = useState({})
     const [checkedBills, setCheckedBills] = useState({})
     const [extraCheckedBills, setExtraCheckedBills] = useState({})
+    const [isDuplicateMode, setIsDuplicateMode] = useState(false)
+    const [duplicateSelections, setDuplicateSelections] = useState({})
+    const [extraDuplicateSelections, setExtraDuplicateSelections] = useState({})
     const [hasBeenSubmitted, setHasBeenSubmitted] = useState(false)
     const [originalData, setOriginalData] = useState(null)
     const [editModeStartData, setEditModeStartData] = useState(null)
@@ -98,7 +135,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
     const [carryForwardData, setCarryForwardData] = useState([])
     const [useCarryForward, setUseCarryForward] = useState(false)
     const [carryForwardAmount, setCarryForwardAmount] = useState(0)
-
     const [editFormData, setEditFormData] = useState({
         billArrivalDate: '',
         vendorId: null,
@@ -230,7 +266,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 throw new Error(`Invalid JSON response: ${parseError.message}`);
             }
             setApiData(data);
-            console.log(data);
         } catch (error) {
             console.error("Error fetching tracker data:", error);
             setError(error.message);
@@ -302,7 +337,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             const billEntriesForTracker = groupedBillEntries[trackerId];
             const bill = billMap[trackerId];
             if (!bill) {
-                return; // Skip if no corresponding bill found
+                return;
             }
             const vendorName = getVendorNameById(bill.vendor_id) || bill.vendor_name;
             const billAmount = parseFloat(bill.total_amount) || 0;
@@ -434,10 +469,16 @@ const PendingBill = ({ username, userRoles = [] }) => {
         }
     };
     useEffect(() => {
+        // Clear branch-specific table data first to avoid stale display during branch switch
+        setApiData([]);
+        setAllBillEntries([]);
+        setPaymentStatuses({});
+        setLastPaymentDates({});
+        setPaidTodayBills({});
         fetchTrackerData();
         fetchPurchaseOrders();
         fetchExpensesData();
-    }, []);
+    }, [activeBranchId]);
     useEffect(() => {
         if (apiData.length > 0 && expensesData.length > 0 && allBillEntries.length > 0) {
             calculateExpenseMatchStatus(expensesData, allBillEntries);
@@ -496,25 +537,16 @@ const PendingBill = ({ username, userRoles = [] }) => {
     };
     const getFilteredData = () => {
         let filteredData = [...apiData];
-
         filteredData = filteredData.filter(item => {
             const status = paymentStatuses[item.id] || 'To Pay';
             const hasPaidToday = paidTodayBills[item.id] || false;
-
-            // Show bills that are not paid (To Pay status)
-            if (status === 'To Pay') {
-                return true;
-            }
-
-            // Show bills that have payments made today (regardless of payment status)
-            if (hasPaidToday) {
-                return true;
-            }
-
-            // Hide bills that are fully paid or partially paid but not paid today
+            // Show bills that are not fully paid - include To Pay, Partially Paid, and any paid today
+            if (status === 'To Pay') return true;
+            if (status === 'Paid') return true; // Partially paid - still has remaining amount
+            if (hasPaidToday) return true; // Recently paid (e.g. today) - keep visible
+            // Hide only fully paid bills
             return false;
         });
-
         if (filters.vendorName) {
             const selectedVendorId = filters.vendorName.id;
             filteredData = filteredData.filter(item =>
@@ -585,40 +617,55 @@ const PendingBill = ({ username, userRoles = [] }) => {
             handleAddBill();
         }
     };
-    const getLastBillNumberForVendor = (vendorId) => {
+    const getLastBillNumberForVendor = (vendorId, currentBill = null) => {
         if (!vendorId || !apiData || apiData.length === 0) {
             return null;
         }
-        // Filter bills for this vendor that have verifications
+        // Filter bills for this vendor that have verifications (include current so we can find its position)
         const vendorBills = apiData.filter(bill =>
             (bill.vendor_id === vendorId || bill.vendorId === vendorId) &&
             bill.billVerifications &&
             bill.billVerifications.length > 0
         );
-
         if (vendorBills.length === 0) {
             return null;
         }
-
-        // Sort bills by date (most recent first), then by ID (most recent first) as fallback
+        // Sort by date ascending (oldest first) so "previous" means earlier in the list
         vendorBills.sort((a, b) => {
             const dateA = a.bill_arrival_date || a.billArrivalDate || a.created_at || a.createdAt || '';
             const dateB = b.bill_arrival_date || b.billArrivalDate || b.created_at || b.createdAt || '';
             if (dateA && dateB) {
-                return new Date(dateB) - new Date(dateA);
+                const dateDiff = new Date(dateA) - new Date(dateB);
+                if (dateDiff !== 0) return dateDiff;
             }
-            return (b.id || 0) - (a.id || 0);
+            return (a.id || a.bill_id || 0) - (b.id || b.bill_id || 0);
         });
-
-        // Get the most recent bill
-        const mostRecentBill = vendorBills[0];
-
-        // Get the last verification from the most recent bill's billVerifications array
-        const verifications = mostRecentBill.billVerifications || [];
+        const currentBillId = currentBill && (currentBill.id != null || currentBill.bill_id != null) ? (currentBill.id ?? currentBill.bill_id) : null;
+        const currentDate = currentBill && (currentBill.bill_arrival_date || currentBill.billArrivalDate || currentBill.created_at || currentBill.createdAt) ? new Date(currentBill.bill_arrival_date || currentBill.billArrivalDate || currentBill.created_at || currentBill.createdAt).getTime() : null;
+        let previousEntryBill = null;
+        const currentIndex = currentBillId != null ? vendorBills.findIndex(bill => (bill.id ?? bill.bill_id) === currentBillId) : -1;
+        if (currentIndex > 0) {
+            // Current is in list: previous entry is the one immediately before it
+            previousEntryBill = vendorBills[currentIndex - 1];
+        } else if (currentIndex === -1 && currentDate != null) {
+            // Current bill not in list (e.g. no verifications yet): take the latest verified entry that is still before current's date
+            const beforeCurrent = vendorBills.filter(bill => {
+                const d = bill.bill_arrival_date || bill.billArrivalDate || bill.created_at || bill.createdAt;
+                if (!d) return false;
+                const billTime = new Date(d).getTime();
+                if (billTime < currentDate) return true;
+                if (billTime === currentDate && (bill.id ?? bill.bill_id) !== currentBillId) return (bill.id ?? bill.bill_id) < (currentBillId || 0);
+                return false;
+            });
+            previousEntryBill = beforeCurrent.length > 0 ? beforeCurrent[beforeCurrent.length - 1] : null;
+        }
+        if (!previousEntryBill) {
+            return null;
+        }
+        const verifications = previousEntryBill.billVerifications || [];
         if (verifications.length === 0) {
             return null;
         }
-
         // Find the last non-empty, non-NO_PO bill number from the verifications
         for (let i = verifications.length - 1; i >= 0; i--) {
             const billNumber = verifications[i].bill_number || verifications[i].billNumber;
@@ -626,7 +673,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 return billNumber.trim();
             }
         }
-
         return null;
     };
     const handleVerifyClick = (bill) => {
@@ -641,7 +687,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 existingBillNumbers.push('')
             }
             setPoNumbers(existingBillNumbers.slice(0, numberOfBills))
-
             // Handle extra bills
             if (extraBills > 0) {
                 const extraBillNumbers = existingBillNumbers.slice(numberOfBills, numberOfBills + extraBills)
@@ -652,23 +697,28 @@ const PendingBill = ({ username, userRoles = [] }) => {
             } else {
                 setExtraPoNumbers([])
             }
-
             const initialVerified = {}
             const initialNoPo = {}
             const initialExtraVerified = {}
             const initialExtraNoPo = {}
+            const initialDuplicate = {}
+            const initialExtraDuplicate = {}
             bill.billVerifications.forEach((verification, index) => {
                 if (index < numberOfBills) {
                     initialVerified[index] = verification.is_verified || false
                     initialNoPo[index] = verification.bill_number === 'NO_PO'
+                    initialDuplicate[index] = verification.is_duplicate || false
                 } else if (index < numberOfBills + extraBills) {
                     const extraIndex = index - numberOfBills
                     initialExtraVerified[extraIndex] = verification.is_verified || false
                     initialExtraNoPo[extraIndex] = verification.bill_number === 'NO_PO'
+                    initialExtraDuplicate[extraIndex] = verification.is_duplicate || false
                 }
             })
             setVerifiedBills(initialVerified)
             setNoPoSelections(initialNoPo)
+            setDuplicateSelections(initialDuplicate)
+            setExtraDuplicateSelections(initialExtraDuplicate)
             const initialChecked = {}
             bill.billVerifications.forEach((verification, index) => {
                 if (index < numberOfBills) {
@@ -694,18 +744,21 @@ const PendingBill = ({ username, userRoles = [] }) => {
             setExtraNoPoSelections({})
             setCheckedBills({})
             setExtraCheckedBills({})
+            setDuplicateSelections({})
+            setExtraDuplicateSelections({})
             setHasBeenSubmitted(false)
             setOriginalData(null)
         }
         setIsEditMode(false)
+        setIsDuplicateMode(false)
         setValidationResults({})
         setRangeStart('')
         setRangeEnd('')
         setCheckedBills({}) // Reset checked bills state for new verification
         setExtraCheckedBills({}) // Reset extra checked bills state for new verification
-        // Fetch and set last paid PO for this vendor
+        // Fetch and set last PO from the previous entry of this vendor (not the current entry)
         const vendorId = bill.vendorId || bill.vendor_id
-        const lastBillNumber = getLastBillNumberForVendor(vendorId)
+        const lastBillNumber = getLastBillNumberForVendor(vendorId, bill)
         setLastPaidPO(lastBillNumber || '')
         setShowModal(true)
     }
@@ -748,6 +801,83 @@ const PendingBill = ({ username, userRoles = [] }) => {
             delete newValidationResults[index]
             return newValidationResults
         })
+    }
+    const handleDuplicateChange = async (index, checked) => {
+        // Update local state immediately for better UX
+        setDuplicateSelections(prev => ({ ...prev, [index]: checked }))
+        // Find the bill verification ID for this index
+        if (selectedBill.billVerifications && selectedBill.billVerifications[index]) {
+            const billVerification = selectedBill.billVerifications[index]
+            const billId = billVerification.id
+            try {
+                const response = await axios.put(
+                    `https://backendaab.in/aabuildersDash/api/vendor-payments/bill/${billId}/duplicate`,
+                    null,
+                    {
+                        params: { duplicate: checked }
+                    }
+                )
+                if (response.status === 200) {
+                    // Update the local bill data
+                    const updatedBillVerifications = [...selectedBill.billVerifications]
+                    updatedBillVerifications[index] = { ...updatedBillVerifications[index], is_duplicate: checked }
+                    setSelectedBill({ ...selectedBill, billVerifications: updatedBillVerifications })
+
+                    // Refresh the API data
+                    fetchTrackerData()
+                }
+            } catch (error) {
+                console.error('Error updating duplicate status:', error)
+                alert(`Error updating duplicate status: ${error.message}`)
+                // Revert local state on error
+                setDuplicateSelections(prev => ({ ...prev, [index]: !checked }))
+            }
+        } else {
+            // If bill verification doesn't exist yet, we need to create it first
+        }
+    }
+    const handleExtraDuplicateChange = async (index, checked) => {
+        const noOfBills = selectedBill?.noOfBills || selectedBill?.no_of_bills || 0
+        const actualIndex = noOfBills + index
+        // Update local state immediately for better UX
+        setExtraDuplicateSelections(prev => ({ ...prev, [index]: checked }))
+        // Find the bill verification ID for this index
+        if (selectedBill.billVerifications && selectedBill.billVerifications[actualIndex]) {
+            const billVerification = selectedBill.billVerifications[actualIndex]
+            const billId = billVerification.id
+            try {
+                const response = await axios.put(
+                    `https://backendaab.in/aabuildersDash/api/vendor-payments/bill/${billId}/duplicate`,
+                    null,
+                    {
+                        params: { duplicate: checked }
+                    }
+                )
+                if (response.status === 200) {
+                    // Update the local bill data
+                    const updatedBillVerifications = [...selectedBill.billVerifications]
+                    updatedBillVerifications[actualIndex] = { ...updatedBillVerifications[actualIndex], is_duplicate: checked }
+                    setSelectedBill({ ...selectedBill, billVerifications: updatedBillVerifications })
+                    // Refresh the API data
+                    fetchTrackerData()
+                }
+            } catch (error) {
+                console.error('Error updating duplicate status:', error)
+                alert(`Error updating duplicate status: ${error.message}`)
+                // Revert local state on error
+                setExtraDuplicateSelections(prev => ({ ...prev, [index]: !checked }))
+            }
+        } else {
+            // If bill verification doesn't exist yet, we need to create it first
+        }
+    }
+    const toggleDuplicateMode = () => {
+        setIsDuplicateMode(prev => !prev)
+        // Clear duplicate selections when switching modes
+        if (isDuplicateMode) {
+            setDuplicateSelections({})
+            setExtraDuplicateSelections({})
+        }
     }
     const handleExtraPoNumberChange = (index, value) => {
         const numericValue = value.replace(/[^0-9]/g, '')
@@ -1158,7 +1288,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     bill_number: isNoPo ? 'NO_PO' : (billNumber || ''),
                     status: finalStatus,
                     is_verified: finalIsVerified,
-                    verified_date: finalIsVerified ? new Date().toISOString() : null
+                        verified_date: finalIsVerified ? new Date().toISOString() : null,
+                        branch_id: activeBranchId
                 }
                 if (existingBill) {
                     billData.id = existingBill.id
@@ -1299,7 +1430,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     : (selectedEditItem.extra_bills || selectedEditItem.extraBills || 0),
                 total_amount: editFormData.totalAmount !== '' && editFormData.totalAmount !== null && editFormData.totalAmount !== undefined
                     ? parseFloat(editFormData.totalAmount)
-                    : (selectedEditItem.total_amount || 0)
+                    : (selectedEditItem.total_amount || 0),
+                branch_id: activeBranchId
             }
             const originalDate = selectedEditItem.bill_arrival_date ?
                 new Date(selectedEditItem.bill_arrival_date).toISOString().split('T')[0] : ''
@@ -1320,7 +1452,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 return
             }
             const response = await axios.put(
-                `https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}/update-details`,
+                withBranchUrl(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}/update-details`),
                 payload,
                 {
                     headers: {
@@ -1332,7 +1464,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 // Handle extra_bills count changes - nullify vendor_payments_tracker_id for removed extra bills
                 const newExtraBills = parseInt(editFormData.extraBills) || 0
                 const originalExtraBills = selectedEditItem.extra_bills || selectedEditItem.extraBills || 0
-
                 // If extra_bills count decreased, nullify the vendor_payments_tracker_id for the removed extra bills
                 if (originalExtraBills > newExtraBills) {
                     try {
@@ -1348,30 +1479,22 @@ const PendingBill = ({ username, userRoles = [] }) => {
                             const trackerData = await trackerResponse.json()
                             const allBillVerifications = trackerData.billVerifications || []
                             const noOfBills = parseInt(editFormData.noOfBills) || selectedEditItem.no_of_bills || selectedEditItem.noOfBills || 0
-
                             // Calculate which extra bills need to be nullified
                             // Extra bills start at index noOfBills
                             // We need to nullify the last (originalExtraBills - newExtraBills) extra bills
                             const billsToNullifyStart = noOfBills + newExtraBills
                             const billsToNullifyEnd = noOfBills + originalExtraBills
                             const billsToNullify = allBillVerifications.slice(billsToNullifyStart, billsToNullifyEnd)
-
                             // Delete bill verification for each removed extra bill
                             // The API expects the bill verification ID to delete the bill verification
                             const deletePromises = []
-
                             for (const billVerification of billsToNullify) {
                                 // Skip if verification ID doesn't exist
                                 if (!billVerification.id) {
-                                    console.log(`Skipping deletion - no verification ID`)
                                     continue
                                 }
-
                                 const billNumber = billVerification.bill_number || billVerification.billNumber || 'N/A'
                                 const verificationId = billVerification.id
-
-                                console.log(`Attempting to delete bill verification ID: ${verificationId} (bill number: ${billNumber})`)
-
                                 // Call the delete API with verification ID
                                 const deletePromise = fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/bill-verification/${verificationId}`, {
                                     method: 'DELETE',
@@ -1397,13 +1520,11 @@ const PendingBill = ({ username, userRoles = [] }) => {
 
                                 deletePromises.push(deletePromise)
                             }
-
                             // Wait for all delete operations to complete
                             if (deletePromises.length > 0) {
                                 const results = await Promise.all(deletePromises)
                                 const successCount = results.filter(r => r.success).length
                                 const failCount = results.filter(r => !r.success).length
-
                                 if (failCount > 0) {
                                     console.warn(`Deletion completed: ${successCount} succeeded, ${failCount} failed`)
                                     const failedBills = results.filter(r => !r.success).map(r => `ID: ${r.verificationId} (${r.billNumber})`).join(', ')
@@ -1412,7 +1533,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                     console.log(`Successfully deleted ${successCount} extra bill verification(s)`)
                                 }
                             }
-
                             // If extra_bills is set to 0, also unlink extra bill verifications
                             if (newExtraBills === 0) {
                                 // Keep only the first noOfBills verifications
@@ -1424,7 +1544,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                     is_verified: verification.is_verified || false,
                                     verified_date: verification.verified_date || null
                                 }))
-
                                 // Update bills - this will remove extra bills
                                 const billsResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}/bills`, {
                                     method: 'POST',
@@ -1527,7 +1646,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
             const newValidationResults = {}
             const newExtraValidationResults = {}
             const duplicateNumbers = []
-
             // Check for duplicates in regular bills
             const currentBillNumbers = poNumbers.filter(num => num.trim() !== '')
             const duplicateMap = {}
@@ -1538,7 +1656,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     duplicateMap[billNumber] = [index]
                 }
             })
-
             // Check for duplicates in extra bills
             const currentExtraBillNumbers = extraPoNumbers.filter(num => num.trim() !== '')
             currentExtraBillNumbers.forEach((billNumber, index) => {
@@ -1548,20 +1665,17 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     duplicateMap[billNumber] = [`extra-${index}`]
                 }
             })
-
             // Check for duplicates across all bills (regular + extra)
             Object.keys(duplicateMap).forEach(billNumber => {
                 if (duplicateMap[billNumber].length > 1) {
                     duplicateNumbers.push(billNumber)
                 }
             })
-
             if (duplicateNumbers.length > 0) {
                 alert(` Duplicate bill found within the same bill number: ${duplicateNumbers.join(', ')}. Please enter unique bill numbers.`)
                 setCheckingPO(false)
                 return
             }
-
             // Validate regular bills
             poNumbers.forEach((billNumber, index) => {
                 const isNoPo = noPoSelections[index]
@@ -1605,7 +1719,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     message: message
                 }
             })
-
             // Validate extra bills
             const extraBills = selectedBill.extraBills || selectedBill.extra_bills || 0
             if (extraBills > 0) {
@@ -1651,10 +1764,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     }
                 })
             }
-
             setValidationResults(newValidationResults)
             setExtraValidationResults(newExtraValidationResults)
-
             const newCheckedBills = {}
             poNumbers.forEach((billNumber, index) => {
                 const isNoPo = noPoSelections[index]
@@ -1663,7 +1774,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     newCheckedBills[index] = true
                 }
             })
-
             // Check extra bills
             const newExtraCheckedBills = {}
             if (extraBills > 0) {
@@ -1675,7 +1785,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     }
                 })
             }
-
             setCheckedBills(prev => ({ ...prev, ...newCheckedBills }))
             setExtraCheckedBills(prev => ({ ...prev, ...newExtraCheckedBills }))
         } catch (error) {
@@ -1714,7 +1823,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
             }
             const existingBills = selectedBill.billVerifications || []
             const billsData = []
-
             // Add regular bills
             for (let i = 0; i < maxBills; i++) {
                 const existingBill = existingBills[i]
@@ -1749,7 +1857,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 }
                 billsData.push(billData)
             }
-
             // Add extra bills if extraBillsCount > 0
             if (extraBillsCount > 0) {
                 for (let i = 0; i < extraBillsCount; i++) {
@@ -1890,7 +1997,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
             const extraBills = selectedBill.extraBills || selectedBill.extra_bills || 0
             const autoValidationResults = {}
             const extraAutoValidationResults = {}
-
             // Validate regular bills
             for (let i = 0; i < maxBills; i++) {
                 const billNumber = poNumbers[i] || ''
@@ -1934,7 +2040,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     message: message
                 }
             }
-
             // Validate extra bills
             if (extraBills > 0) {
                 for (let i = 0; i < extraBills; i++) {
@@ -1980,10 +2085,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     }
                 }
             }
-
             setValidationResults(autoValidationResults)
             setExtraValidationResults(extraAutoValidationResults)
-
             const unmatchedBills = []
             for (let i = 0; i < maxBills; i++) {
                 const billNumber = poNumbers[i] || ''
@@ -2055,7 +2158,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
             }
             const existingBills = selectedBill.billVerifications || []
             const billsData = []
-
             // Add regular bills
             for (let i = 0; i < maxBills; i++) {
                 const existingBill = existingBills[i]
@@ -2094,7 +2196,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 }
                 billsData.push(billData)
             }
-
             // Add extra bills if extraBills > 0
             if (extraBills > 0) {
                 for (let i = 0; i < extraBills; i++) {
@@ -2271,7 +2372,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
     const hasUnverifiedBillNumbers = () => {
         const maxBills = selectedBill?.noOfBills || selectedBill?.no_of_bills || 0
         const extraBills = selectedBill?.extraBills || selectedBill?.extra_bills || 0
-
         // Check regular bills
         for (let i = 0; i < maxBills; i++) {
             const billNumber = poNumbers[i] || ''
@@ -2283,7 +2383,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 }
             }
         }
-
         // Check extra bills
         if (extraBills > 0) {
             for (let i = 0; i < extraBills; i++) {
@@ -2297,7 +2396,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 }
             }
         }
-
         return false
     }
     const isSendRequestDisabled = () => {
@@ -2320,7 +2418,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
         const hasNoPoSelections = Object.values(noPoSelections).some(isNoPo => isNoPo)
         return validBillNumbers.length === 0 && !hasNoPoSelections
     }
-
     const handleEntryClick = async (bill) => {
         setSelectedEntryBill(bill)
         setShowEntryModal(true)
@@ -2374,7 +2471,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
             const billEntryData = {
                 vendor_payments_tracker_id: selectedEntryBill.id,
                 entered_by: username,
-                entered_date: entryFormData.date
+                entered_date: entryFormData.date,
+                branch_id: activeBranchId
             }
             const response = await fetch("https://backendaab.in/aabuildersDash/api/bill-entry/save", {
                 method: "POST",
@@ -2458,7 +2556,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 },
                 body: JSON.stringify({
                     enteredBy: previousEntryEditData.enteredBy,
-                    enteredDate: previousEntryEditData.date
+                    enteredDate: previousEntryEditData.date,
+                    branch_id: activeBranchId
                 })
             })
             if (!response.ok) {
@@ -2555,12 +2654,10 @@ const PendingBill = ({ username, userRoles = [] }) => {
         }
         const billId = selectedEntryBill.id
         const matchDetails = expenseMatchDetails[billId]
-
         if (!matchDetails || !matchDetails.matchingExpenses || matchDetails.matchingExpenses.length === 0) {
             alert('No matching expenses found for this bill')
             return
         }
-
         setCheckFilteredExpenses(matchDetails.matchingExpenses)
         setShowCheckModal(true)
     }
@@ -2810,28 +2907,31 @@ const PendingBill = ({ username, userRoles = [] }) => {
             return { ...entry, [field]: value }
         }))
     }
-    // Auto-fill amount when carry forward checkbox is checked
+    // Auto-fill amount and set mode when carry forward checkbox is checked
     useEffect(() => {
         if (useCarryForward && carryForwardAmount > 0 && paymentEntries.length > 0 && showPaymentModal) {
             const firstEntry = paymentEntries[0];
-            // Only auto-fill if amount is empty
-            if (!firstEntry.amount || firstEntry.amount === '') {
-                const carryForwardToUse = Math.min(carryForwardAmount, remainingAmount);
-                if (carryForwardToUse > 0) {
-                    const displayValue = formatIndianCurrency(carryForwardToUse);
-                    setPaymentEntries(prev => prev.map((entry, index) => {
-                        if (index === 0) {
-                            return {
-                                ...entry,
+            const carryForwardToUse = Math.min(carryForwardAmount, remainingAmount);
+            const needsAmount = !firstEntry.amount || firstEntry.amount === '';
+            const needsMode = firstEntry.mode !== 'Carry Forward';
+            if ((needsAmount && carryForwardToUse > 0) || needsMode) {
+                setPaymentEntries(prev => prev.map((entry, index) => {
+                    if (index === 0) {
+                        const displayValue = needsAmount && carryForwardToUse > 0
+                            ? formatIndianCurrency(carryForwardToUse)
+                            : (entry.amountDisplay || entry.amount || '');
+                        return {
+                            ...entry,
+                            ...(needsAmount && carryForwardToUse > 0 ? {
                                 amount: carryForwardToUse.toString(),
                                 amountDisplay: displayValue,
-                                mode: entry.mode || 'Carry Forward',
                                 date: entry.date || new Date().toISOString().split('T')[0]
-                            };
-                        }
-                        return entry;
-                    }));
-                }
+                            } : {}),
+                            mode: 'Carry Forward'
+                        };
+                    }
+                    return entry;
+                }));
             }
         } else if (!useCarryForward && paymentEntries.length > 0 && showPaymentModal) {
             // Clear amount when unchecked if it was set by carry forward
@@ -2862,11 +2962,9 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 resolve(file);
                 return;
             }
-
             // Create an image element to load the file
             const img = new Image();
             const reader = new FileReader();
-
             reader.onload = (e) => {
                 img.onload = () => {
                     try {
@@ -2875,15 +2973,12 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         const pdfHeight = 297; // A4 height in mm
                         const imgWidth = img.width;
                         const imgHeight = img.height;
-
                         // Calculate aspect ratio
                         const imgAspectRatio = imgWidth / imgHeight;
                         const pdfAspectRatio = pdfWidth / pdfHeight;
-
                         // Determine orientation
                         const orientation = imgWidth > imgHeight ? 'landscape' : 'portrait';
                         let finalWidth, finalHeight;
-
                         if (orientation === 'landscape') {
                             // Use landscape dimensions
                             if (imgAspectRatio > pdfAspectRatio) {
@@ -2907,18 +3002,15 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                 finalWidth = pdfHeight * imgAspectRatio;
                             }
                         }
-
                         // Center the image on the page
                         const xOffset = (pdfWidth - finalWidth) / 2;
                         const yOffset = (pdfHeight - finalHeight) / 2;
-
                         // Create a new PDF document
                         const pdf = new jsPDF({
                             orientation: orientation,
                             unit: 'mm',
                             format: 'a4'
                         });
-
                         // Determine image format for PDF
                         let imgFormat = 'JPEG';
                         if (file.type === 'image/png') {
@@ -2926,41 +3018,32 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         } else if (file.type === 'image/gif') {
                             imgFormat = 'GIF';
                         }
-
                         // Add the image to PDF
                         pdf.addImage(img, imgFormat, xOffset, yOffset, finalWidth, finalHeight);
-
                         // Convert PDF to blob
                         const pdfBlob = pdf.output('blob');
-
                         // Create a File object from the blob with .pdf extension
                         const pdfFile = new File([pdfBlob], file.name.replace(/\.[^/.]+$/, '') + '.pdf', {
                             type: 'application/pdf',
                             lastModified: Date.now()
                         });
-
                         resolve(pdfFile);
                     } catch (error) {
                         console.error('Error converting image to PDF:', error);
                         reject(error);
                     }
                 };
-
                 img.onerror = () => {
                     reject(new Error('Failed to load image'));
                 };
-
                 img.src = e.target.result;
             };
-
             reader.onerror = () => {
                 reject(new Error('Failed to read file'));
             };
-
             reader.readAsDataURL(file);
         });
     };
-
     const handleFileAttachment = async (entryId, file) => {
         if (!file) return;
         try {
@@ -2976,7 +3059,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
     }
     const handleExistingPaymentFileUpload = async (paymentId, file) => {
         if (!file) return;
-
         try {
             // Convert image to PDF if it's an image
             const processedFile = await convertImageToPdf(file);
@@ -3008,10 +3090,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
             if (!uploadResponse.ok) {
                 throw new Error('File upload failed');
             }
-
             const uploadResult = await uploadResponse.json();
             const billUrl = uploadResult.url;
-
             // Update the payment with bill_url using the update API
             const updateResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/update/${paymentId}`, {
                 method: "PUT",
@@ -3019,18 +3099,15 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ bill_url: billUrl })
+                body: JSON.stringify({ bill_url: billUrl, branch_id: activeBranchId })
             });
-
             if (!updateResponse.ok) {
                 throw new Error(`Failed to update bill URL: ${updateResponse.statusText}`);
             }
-
             // Update local state
             setExistingPaymentDetails(prev => prev.map(payment =>
                 payment.id === paymentId ? { ...payment, bill_url: billUrl } : payment
             ));
-
             // Also update in apiData if present
             setApiData(prev => prev.map(bill => {
                 if (bill.id === selectedPaymentBill?.id) {
@@ -3041,7 +3118,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 }
                 return bill;
             }));
-
             alert('File uploaded and payment updated successfully!');
         } catch (error) {
             console.error('Error uploading file for existing payment:', error);
@@ -3051,19 +3127,15 @@ const PendingBill = ({ username, userRoles = [] }) => {
     const handleOverallPaymentPdfChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         if (!selectedPaymentBill || !selectedPaymentBill.id) {
             alert('Please select a payment bill first');
             return;
         }
-
         setUploadingOverallPdf(true);
-
         try {
             // Convert image to PDF if it's an image
             const processedFile = await convertImageToPdf(file);
             setOverallPaymentPdfFile(processedFile);
-
             // Upload file to Google Drive
             const formData = new FormData();
             const vendorName = getVendorNameById(selectedPaymentBill?.vendor_id);
@@ -3086,19 +3158,15 @@ const PendingBill = ({ username, userRoles = [] }) => {
             const fileName = `${timestamp} ${displayVendorName} - summary bill.pdf`;
             formData.append('file', processedFile);
             formData.append('file_name', fileName);
-
             const uploadResponse = await fetch("https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
                 method: "POST",
                 body: formData,
             });
-
             if (!uploadResponse.ok) {
                 throw new Error('File upload failed');
             }
-
             const uploadResult = await uploadResponse.json();
             const pdfUrl = uploadResult.url;
-
             // Update the overall payment PDF URL via API
             const billId = selectedPaymentBill.id; // This is the tracker ID
             const response = await fetch(
@@ -3111,20 +3179,16 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     }
                 }
             );
-
             if (!response.ok) {
                 throw new Error(`Failed to update PDF URL: ${response.statusText}`);
             }
-
             const updatedTracker = await response.json();
-
             // Update the local state with the new PDF URL
             setSelectedPaymentBill(prev => ({
                 ...prev,
                 over_all_payment_pdf_url: pdfUrl,
                 overAllPaymentPdfUrl: pdfUrl // Also set camelCase version for consistency
             }));
-
             // Also update in apiData if present
             setApiData(prev => prev.map(bill =>
                 bill.id === billId ? {
@@ -3133,7 +3197,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     overAllPaymentPdfUrl: pdfUrl
                 } : bill
             ));
-
             alert('PDF uploaded successfully!');
         } catch (error) {
             console.error('Error uploading overall payment PDF:', error);
@@ -3147,38 +3210,29 @@ const PendingBill = ({ username, userRoles = [] }) => {
             }
         }
     }
-
     // ISO 8601 week number calculation
-    // Week belongs to the year that contains the Thursday of that week
-    // Week 1 is the week with the year's first Thursday
     const getISOWeekNumber = (date) => {
         const d = new Date(date);
         d.setHours(0, 0, 0, 0);
-
         // Get Thursday of the week containing the date
         // Monday = 1, Tuesday = 2, ..., Sunday = 0 (convert to 7)
         const dayOfWeek = d.getDay() || 7; // Convert Sunday (0) to 7
         const thursday = new Date(d);
         thursday.setDate(d.getDate() + 4 - dayOfWeek); // Thursday is 4 days after Monday
         thursday.setHours(0, 0, 0, 0);
-
         // Use the year that Thursday falls in (ISO 8601 rule)
         const weekYear = thursday.getFullYear();
-
         // Get January 1st of that year
         const jan1 = new Date(weekYear, 0, 1);
         jan1.setHours(0, 0, 0, 0);
-
         // Get the Thursday of week 1 (first Thursday of the year)
         const jan1DayOfWeek = jan1.getDay() || 7;
         const firstThursday = new Date(jan1);
         firstThursday.setDate(jan1.getDate() + 4 - jan1DayOfWeek);
         firstThursday.setHours(0, 0, 0, 0);
-
         // Calculate week number: difference in days divided by 7, plus 1
         const daysDiff = Math.floor((thursday - firstThursday) / 86400000);
         const weekNo = Math.floor(daysDiff / 7) + 1;
-
         return weekNo;
     };
 
@@ -3242,7 +3296,6 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 carryForwardToUse = Math.min(carryForwardAmount, remainingAfterPayments);
             }
             const newRemainingAmount = Math.max(0, remainingAfterPayments - carryForwardToUse);
-
             // Calculate excess amount: if payment total exceeds the amount needed to pay
             const amountNeededToPay = Math.max(0, actualAmount - currentReceivedAmount - normalizedDiscount);
             const totalPaymentBeingMade = totalPaymentAmount + carryForwardToUse;
@@ -3297,7 +3350,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         cheque_date: entry.chequeDate || '',
                         transaction_number: entry.transactionNumber || '',
                         account_number: entry.accountNumber || '',
-                        bill_url: billUrl
+                        bill_url: billUrl,
+                        branch_id: activeBranchId
                     }
                     const response = await fetch("https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/save", {
                         method: "POST",
@@ -3331,7 +3385,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         cheque_date: '',
                         transaction_number: '',
                         account_number: '',
-                        bill_url: ''
+                        bill_url: '',
+                        branch_id: activeBranchId
                     };
                     const carryForwardPaymentResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/save", {
                         method: "POST",
@@ -3380,6 +3435,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         vendor_payment_tracker_id: selectedPaymentBill.id,
                         tenant_id: null,
                         tenant_complex_name: null,
+                        branch_id: activeBranchId,
                     };
                     try {
                         const weeklyPaymentBillResponse = await fetch(
@@ -3421,7 +3477,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         expenses_entry_id: null,
                         vendor_payment_tracker_id: selectedPaymentBill.id,
                         send_to_expenses_entry: false,
-                        bill_copy_url: billUrl
+                        bill_copy_url: billUrl,
+                        branch_id: activeBranchId
                     };
                     try {
                         const weeklyExpenseResponse = await fetch(
@@ -3466,7 +3523,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         payment_mode: "Carry Forward",
                         amount: 0,
                         bill_amount: actualCarryForwardUsed,
-                        refund_amount: 0
+                        refund_amount: 0,
+                        branch_id: activeBranchId
                     };
                     const carryForwardResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/save", {
                         method: "POST",
@@ -3494,7 +3552,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         payment_mode: "",
                         amount: excessAmount,
                         bill_amount: 0,
-                        refund_amount: 0
+                        refund_amount: 0,
+                        branch_id: activeBranchId
                     };
                     const excessAmountResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/save", {
                         method: "POST",
@@ -3960,7 +4019,12 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 const persistedBillNumber = persistedVerification.bill_number || persistedVerification.billNumber || ''
                 const persistedIsVerified = persistedVerification.is_verified === true || persistedVerification.status === 'VERIFIED'
                 const persistedIsPaid = persistedVerification.is_paid === true || persistedVerification.status === 'PAID'
-                if (persistedIsVerified) {
+                const persistedIsDuplicate = persistedVerification.is_duplicate === true
+                // Check if bill is duplicate and verified - show different border color
+                if (persistedIsDuplicate && persistedIsVerified) {
+                    borderClass = 'border-purple-500'
+                    tooltipText = 'Duplicate & Verified'
+                } else if (persistedIsVerified) {
                     const billToCheck = persistedBillNumber && persistedBillNumber !== 'NO_PO' ? String(persistedBillNumber).trim() : (poNumber && poNumber !== 'NO_PO' ? String(poNumber).trim() : '')
                     const paidPreviously = billToCheck ? (persistedIsPaid || isBillAlreadyPaid(vendorIdForSelected, billToCheck)) : false
                     if (paidPreviously) {
@@ -3989,20 +4053,35 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                     className={`w-20 h-8 px-2 py-1 rounded text-sm text-center ${bgClass} focus:outline-none focus:bg-white transition-colors duration-200 placeholder-gray-400 border ${borderClass}`}
                                     disabled={isNoPo}
                                 />
-                                {isAdminUser() && (
-                                    <div className="flex items-center gap-1">
-                                        <input
-                                            type="checkbox"
-                                            id={`no-po-${i}`}
-                                            checked={isNoPo}
-                                            onChange={(e) => handleNoPoChange(i, e.target.checked)}
-                                            className="w-3 h-3"
-                                        />
-                                        <label htmlFor={`no-po-${i}`} className="text-xs text-gray-600 cursor-pointer">
-                                            No PO
-                                        </label>
-                                    </div>
-                                )}
+                                <div className="flex items-center gap-1">
+                                    {isDuplicateMode ? (
+                                        <>
+                                            <input
+                                                type="checkbox"
+                                                id={`duplicate-${i}`}
+                                                checked={duplicateSelections[i] || false}
+                                                onChange={(e) => handleDuplicateChange(i, e.target.checked)}
+                                                className="w-3 h-3"
+                                            />
+                                            <label htmlFor={`duplicate-${i}`} className="text-xs text-gray-600 cursor-pointer">
+                                                Duplicate
+                                            </label>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <input
+                                                type="checkbox"
+                                                id={`no-po-${i}`}
+                                                checked={isNoPo}
+                                                onChange={(e) => handleNoPoChange(i, e.target.checked)}
+                                                className="w-3 h-3"
+                                            />
+                                            <label htmlFor={`no-po-${i}`} className="text-xs text-gray-600 cursor-pointer">
+                                                No PO
+                                            </label>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-1">
@@ -4031,7 +4110,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 const poNumber = extraPoNumbers[i] || ''
                 const isVerified = extraVerifiedBills[i] || false
                 const isNoPo = extraNoPoSelections[i] || false
-                let borderClass = 'border-gray-300'
+                let borderClass = 'border-gray-600'
                 let bgClass = isEditMode ? 'bg-white' : 'bg-[#F2F2F2]'
                 let tooltipText = null
                 const persistedVerificationIndex = noOfBills + i
@@ -4041,35 +4120,40 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     if (isValid) {
                         const paidPreviously = !isNoPo && poNumber.trim() ? isBillAlreadyPaid(vendorIdForSelected, poNumber.trim()) : false
                         if (paidPreviously) {
-                            borderClass = 'border-yellow-500'
+                            borderClass = 'border-yellow-600'
                             tooltipText = 'Paid'
                         } else {
-                            borderClass = 'border-green-500'
+                            borderClass = 'border-green-600'
                             tooltipText = 'Matched'
                         }
                     } else if (validationMessage === 'Already Entered') {
-                        borderClass = 'border-orange-500'
+                        borderClass = 'border-orange-600'
                         tooltipText = 'Already Entered'
                     } else {
-                        borderClass = 'border-red-500'
+                        borderClass = 'border-red-600'
                         tooltipText = 'Not Matched'
                     }
                 } else if (persistedVerification) {
                     const persistedBillNumber = persistedVerification.bill_number || persistedVerification.billNumber || ''
                     const persistedIsVerified = persistedVerification.is_verified === true || persistedVerification.status === 'VERIFIED'
                     const persistedIsPaid = persistedVerification.is_paid === true || persistedVerification.status === 'PAID'
-                    if (persistedIsVerified) {
+                    const persistedIsDuplicate = persistedVerification.is_duplicate === true
+                    // Check if bill is duplicate and verified - show different border color
+                    if (persistedIsDuplicate && persistedIsVerified) {
+                        borderClass = 'border-purple-600'
+                        tooltipText = 'Duplicate & Verified'
+                    } else if (persistedIsVerified) {
                         const billToCheck = persistedBillNumber && persistedBillNumber !== 'NO_PO' ? String(persistedBillNumber).trim() : (poNumber && poNumber !== 'NO_PO' ? String(poNumber).trim() : '')
                         const paidPreviously = billToCheck ? (persistedIsPaid || isBillAlreadyPaid(vendorIdForSelected, billToCheck)) : false
                         if (paidPreviously) {
-                            borderClass = 'border-yellow-500'
+                            borderClass = 'border-yellow-600'
                             tooltipText = 'Paid'
                         } else {
-                            borderClass = 'border-green-500'
+                            borderClass = 'border-green-600'
                             tooltipText = 'Matched'
                         }
                     } else {
-                        borderClass = 'border-red-500'
+                        borderClass = 'border-red-600'
                         tooltipText = 'Not Matched'
                     }
                 }
@@ -4087,20 +4171,35 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                         className={`w-20 h-8 px-2 py-1 rounded text-sm text-center ${bgClass} focus:outline-none focus:bg-white transition-colors duration-200 placeholder-gray-400 border ${borderClass}`}
                                         disabled={isNoPo}
                                     />
-                                    {isAdminUser() && (
-                                        <div className="flex items-center gap-1">
-                                            <input
-                                                type="checkbox"
-                                                id={`extra-no-po-${i}`}
-                                                checked={isNoPo}
-                                                onChange={(e) => handleExtraNoPoChange(i, e.target.checked)}
-                                                className="w-3 h-3"
-                                            />
-                                            <label htmlFor={`extra-no-po-${i}`} className="text-xs text-gray-600 cursor-pointer">
-                                                No PO
-                                            </label>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center gap-1">
+                                        {isDuplicateMode ? (
+                                            <>
+                                                <input
+                                                    type="checkbox"
+                                                    id={`extra-duplicate-${i}`}
+                                                    checked={extraDuplicateSelections[i] || false}
+                                                    onChange={(e) => handleExtraDuplicateChange(i, e.target.checked)}
+                                                    className="w-3 h-3"
+                                                />
+                                                <label htmlFor={`extra-duplicate-${i}`} className="text-xs text-gray-600 cursor-pointer">
+                                                    Duplicate
+                                                </label>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <input
+                                                    type="checkbox"
+                                                    id={`extra-no-po-${i}`}
+                                                    checked={isNoPo}
+                                                    onChange={(e) => handleExtraNoPoChange(i, e.target.checked)}
+                                                    className="w-3 h-3 "
+                                                />
+                                                <label htmlFor={`extra-no-po-${i}`} className="text-xs text-gray-600 cursor-pointer">
+                                                    No PO
+                                                </label>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-1">
@@ -4212,7 +4311,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     // -----------------------------
     const projectedRemainingAmount = Math.max(
         0,
-        remainingAfterPayments - carryForwardToUse
+        remainingAfterPayments - discountValue - carryForwardToUse
     );
     // -----------------------------
     // LIVE RECEIVED AMOUNT (PREVIOUS + CURRENT + CF)
@@ -4263,8 +4362,9 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 vendor_id: vendorId?.id,
                 no_of_bills: Number(formData.noOfBills),
                 total_amount: Number(formData.totalAmount),
+                branch_id: activeBranchId,
             };
-            const response = await axios.post("https://backendaab.in/aabuildersDash/api/vendor-payments/tracker", payload);
+            const response = await axios.post(withBranchUrl("https://backendaab.in/aabuildersDash/api/vendor-payments/tracker"), payload);
             alert(`Tracker created with ID: ${response.data.id}`);
             window.location.reload();
         } catch (error) {
@@ -4587,8 +4687,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                                     <img src={edit} alt="edit" className="w-4 h-4" />
                                                 </button>
                                                 {isAdminUser() && (
-                                                    <button
-                                                        className="px-2 py-1.5 transition-colors duration-200 flex items-center justify-start hover:bg-gray-100 rounded"
+                                                    <button className="px-2 py-1.5 transition-colors duration-200 flex items-center justify-start hover:bg-gray-100 rounded"
                                                         onClick={() => handleDelete(item.id)}
                                                     >
                                                         <img src={deletes} alt="delete" className="w-4 h-4" />
@@ -4681,7 +4780,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             </div>
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg w-full max-w-5xl max-h-[90vh] shadow-lg flex flex-col">
+                    <div className="bg-white rounded-lg w-full max-w-[1050px] max-h-[90vh] shadow-lg flex flex-col">
                         <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
                             <div className=" items-center">
                                 <div className="flex justify-between">
@@ -4716,7 +4815,10 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                                 )
                                             ) : (
                                                 <>
-                                                    Enter PO numbers or select "No PO" (Max: {selectedBill?.noOfBills || selectedBill?.no_of_bills || 0})
+                                                    {isDuplicateMode
+                                                        ? `Enter PO numbers or mark as "Duplicate" (Max: ${selectedBill?.noOfBills || selectedBill?.no_of_bills || 0})`
+                                                        : `Enter PO numbers or select "No PO" (Max: ${selectedBill?.noOfBills || selectedBill?.no_of_bills || 0})`
+                                                    }
                                                     {isSendRequestDisabled() && !hasUnverifiedBillNumbers() && (
                                                         <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full">
                                                             Enter bill numbers to enable Send Request
@@ -4727,8 +4829,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                         </p>
                                     </div>
                                     <div>
-                                        <button className="w-8 h-8 flex items-center justify-end transition-colors duration-200 text-gray-500 text-xl"
-                                            onClick={handleCancel}>
+                                        <button className="w-8 h-8 flex items-center justify-end transition-colors duration-200 text-gray-500 text-xl" onClick={handleCancel}>
                                             ×
                                         </button>
                                     </div>
@@ -4764,13 +4865,13 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                             </div>
                                         </div>
                                         <div className="pb-1 flex items-center gap-2">
-                                            <span className="text-sm text-gray-700 font-medium">Last Paid PO</span>
+                                            <span className="text-sm text-gray-700 font-medium">Last PO</span>
                                             <div className="relative">
                                                 <input
                                                     type="text"
                                                     value={lastPaidPO}
                                                     readOnly
-                                                    className="w-24 h-10 px-3 py-2 border-2 border-red-500 rounded-md text-sm focus:outline-none bg-white text-gray-700"
+                                                    className="w-24 h-10 px-3 py-2 border-2 border-[#BF9853] border-opacity-30 rounded-md text-sm focus:outline-none bg-white text-gray-700"
                                                 />
                                             </div>
                                         </div>
@@ -4793,6 +4894,15 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                             >
                                                 {checkingPO ? 'Checking...' : 'Check PO'}
                                             </button>
+                                            <button
+                                                className={`px-4 py-2 rounded font-medium transition-colors duration-200 ${isDuplicateMode
+                                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                                    : 'bg-white text-blue-600 border border-blue-600 hover:bg-blue-50'
+                                                    }`}
+                                                onClick={toggleDuplicateMode}
+                                            >
+                                                {isDuplicateMode ? 'Duplicate Mode' : 'Duplicate'}
+                                            </button>
                                             {selectedBill?.send_request && !selectedBill?.request_approved && isAdminUser() ? (
                                                 <>
                                                     <button className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 transition-colors duration-200"
@@ -4810,11 +4920,9 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                                 !selectedBill?.request_approved && !areAllBillsVerifiedAndNotPaid() && !isAdminUser() && (
                                                     <button
                                                         className={`px-4 py-2 rounded font-medium transition-colors duration-200 ${isSendRequestDisabled()
-                                                            ? 'bg-gray-400 text-white cursor-not-allowed'
-                                                            : 'bg-gray-600 text-white hover:bg-gray-700'
+                                                            ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-gray-600 text-white hover:bg-gray-700'
                                                             }`}
-                                                        onClick={handleSendRequest}
-                                                        disabled={isSendRequestDisabled()}
+                                                        onClick={handleSendRequest} disabled={isSendRequestDisabled()}
                                                     >
                                                         Send Request
                                                     </button>
@@ -4845,8 +4953,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                         </div>
                                     )}
                                     {selectedBill?.request_approved && isAdminUser() && (
-                                        <button
-                                            className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 transition-colors duration-200"
+                                        <button className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 transition-colors duration-200"
                                             onClick={handleRevokeApproval}
                                         >
                                             Revoke Approval
@@ -4855,7 +4962,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                 </div>
                                 <div className="flex gap-3">
                                     <button className="px-4 py-2 bg-white text-gray-600 border border-gray-300 rounded font-medium hover:bg-gray-50 transition-colors duration-200"
-                                        onClick={handleCancel}>
+                                        onClick={handleCancel}
+                                    >
                                         Cancel
                                     </button>
                                     {(!selectedBill?.send_request || isAdminUser()) && (
@@ -4882,7 +4990,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         <div className="flex justify-between items-center p-6 ">
                             <h3 className="text-lg font-bold text-black">Bill Entry Details</h3>
                             <button className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors duration-200 text-orange-500 text-lg font-bold"
-                                onClick={handleEntryCancel}>
+                                onClick={handleEntryCancel}
+                            >
                                 ×
                             </button>
                         </div>
@@ -5075,7 +5184,8 @@ const PendingBill = ({ username, userRoles = [] }) => {
                             <div className="flex justify-between items-center">
                                 <h3 className="text-lg font-semibold text-center flex-1">Entry Payment Details</h3>
                                 <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors duration-200 text-gray-500 text-xl font-bold"
-                                    onClick={handlePaymentCancel}>
+                                    onClick={handlePaymentCancel}
+                                >
                                     ×
                                 </button>
                             </div>
@@ -5118,12 +5228,13 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                                             <div className="flex-1">
                                                                 <label className="block font-semibold mb-1 text-sm">Mode</label>
                                                                 <select
-                                                                    value={entry.mode}
+                                                                    value={entry.mode || (index === 0 && useCarryForward ? 'Carry Forward' : '')}
                                                                     onChange={(e) => handlePaymentEntryChange(entry.id, 'mode', e.target.value)}
-                                                                    disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                                                    className={`w-[180px] h-[35px] px-3 border-2 border-[#BF9853] border-opacity-35 rounded-md text-sm focus:outline-none ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                                                    disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' || (index === 0 && useCarryForward)}
+                                                                    className={`w-[180px] h-[35px] px-3 border-2 border-[#BF9853] border-opacity-35 rounded-md text-sm focus:outline-none ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' || (index === 0 && useCarryForward) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                                                 >
                                                                     <option value="">Select</option>
+                                                                    <option value="Carry Forward">Carry Forward</option>
                                                                     <option value="Cash">Cash</option>
                                                                     <option value="Net Banking">Net Banking</option>
                                                                     <option value="Gpay">Gpay</option>
@@ -5232,8 +5343,9 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                             }`}>
                                             <h4 className="text-sm font-semibold text-gray-700">Previous Payment Details:</h4>
                                             <div className="space-y-4">
-                                                {existingPaymentDetails.map((payment, index) => (
+                                                {[...existingPaymentDetails].reverse().map((payment, index) => (
                                                     <div key={payment.id || index} className="text-left p-3 shadow-lg rounded-lg mb-4">
+                                                        <h5 className="text-sm font-semibold text-gray-800 mb-2">Payment - {existingPaymentDetails.length - index}</h5>
                                                         <div className=" border border-[#BF9853] border-opacity-35 rounded-md p-4">
                                                             <div className='grid grid-cols-3 gap-4'>
                                                                 <div>
@@ -5610,7 +5722,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                     </div>
                                     <div className="flex-1">
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Extra Bills
+                                            Extra Bills (PO)
                                         </label>
                                         <input
                                             type="number"
@@ -5665,10 +5777,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                 </h3>
                                 <button
                                     className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors duration-200 text-gray-500 text-xl font-bold"
-                                    onClick={() => {
-                                        setShowCheckModal(false)
-                                        setCheckFilteredExpenses([])
-                                    }}
+                                    onClick={() => {setShowCheckModal(false); setCheckFilteredExpenses([]);}}
                                 >
                                     ×
                                 </button>
@@ -5740,17 +5849,10 @@ const PendingBill = ({ username, userRoles = [] }) => {
                             )}
                         </div>
                         <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-between">
-                            <button className="px-4 py-2 bg-[#BF9853] text-white rounded font-medium hover:bg-[#a67c3a] transition-colors duration-200"
-                                onClick={generateExpensePDF}
-                            >
+                            <button className="px-4 py-2 bg-[#BF9853] text-white rounded font-medium hover:bg-[#a67c3a] transition-colors duration-200" onClick={generateExpensePDF}>
                                 Generate PDF
                             </button>
-                            <button className="px-4 py-2 bg-white text-[#BF9853] border border-[#BF9853] rounded"
-                                onClick={() => {
-                                    setShowCheckModal(false)
-                                    setCheckFilteredExpenses([])
-                                }}
-                            >
+                            <button className="px-4 py-2 bg-white text-[#BF9853] border border-[#BF9853] rounded" onClick={() => { setShowCheckModal(false); setCheckFilteredExpenses([])}}>
                                 Close
                             </button>
                         </div>

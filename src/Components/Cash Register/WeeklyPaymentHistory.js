@@ -32,6 +32,39 @@ function cleanUrl(url) {
 const History = ({ username, userRoles = [] }) => {
     const normalizedUsername = username?.trim();
     const canEditDelete = normalizedUsername === 'Admin' || normalizedUsername === 'Mahalingam M';
+    const resolveActiveBranchId = () => {
+        try {
+            const selectedBranchId = localStorage.getItem("selectedBranchId");
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            const fallbackBranchId = user?.branchId ?? user?.branch_id ?? user?.brachId;
+            const resolved = Number(selectedBranchId || fallbackBranchId);
+            return Number.isFinite(resolved) && resolved > 0 ? resolved : null;
+        } catch {
+            return null;
+        }
+    };
+    const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
+    const withBranchUrl = (baseUrl) => {
+        const url = new URL(baseUrl);
+        if (activeBranchId !== null && activeBranchId !== undefined && activeBranchId !== "") {
+            url.searchParams.set("branchId", String(activeBranchId));
+        }
+        return url.toString();
+    };
+    const withBranchParams = () => (
+        activeBranchId !== null && activeBranchId !== undefined && activeBranchId !== ""
+            ? { params: { branchId: activeBranchId } }
+            : {}
+    );
+    useEffect(() => {
+        const syncBranch = () => {
+            const nextBranchId = resolveActiveBranchId();
+            setActiveBranchId((prevBranchId) => (prevBranchId === nextBranchId ? prevBranchId : nextBranchId));
+        };
+        syncBranch();
+        window.addEventListener("branchSelectionChanged", syncBranch);
+        return () => window.removeEventListener("branchSelectionChanged", syncBranch);
+    }, []);
     const [expenses, setExpenses] = useState([]);
     const [payments, setPayments] = useState([]);
     const [newExpense, setNewExpense] = useState({
@@ -53,6 +86,7 @@ const History = ({ username, userRoles = [] }) => {
     const [weeks, setWeeks] = useState([]);
     const [lastWeekWithData, setLastWeekWithData] = useState(null);
     const [lastEditableWeek, setLastEditableWeek] = useState(null); // { weekNumber, year }
+    const [lastActiveWeek, setLastActiveWeek] = useState(null);
     const [vendorOptions, setVendorOptions] = useState([]);
     const [contractorOptions, setContractorOptions] = useState([]);
     const [siteOptions, setSiteOptions] = useState([]);
@@ -140,19 +174,25 @@ const History = ({ username, userRoles = [] }) => {
     const scrollRef = useRef(null);
     const paymentsScrollRef = useRef(null);
     const isDragging = useRef(false);
+    const activeScrollRef = useRef(null); // Track which scroll container is currently active
     const start = useRef({ x: 0, y: 0 });
-    const scroll = useRef({ left: 0, top: 0 });
+    const lastPosition = useRef({ x: 0, y: 0 });
     const velocity = useRef({ x: 0, y: 0 });
     const animationFrame = useRef(null);
     const lastMove = useRef({ time: 0, x: 0, y: 0 });
+
     const handleMouseDown = (e, ref) => {
         if (!ref.current) return;
+        const interactiveSelector = 'input, select, textarea, button, a, [contenteditable="true"], [role="button"]';
+        if (e.target instanceof Element && e.target.closest(interactiveSelector)) {
+            return; // Allow native click/focus for form controls and action buttons
+        }
+        e.preventDefault(); // Prevent default behavior
+        e.stopPropagation(); // Prevent event from bubbling to other scroll containers
         isDragging.current = true;
+        activeScrollRef.current = ref.current; // Store the active scroll container
         start.current = { x: e.clientX, y: e.clientY };
-        scroll.current = {
-            left: ref.current.scrollLeft,
-            top: ref.current.scrollTop,
-        };
+        lastPosition.current = { x: e.clientX, y: e.clientY };
         lastMove.current = {
             time: Date.now(),
             x: e.clientX,
@@ -160,20 +200,34 @@ const History = ({ username, userRoles = [] }) => {
         };
         ref.current.style.cursor = 'grabbing';
         ref.current.style.userSelect = 'none';
+        ref.current.style.scrollBehavior = 'auto'; // Disable smooth scroll during drag for immediate response
         cancelMomentum();
     };
+
     const handleMouseMove = (e, ref) => {
-        if (!isDragging.current || !ref.current) return;
-        const dx = e.clientX - start.current.x;
-        const dy = e.clientY - start.current.y;
+        if (!isDragging.current || !ref.current || activeScrollRef.current !== ref.current) return;
+        e.stopPropagation(); // Prevent event from bubbling to other scroll containers        
         const now = Date.now();
         const dt = now - lastMove.current.time || 16;
+        // Calculate delta movement (incremental change)
+        const deltaX = e.clientX - lastPosition.current.x;
+        const deltaY = e.clientY - lastPosition.current.y;
+        // Update velocity for momentum (based on last move, not start position)
         velocity.current = {
             x: (e.clientX - lastMove.current.x) / dt,
             y: (e.clientY - lastMove.current.y) / dt,
         };
-        ref.current.scrollLeft = scroll.current.left - dx;
-        ref.current.scrollTop = scroll.current.top - dy;
+        // Use scrollBy for smooth, continuous scrolling based on incremental movement
+        // This feels more natural like normal scrolling
+        if (ref.current && (deltaX !== 0 || deltaY !== 0)) {
+            ref.current.scrollBy({
+                left: -deltaX,
+                top: -deltaY,
+                behavior: 'auto' // Instant but smooth
+            });
+        }
+        // Update last position for next incremental calculation
+        lastPosition.current = { x: e.clientX, y: e.clientY };
         lastMove.current = {
             time: now,
             x: e.clientX,
@@ -181,11 +235,15 @@ const History = ({ username, userRoles = [] }) => {
         };
     };
     const handleMouseUp = (ref) => {
-        if (!isDragging.current || !ref.current) return;
+        if (!isDragging.current || !ref.current || activeScrollRef.current !== ref.current) return;
         isDragging.current = false;
-        ref.current.style.cursor = '';
-        ref.current.style.userSelect = '';
+        if (ref.current) {
+            ref.current.style.cursor = '';
+            ref.current.style.userSelect = '';
+            ref.current.style.scrollBehavior = ''; // Restore default scroll behavior
+        }
         applyMomentum();
+        activeScrollRef.current = null; // Clear the active ref after momentum is applied
     };
     const cancelMomentum = () => {
         if (animationFrame.current) {
@@ -194,13 +252,16 @@ const History = ({ username, userRoles = [] }) => {
         }
     };
     const applyMomentum = () => {
-        if (!scrollRef.current && !paymentsScrollRef.current) return;
+        if (!activeScrollRef.current) return;
         const friction = 0.95;
         const minVelocity = 0.1;
         const step = () => {
             const { x, y } = velocity.current;
-            const activeRef = scrollRef.current || paymentsScrollRef.current;
-            if (!activeRef) return;
+            const activeRef = activeScrollRef.current;
+            if (!activeRef) {
+                cancelMomentum();
+                return;
+            }
             if (Math.abs(x) > minVelocity || Math.abs(y) > minVelocity) {
                 activeRef.scrollLeft -= x * 20;
                 activeRef.scrollTop -= y * 20;
@@ -209,6 +270,7 @@ const History = ({ username, userRoles = [] }) => {
                 animationFrame.current = requestAnimationFrame(step);
             } else {
                 cancelMomentum();
+                activeScrollRef.current = null; // Clear the active ref when momentum ends
             }
         };
         animationFrame.current = requestAnimationFrame(step);
@@ -516,18 +578,18 @@ const History = ({ username, userRoles = [] }) => {
             if (!selectedWeek || !year) {
                 setNextWeekDiscountInfo(null);
                 return;
-            }            
+            }
             const currentWeekNumber = Number(selectedWeek);
-            const selectedYear = parseInt(year, 10);            
+            const selectedYear = parseInt(year, 10);
             // Find the current week's info to determine its year
             const currentWeek = weeks.find(w => w.number === currentWeekNumber);
             if (!currentWeek) {
                 setNextWeekDiscountInfo(null);
                 return;
-            }            
+            }
             // Calculate next week - if we're in week 52, next week is week 1 of next year
             let nextWeekNumber;
-            let nextWeekYear;            
+            let nextWeekYear;
             // Get the end date of current week
             const currentWeekEnd = new Date(currentWeek.end);
             const nextWeekStart = new Date(currentWeekEnd);
@@ -538,9 +600,12 @@ const History = ({ username, userRoles = [] }) => {
             if (!Number.isFinite(nextWeekNumber)) {
                 setNextWeekDiscountInfo(null);
                 return;
-            }            
+            }
             try {
-                const response = await axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${nextWeekNumber}`);
+                const response = await axios.get(
+                    `https://backendaab.in/aabuildersDash/api/payments-received/week/${nextWeekNumber}`,
+                    withBranchParams()
+                );
                 const allNextWeekPayments = Array.isArray(response.data) ? response.data : [];
                 // Filter payments by weekly_number field (not by date) to include entries like "Carry (CF)"
                 // that may have dates from previous week but belong to the next week
@@ -567,7 +632,7 @@ const History = ({ username, userRoles = [] }) => {
             }
         };
         fetchNextWeekDiscount();
-    }, [selectedWeek, year, weeks]);
+    }, [selectedWeek, year, weeks, activeBranchId]);
     useEffect(() => {
         fetchWeeklyPaymentBills();
     }, []);
@@ -601,7 +666,7 @@ const History = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchEmployeeDetails = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+                const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/basic/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -719,8 +784,7 @@ const History = ({ username, userRoles = [] }) => {
                             projectClientNameTemp[optionId] = "";
                         }
                         return option;
-                    })
-                    : [];
+                    }) : [];
                 const combinedSiteOptions = [...predefinedSiteOptions, ...projectOptions];
                 setSiteOptions(combinedSiteOptions);
                 setProjectIdToClientName(projectClientNameTemp);
@@ -762,11 +826,11 @@ const History = ({ username, userRoles = [] }) => {
                 const selectedYear = parseInt(year, 10);
                 const currentWeekNumber = getCurrentISOWeekNumber();
                 const currentWeekYear = getCurrentWeekYear();
-                
+
                 // Fetch all payments to determine which weeks have data
                 let weeksWithData = new Set();
                 try {
-                    const paymentsResponse = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/getAll');
+                    const paymentsResponse = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/getAll', withBranchParams());
                     paymentsResponse.data.forEach(payment => {
                         // Only include payments with status === true and period_end_date exists
                         if (payment.status === true && payment.period_end_date) {
@@ -783,7 +847,7 @@ const History = ({ username, userRoles = [] }) => {
                     });
                 } catch (error) {
                     console.error('Error fetching payments for week filtering:', error);
-                }                
+                }
                 // Get all possible weeks for the year (1-53)
                 const allWeeks = [];
                 for (let weekNum = 1; weekNum <= 53; weekNum++) {
@@ -793,7 +857,7 @@ const History = ({ username, userRoles = [] }) => {
                     const weekYear = getWeekYear(weekStartDate);
                     const hasData = weeksWithData.has(weekNum);
                     const isCurrentWeek = (selectedYear === currentWeekYear && weekNum === currentWeekNumber);
-                    const isFutureWeek = weekEndDate > new Date();                    
+                    const isFutureWeek = weekEndDate > new Date();
                     // Include week if:
                     // 1. It has data for the selected year (regardless of ISO week year calculation)
                     // 2. It belongs to the selected year AND (is current week or is future week)
@@ -801,67 +865,99 @@ const History = ({ username, userRoles = [] }) => {
                         allWeeks.push(weekInfo);
                     }
                 }
-                
+
                 // Sort weeks by week number (descending - most recent first)
                 allWeeks.sort((a, b) => b.number - a.number);
-                
+
                 // Find the last week number that has data with status === true
                 const lastWeekWithDataValue = weeksWithData.size > 0 ? Math.max(...Array.from(weeksWithData)) : null;
                 setLastWeekWithData(lastWeekWithDataValue);
-                
+
                 setWeeks(allWeeks);
             } catch (error) {
                 console.error('Error fetching active weeks:', error);
             }
         };
         fetchWeeks();
-    }, [year]);
-    
-    // Find the most recent week (across all years) that has data with status === true
+    }, [year, activeBranchId]);
+
+    // Fetch active weeks from API and set the last week as default
     useEffect(() => {
-        const findLastEditableWeek = async () => {
+        const fetchActiveWeeks = async () => {
             try {
-                const paymentsResponse = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/getAll');
-                let mostRecentWeek = null;
-                let mostRecentDate = null;
-                
-                paymentsResponse.data.forEach(payment => {
-                    // Only include payments with status === true and period_end_date exists
-                    if (payment.status === true && payment.period_end_date) {
-                        const paymentDate = new Date(payment.period_end_date);
-                        // Validate that the date is valid
-                        if (!isNaN(paymentDate.getTime())) {
-                            // Check if this is more recent than the current most recent
-                            if (!mostRecentDate || paymentDate > mostRecentDate) {
-                                mostRecentDate = paymentDate;
-                                const weekYear = getWeekYear(paymentDate);
-                                const weekNumber = getISOWeekNumber(paymentDate);
-                                mostRecentWeek = { weekNumber, year: weekYear };
-                            }
+                const response = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/active_weeks', withBranchParams());
+                if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+                    const lastWeek = response.data[response.data.length - 1];
+                    setLastActiveWeek(lastWeek);
+                    // Set the selected week to the last active week if weeks are loaded and no week is currently selected
+                    if (weeks.length > 0 && !selectedWeek) {
+                        const weekExists = weeks.some(w => w.number === lastWeek);
+                        if (weekExists) {
+                            setSelectedWeek(lastWeek.toString());
                         }
                     }
-                });
-                
-                setLastEditableWeek(mostRecentWeek);
+                }
             } catch (error) {
-                console.error('Error finding last editable week:', error);
+                console.error('Error fetching active weeks:', error);
             }
         };
-        
-        findLastEditableWeek();
-    }, []); // Run once on mount
-    
+        fetchActiveWeeks();
+    }, [weeks.length, selectedWeek, activeBranchId]);
+
+    // Find the most recent week (across all years) that has data with status === true
+    useEffect(() => {
+        const computeEditableWeek = async () => {
+            try {
+                const now = new Date();
+                const currentWeekNumber = getISOWeekNumber(now);
+                const currentWeekYear = getWeekYear(now);
+                const paymentsResponse = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/getAll', withBranchParams());
+                const hasCurrentWeekTrue = Array.isArray(paymentsResponse.data) && paymentsResponse.data.some(payment => {
+                    if (payment?.status !== true || !payment?.period_end_date) return false;
+                    const paymentDate = new Date(payment.period_end_date);
+                    if (isNaN(paymentDate.getTime())) return false;
+                    const weekYear = getWeekYear(paymentDate);
+                    const weekNumber = getISOWeekNumber(paymentDate);
+                    return weekYear === currentWeekYear && weekNumber === currentWeekNumber;
+                });
+                if (hasCurrentWeekTrue) {
+                    setLastEditableWeek({ weekNumber: currentWeekNumber, year: currentWeekYear });
+                } else {
+                    const { startDate } = getStartAndEndDateOfISOWeek(currentWeekNumber, currentWeekYear);
+                    const prevDate = new Date(startDate);
+                    prevDate.setDate(prevDate.getDate() - 1);
+                    const prevWeekNumber = getISOWeekNumber(prevDate);
+                    const prevWeekYear = getWeekYear(prevDate);
+                    setLastEditableWeek({ weekNumber: prevWeekNumber, year: prevWeekYear });
+                }
+            } catch (error) {
+                console.error('Error computing editable week:', error);
+                // Fallback to previous ISO week if request fails
+                const now = new Date();
+                const currentWeekNumber = getISOWeekNumber(now);
+                const currentWeekYear = getWeekYear(now);
+                const { startDate } = getStartAndEndDateOfISOWeek(currentWeekNumber, currentWeekYear);
+                const prevDate = new Date(startDate);
+                prevDate.setDate(prevDate.getDate() - 1);
+                const prevWeekNumber = getISOWeekNumber(prevDate);
+                const prevWeekYear = getWeekYear(prevDate);
+                setLastEditableWeek({ weekNumber: prevWeekNumber, year: prevWeekYear });
+            }
+        };
+        computeEditableWeek();
+    }, [activeBranchId]); // Run again when branch changes
+
     useEffect(() => {
         const fetchWeekData = async () => {
             if (!selectedWeek) return;
             try {
                 const [expensesRes, paymentsRes] = await Promise.all([
-                    axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`),
-                    axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`)
+                    axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
+                    axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
                 ]);
-                
+
                 const selectedYear = parseInt(year, 10);
-                
+
                 // Filter expenses to only include entries that belong to the selected year (ISO 8601)
                 // Only include expenses with status === true and valid period_end_date
                 const filteredExpenses = expensesRes.data.filter(expense => {
@@ -873,7 +969,7 @@ const History = ({ username, userRoles = [] }) => {
                     const expenseWeekYear = getWeekYear(expenseDate);
                     return expenseWeekYear === selectedYear;
                 });
-                
+
                 // Filter payments to only include entries that belong to the selected year (ISO 8601)
                 // Only include payments with status === true and valid period_end_date
                 const filteredPaymentsByYear = paymentsRes.data.filter(payment => {
@@ -890,7 +986,7 @@ const History = ({ username, userRoles = [] }) => {
                 const filteredPayments = filteredPaymentsByYear.filter(
                     (payment) => payment.type !== "Handover"
                 );
-                
+
                 setExpenses(filteredExpenses);
                 setPayments(filteredPayments);
                 await fetchWeeklyPaymentBills();
@@ -916,7 +1012,7 @@ const History = ({ username, userRoles = [] }) => {
             }
         };
         fetchWeekData();
-    }, [selectedWeek, year]);
+    }, [selectedWeek, year, activeBranchId]);
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         if (name === "type") {
@@ -1120,7 +1216,8 @@ const History = ({ username, userRoles = [] }) => {
             employee_id: employeeId || 0,
             project_id: projectId || 0,
             description: "",
-            file_url: ""
+            file_url: "",
+            branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
             `https://backendaab.in/aabuildersDash/api/loans/${loanPortalId}?editedBy=${encodeURIComponent(username)}`,
@@ -1153,6 +1250,7 @@ const History = ({ username, userRoles = [] }) => {
             transfer_Project_id: 0,
             entry_no: 0,
             description: "",
+            branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
             `https://backendaab.in/aabuildersDash/api/loans/${loanPortalId}?editedBy=${encodeURIComponent(username)}`,
@@ -1182,7 +1280,8 @@ const History = ({ username, userRoles = [] }) => {
             employee_id: employeeId || 0,
             project_id: projectId || 0,
             description: "Loan from Cash Register",
-            file_url: ""
+            file_url: "",
+            branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
             "https://backendaab.in/aabuildersDash/api/loans/save",
@@ -1205,37 +1304,37 @@ const History = ({ username, userRoles = [] }) => {
     const getISOWeekNumber = (date) => {
         const d = new Date(date);
         d.setHours(0, 0, 0, 0);
-        
+
         // Get Thursday of the week containing the date
         const dayOfWeek = d.getDay() || 7; // Convert Sunday (0) to 7
         const thursday = new Date(d);
         thursday.setDate(d.getDate() + 4 - dayOfWeek); // Thursday is 4 days after Monday
         thursday.setHours(0, 0, 0, 0);
-        
+
         // Use the year that Thursday falls in (ISO 8601 rule)
         const weekYear = thursday.getFullYear();
-        
+
         // Get January 1st of that year
         const jan1 = new Date(weekYear, 0, 1);
         jan1.setHours(0, 0, 0, 0);
-        
+
         // Get the Thursday of week 1 (first Thursday of the year)
         const jan1DayOfWeek = jan1.getDay() || 7;
         const firstThursday = new Date(jan1);
         firstThursday.setDate(jan1.getDate() + 4 - jan1DayOfWeek);
         firstThursday.setHours(0, 0, 0, 0);
-        
+
         // Calculate week number: difference in days divided by 7, plus 1
         const daysDiff = Math.floor((thursday - firstThursday) / 86400000);
         const weekNo = Math.floor(daysDiff / 7) + 1;
-        
+
         return weekNo;
     };
-    
+
     const getCurrentISOWeekNumber = () => {
         return getISOWeekNumber(new Date());
     };
-    
+
     // Get the year that a week belongs to (ISO 8601 - based on Thursday's year)
     const getWeekYear = (date) => {
         const d = new Date(date);
@@ -1262,6 +1361,7 @@ const History = ({ username, userRoles = [] }) => {
             week_no: weekNo || Number(selectedWeek) || getCurrentISOWeekNumber(),
             description: description || "",
             file_url: "",
+            branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
             `https://backendaab.in/aabuildersDash/api/advance_portal/edit/${advancePortalId}?editedBy=${encodeURIComponent(username)}`,
@@ -1293,6 +1393,7 @@ const History = ({ username, userRoles = [] }) => {
             refund_amount: null,
             week_no: null,
             entry_no: null,
+            branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
             `https://backendaab.in/aabuildersDash/api/advance_portal/edit/${advancePortalId}?editedBy=${encodeURIComponent(username)}`,
@@ -1321,6 +1422,7 @@ const History = ({ username, userRoles = [] }) => {
             description: description || "",
             staff_refund_amount: 0,
             file_url: null,
+            branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
             `https://backendaab.in/aabuildersDash/api/staff-advance/${staffAdvancePortalId}?editedBy=${encodeURIComponent(username)}`,
@@ -1349,6 +1451,7 @@ const History = ({ username, userRoles = [] }) => {
             file_url: null,
             staff_refund_amount: null,
             entry_no: null,
+            branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
             `https://backendaab.in/aabuildersDash/api/staff-advance/${staffAdvancePortalId}?editedBy=${encodeURIComponent(username)}`,
@@ -1387,6 +1490,7 @@ const History = ({ username, userRoles = [] }) => {
             week_no: weekNo,
             description: "",
             file_url: "",
+            branch_id: activeBranchId ?? null,
         };
         const saveResponse = await fetch("https://backendaab.in/aabuildersDash/api/advance_portal/save", {
             method: "POST",
@@ -1470,13 +1574,14 @@ const History = ({ username, userRoles = [] }) => {
             client_id: selectedClient?.id || newExpense.client_id || null,
             type: newExpense.type,
             amount: Number(newExpense.amount),
-            status: false,
+            status: true,
             weekly_number: Number(selectedWeek),
             period_start_date: new Date().toISOString().split("T")[0],
             period_end_date: new Date().toISOString().split("T")[0],
             advance_portal_id: null,
             staff_advance_portal_id: null,
             loan_portal_id: null,
+            branch_id: activeBranchId,
         };
         try {
             if (newExpense.type === "Loan") {
@@ -1527,6 +1632,7 @@ const History = ({ username, userRoles = [] }) => {
                         staff_refund_amount: 0.0,
                         description: "",
                         file_url: null,
+                        branch_id: activeBranchId ?? null,
                     };
                     const staffAdvanceResponse = await fetch(
                         "https://backendaab.in/aabuildersDash/api/staff-advance/save",
@@ -1596,6 +1702,7 @@ const History = ({ username, userRoles = [] }) => {
                 weekly_number: Number(selectedWeek),
                 period_start_date: new Date().toISOString().split("T")[0],
                 period_end_date: new Date().toISOString().split("T")[0],
+                branch_id: activeBranchId,
             };
             try {
                 const response = await fetch("https://backendaab.in/aabuildersDash/api/payments-received/update/save", {
@@ -2348,10 +2455,9 @@ const History = ({ username, userRoles = [] }) => {
         newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
         doc.save(`PR ${selectedWeek || ""} - Weekly Payment Report ${formatDateOnly(lastPeriodEndDate)}.pdf`);
     };
-    const lastWeekNumber = weeks.length > 0 ? Math.max(...weeks.map(week => week.number)) : null;
     // Allow editing only for the most recent week (across all years) that has data with status === true
-    const canEditSelectedWeek = selectedWeek && lastEditableWeek !== null && 
-        Number(selectedWeek) === Number(lastEditableWeek.weekNumber) && 
+    const canEditSelectedWeek = selectedWeek && lastEditableWeek !== null &&
+        Number(selectedWeek) === Number(lastEditableWeek.weekNumber) &&
         parseInt(year, 10) === lastEditableWeek.year;
     const getPaymentsByExpenseId = (expenseId) => {
         if (!weeklyPaymentBills || weeklyPaymentBills.length === 0) {
@@ -2543,6 +2649,7 @@ const History = ({ username, userRoles = [] }) => {
                             staff_refund_amount: 0.0,
                             description: "",
                             file_url: null,
+                            branch_id: activeBranchId ?? null,
                         };
                         const staffAdvanceResponse = await fetch(
                             "https://backendaab.in/aabuildersDash/api/staff-advance/save",
@@ -2569,6 +2676,10 @@ const History = ({ username, userRoles = [] }) => {
                 }
                 row.staff_advance_portal_id = null;
             }
+            const expensePayload = {
+                ...row,
+                branch_id: row.branch_id ?? row.branchId ?? activeBranchId ?? null,
+            };
             const response = await fetch(`https://backendaab.in/aabuildersDash/api/weekly-expenses/edit/${row.id}?username=${encodeURIComponent(
                 username
             )}`,
@@ -2577,7 +2688,7 @@ const History = ({ username, userRoles = [] }) => {
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify(row),
+                    body: JSON.stringify(expensePayload),
                 });
             if (!response.ok) {
                 throw new Error("Failed to update expense");
@@ -2642,12 +2753,16 @@ const History = ({ username, userRoles = [] }) => {
                     return;
                 }
             }
+            const paymentPayload = {
+                ...row,
+                branch_id: row.branch_id ?? row.branchId ?? activeBranchId ?? null,
+            };
             const response = await fetch(`https://backendaab.in/aabuildersDash/api/payments-received/update/${row.id}?username=${encodeURIComponent(username)}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(row),
+                body: JSON.stringify(paymentPayload),
             });
             if (!response.ok) {
                 throw new Error("Failed to update expense");
@@ -2665,14 +2780,24 @@ const History = ({ username, userRoles = [] }) => {
             const currentSelectedWeek = selectedWeek;
             const selectedWeekExists = currentSelectedWeek && weeks.some(w => w.number === Number(currentSelectedWeek));
             if (!selectedWeekExists) {
-                // If selected week doesn't exist in new year, select the last week
-                setSelectedWeek(weeks[weeks.length - 1].number);
+                // If lastActiveWeek is available and exists in weeks, use it; otherwise use the last week
+                if (lastActiveWeek !== null) {
+                    const lastActiveWeekExists = weeks.some(w => w.number === lastActiveWeek);
+                    if (lastActiveWeekExists) {
+                        setSelectedWeek(lastActiveWeek.toString());
+                    } else {
+                        setSelectedWeek(weeks[weeks.length - 1].number);
+                    }
+                } else {
+                    // If selected week doesn't exist in new year, select the last week
+                    setSelectedWeek(weeks[weeks.length - 1].number);
+                }
             }
         } else {
             // If no weeks available for the selected year, clear the selection
             setSelectedWeek("");
         }
-    }, [weeks, year]);
+    }, [weeks, year, lastActiveWeek]);
     const fetchAuditDetailsForExpense = async (expensesId) => {
         try {
             const response = await fetch(`https://backendaab.in/aabuildersDash/api/weekly_payment_audit/expenses/${expensesId}`);
@@ -2854,8 +2979,15 @@ const History = ({ username, userRoles = [] }) => {
                         </div>
                         <div className="w-full h-[600px] rounded-lg border-l-8 border-l-[#BF9853] overflow-hidden">
                             <div ref={scrollRef} className="overflow-auto max-h-[600px] thin-scrollbar"
+                                style={{
+                                    willChange: 'scroll-position',
+                                    WebkitOverflowScrolling: 'touch',
+                                    transform: 'translateZ(0)', // Force hardware acceleration
+                                    backfaceVisibility: 'hidden' // Optimize rendering
+                                }}
                                 onMouseDown={(e) => handleMouseDown(e, scrollRef)} onMouseMove={(e) => handleMouseMove(e, scrollRef)}
                                 onMouseUp={() => handleMouseUp(scrollRef)} onMouseLeave={() => handleMouseUp(scrollRef)}
+                                onWheel={(e) => e.stopPropagation()}
                             >
                                 <table className="w-[1320px] border-collapse text-left">
                                     <thead className="sticky top-0 z-10 bg-white">
@@ -3494,29 +3626,29 @@ const History = ({ username, userRoles = [] }) => {
                                                         <div className="flex flex-col gap-1">
                                                             <div className="flex items-center gap-2">
                                                                 <span className={row.type === "Claim" && !row.send_to_expenses_entry ? "text-red-500" : ""}>{row.type}</span>
-                                                                
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setCurrentProjectAdvanceRow(row);
-                                                                            setPaymentPopupData({
-                                                                                date: new Date().toISOString().split('T')[0],
-                                                                                amount: "",
-                                                                                paymentMode: "",
-                                                                                chequeNo: "",
-                                                                                chequeDate: "",
-                                                                                transactionNumber: "",
-                                                                                accountNumber: ""
-                                                                            });
-                                                                            const previousPaymentsForExpense = getPaymentsByExpenseId(row.id);
-                                                                            setPreviousPayments(previousPaymentsForExpense);
-                                                                            setShowPaymentPopup(true);
-                                                                        }}
-                                                                        className="bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-green-600 transition-colors text-xs"
-                                                                        title="Add Payment"
-                                                                    >
-                                                                        +
-                                                                    </button>
-                                                                
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setCurrentProjectAdvanceRow(row);
+                                                                        setPaymentPopupData({
+                                                                            date: new Date().toISOString().split('T')[0],
+                                                                            amount: "",
+                                                                            paymentMode: "",
+                                                                            chequeNo: "",
+                                                                            chequeDate: "",
+                                                                            transactionNumber: "",
+                                                                            accountNumber: ""
+                                                                        });
+                                                                        const previousPaymentsForExpense = getPaymentsByExpenseId(row.id);
+                                                                        setPreviousPayments(previousPaymentsForExpense);
+                                                                        setShowPaymentPopup(true);
+                                                                    }}
+                                                                    className="bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-green-600 transition-colors text-xs"
+                                                                    title="Add Payment"
+                                                                >
+                                                                    +
+                                                                </button>
+
                                                             </div>
                                                             {(() => {
                                                                 const payments = getPaymentsByExpenseId(row.id);
@@ -3635,7 +3767,7 @@ const History = ({ username, userRoles = [] }) => {
                                                     </div>
                                                 </td>
                                                 <td className="text-sm text-left pl-2 w-[120px] font-semibold">
-                                                    {Number(row.weekly_number) === Number(lastWeekNumber) && (
+                                                    {canEditSelectedWeek && (
                                                         <div className="flex gap-2">
                                                             {editingRowId === row.id ? (
                                                                 <button className="text-green-600 font-bold text-lg relative z-10" onClick={() => saveEditedExpense(row)}>
@@ -3704,10 +3836,17 @@ const History = ({ username, userRoles = [] }) => {
                                 </h1>
                             </div>
                             <div ref={paymentsScrollRef} className="rounded-lg border-l-8 border-l-[#BF9853] w-full overflow-y-auto max-h-[300px] thin-scrollbar"
+                                style={{
+                                    willChange: 'scroll-position',
+                                    WebkitOverflowScrolling: 'touch',
+                                    transform: 'translateZ(0)', // Force hardware acceleration
+                                    backfaceVisibility: 'hidden' // Optimize rendering
+                                }}
                                 onMouseDown={(e) => handleMouseDown(e, paymentsScrollRef)}
                                 onMouseMove={(e) => handleMouseMove(e, paymentsScrollRef)}
                                 onMouseUp={() => handleMouseUp(paymentsScrollRef)}
                                 onMouseLeave={() => handleMouseUp(paymentsScrollRef)}
+                                onWheel={(e) => e.stopPropagation()}
                             >
                                 <table className="w-full border-collapse">
                                     <thead className="bg-[#FAF6ED] h-12">
@@ -3786,7 +3925,7 @@ const History = ({ username, userRoles = [] }) => {
                                                     )}
                                                 </td>
                                                 <td className="px-2 py-2">
-                                                    {Number(row.weekly_number) === Number(lastWeekNumber) && (
+                                                    {canEditSelectedWeek && (
                                                         <div className="flex gap-1">
                                                             {editingPaymentId === row.id ? (
                                                                 <button
@@ -4197,7 +4336,8 @@ const History = ({ username, userRoles = [] }) => {
                                                             transfer_site_id: 0,
                                                             refund_amount: 0,
                                                             payment_mode: paymentPopupData.paymentMode,
-                                                            not_allow_to_edit: true
+                                                            not_allow_to_edit: true,
+                                                            branch_id: activeBranchId ?? null,
                                                         };
                                                         const advanceResponse = await fetch(
                                                             "https://backendaab.in/aabuildersDash/api/advance_portal/save",
@@ -4244,7 +4384,8 @@ const History = ({ username, userRoles = [] }) => {
                                                             description: "",
                                                             file_url: null,
                                                             labour_id: 0,
-                                                            not_allow_to_edit: true
+                                                            not_allow_to_edit: true,
+                                                            branch_id: activeBranchId ?? null,
                                                         };
                                                         const staffAdvanceResponse = await fetch(
                                                             "https://backendaab.in/aabuildersDash/api/staff-advance/save",
@@ -4282,7 +4423,8 @@ const History = ({ username, userRoles = [] }) => {
                                                     cheque_number: paymentPopupData.chequeNo || null,
                                                     cheque_date: paymentPopupData.chequeDate || null,
                                                     transaction_number: paymentPopupData.transactionNumber || null,
-                                                    account_number: paymentPopupData.accountNumber || null
+                                                    account_number: paymentPopupData.accountNumber || null,
+                                                    branch_id: activeBranchId ?? null,
                                                 };
                                                 const response = await fetch("https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save", {
                                                     method: "POST",
@@ -4293,8 +4435,8 @@ const History = ({ username, userRoles = [] }) => {
                                                     throw new Error("Failed to save payment");
                                                 }
                                                 const [expensesRes, paymentsRes] = await Promise.all([
-                                                    axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`),
-                                                    axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`)
+                                                    axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
+                                                    axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
                                                 ]);
                                                 setExpenses(expensesRes.data);
                                                 const filteredPayments = paymentsRes.data.filter(
@@ -4575,7 +4717,8 @@ const History = ({ username, userRoles = [] }) => {
                                             comments: categoryComments || "",
                                             machineTools: "",
                                             source: "Cash Register",
-                                            billCopyUrl: currentProjectAdvanceRow.bill_copy_url
+                                            billCopyUrl: currentProjectAdvanceRow.bill_copy_url,
+                                            branchId: activeBranchId ?? null,
                                         };
                                         const expensesFormResponse = await fetch('https://backendaab.in/aabuilderDash/expenses_form/save', {
                                             method: 'POST',
@@ -4595,8 +4738,8 @@ const History = ({ username, userRoles = [] }) => {
                                         });
                                         if (response.ok) {
                                             const [expensesRes, paymentsRes] = await Promise.all([
-                                                axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`),
-                                                axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`)
+                                                axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
+                                                axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
                                             ]);
                                             setExpenses(expensesRes.data);
                                             const filteredPayments = paymentsRes.data.filter(

@@ -6,7 +6,7 @@ import Sidebar from './Sidebar';
 import Logout from '../Images/Logout.png'
 import DownloadIcon from '../Images/download.png';
 import EditIcon from '../Images/Edit.svg';
-const Navbar = ({ username, userImage, position, email, onLogout, userRoles = [] }) => {
+const Navbar = ({ username, userImage, position, email, onLogout, userRoles = [], branchId, brachId }) => {
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isProfileDropdownVisible, setIsProfileDropdownVisible] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -22,6 +22,8 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
   const [siteLookup, setSiteLookup] = useState({});
   const [editRequests, setEditRequests] = useState([]);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [branchOptions, setBranchOptions] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState('');
   const sidebarRef = useRef(null);
   const profileRef = useRef(null);
   const [roleModels, setRoleModels] = useState([]);
@@ -50,6 +52,94 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
   const normalizedUsername = username?.trim().toLowerCase();
   const canDownloadExpenses = normalizedUsername === 'admin' || normalizedUsername === 'mahalingam m';
   const canViewEditRequests = normalizedUsername === 'admin' || normalizedUsername === 'mahalingam m';
+  const canSelectBranch = normalizedUsername === 'admin' || normalizedUsername === 'mahalingam m';
+  const getStoredUser = () => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}');
+    } catch {
+      return {};
+    }
+  };
+  const storedUser = getStoredUser();
+  const parsedBranchId = Number(
+    branchId ??
+    brachId ??
+    storedUser?.branchId ??
+    storedUser?.branch_id ??
+    storedUser?.brachId
+  );
+  const userBranchId = Number.isFinite(parsedBranchId) ? parsedBranchId : '';
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBranches = async () => {
+      try {
+        const response = await axios.get('https://backendaab.in/aabuildersDash/api/branch/getAll', { withCredentials: true });
+        if (!isMounted) return;
+        const branches = Array.isArray(response.data) ? response.data : [];
+        setBranchOptions(branches);
+      } catch (error) {
+        console.error('Error fetching branch list:', error);
+      }
+    };
+    fetchBranches();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+  useEffect(() => {
+    const savedBranchId = localStorage.getItem('selectedBranchId');
+    const savedBranchIdAsNumber = Number(savedBranchId);
+    const hasValidSavedBranch = Number.isFinite(savedBranchIdAsNumber) && savedBranchIdAsNumber > 0;
+    if (canSelectBranch) {
+      const nextBranchId = hasValidSavedBranch ? String(savedBranchIdAsNumber) : '';
+      setSelectedBranchId(nextBranchId);
+      if (nextBranchId) {
+        localStorage.setItem('selectedBranchId', nextBranchId);
+        window.dispatchEvent(new CustomEvent('branchSelectionChanged', { detail: { branchId: nextBranchId } }));
+      }
+      return;
+    }
+    if (userBranchId !== '') {
+      const fixedBranchId = String(userBranchId);
+      setSelectedBranchId(fixedBranchId);
+      localStorage.setItem('selectedBranchId', fixedBranchId);
+      window.dispatchEvent(new CustomEvent('branchSelectionChanged', { detail: { branchId: fixedBranchId } }));
+    }
+  }, [canSelectBranch, userBranchId]);
+  useEffect(() => {
+    if (!Array.isArray(branchOptions) || branchOptions.length === 0) return;
+    if (canSelectBranch) {
+      if (selectedBranchId) return;
+      const fallbackBranchId = userBranchId || branchOptions[0]?.id;
+      if (fallbackBranchId) {
+        const branchIdString = String(fallbackBranchId);
+        setSelectedBranchId(branchIdString);
+        localStorage.setItem('selectedBranchId', branchIdString);
+        window.dispatchEvent(new CustomEvent('branchSelectionChanged', { detail: { branchId: branchIdString } }));
+      }
+      return;
+    }
+    if (userBranchId !== '') {
+      const fixedBranchId = String(userBranchId);
+      if (selectedBranchId !== fixedBranchId) {
+        setSelectedBranchId(fixedBranchId);
+        localStorage.setItem('selectedBranchId', fixedBranchId);
+        window.dispatchEvent(new CustomEvent('branchSelectionChanged', { detail: { branchId: fixedBranchId } }));
+      }
+    }
+  }, [branchOptions, canSelectBranch, selectedBranchId, userBranchId]);
+  const handleBranchChange = (event) => {
+    const nextBranchId = event.target.value;
+    setSelectedBranchId(nextBranchId);
+    if (nextBranchId) {
+      localStorage.setItem('selectedBranchId', nextBranchId);
+      const selectedBranch = branchOptions.find((branch) => String(branch.id) === String(nextBranchId));
+      if (selectedBranch?.branch) {
+        localStorage.setItem('selectedBranchName', selectedBranch.branch);
+      }
+    }
+    window.dispatchEvent(new CustomEvent('branchSelectionChanged', { detail: { branchId: nextBranchId } }));
+  };
   const handleDownloadExpenses = async () => {
     if (isDownloading || !canDownloadExpenses) return;
     setIsDownloading(true);
@@ -411,7 +501,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         }
         return str;
       };
-
       // Helper function to safely process worksheet data and truncate long values
       const processWorksheetData = (data) => {
         return data.map(row => {
@@ -422,7 +511,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           return processedRow;
         });
       };
-
       // Process MasterData tables
       // Process Project Names (already fetched as projectsResponse)
       const projectNamesData = Array.isArray(projectsResponse.data) ? projectsResponse.data : [];
@@ -432,7 +520,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'Site Name': item.siteName || '',
         'Site No': item.siteNo || ''
       }));
-
       // Process Vendor Names (already fetched as vendorsResponse)
       const vendorNamesData = Array.isArray(vendorsResponse.data) ? vendorsResponse.data : [];
       const vendorNamesWorksheetData = vendorNamesData.map((item, index) => ({
@@ -450,7 +537,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'Contact Email': item.contact_email || '',
         'QR Image': item.upi_qr_image || ''
       }));
-
       // Process Contractor Names (already fetched as contractorsResponse)
       const contractorNamesData = Array.isArray(contractorsResponse.data) ? contractorsResponse.data : [];
       const contractorNamesWorksheetData = contractorNamesData.map((item, index) => ({
@@ -468,7 +554,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'Contact Email': item.contact_email || '',
         'QR Image': item.upi_qr_image || ''
       }));
-
       // Process Categories
       const categoriesData = Array.isArray(categoriesResponse.data) ? categoriesResponse.data : [];
       const categoriesWorksheetData = categoriesData.map((item, index) => ({
@@ -476,7 +561,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'ID': item.id || '',
         'Category': item.category || ''
       }));
-
       // Process Machine Tools
       const machineToolsData = Array.isArray(machineToolsResponse.data) ? machineToolsResponse.data : [];
       const machineToolsWorksheetData = machineToolsData.map((item, index) => ({
@@ -484,7 +568,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'ID': item.id || '',
         'Machine Tool': item.machineTool || ''
       }));
-
       // Process Employee Details
       const employeeDetailsData = Array.isArray(employeeDetailsResponse.data) ? employeeDetailsResponse.data : [];
       const employeeDetailsWorksheetData = employeeDetailsData.map((item, index) => ({
@@ -504,7 +587,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'Employee ID': item.employee_id || '',
         'Aadhaar PDF': item.aadhaar_pdf || ''
       }));
-
       // Process Labours List
       const laboursListData = Array.isArray(laboursListResponse.data) ? laboursListResponse.data : [];
       const laboursListWorksheetData = laboursListData.map((item, index) => ({
@@ -513,7 +595,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'Labour Name': item.labour_name || '',
         'Salary': item.labourSalary || ''
       }));
-
       // Process Account Details
       const accountDetailsData = Array.isArray(accountDetailsResponse.data) ? accountDetailsResponse.data : [];
       const accountDetailsWorksheetData = accountDetailsData.map((item, index) => ({
@@ -529,7 +610,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'Account Type': item.account_type || '',
         'QR Image': item.upi_qr_image || ''
       }));
-
       // Process Bank Account Types
       const bankAccountTypesData = Array.isArray(bankAccountTypesResponse.data) ? bankAccountTypesResponse.data : [];
       const bankAccountTypesWorksheetData = bankAccountTypesData.map((item, index) => ({
@@ -537,7 +617,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'ID': item.id || '',
         'Bank Account Type': item.bank_account_type || ''
       }));
-
       // Process EB Service Links
       const ebServiceLinksData = Array.isArray(ebServiceLinksResponse.data) ? ebServiceLinksResponse.data : [];
       const ebServiceLinksWorksheetData = ebServiceLinksData.map((item, index) => ({
@@ -547,22 +626,18 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         'Door No': item.door_no || '',
         'EB Service No': item.eb_service_no || ''
       }));
-
       // Process Projects (Project Management) - already fetched as projectClientsResponse
       const projectsManagementData = Array.isArray(projectClientsResponse.data) ? projectClientsResponse.data : [];
       const projectsManagementWorksheetData = projectsManagementData.map((project, index) => {
         const ownerDetails = Array.isArray(project.ownerDetailsList) ? project.ownerDetailsList : [];
         const propertyDetails = Array.isArray(project.propertyDetailsList) ? project.propertyDetailsList : [];
-        
         // Flatten owner details
         const ownerNames = ownerDetails.map(o => o.clientName).filter(Boolean).join('; ');
         const ownerMobiles = ownerDetails.map(o => o.mobile).filter(Boolean).join('; ');
-        
         // Flatten property details
         const shopNos = propertyDetails.map(p => p.shopNo).filter(Boolean).join('; ');
         const doorNos = propertyDetails.map(p => p.doorNo).filter(Boolean).join('; ');
         const ebNos = propertyDetails.map(p => p.ebNo).filter(Boolean).join('; ');
-        
         return {
           'S.No': index + 1,
           'ID': project.id || '',
@@ -580,7 +655,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           'Property Details': truncateCellValue(JSON.stringify(propertyDetails))
         };
       });
-
       // Process Staff Advance
       const staffAdvanceData = Array.isArray(staffAdvanceResponse.data) ? staffAdvanceResponse.data : [];
       const getEmployeeOrLabourName = (entry) => {
@@ -626,7 +700,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           'Allow To Edit': entry.allow_to_edit ? 'Yes' : 'No'
         };
       });
-
       // Create worksheets with truncated data to prevent Excel cell length errors
       const expensesWorksheet = XLSX.utils.json_to_sheet(processWorksheetData(worksheetData));
       const advanceWorksheet = XLSX.utils.json_to_sheet(processWorksheetData(advanceWorksheetData));
@@ -644,7 +717,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       const ebServiceLinksWorksheet = XLSX.utils.json_to_sheet(processWorksheetData(ebServiceLinksWorksheetData));
       const projectsManagementWorksheet = XLSX.utils.json_to_sheet(processWorksheetData(projectsManagementWorksheetData));
       const staffAdvanceWorksheet = XLSX.utils.json_to_sheet(processWorksheetData(staffAdvanceWorksheetData));
-
       // Create workbook and add all sheets
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, expensesWorksheet, 'Expenses');
@@ -664,10 +736,8 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       XLSX.utils.book_append_sheet(workbook, bankAccountTypesWorksheet, 'Bank Account Types');
       XLSX.utils.book_append_sheet(workbook, ebServiceLinksWorksheet, 'EB Service Links');
       XLSX.utils.book_append_sheet(workbook, projectsManagementWorksheet, 'Project Management');
-      
       const dateStamp = new Date().toISOString().split('T')[0];
       XLSX.writeFile(workbook, `Expenses_${dateStamp}.xlsx`);
-
       // Process and download VendorPayments Tracker data as separate file
       const vendorPaymentsTrackerData = Array.isArray(vendorPaymentsTrackerResponse.data) ? vendorPaymentsTrackerResponse.data : [];
       const formatTimestampForTracker = (dateString) => {
@@ -687,7 +757,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           return dateString;
         }
       };
-
       // Fetch all bill entries and payment details for all trackers
       const fetchBillEntriesForAllTrackers = async () => {
         const allBillEntries = [];
@@ -713,7 +782,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         }
         return allBillEntries;
       };
-
       const fetchPaymentDetailsForAllTrackers = async () => {
         const allPaymentDetails = [];
         for (const tracker of vendorPaymentsTrackerData) {
@@ -738,13 +806,11 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         }
         return allPaymentDetails;
       };
-
       // Fetch related data
       const [allBillEntries, allPaymentDetails] = await Promise.all([
         fetchBillEntriesForAllTrackers(),
         fetchPaymentDetailsForAllTrackers()
       ]);
-
       // Process VendorPayments Tracker main sheet
       const vendorPaymentsTrackerWorksheetData = vendorPaymentsTrackerData.map((item, index) => {
         return {
@@ -762,7 +828,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           'Updated At': item.updated_at || item.updatedAt || '-'
         };
       });
-
       // Process Bill Entries sheet
       const billEntriesWorksheetData = allBillEntries.map((entry, index) => {
         return {
@@ -775,7 +840,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           'Updated At': entry.updated_at || entry.updatedAt || '-'
         };
       });
-
       // Process Payment Details sheet
       const paymentDetailsWorksheetData = allPaymentDetails.map((payment, index) => {
         return {
@@ -797,18 +861,15 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           'Updated At': payment.updated_at || payment.updatedAt || '-'
         };
       });
-
       // Create worksheets
       const vendorPaymentsTrackerWorksheet = XLSX.utils.json_to_sheet(processWorksheetData(vendorPaymentsTrackerWorksheetData));
       const billEntriesWorksheet = XLSX.utils.json_to_sheet(processWorksheetData(billEntriesWorksheetData));
-      const paymentDetailsWorksheet = XLSX.utils.json_to_sheet(processWorksheetData(paymentDetailsWorksheetData));
-      
+      const paymentDetailsWorksheet = XLSX.utils.json_to_sheet(processWorksheetData(paymentDetailsWorksheetData));      
       // Create separate workbook for VendorPayments Tracker with multiple sheets
       const vendorPaymentsTrackerWorkbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(vendorPaymentsTrackerWorkbook, vendorPaymentsTrackerWorksheet, 'Vendor Payments Tracker');
       XLSX.utils.book_append_sheet(vendorPaymentsTrackerWorkbook, billEntriesWorksheet, 'Bill Entries');
-      XLSX.utils.book_append_sheet(vendorPaymentsTrackerWorkbook, paymentDetailsWorksheet, 'Payment Details');
-      
+      XLSX.utils.book_append_sheet(vendorPaymentsTrackerWorkbook, paymentDetailsWorksheet, 'Payment Details');      
       // Download the VendorPayments Tracker file
       XLSX.writeFile(vendorPaymentsTrackerWorkbook, `VendorPaymentsTracker_${dateStamp}.xlsx`);
     } catch (error) {
@@ -900,7 +961,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
     };
     fetchReferenceData();
   }, [canViewEditRequests]);
-
   const fetchEditRequests = async () => {
     try {
       const response = await axios.get('https://backendaab.in/aabuildersDash/api/edit_requests/getAll', {
@@ -914,16 +974,12 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       console.error('Error fetching edit requests:', error);
     }
   };
-
   const loadRequestRecord = async (request) => {
     if (!request?.module_name_id) return;
-
     try {
       setRequestRecordLoading(true);
       setRequestRecordError('');
-
       let response;
-
       if (request.module_name === 'Advance Portal') {
         response = await axios.get(
           `https://backendaab.in/aabuildersDash/api/advance_portal/get/${request.module_name_id}`,
@@ -942,15 +998,12 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       }else {
         return; // unsupported module
       }
-
       const record = response.data;
-
       if (record) {
         setSelectedRequestRecord(record);
       } else {
         setRequestRecordError('Unable to locate record details.');
       }
-
     } catch (error) {
       console.error('Error loading request record:', error);
       setRequestRecordError('Failed to load record details.');
@@ -965,7 +1018,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
     setIsEditRequestsDropdownOpen(false);
     loadRequestRecord(request);
   };
-
   const getVendorNameById = (id) => vendorLookup?.[id] || '';
   const getContractorNameById = (id) => contractorLookup?.[id] || '';
   const getEmployeeNameById = (id) => employeeLookup?.[id] || '';
@@ -974,7 +1026,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
     if (id === null || id === undefined) return '';
     return siteLookup?.[id] || '';
   };
-
   const getAssociateName = (record) => {
     if (!record) return '';
     if (record.vendor_id) return getVendorNameById(record.vendor_id);
@@ -983,14 +1034,12 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
     if (record.labour_id) return getLabourNameById(record.labour_id);
     return '';
   };
-
   const formatCurrency = (value) => {
     if (value === null || value === undefined || value === '') return '';
     const num = Number(value);
     if (Number.isNaN(num)) return value;
     return num.toLocaleString('en-IN', { maximumFractionDigits: 0 });
   };
-
   const handleApproveRequest = async (requestId, moduleName, moduleNameId) => {
     try {
       if (moduleNameId) {
@@ -1031,7 +1080,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       alert('Failed to approve request. Please try again.');
     }
   };
-
   const handleRejectRequest = async (requestId) => {
     try {
       await axios.put(`https://backendaab.in/aabuildersDash/api/edit_requests/edit/${requestId}`, {
@@ -1049,7 +1097,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       alert('Failed to reject request. Please try again.');
     }
   };
-
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     try {
@@ -1067,7 +1114,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       return dateString;
     }
   };
-
   const formatDateOnly = (dateString) => {
     if (!dateString) return '-';
     try {
@@ -1080,7 +1126,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       return dateString;
     }
   };
-
   return (
     <>
       <nav className="navbar fixed w-full top-0 z-50 bg-white h-14 shadow-md">
@@ -1092,19 +1137,42 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
               className="cursor-pointer w-[42px] h-[40px] rounded-full"
               onClick={toggleSidebar}
             />
-            <p className="text-[#BF9853] ml-2 font-medium text-lg">BUILDERS</p>
+            <p className="hidden md:block text-[#BF9853] ml-2 font-medium text-lg">BUILDERS</p>
           </div>
           <div className="relative flex items-center space-x-4" ref={profileRef}>
+            {canSelectBranch ? (
+              <div className="flex items-center">
+                <select
+                  value={selectedBranchId}
+                  onChange={handleBranchChange}
+                  className="h-9 px-2 rounded-md border border-[#BF9853] text-[#5B4636] text-sm focus:outline-none focus:ring-1 focus:ring-[#BF9853]"
+                  title="Select Branch"
+                >
+                  <option value="">Select Branch</option>
+                  {branchOptions.map((item) => (
+                    <option key={item.id} value={String(item.id)}>
+                      {item.branch}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : selectedBranchId ? (
+              <div className="flex items-center">
+                <span className="h-9 px-3 flex items-center rounded-md border border-[#BF9853] text-[#5B4636] text-sm bg-gray-50">
+                  {branchOptions.find((b) => String(b.id) === String(selectedBranchId))?.branch || ''}
+                </span>
+              </div>
+            ) : null}
             {canDownloadExpenses && (
               <button type="button" onClick={handleDownloadExpenses} disabled={isDownloading}
-                className="flex items-center border border-[#BF9853] rounded-md text-[#BF9853] hover:bg-[#BF9853] hover:text-white transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="hidden md:flex items-center border border-[#BF9853] rounded-md text-[#BF9853] hover:bg-[#BF9853] hover:text-white transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
                 title={isDownloading ? "Preparing download..." : "Download expenses and master data"}
               >
                 <img src={DownloadIcon} alt="Download expenses" className="w-5 h-5" />
               </button>
             )}
             {canViewEditRequests && (
-              <div className="relative">
+              <div className="hidden md:block relative">
                 <button
                   type="button"
                   onClick={() => {

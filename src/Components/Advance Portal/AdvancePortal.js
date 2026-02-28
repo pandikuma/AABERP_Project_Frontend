@@ -9,6 +9,34 @@ import edit from '../Images/Edit.svg';
 import file from '../Images/file.png';
 
 const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
+  const resolveActiveBranchId = () => {
+    try {
+      const selectedBranchId = localStorage.getItem("selectedBranchId");
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const fallbackBranchId = user?.branchId ?? user?.branch_id ?? user?.brachId;
+      const resolved = Number(selectedBranchId || fallbackBranchId);
+      return Number.isFinite(resolved) && resolved > 0 ? resolved : null;
+    } catch {
+      return null;
+    }
+  };
+  const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
+  const withBranchUrl = (baseUrl) => {
+    const url = new URL(baseUrl);
+    if (activeBranchId !== null && activeBranchId !== undefined && activeBranchId !== "") {
+      url.searchParams.set("branchId", String(activeBranchId));
+    }
+    return url.toString();
+  };
+  useEffect(() => {
+    const syncBranch = () => {
+      const nextBranchId = resolveActiveBranchId();
+      setActiveBranchId((prevBranchId) => (prevBranchId === nextBranchId ? prevBranchId : nextBranchId));
+    };
+    syncBranch();
+    window.addEventListener("branchSelectionChanged", syncBranch);
+    return () => window.removeEventListener("branchSelectionChanged", syncBranch);
+  }, []);
   // Use paymentModeOptions from props, fallback to default if not provided
   const defaultPaymentModeOptions = [
     { value: 'Cash', label: 'Cash' },
@@ -66,6 +94,10 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isReviewEditMode, setIsReviewEditMode] = useState(false);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateMatchedExpenses, setDuplicateMatchedExpenses] = useState([]);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [pendingActionAfterIgnore, setPendingActionAfterIgnore] = useState(null);
   useEffect(() => {
     const savedselectedType = sessionStorage.getItem('selectedType');
     const savedContractorVendor = sessionStorage.getItem('selectedOption');
@@ -320,7 +352,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
   };
   useEffect(() => {
     fetchLatestEno();
-  }, []);
+  }, [activeBranchId]);
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -335,7 +367,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       }
     };
     fetchData();
-  }, []);
+  }, [activeBranchId]);
   const handleChange = async (selected) => {
     setSelectedOption(selected);
     if (selected) {
@@ -534,11 +566,97 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     }
     return true;
   };
+  const formatDateOnlyForDup = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+  const formatDateForDup = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return `${day}/${month}/${year} ${hour12}:${minutes} ${ampm}`;
+  };
+  const checkForDuplicateEntry = async (checkDate, checkAmount) => {
+    const vendorLabel = selectedOption?.type === 'Vendor' ? selectedOption.label : '';
+    const contractorLabel = selectedOption?.type === 'Contractor' ? selectedOption.label : '';
+    const siteLabel = selectedSite ? selectedSite.label : '';
+    const dateStr = checkDate ? new Date(checkDate).toISOString().split('T')[0] : '';
+
+    try {
+      const response = await fetch(withBranchUrl('https://backendaab.in/aabuilderDash/expenses_form/get_form'));
+      if (!response.ok) return [];
+      const allExpenses = await response.json();
+
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+      const matching = allExpenses.filter((exp) => {
+        const expDate = new Date(exp.timestamp || exp.date).toISOString().split('T')[0];
+        const expAmount = Math.abs(parseFloat(exp.amount) || 0);
+        const dateMatch = expDate === dateStr;
+        const amountMatch = Math.abs(expAmount - (checkAmount || 0)) < 0.01;
+        const projectMatch = (exp.siteName === siteLabel) || (exp.projectId && selectedSite && Number(exp.projectId) === Number(selectedSite.id));
+        let vendorContractorMatch = false;
+        if (vendorLabel) vendorContractorMatch = (exp.vendor || '') === vendorLabel;
+        else if (contractorLabel) vendorContractorMatch = (exp.contractor || '') === contractorLabel;
+        const isWithinLastMonth = new Date(exp.timestamp || exp.date) >= oneMonthAgo;
+        return dateMatch && amountMatch && projectMatch && vendorContractorMatch && isWithinLastMonth;
+      });
+
+      return matching;
+    } catch (err) {
+      console.error('Error checking duplicate:', err);
+      return [];
+    }
+  };
+  const handleDuplicateIgnore = () => {
+    setShowDuplicateModal(false);
+    setDuplicateMatchedExpenses([]);
+    if (pendingActionAfterIgnore === 'review') {
+      setPendingActionAfterIgnore(null);
+      setShowReviewModal(true);
+      setIsReviewEditMode(false);
+    } else if (pendingActionAfterIgnore === 'paymentSubmit') {
+      setPendingActionAfterIgnore(null);
+      handlePaymentSubmit(true);
+    }
+  };
+  const handleDuplicateCancel = () => {
+    setShowDuplicateModal(false);
+    setDuplicateMatchedExpenses([]);
+    setPendingActionAfterIgnore(null);
+  };
   const handleSubmit = async () => {
     if (!validateFormFields()) {
       return;
     }
-    // Show review modal before submission
+    if (selectedType === 'Advance' || selectedType === 'Bill Settlement') {
+      const checkAmount = selectedType === 'Bill Settlement' ? (parseFloat(billAmount) || 0) : (parseFloat(advanceAmount.toString().replace(/,/g, '')) || 0);
+      setCheckingDuplicate(true);
+      try {
+        const duplicates = await checkForDuplicateEntry(dateValue, checkAmount);
+        if (duplicates && duplicates.length > 0) {
+          setDuplicateMatchedExpenses(duplicates);
+          setPendingActionAfterIgnore('review');
+          setShowDuplicateModal(true);
+          setCheckingDuplicate(false);
+          return;
+        }
+      } catch (err) {
+        console.error('Duplicate check failed:', err);
+      }
+      setCheckingDuplicate(false);
+    }
     setShowReviewModal(true);
     setIsReviewEditMode(false);
   };
@@ -600,7 +718,18 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
             const year = date.getFullYear();
             return `${day}-${month}-${year}`;
           };
-          const finalName = `${formatDateOnly(dateValue)} ${selectedSite.sNo} ${selectedOption.label}`;
+          const now = new Date();
+          const timestamp = now.toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          })
+            .replace(",", "")
+            .replace(/\s/g, "-");
+          const finalName = `${timestamp} ${selectedSite.sNo} ${selectedOption.label}`;
           formData.append('file', selectedAdvanceFile);
           formData.append('file_name', finalName);
           const uploadResponse = await fetch("https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
@@ -642,6 +771,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         week_no: getWeekNumber(),
         description: description,
         file_url: fileUrl,
+        branch_id: activeBranchId,
         ...overrides
       });
       if (selectedType === 'Transfer') {
@@ -665,10 +795,11 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
             labour_id: 0,
             project_id: 0,
             description: "Transfer from Advance Portal",
-            file_url: ""
+            file_url: "",
+            branch_id: activeBranchId
           };
           // Save to LoanPortal
-          const loanResponse = await fetch("https://backendaab.in/aabuildersDash/api/loans/save", {
+          const loanResponse = await fetch(withBranchUrl("https://backendaab.in/aabuildersDash/api/loans/save"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(loanPayload)
@@ -683,7 +814,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
             amount: -Math.abs(amountValue),
             loan_portal_id: loanPortalId
           });
-          await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/save', {
+          await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(advancePayload)
@@ -716,7 +847,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
             amount: -Math.abs(amountValue),
             vendor_carry_forward_id: vendorCarryForwardId
           });
-          await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/save', {
+          await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(advancePayload)
@@ -730,12 +861,12 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
             amount: Math.abs(amountValue)
           });
           await Promise.all([
-            fetch('https://backendaab.in/aabuildersDash/api/advance_portal/save', {
+            fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(firstPayload)
             }),
-            fetch('https://backendaab.in/aabuildersDash/api/advance_portal/save', {
+            fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(secondPayload)
@@ -744,7 +875,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         }
       } else {
         const payload = createPayload();
-        await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/save', {
+        await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -775,8 +906,9 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
             machineTools: '',
             billCopyUrl: fileUrl || '',
             source: "Advance Portal",
+            branchId: activeBranchId,
           };
-          const expensesResponse = await fetch("https://backendaab.in/aabuilderDash/expenses_form/save", {
+          const expensesResponse = await fetch(withBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/save"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -833,7 +965,28 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     } else {
       setProjectAdvance('');
     }
-  }, [selectedOption, selectedSite]);
+  }, [selectedOption, selectedSite, activeBranchId]);
+  useEffect(() => {
+    if (!selectedOption) {
+      setOverallAdvance(0);
+      return;
+    }
+    const total = advanceData
+      .filter((item) => (
+        selectedOption.type === 'Vendor'
+          ? item.vendor_id === selectedOption.id
+          : selectedOption.type === 'Contractor'
+            ? item.contractor_id === selectedOption.id
+            : false
+      ))
+      .reduce((sum, curr) => {
+        const amount = parseFloat(curr.amount) || 0;
+        const billAmount = parseFloat(curr.bill_amount) || 0;
+        const refundAmount = parseFloat(curr.refund_amount) || 0;
+        return sum + amount - billAmount - refundAmount;
+      }, 0);
+    setOverallAdvance(total);
+  }, [advanceData, selectedOption]);
   useEffect(() => {
     const today = new Date();
     const formatted = today.toISOString().split('T')[0];
@@ -1161,7 +1314,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     });
     setIsEditModalOpen(true);
   };
-  const handlePaymentSubmit = async () => {
+  const handlePaymentSubmit = async (skipDuplicateCheck = false) => {
     if (!paymentModalData.accountNumber && paymentModalData.paymentMode !== "Cash" && paymentModalData.paymentMode !== "Direct") {
       alert("Please select account number.");
       return;
@@ -1180,6 +1333,25 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       alert("Please select a category for Bill Settlement");
       return;
     }
+
+    if (!skipDuplicateCheck && (selectedType === 'Advance' || selectedType === 'Bill Settlement')) {
+      const checkAmount = selectedType === 'Bill Settlement' ? (parseFloat(billAmount) || 0) : (parseFloat(paymentModalData.amount) || 0);
+      setCheckingDuplicate(true);
+      try {
+        const duplicates = await checkForDuplicateEntry(paymentModalData.date, checkAmount);
+        if (duplicates && duplicates.length > 0) {
+          setDuplicateMatchedExpenses(duplicates);
+          setPendingActionAfterIgnore('paymentSubmit');
+          setShowDuplicateModal(true);
+          setCheckingDuplicate(false);
+          return;
+        }
+      } catch (err) {
+        console.error('Duplicate check failed:', err);
+      }
+      setCheckingDuplicate(false);
+    }
+
     setIsSubmitting(true);
     try {
       // Upload file if exists (for Bill Settlement)
@@ -1249,9 +1421,10 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         week_no: getWeekNumber(),
         description: description,
         file_url: fileUrl,
+        branch_id: activeBranchId,
       };
       // Save to advance portal
-      const advanceResponse = await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/save', {
+      const advanceResponse = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(advancePayload)
@@ -1283,10 +1456,11 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
           cheque_number: paymentModalData.chequeNo || null,
           cheque_date: paymentModalData.chequeDate || null,
           transaction_number: paymentModalData.transactionNumber || null,
-          account_number: paymentModalData.accountNumber || null
+          account_number: paymentModalData.accountNumber || null,
+          branch_id: activeBranchId
         };
         // Save to weekly payment bills
-        const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
+        const weeklyResponse = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(weeklyPaymentBillPayload)
@@ -1320,9 +1494,10 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
           category: selectedCategory ? selectedCategory.label : '',
           comments: description,
           machineTools: '',
-          billCopyUrl: fileUrl || ''
+          billCopyUrl: fileUrl || '',
+          branchId: activeBranchId
         };
-        const expensesResponse = await fetch("https://backendaab.in/aabuilderDash/expenses_form/save", {
+        const expensesResponse = await fetch(withBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/save"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1386,13 +1561,15 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
           const updatedEdited = {
             ...editFormData,
             transfer_site_id: parseInt(editFormData.transfer_site_id),
-            amount: enteredAmount // positive
+            amount: enteredAmount, // positive
+            branch_id: editFormData.branch_id ?? activeBranchId
           };
           const updatedOther = {
             ...otherRecord,
             project_id: parseInt(editFormData.transfer_site_id), // new "to" site
             transfer_site_id: editedRecord.project_id, // old "from" site
-            amount: -Math.abs(enteredAmount) // negative
+            amount: -Math.abs(enteredAmount), // negative
+            branch_id: otherRecord.branch_id ?? activeBranchId
           };
           // Send both PUT requests
           await Promise.all([
@@ -1412,10 +1589,14 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         }
       } else {
         // Normal single update
+        const payload = {
+          ...editFormData,
+          branch_id: editFormData.branch_id ?? activeBranchId
+        };
         const res = await fetch(`https://backendaab.in/aabuildersDash/api/advance_portal/edit/${editingId}?editedBy=${username}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editFormData)
+          body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error('Failed to update');
       }
@@ -1668,12 +1849,10 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                       </div>
                       {selectedAdvanceFile && <span className="text-gray-600 text-sm">{selectedAdvanceFile.name}</span>}
                     </div>
-                    <button
-                      className='bg-[#c7934c] text-white w-full sm:w-[120px] h-[33px] rounded flex items-center justify-center text-sm xl:mb-0 mb-2'
-                      onClick={handleSubmit}
-                      disabled={isSubmitting}
+                    <button className='bg-[#c7934c] text-white w-full sm:w-[120px] h-[33px] rounded flex items-center justify-center text-sm xl:mb-0 mb-2'
+                      onClick={handleSubmit} disabled={isSubmitting || checkingDuplicate}
                     >
-                      {isSubmitting ? 'Saving...' : getButtonLabel()}
+                      {checkingDuplicate ? 'Checking...' : isSubmitting ? 'Saving...' : getButtonLabel()}
                     </button>
                     <ToastContainer
                       position="top-right"
@@ -1952,25 +2131,111 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                 </div>
               </div>
               <div className="flex justify-center sm:justify-end gap-3 mt-4">
-                <button
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="w-[100px] h-[45px] border border-[#BF9853] rounded text-sm"
-                >
+                <button onClick={() => setIsEditModalOpen(false)} className="w-[100px] h-[45px] border border-[#BF9853] rounded text-sm">
                   Cancel
                 </button>
-                <button
-                  onClick={handleUpdate}
-                  className="w-[100px] h-[45px] bg-[#BF9853] text-white rounded text-sm"
-                >
+                <button onClick={handleUpdate} className="w-[100px] h-[45px] bg-[#BF9853] text-white rounded text-sm">
                   Save
                 </button>
               </div>
             </div>
           </div>
         )}
+        {showDuplicateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-[1600px] max-h-[90vh] shadow-lg flex flex-col">
+              <div className="px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-bold text-black">Possible Duplicate Entry - Matching expenses found</h3>
+                  <button
+                    type="button"
+                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors duration-200 text-gray-500 text-xl font-bold"
+                    onClick={handleDuplicateCancel}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="mt-2 text-sm text-gray-600">
+                  Same date, vendor/contractor, project and amount detected. Total Entries: {duplicateMatchedExpenses.length} |
+                  Total Amount: ₹{duplicateMatchedExpenses.reduce((sum, item) => sum + Number(item.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto p-4">
+                <div className="overflow-x-auto border-l-8 border-l-[#BF9853] rounded-lg">
+                  <table className="table-fixed min-w-full border-collapse">
+                    <thead>
+                      <tr className="bg-[#FAF6ED]">
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">Time Stamp</th>
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">Date</th>
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">E.No</th>
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">Project Name</th>
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">Vendor</th>
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">Contractor</th>
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">A/C Type</th>
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">Amount</th>
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">Comments</th>
+                        <th className="px-3 py-3 text-left font-bold text-sm border-b">Attach File</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {duplicateMatchedExpenses.map((expense, index) => (
+                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-[#FAF6ED]'}>
+                          <td className="px-3 py-2 text-left text-sm font-semibold border-b">{formatDateForDup(expense.timestamp || expense.date)}</td>
+                          <td className="px-3 py-2 text-left text-sm font-semibold border-b">{formatDateOnlyForDup(expense.date)}</td>
+                          <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.eno || '-'}</td>
+                          <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.siteName || '-'}</td>
+                          <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.vendor || '-'}</td>
+                          <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.contractor || '-'}</td>
+                          <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.accountType || '-'}</td>
+                          <td className="px-3 py-2 text-left text-sm font-semibold border-b">
+                            ₹{Number(expense.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-3 py-2 text-left text-sm font-semibold border-b">{expense.comments || '-'}</td>
+                          <td className="px-3 py-2 text-left text-sm border-b">
+                            {(expense.billCopy || expense.billCopyUrl) ? (
+                              <a
+                                href={expense.billCopy || expense.billCopyUrl}
+                                className="text-red-500 underline font-semibold"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                View
+                              </a>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-between">
+                <span className="text-sm text-gray-600">Do you want to proceed anyway?</span>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded font-medium hover:bg-gray-50 transition-colors duration-200"
+                    onClick={handleDuplicateCancel}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-[#BF9853] text-white rounded font-medium hover:bg-[#a67c3a] transition-colors duration-200"
+                    onClick={handleDuplicateIgnore}
+                  >
+                    Ignore & Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {showPaymentModal && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white text-left rounded-xl p-6 w-[800px] max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="bg-white text-left rounded-xl p-8 w-[800px] max-h-[100vh] overflow-y-auto flex flex-col">
               <h3 className="text-lg font-semibold mb-4 text-center">Payment Details</h3>
               <div className="flex-1 overflow-hidden">
                 <div className="space-y-4 mb-4">
@@ -2006,7 +2271,6 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                       </div>
                     </div>
                   </div>
-
                   {(paymentModalData.paymentMode === "GPay" || paymentModalData.paymentMode === "PhonePe" ||
                     paymentModalData.paymentMode === "Net Banking" || paymentModalData.paymentMode === "Cheque") && (
                       <div className="border-2 border-[#BF9853] border-opacity-25 w-full rounded-lg p-4">
@@ -2070,17 +2334,10 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-4">
-                <button
-                  onClick={() => setShowPaymentModal(false)}
-                  className="w-[100px] h-[45px] border border-[#BF9853] rounded"
-                >
+                <button onClick={() => setShowPaymentModal(false)} className="w-[100px] h-[45px] border border-[#BF9853] rounded">
                   Cancel
                 </button>
-                <button
-                  onClick={handlePaymentSubmit}
-                  disabled={isSubmitting}
-                  className="w-[100px] h-[45px] bg-[#BF9853] text-white rounded"
-                >
+                <button onClick={handlePaymentSubmit} disabled={isSubmitting} className="w-[100px] h-[45px] bg-[#BF9853] text-white rounded">
                   {isSubmitting ? 'Saving...' : 'Submit'}
                 </button>
               </div>
@@ -2100,9 +2357,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                 <div className="flex-[0.40] flex flex-col">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-base font-semibold text-gray-700">Advance Details</h4>
-                    <button
-                      type="button"
-                      onClick={() => setIsReviewEditMode((prev) => !prev)}
+                    <button type="button" onClick={() => setIsReviewEditMode((prev) => !prev)}
                       className="px-4 py-2 border border-[#BF9853] text-[#BF9853] rounded-lg hover:bg-[#FFF8EE]"
                     >
                       {isReviewEditMode ? 'Cancel Edit' : 'Edit'}
@@ -2258,18 +2513,10 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                   </div>
                   {isReviewEditMode && (
                     <div className="flex justify-end gap-3 mt-4">
-                      <button
-                        type="button"
-                        onClick={() => setIsReviewEditMode(false)}
-                        className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg"
-                      >
+                      <button type="button" onClick={() => setIsReviewEditMode(false)} className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg">
                         Discard
                       </button>
-                      <button
-                        type="button"
-                        onClick={handleReviewSave}
-                        className="px-4 py-2 bg-[#BF9853] text-white rounded-lg"
-                      >
+                      <button type="button" onClick={handleReviewSave} className="px-4 py-2 bg-[#BF9853] text-white rounded-lg">
                         Save Changes
                       </button>
                     </div>
@@ -2296,27 +2543,16 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                   {selectedAdvanceFile && (
                     <p className="text-xs text-gray-500 mt-2 break-words">{selectedAdvanceFile.name}</p>
                   )}
-                  <button
-                    type="button"
-                    onClick={handleChangeAttachment}
-                    className="mt-4 px-4 py-2 border border-[#BF9853] text-[#BF9853] rounded-lg hover:bg-[#FFF8EE]"
-                  >
+                  <button type="button" onClick={handleChangeAttachment} className="mt-4 px-4 py-2 border border-[#BF9853] text-[#BF9853] rounded-lg hover:bg-[#FFF8EE]">
                     Change Attachfile
                   </button>
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={handleReviewClose}
-                  className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg"
-                >
+                <button type="button" onClick={handleReviewClose} className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg">
                   Close
                 </button>
-                <button
-                  type="button"
-                  onClick={handleReviewConfirm}
-                  disabled={isSubmitting || isReviewEditMode}
+                <button type="button" onClick={handleReviewConfirm} disabled={isSubmitting || isReviewEditMode}
                   className={`px-4 py-2 rounded-lg text-white ${isSubmitting || isReviewEditMode ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#BF9853]'}`}
                 >
                   {isSubmitting ? 'Submitting...' : 'Confirm & Submit'}
