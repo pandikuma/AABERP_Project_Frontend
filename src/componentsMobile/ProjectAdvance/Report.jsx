@@ -3,7 +3,8 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import Filter from '../Images/Filter.png';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
-import Download from '../Images/Download.svg'
+import Download from '../Images/Download.svg';
+import Pen from '../Images/Pen.svg';
 
 // ISO 8601 week helpers (same as AdvanceReport.js)
 const getISOWeekNumber = (date) => {
@@ -1098,7 +1099,7 @@ const Report = () => {
                     </p>
                     <span></span>
                   </div>
-                  {/* Row 3: projectName and amount */}
+                  {/* Row 3: projectName and amount/refund_amount (not bill_amount) */}
                   <div className="flex items-center justify-between">
                     <p
                       className="text-[11px] font-medium text-[#777777] leading-snug break-words"
@@ -1106,15 +1107,21 @@ const Report = () => {
                     >
                       {item.projectName || 'N/A'}
                     </p>
-                    <p
-                      className={`text-[12px] font-semibold block leading-snug ${
-                        item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'
-                      }`}
-                    >
-                      {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}
-                    </p>
+                    {item.type === 'Bill Settlement' ? (
+                      <span className="text-[12px] font-semibold leading-snug text-[#007233]">
+                        ₹{parseFloat(item.entry?.amount || 0).toLocaleString('en-IN')}
+                      </span>
+                    ) : (
+                      <p
+                        className={`text-[12px] font-semibold block leading-snug ${
+                          item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'
+                        }`}
+                      >
+                        {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}
+                      </p>
+                    )}
                   </div>
-                  {/* Row 4: date/time and transfer site name */}
+                  {/* Row 4: timestamp and bill_amount (or transfer site) */}
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-medium text-[#777777] leading-snug">
                       {formatDateTime(item.timestamp)}
@@ -1123,9 +1130,9 @@ const Report = () => {
                       <p className={`text-[10px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#BF9853]' : 'text-[#007233]'}`}>
                         {item.transferSiteName}
                       </p>
-                    ) : item.type === 'Bill Settlement' && item.entry?.amount ? (
+                    ) : item.type === 'Bill Settlement' ? (
                       <span className="text-[12px] font-medium text-[#007233] leading-snug">
-                        ₹{parseFloat(item.entry.amount || 0).toLocaleString('en-IN')}
+                        ₹{parseFloat(item.entry?.bill_amount || item.amount || 0).toLocaleString('en-IN')}
                       </span>
                     ) : null}
                   </div>
@@ -1541,16 +1548,11 @@ const Report = () => {
           >
             {/* Icon */}
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-[#FFF3E0] flex items-center justify-center">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M18.5 2.5C18.8978 2.10218 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10218 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10218 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              <img src={Pen} alt="Pen" className="w-[74px] h-[74px]" />
             </div>
 
             {/* Title */}
-            <h3 className="text-[18px] font-bold text-black text-center mb-4">Description!</h3>
+            <h3 className="text-[18px] font-bold text-gray-500 text-opacity-70 text-center mb-4">Description!</h3>
 
             {/* Description Content */}
             <p className="text-[11px] font-medium text-black text-center mb-6 leading-relaxed">

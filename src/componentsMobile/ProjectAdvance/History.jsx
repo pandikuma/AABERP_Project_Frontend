@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Filter from '../Images/Filter.png';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
+import UploadFile from '../Images/Upload Small.svg';
+import Pen from '../Images/Pen.svg';
 
 // ISO 8601 week helpers (same as AdvanceReport.js)
 const getISOWeekNumber = (date) => {
@@ -194,16 +196,21 @@ const History = ({ onVendorClick }) => {
     }
   };
 
+  const hasActiveFilters = !!(typeFilter || vendorContractorFilter || entryNoFilter || projectNameFilter || paymentModeFilter || searchQuery);
+
   const loadAdvanceData = useCallback(async () => {
     try {
-      const res = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/getAll'));
+      const endpoint = hasActiveFilters
+        ? 'https://backendaab.in/aabuildersDash/api/advance_portal/getAll'
+        : 'https://backendaab.in/aabuildersDash/api/advance_portal/getLast150';
+      const res = await fetch(withBranchUrl(endpoint));
       if (!res.ok) throw new Error('Failed to fetch advance data');
       const data = await res.json();
       setAdvanceData(data);
     } catch (err) {
       console.error('Error loading advance data:', err);
     }
-  }, [activeBranchId]);
+  }, [activeBranchId, hasActiveFilters]);
 
   useEffect(() => {
     fetchVendors();
@@ -641,7 +648,7 @@ const History = ({ onVendorClick }) => {
       {/* Date and Category Section */}
       <div className="px-4 pt-2">
         <div className="flex items-center justify-end border-b border-[#E0E0E0] pb-2">
-          
+
           <button
             onClick={() => setShowTypeModal(true)}
             className="text-[12px] font-semibold text-black leading-normal cursor-pointer"
@@ -654,8 +661,8 @@ const History = ({ onVendorClick }) => {
       <div className="flex-shrink-0 px-4 pt-2">
         <div className="flex items-center justify-between gap-5">
           <div className="flex items-center gap-2 min-w-0">
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setShowFilterModal(true)}
               className="flex items-center gap-2 px-0 flex-shrink-0"
             >
@@ -741,14 +748,14 @@ const History = ({ onVendorClick }) => {
             </div>
           </div>
           {(typeFilter || vendorContractorFilter || entryNoFilter || projectNameFilter || paymentModeFilter) && (
-            <button 
+            <button
               onClick={() => {
                 setTypeFilter('');
                 setVendorContractorFilter('');
                 setEntryNoFilter('');
                 setProjectNameFilter('');
                 setPaymentModeFilter('');
-              }} 
+              }}
               className="text-[13px] font-semibold hover:text-black transition-colors flex-shrink-0 text-[#9E9E9E]"
             >
               x
@@ -807,224 +814,219 @@ const History = ({ onVendorClick }) => {
                 swipeOffset = 48;
               }
               return (
-            <div
-              key={item.id}
-              className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] min-w-[330px]"
-              style={{
-                height: '95px',
-                userSelect: swipeState?.isSwiping ? 'none' : 'auto',
-                WebkitUserSelect: swipeState?.isSwiping ? 'none' : 'auto',
-              }}
-            >
-              {/* Upload button - behind card on left, revealed on right swipe (same as PO Clone) */}
-              <div
-                className="absolute left-0 top-0 flex gap-2 flex-shrink-0 z-0"
-                style={{
-                  opacity: (isUploadExpanded || (swipeState && swipeState.isSwiping && swipeOffset > 20)) ? 1 : 0,
-                  transition: 'opacity 0.2s ease-out',
-                  pointerEvents: isUploadExpanded ? 'auto' : 'none',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleUploadClick(item);
+                <div
+                  key={item.id}
+                  className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] min-w-[330px]"
+                  style={{
+                    height: '95px',
+                    userSelect: swipeState?.isSwiping ? 'none' : 'auto',
+                    WebkitUserSelect: swipeState?.isSwiping ? 'none' : 'auto',
                   }}
-                  disabled={!!uploadingForId}
-                  className="w-[48px] h-[95px] bg-[#BF9853] rounded-[6px] flex items-center justify-center hover:bg-[#a88645] transition-colors shadow-sm disabled:opacity-60"
-                  title="Upload file"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M17 8L12 3L7 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M12 3V15" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              </div>
-              <div
-                ref={(el) => {
-                  if (el) cardRefs.current[item.id] = el;
-                  else delete cardRefs.current[item.id];
-                }}
-                className="flex-1 bg-white rounded-[8px] h-full px-3 py-3 transition-all duration-300 ease-out"
-                style={{
-                  transform: `translateX(${swipeOffset}px)`,
-                  touchAction: 'pan-y',
-                  userSelect: swipeState?.isSwiping ? 'none' : 'auto',
-                  WebkitUserSelect: swipeState?.isSwiping ? 'none' : 'auto',
-                  MozUserSelect: swipeState?.isSwiping ? 'none' : 'auto',
-                  msUserSelect: swipeState?.isSwiping ? 'none' : 'auto',
-                  willChange: 'transform',
-                  backfaceVisibility: 'hidden',
-                  WebkitBackfaceVisibility: 'hidden',
-                  transition: swipeState?.isSwiping ? 'none' : 'transform 0.3s ease-out',
-                }}
-                onClick={(e) => {
-                  if (!isUploadExpanded) e.stopPropagation();
-                }}
-              >
-                <div className="flex flex-col gap-0.5">
-                  {/* Row 1: ref and payment mode */}
-                  <div className="flex items-center justify-between">
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        const desc = item.entry?.description || '';
-                        if (desc) {
-                          setSelectedDescription(desc);
-                          setShowDescriptionModal(true);
-                        }
+                  {/* Upload button - behind card on left, revealed on right swipe (same as PO Clone) */}
+                  <div
+                    className="absolute left-0 top-0 flex gap-2 flex-shrink-0 z-0"
+                    style={{
+                      opacity: (isUploadExpanded || (swipeState && swipeState.isSwiping && swipeOffset > 20)) ? 1 : 0,
+                      transition: 'opacity 0.2s ease-out',
+                      pointerEvents: isUploadExpanded ? 'auto' : 'none',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUploadClick(item);
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          const desc = item.entry?.description || '';
-                          if (desc) {
-                            setSelectedDescription(desc);
-                            setShowDescriptionModal(true);
-                          }
-                        }
-                      }}
-                      className={`text-[12px] font-semibold text-black leading-snug ${item.entry?.description ? 'cursor-pointer hover:underline' : ''}`}
+                      disabled={!!uploadingForId}
+                      className="w-[48px] h-[95px] bg-[#BF9853] rounded-[6px] flex items-center justify-center hover:bg-[#a88645] transition-colors shadow-sm disabled:opacity-60"
+                      title="Upload file"
                     >
-                      {item.ref}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${getTypeBadgeClass(
-                        item.type
-                      )}`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          item.type === 'Advance'
-                            ? 'bg-[#2E7D32]'
-                            : item.type === 'Bill Settlement'
-                              ? 'bg-[#1976D2]'
-                              : item.type === 'Refund'
-                                ? 'bg-[#F57C00]'
-                                : item.type === 'Transfer'
-                                  ? ''
-                                  : ''
-                        }`}
-                      />
-                      {item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '')}
-                    </span>
+                      <img src={UploadFile} alt="Upload File" className="w-[18px] h-[18px]" />
+                    </button>
                   </div>
-                  {/* Row 2: entityName (clickable – opens Advance form with vendor/project and bill details) and empty space */}
-                  <div className="flex items-center justify-between">
-                    {onVendorClick ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const entry = item.entry || {};
-                          const vendorId = entry.vendor_id;
-                          const contractorId = entry.contractor_id;
-                          const projectId = entry.project_id;
-                          let selectedOption = null;
-                          if (vendorId) {
-                            const v = vendorOptions.find((x) => x.id === vendorId);
-                            if (v) selectedOption = { value: v.label, label: v.label, id: v.id, type: 'Vendor' };
-                          }
-                          if (!selectedOption && contractorId) {
-                            const c = contractorOptions.find((x) => x.id === contractorId);
-                            if (c) selectedOption = { value: c.label, label: c.label, id: c.id, type: 'Contractor' };
-                          }
-                          const site = siteOptions.find((x) => x.id === projectId);
-                          const selectedSite = site ? { value: site.value || site.label, label: site.label, id: site.id, sNo: site.sNo } : null;
-                          onVendorClick({
-                            selectedOption,
-                            selectedSite,
-                            billDetails: {
-                              ref: item.ref,
-                              amount: item.amount,
-                              paymentMode: item.paymentMode,
-                              timestamp: item.timestamp,
-                              type: item.type,
-                              entryNo: entry.entry_no,
-                              date: entry.date || entry.timestamp,
-                            },
-                          });
-                        }}
-                        className="text-[12px] font-semibold text-black leading-snug break-words text-left cursor-pointer hover:underline focus:outline-none focus:underline"
-                        style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-                      >
-                        {item.entityName || 'N/A'}
-                      </button>
-                    ) : (
-                      <p
-                        className="text-[12px] font-semibold text-black leading-snug break-words"
-                        style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-                      >
-                        {item.entityName || 'N/A'}
-                      </p>
-                    )}
-                    <span></span>
-                  </div>
-                  {/* Row 3: projectName and amount */}
-                  <div className="flex items-center justify-between">
-                    <p
-                      className="text-[11px] font-medium text-[#777777] leading-snug break-words"
-                      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-                    >
-                      {item.projectName || 'N/A'}
-                    </p>
-                    {item.entry?.file_url ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(item.entry.file_url, '_blank', 'noopener,noreferrer');
-                        }}
-                        className={`text-[12px] font-semibold block leading-snug cursor-pointer hover:underline focus:outline-none focus:underline ${
-                          item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'
-                        }`}
-                      >
-                        {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}
-                      </button>
-                    ) : (
-                      <p
-                        className={`text-[12px] font-semibold block leading-snug ${
-                          item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'
-                        }`}
-                      >
-                        {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}
-                      </p>
-                    )}
-                  </div>
-                  {/* Row 4: date/time and transfer site name */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium text-[#777777] leading-snug">
-                      {formatDateTime(item.timestamp)}
-                    </span>
-                    {item.type === 'Transfer' && item.transferSiteName ? (
-                      <p className={`text-[10px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#BF9853]' : 'text-[#007233]'}`}>
-                        {item.transferSiteName}
-                      </p>
-                    ) : item.type === 'Bill Settlement' && item.entry.amount ? (
-                      item.entry?.file_url ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(item.entry.file_url, '_blank', 'noopener,noreferrer');
+                  <div
+                    ref={(el) => {
+                      if (el) cardRefs.current[item.id] = el;
+                      else delete cardRefs.current[item.id];
+                    }}
+                    className="flex-1 bg-white rounded-[8px] h-full px-3 py-3 transition-all duration-300 ease-out"
+                    style={{
+                      transform: `translateX(${swipeOffset}px)`,
+                      touchAction: 'pan-y',
+                      userSelect: swipeState?.isSwiping ? 'none' : 'auto',
+                      WebkitUserSelect: swipeState?.isSwiping ? 'none' : 'auto',
+                      MozUserSelect: swipeState?.isSwiping ? 'none' : 'auto',
+                      msUserSelect: swipeState?.isSwiping ? 'none' : 'auto',
+                      willChange: 'transform',
+                      backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
+                      transition: swipeState?.isSwiping ? 'none' : 'transform 0.3s ease-out',
+                    }}
+                    onClick={(e) => {
+                      if (!isUploadExpanded) e.stopPropagation();
+                    }}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      {/* Row 1: ref and payment mode */}
+                      <div className="flex items-center justify-between">
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            const desc = item.entry?.description || '';
+                            if (desc) {
+                              setSelectedDescription(desc);
+                              setShowDescriptionModal(true);
+                            }
                           }}
-                          className="text-[12px] font-medium text-[#007233] leading-snug cursor-pointer hover:underline focus:outline-none focus:underline"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              const desc = item.entry?.description || '';
+                              if (desc) {
+                                setSelectedDescription(desc);
+                                setShowDescriptionModal(true);
+                              }
+                            }
+                          }}
+                          className={`text-[12px] font-semibold text-black leading-snug ${item.entry?.description ? 'cursor-pointer hover:underline' : ''}`}
                         >
-                          ₹{parseFloat(item.entry.amount || 0).toLocaleString('en-IN')}
-                        </button>
-                      ) : (
-                        <span className="text-[12px] font-medium text-[#007233] leading-snug">
-                          ₹{parseFloat(item.entry.amount || 0).toLocaleString('en-IN')}
+                          {item.ref}
                         </span>
-                      )
-                    ) : null}
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${getTypeBadgeClass(
+                            item.type
+                          )}`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${item.type === 'Advance'
+                                ? 'bg-[#2E7D32]'
+                                : item.type === 'Bill Settlement'
+                                  ? 'bg-[#1976D2]'
+                                  : item.type === 'Refund'
+                                    ? 'bg-[#F57C00]'
+                                    : item.type === 'Transfer'
+                                      ? ''
+                                      : ''
+                              }`}
+                          />
+                          {item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '')}
+                        </span>
+                      </div>
+                      {/* Row 2: entityName (clickable – opens Advance form with vendor/project and bill details) and empty space */}
+                      <div className="flex items-center justify-between">
+                        {onVendorClick ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const entry = item.entry || {};
+                              const vendorId = entry.vendor_id;
+                              const contractorId = entry.contractor_id;
+                              const projectId = entry.project_id;
+                              let selectedOption = null;
+                              if (vendorId) {
+                                const v = vendorOptions.find((x) => x.id === vendorId);
+                                if (v) selectedOption = { value: v.label, label: v.label, id: v.id, type: 'Vendor' };
+                              }
+                              if (!selectedOption && contractorId) {
+                                const c = contractorOptions.find((x) => x.id === contractorId);
+                                if (c) selectedOption = { value: c.label, label: c.label, id: c.id, type: 'Contractor' };
+                              }
+                              const site = siteOptions.find((x) => x.id === projectId);
+                              const selectedSite = site ? { value: site.value || site.label, label: site.label, id: site.id, sNo: site.sNo } : null;
+                              onVendorClick({
+                                selectedOption,
+                                selectedSite,
+                                billDetails: {
+                                  ref: item.ref,
+                                  amount: item.amount,
+                                  paymentMode: item.paymentMode,
+                                  timestamp: item.timestamp,
+                                  type: item.type,
+                                  entryNo: entry.entry_no,
+                                  date: entry.date || entry.timestamp,
+                                },
+                              });
+                            }}
+                            className="text-[12px] font-semibold text-black leading-snug break-words text-left cursor-pointer hover:underline focus:outline-none focus:underline"
+                            style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                          >
+                            {item.entityName || 'N/A'}
+                          </button>
+                        ) : (
+                          <p
+                            className="text-[12px] font-semibold text-black leading-snug break-words"
+                            style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                          >
+                            {item.entityName || 'N/A'}
+                          </p>
+                        )}
+                        <span></span>
+                      </div>
+                      {/* Row 3: projectName and amount/refund_amount (not bill_amount) */}
+                      <div className="flex items-center justify-between">
+                        <p
+                          className="text-[11px] font-medium text-[#777777] leading-snug break-words"
+                          style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                        >
+                          {item.projectName || 'N/A'}
+                        </p>
+                        {item.type === 'Bill Settlement' ? (
+                          <span className="text-[12px] font-semibold leading-snug text-[#007233]">
+                            ₹{parseFloat(item.entry?.amount || 0).toLocaleString('en-IN')}
+                          </span>
+                        ) : item.entry?.file_url ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(item.entry.file_url, '_blank', 'noopener,noreferrer');
+                            }}
+                            className={`text-[12px] font-semibold block leading-snug cursor-pointer hover:underline focus:outline-none focus:underline ${item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}
+                          >
+                            {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}
+                          </button>
+                        ) : (
+                          <p
+                            className={`text-[12px] font-semibold block leading-snug ${item.amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}
+                          >
+                            {item.amount < 0 ? '-' : ''}₹{Math.abs(item.amount).toLocaleString('en-IN')}
+                          </p>
+                        )}
+                      </div>
+                      {/* Row 4: timestamp and bill_amount (or transfer site) */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-medium text-[#777777] leading-snug">
+                          {formatDateTime(item.timestamp)}
+                        </span>
+                        {item.type === 'Transfer' && item.transferSiteName ? (
+                          <p className={`text-[10px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#BF9853]' : 'text-[#007233]'}`}>
+                            {item.transferSiteName}
+                          </p>
+                        ) : item.type === 'Bill Settlement' ? (
+                          item.entry?.file_url ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(item.entry.file_url, '_blank', 'noopener,noreferrer');
+                              }}
+                              className="text-[12px] font-medium text-[#007233] leading-snug cursor-pointer hover:underline focus:outline-none focus:underline"
+                            >
+                              ₹{parseFloat(item.entry?.bill_amount || item.amount || 0).toLocaleString('en-IN')}
+                            </button>
+                          ) : (
+                            <span className="text-[12px] font-medium text-[#007233] leading-snug">
+                              ₹{parseFloat(item.entry?.bill_amount || item.amount || 0).toLocaleString('en-IN')}
+                            </span>
+                          )
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            );
-          })}
+              );
+            })}
           </>
         )}
       </div>
@@ -1498,18 +1500,13 @@ const History = ({ onVendorClick }) => {
             className="bg-white w-full max-w-[320px] rounded-[12px] p-5 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Icon */}
+            {/* Icon - image has its own background */}
             <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-[#FFF3E0] flex items-center justify-center">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M18.5 2.5C18.8978 2.10218 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10218 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10218 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              <img src={Pen} alt="Pen" className="w-[74px] h-[74px]" />
             </div>
 
             {/* Title */}
-            <h3 className="text-[18px] font-bold text-black text-center mb-4">Description!</h3>
+            <h3 className="text-[18px] font-bold text-gray-500 text-center mb-4">Description!</h3>
 
             {/* Description Content */}
             <p className="text-[11px] font-medium text-black text-center mb-6 leading-relaxed">
