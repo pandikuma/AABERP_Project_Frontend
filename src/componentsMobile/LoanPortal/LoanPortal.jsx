@@ -4,26 +4,25 @@ import Header from './Header';
 import Sidebar from '../Bars/Sidebar';
 import Tabs from './Tabs';
 import BottomNav from './BottomNav';
-import AdvanceForm from './AdvanceForm';
+import LoanForm from './LoanForm';
 import History from './History';
 import Report from './Report';
 import Summary from './Summary';
 
-const ProjectAdvance = ({ user, onLogout }) => {
+const LoanPortal = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState('project-advance');
-  // Data passed from History when user clicks a vendor name (pre-fill AdvanceForm and show bill details)
-  const [initialFromHistory, setInitialFromHistory] = useState(null);
-  // Load activeTab from localStorage on mount, default to 'advanceform'
+  const [currentPage, setCurrentPage] = useState('loan-portal');
+  
+  // Load activeTab from localStorage on mount, default to 'loanform'
   const [activeTab, setActiveTab] = useState(() => {
-    const savedTab = localStorage.getItem('projectAdvanceActiveTab');
-    return savedTab || 'advanceform';
+    const savedTab = localStorage.getItem('loanPortalActiveTab');
+    return savedTab || 'loanform';
   });
 
   // Save activeTab to localStorage when it changes
   React.useEffect(() => {
-    localStorage.setItem('projectAdvanceActiveTab', activeTab);
+    localStorage.setItem('loanPortalActiveTab', activeTab);
   }, [activeTab]);
 
   const handleMenuClick = () => {
@@ -69,22 +68,14 @@ const ProjectAdvance = ({ user, onLogout }) => {
       <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
       {/* Content Area - fixed height so only inner content (e.g. cards) scrolls, not the page */}
       <div className="pt-[85px] flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 85px)' }}>
-        {/* Advance Form Tab Content */}
-        {activeTab === 'advanceform' && (
-          <AdvanceForm
-            initialFromHistory={initialFromHistory}
-            onConsumedInitialFromHistory={() => setInitialFromHistory(null)}
-          />
+        {/* Loan Form Tab Content */}
+        {activeTab === 'loanform' && (
+          <LoanForm />
         )}
         {/* History Tab Content */}
         {activeTab === 'history' && (
           <div className="flex-1 min-h-0 overflow-hidden">
-            <History
-              onVendorClick={(data) => {
-                setInitialFromHistory(data);
-                setActiveTab('advanceform');
-              }}
-            />
+            <History />
           </div>
         )}
         {/* Report Tab Content */}
@@ -98,4 +89,4 @@ const ProjectAdvance = ({ user, onLogout }) => {
   );
 };
 
-export default ProjectAdvance;
+export default LoanPortal;

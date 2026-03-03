@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import logo from '../Images/AABBlack.png'
 
 const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) => {
   const [expandedItems, setExpandedItems] = useState({
     procurement: currentPage === 'purchase-order' || currentPage === 'inventory' || currentPage === 'tools-tracker',
-    account: currentPage === 'project-advance'
+    account: currentPage === 'project-advance' || currentPage === 'loan-portal'
   });
   const [roleModels, setRoleModels] = useState([]);
   const buildTime = process.env.REACT_APP_BUILD_TIME;
@@ -14,7 +15,7 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
   useEffect(() => {
     setExpandedItems({
       procurement: currentPage === 'purchase-order' || currentPage === 'inventory' || currentPage === 'tools-tracker',
-      account: currentPage === 'project-advance'
+      account: currentPage === 'project-advance' || currentPage === 'loan-portal'
     });
   }, [currentPage]);
   
@@ -80,7 +81,8 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
       label: 'Account', 
       icon: 'document',
       subItems: [
-        { id: 'project-advance', label: 'Advance Portal', modelName: 'Advance Portal' }
+        { id: 'project-advance', label: 'Advance Portal', modelName: 'Advance Portal' },
+        { id: 'loan-portal', label: 'Loan Portal', modelName: 'Loan Portal' }
       ]
     },
     { 
@@ -168,12 +170,13 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
     }
   };
   if (!isOpen) return null;
-  return (
+  
+  const sidebarContent = (
     <>
       {/* Overlay */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-[55]" onClick={onClose} />
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-[9998]" onClick={onClose} />
       {/* Sidebar */}
-      <div className="fixed h-full w-[280px] bg-white z-[60] shadow-lg overflow-y-auto left-0 top-0"
+      <div className="fixed h-full w-[280px] bg-white z-[9999] shadow-lg overflow-y-auto left-0 top-0 rounded-r-[20px]"
         style={{ fontFamily: "'Manrope', sans-serif" }} onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col h-full">
@@ -190,18 +193,18 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
             </button>
           </div>
           {/* Menu Items */}
-          <div className="flex-1 py-4">
+          <div className="flex-1 py-4 pl-0">
             {menuItems.map((item) => (
               <div key={item.id}>
                 {item.subItems ? (
                   <>
                     <div
-                      className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 ${
+                      className={`flex items-center justify-between pr-4 pl-0 py-3 cursor-pointer hover:bg-gray-50 ${
                         expandedItems[item.id] ? 'bg-gray-50' : ''
                       }`}
                       onClick={item.id === 'procurement' ? handleProcurementClick : item.id === 'account' ? handleAccountClick : undefined}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 pl-0">
                         <div className="w-5 h-5 text-black">
                           {getIcon(item.icon)}
                         </div>
@@ -223,12 +226,12 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
                         {item.subItems.map((subItem) => (
                           <div
                             key={subItem.id}
-                            className={`px-4 py-2.5 pl-12 cursor-pointer hover:bg-gray-100 ${
+                            className={`pr-4 pl-0 py-2.5 cursor-pointer hover:bg-gray-100 ${
                               currentPage === subItem.id ? 'bg-gray-100' : ''
                             }`}
                             onClick={() => handleItemClick(subItem.id, subItem.modelName)}
                           >
-                            <span className="text-sm text-black">• {subItem.label}</span>
+                            <span className="text-sm text-black pl-0">• {subItem.label}</span>
                           </div>
                         ))}
                       </div>
@@ -236,15 +239,17 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
                   </>
                 ) : (
                   <div
-                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 ${
+                    className={`flex items-center gap-3 pr-4 pl-0 py-3 cursor-pointer hover:bg-gray-50 ${
                       currentPage === item.id ? 'bg-gray-50' : ''
                     }`}
                     onClick={() => handleItemClick(item.id, item.modelName)}
                   >
-                    <div className="w-5 h-5 text-black">
-                      {getIcon(item.icon)}
+                    <div className="flex items-center gap-3 pl-0">
+                      <div className="w-5 h-5 text-black">
+                        {getIcon(item.icon)}
+                      </div>
+                      <span className="text-sm font-medium text-black">{item.label}</span>
                     </div>
-                    <span className="text-sm font-medium text-black">{item.label}</span>
                   </div>
                 )}
               </div>
@@ -260,5 +265,7 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
       </div>
     </>
   );
+  
+  return createPortal(sidebarContent, document.body);
 };
 export default Sidebar;
