@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Attach from '../Images/Attachfile.svg';
+import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 
 const LoanForm = () => {
   const resolveActiveBranchId = () => {
@@ -37,6 +38,9 @@ const LoanForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [typeSearchQuery, setTypeSearchQuery] = useState('');
+  const [showAssociateModal, setShowAssociateModal] = useState(false);
+  const [showPurposeModal, setShowPurposeModal] = useState(false);
+  const [showPaymentModeModal, setShowPaymentModeModal] = useState(false);
 
   const paymentModeOptions = [
     { value: 'Cash', label: 'Cash' },
@@ -419,31 +423,37 @@ const LoanForm = () => {
             <span className="text-[12px] font-medium text-[#9E9E9E]">{formatWithCommas(overallLoan)}</span>
           </p>
           <div className="relative">
-            <select
-              value={selectedOption ? `${selectedOption.type}-${selectedOption.id}` : ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value) {
-                  const [type, id] = value.split('-');
-                  const option = combinedOptions.find(opt => opt.type === type && opt.id === parseInt(id));
-                  setSelectedOption(option || null);
-                } else {
-                  setSelectedOption(null);
-                }
-              }}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white focus:outline-none"
+            <div
+              onClick={() => setShowAssociateModal(true)}
+              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
               style={{
                 boxSizing: 'border-box',
                 color: selectedOption ? '#000' : '#9E9E9E'
               }}
             >
-              <option value="">Select</option>
-              {combinedOptions.map((option) => (
-                <option key={`${option.type}-${option.id}`} value={`${option.type}-${option.id}`}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              {selectedOption ? selectedOption.label : 'Select'}
+              {selectedOption ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedOption(null);
+                    setOverallLoan(0);
+                  }}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              ) : (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -454,22 +464,36 @@ const LoanForm = () => {
             <span className="text-[12px] font-medium text-[#9E9E9E]">0.00</span>
           </p>
           <div className="relative">
-            <select
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white focus:outline-none"
+            <div
+              onClick={() => setShowPurposeModal(true)}
+              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
               style={{
                 boxSizing: 'border-box',
                 color: purpose ? '#000' : '#9E9E9E'
               }}
             >
-              <option value="">Select</option>
-              {purposeOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              {purpose ? (purposeOptions.find(opt => opt.id === parseInt(purpose))?.label || 'Select') : 'Select'}
+              {purpose ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPurpose('');
+                  }}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              ) : (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -499,22 +523,36 @@ const LoanForm = () => {
               Payment Mode<span className="text-[#eb2f8e]">*</span>
             </p>
             <div className="relative">
-              <select
-                value={paymentMode}
-                onChange={(e) => setPaymentMode(e.target.value)}
-                className="w-[160px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white focus:outline-none"
+              <div
+                onClick={() => setShowPaymentModeModal(true)}
+                className="w-[160px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
                 style={{
                   boxSizing: 'border-box',
                   color: paymentMode ? '#000' : '#9E9E9E'
                 }}
               >
-                <option value="">Select</option>
-                {paymentModeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                {paymentMode || 'Select'}
+                {paymentMode ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPaymentMode('');
+                    }}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                ) : (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -668,6 +706,54 @@ const LoanForm = () => {
           </div>
         </div>
       )}
+
+      {/* Associate Modal */}
+      <SelectVendorModal
+        isOpen={showAssociateModal}
+        onClose={() => setShowAssociateModal(false)}
+        onSelect={(value) => {
+          const selected = combinedOptions.find(opt => opt.label === value);
+          if (selected) {
+            setSelectedOption(selected);
+          }
+          setShowAssociateModal(false);
+        }}
+        selectedValue={selectedOption ? selectedOption.label : ''}
+        options={combinedOptions.map(opt => opt.label)}
+        fieldName="Associate"
+        showStarIcon={false}
+      />
+
+      {/* Purpose Modal */}
+      <SelectVendorModal
+        isOpen={showPurposeModal}
+        onClose={() => setShowPurposeModal(false)}
+        onSelect={(value) => {
+          const selected = purposeOptions.find(opt => opt.label === value);
+          if (selected) {
+            setPurpose(selected.id.toString());
+          }
+          setShowPurposeModal(false);
+        }}
+        selectedValue={purpose ? (purposeOptions.find(opt => opt.id === parseInt(purpose))?.label || '') : ''}
+        options={purposeOptions.map(opt => opt.label)}
+        fieldName="Purpose"
+        showStarIcon={false}
+      />
+
+      {/* Payment Mode Modal */}
+      <SelectVendorModal
+        isOpen={showPaymentModeModal}
+        onClose={() => setShowPaymentModeModal(false)}
+        onSelect={(value) => {
+          setPaymentMode(value);
+          setShowPaymentModeModal(false);
+        }}
+        selectedValue={paymentMode}
+        options={paymentModeOptions.map(opt => opt.label)}
+        fieldName="Payment Mode"
+        showStarIcon={false}
+      />
 
       <ToastContainer position="top-center" autoClose={3000} theme="colored" />
     </div>
