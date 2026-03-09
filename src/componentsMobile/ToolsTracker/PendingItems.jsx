@@ -584,6 +584,54 @@ const PendingItems = ({ user }) => {
           const daysNum = parseInt(selectedDays);
           filteredItems = filteredItems.filter(item => item.daysAway > daysNum);
         }
+
+        // Apply additional filters
+        if (filterItemName) {
+          const filterValue = String(filterItemName).toLowerCase().trim();
+          filteredItems = filteredItems.filter(item => 
+            item.itemName && String(item.itemName).toLowerCase().includes(filterValue)
+          );
+        }
+
+        if (filterLocation) {
+          const filterValue = String(filterLocation).toLowerCase().trim();
+          filteredItems = filteredItems.filter(item => {
+            const fromMatch = item.from && String(item.from).toLowerCase().includes(filterValue);
+            const toMatch = item.to && String(item.to).toLowerCase().includes(filterValue);
+            return fromMatch || toMatch;
+          });
+        }
+
+        if (filterItemId) {
+          const filterValue = String(filterItemId).toLowerCase().trim();
+          filteredItems = filteredItems.filter(item => 
+            item.itemId && String(item.itemId).toLowerCase().includes(filterValue)
+          );
+        }
+
+        if (filterDate) {
+          const filterDateStr = formatDateForDisplay(filterDate);
+          if (filterDateStr) {
+            filteredItems = filteredItems.filter(item => 
+              item.date === filterDateStr
+            );
+          }
+        }
+
+        if (filterEntryNo) {
+          const filterValue = String(filterEntryNo).trim();
+          filteredItems = filteredItems.filter(item => 
+            String(item.entryNo).trim() === filterValue
+          );
+        }
+
+        if (filterProjectIncharge) {
+          const filterValue = String(filterProjectIncharge).toLowerCase().trim();
+          filteredItems = filteredItems.filter(item => 
+            item.personName && String(item.personName).toLowerCase().includes(filterValue)
+          );
+        }
+
         setPendingData(filteredItems);
       } catch (error) {
         console.error('Error fetching pending items:', error);
@@ -595,7 +643,7 @@ const PendingItems = ({ user }) => {
     if (toolsTrackerManagementData.length > 0 && stockManagementData.length > 0) {
       fetchPendingItems();
     }
-  }, [selectedDays, selectedHomeLocation, toolsTrackerManagementData, stockManagementData, projectsMap, vendorsMap, employeesMap, itemNamesMap, itemIdsMap]);
+  }, [selectedDays, selectedHomeLocation, filterItemName, filterLocation, filterItemId, filterDate, filterEntryNo, filterProjectIncharge, toolsTrackerManagementData, stockManagementData, projectsMap, vendorsMap, employeesMap, itemNamesMap, itemIdsMap]);
   // Helper function to get home location history for an item
   const getHomeLocationHistory = (itemIdsId, brandId, machineNumber) => {
     const homeLocationHistory = [];
@@ -749,6 +797,15 @@ const PendingItems = ({ user }) => {
     closeFilterPicker();
   };
   
+  const handleClearFilter = (field, e) => {
+    e.stopPropagation();
+    if (field === 'itemName') setFilterItemName(null);
+    else if (field === 'location') setFilterLocation(null);
+    else if (field === 'itemId') setFilterItemId(null);
+    else if (field === 'entryNo') setFilterEntryNo(null);
+    else if (field === 'projectIncharge') setFilterProjectIncharge(null);
+  };
+  
   const formatDateForDisplay = (dateStr) => {
     if (!dateStr) return '';
     if (dateStr.includes('-') && dateStr.length === 10) {
@@ -783,6 +840,7 @@ const PendingItems = ({ user }) => {
             type="text"
             value={filterPickerSearch}
             onChange={(e) => setFilterPickerSearch(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
             placeholder={placeholder}
             className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white focus:outline-none"
             style={{ color: '#000', boxSizing: 'border-box', paddingRight: '40px' }}
@@ -791,24 +849,36 @@ const PendingItems = ({ user }) => {
         ) : (
           <div onClick={() => openFilterPicker(field)}
             className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
-            style={{ color: value ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+            style={{ color: value ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: value ? '60px' : '40px' }}
           >
             {value || placeholder}
           </div>
+        )}
+        {value && !(showFilterSheet && filterOpenPicker === field) && (
+          <button
+            type="button"
+            onClick={(e) => handleClearFilter(field, e)}
+            className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors z-10"
+            style={{ right: '32px' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         )}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
           <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </div>
         {/* Dropdown options */}
         {showFilterSheet && filterOpenPicker === field && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[rgba(0,0,0,0.16)] rounded-[8px] shadow-lg max-h-[150px] overflow-hidden flex flex-col" style={{ zIndex: 9 }}>
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[rgba(0,0,0,0.16)] rounded-[8px] shadow-lg max-h-[150px] overflow-hidden flex flex-col" style={{ zIndex: 100 }} onClick={(e) => e.stopPropagation()}>
             <div className="overflow-y-auto max-h-[150px]">
               {getFilterPickerOptions().length > 0 ? (
                 getFilterPickerOptions().map((opt, idx) => {
                   const optValue = opt.value || opt.label || opt;
                   const optLabel = opt.label || opt.value || opt;
                   return (
-                    <button key={idx} type="button" onClick={() => handleFilterPickerSelect(field, optValue)}
+                    <button key={idx} type="button" onClick={(e) => { e.stopPropagation(); handleFilterPickerSelect(field, optValue); }}
                       className="w-full h-[36px] px-3 flex items-center text-left hover:bg-[#F5F5F5] transition-colors text-[12px] font-medium text-black"
                     >
                       {optLabel}
@@ -1080,6 +1150,14 @@ const PendingItems = ({ user }) => {
                   <p className="text-[12px] font-medium text-black mb-1">Item Name</p>
                   {renderFilterDropdown('itemName', filterItemName, 'Select')}
                 </div>
+              </div>
+              <div className="flex gap-3 mb-2">
+                <div className="flex-1">
+                  <p className="text-[12px] font-medium text-black mb-1">Location</p>
+                  {renderFilterDropdown('location', filterLocation, 'Select')}
+                </div>
+              </div>
+              <div className="flex gap-3 mb-2">
                 <div className="flex-1">
                   <p className="text-[12px] font-medium text-black mb-1">Date</p>
                   <div className="relative">
@@ -1099,12 +1177,6 @@ const PendingItems = ({ user }) => {
                       </svg>
                     </div>
                   </div>
-                </div>
-              </div>
-              <div className="flex gap-3 mb-2">
-                <div className="flex-1">
-                  <p className="text-[12px] font-medium text-black mb-1">Location</p>
-                  {renderFilterDropdown('location', filterLocation, 'Select')}
                 </div>
                 <div className="flex-1">
                   <p className="text-[12px] font-medium text-black mb-1">Entry. No</p>

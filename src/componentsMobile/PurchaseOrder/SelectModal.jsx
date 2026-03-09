@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const SelectModal = ({ isOpen, onClose, onSelect, onAddNew, selectedValue, fieldName, options = [] }) => {
   const [newOption, setNewOption] = useState('');
   const [showAddInput, setShowAddInput] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const selectedOptionRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const [favorites, setFavorites] = useState(() => {
+    // Load favorites from localStorage based on field name
+    const storageKey = `favorite${fieldName}s`;
+    const saved = localStorage.getItem(storageKey);
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Reset add input state and search when modal opens/closes
   useEffect(() => {
@@ -14,12 +22,64 @@ const SelectModal = ({ isOpen, onClose, onSelect, onAddNew, selectedValue, field
     }
   }, [isOpen]);
 
+  // Scroll to selected option when modal opens
+  useEffect(() => {
+    if (isOpen && selectedValue && selectedOptionRef.current && scrollContainerRef.current && !searchQuery) {
+      setTimeout(() => {
+        const container = scrollContainerRef.current;
+        const selectedElement = selectedOptionRef.current;
+        if (container && selectedElement) {
+          const elementOffsetTop = selectedElement.offsetTop;
+          const containerHeight = container.clientHeight;
+          const elementHeight = selectedElement.offsetHeight;
+          
+          // Calculate the scroll position to center the selected element
+          const scrollPosition = elementOffsetTop - (containerHeight / 2) + (elementHeight / 2);
+          container.scrollTop = Math.max(0, scrollPosition);
+        }
+      }, 100);
+    }
+  }, [isOpen, selectedValue, searchQuery]);
+
+  // Toggle favorite
+  const handleToggleFavorite = (e, option) => {
+    e.stopPropagation();
+    const storageKey = `favorite${fieldName}s`;
+    const updatedFavorites = favorites.includes(option)
+      ? favorites.filter(fav => fav !== option)
+      : [...favorites, option];
+    setFavorites(updatedFavorites);
+    localStorage.setItem(storageKey, JSON.stringify(updatedFavorites));
+  };
+
   // Filter options based on search query
   const filteredOptions = options.filter(option =>
     option.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Sort options: favorites first, then alphabetically
+  const sortedOptions = [...filteredOptions].sort((a, b) => {
+    const aIsFavorite = favorites.includes(a);
+    const bIsFavorite = favorites.includes(b);
+    if (aIsFavorite && !bIsFavorite) return -1;
+    if (!aIsFavorite && bIsFavorite) return 1;
+    return a.localeCompare(b);
+  });
+
   if (!isOpen) return null;
+
+  // Helper function to split option text at first hyphen
+  const splitOptionText = (text) => {
+    if (!text) return { firstLine: '', secondLine: '' };
+    const firstHyphenIndex = text.indexOf(' - ');
+    if (firstHyphenIndex === -1) {
+      return { firstLine: text, secondLine: '' };
+    }
+    return {
+      firstLine: text.substring(0, firstHyphenIndex),
+      secondLine: text.substring(firstHyphenIndex + 3) // +3 to skip ' - '
+    };
+  };
 
   const handleSelect = (value) => {
     onSelect(value);
@@ -53,7 +113,8 @@ const SelectModal = ({ isOpen, onClose, onSelect, onAddNew, selectedValue, field
       onClick={handleBackdropClick}
     >
       <div 
-        className="bg-white w-full rounded-tl-[16px] rounded-tr-[16px] p-6 max-h-[400px] overflow-y-auto"
+        ref={scrollContainerRef}
+        className="bg-white w-full rounded-tl-[16px] rounded-tr-[16px] p-6 max-h-[400px] overflow-y-auto transform -translate-y-24"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
@@ -124,27 +185,53 @@ const SelectModal = ({ isOpen, onClose, onSelect, onAddNew, selectedValue, field
         )}
 
         {/* Existing Options - Filtered by search */}
-        {filteredOptions.length > 0 && (
+        {sortedOptions.length > 0 && (
           <div className="space-y-2">
-            {filteredOptions.map((option, index) => (
+            {sortedOptions.map((option, index) => {
+              const isSelected = selectedValue === option;
+              const isFavorite = favorites.includes(option);
+              return (
               <button
                 key={index}
+                ref={isSelected ? selectedOptionRef : null}
                 onClick={() => handleSelect(option)}
-                className={`w-full h-[36px] rounded-[6px] px-3 flex items-center justify-between ${
-                  selectedValue === option
+                className={`w-full rounded-[6px] px-3 flex items-center gap-3 ${
+                  isSelected
                     ? 'bg-white border-[0.8px] border-[#26bf94]'
                     : 'bg-[#f3f5f7]'
                 }`}
+                style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
               >
-                <p className="text-[12px] font-medium text-black">{option}</p>
-                {selectedValue === option && (
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="7" cy="7" r="6" stroke="#26bf94" strokeWidth="2" />
-                    <path d="M4 7L6 9L10 5" stroke="#26bf94" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
+                <button
+                  onClick={(e) => handleToggleFavorite(e, option)}
+                  className="w-6 h-6 flex items-center justify-center flex-shrink-0"
+                >
+                  {isFavorite ? (
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </button>
+                <div className="flex flex-col flex-1 min-w-0">
+                  {(() => {
+                    const { firstLine, secondLine } = splitOptionText(option);
+                    return (
+                      <>
+                        <p className="text-[12px] font-medium text-black truncate whitespace-nowrap">{firstLine}</p>
+                        {secondLine && (
+                          <p className="text-[11px] font-medium text-[#777777] truncate whitespace-nowrap">{secondLine}</p>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </button>
-            ))}
+            );
+            })}
           </div>
         )}
 

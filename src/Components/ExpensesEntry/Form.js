@@ -475,31 +475,31 @@ const Form = ({ username, userRoles = [] }) => {
     // Monday to Sunday weeks
     const getISOWeekNumber = (date) => {
         const d = new Date(date);
-        d.setHours(0, 0, 0, 0);        
+        d.setHours(0, 0, 0, 0);
         // Get Thursday of the week containing the date
         // Monday = 1, Tuesday = 2, ..., Sunday = 0 (convert to 7)
         const dayOfWeek = d.getDay() || 7; // Convert Sunday (0) to 7
         const thursday = new Date(d);
         thursday.setDate(d.getDate() + 4 - dayOfWeek); // Thursday is 4 days after Monday
         thursday.setHours(0, 0, 0, 0);
-        
+
         // Use the year that Thursday falls in (ISO 8601 rule)
         const weekYear = thursday.getFullYear();
-        
+
         // Get January 1st of that year
         const jan1 = new Date(weekYear, 0, 1);
         jan1.setHours(0, 0, 0, 0);
-        
+
         // Get the Thursday of week 1 (first Thursday of the year)
         const jan1DayOfWeek = jan1.getDay() || 7;
         const firstThursday = new Date(jan1);
         firstThursday.setDate(jan1.getDate() + 4 - jan1DayOfWeek);
         firstThursday.setHours(0, 0, 0, 0);
-        
+
         // Calculate week number: difference in days divided by 7, plus 1
         const daysDiff = Math.floor((thursday - firstThursday) / 86400000);
         const weekNo = Math.floor(daysDiff / 7) + 1;
-        
+
         return weekNo;
     };
 
@@ -750,6 +750,13 @@ const Form = ({ username, userRoles = [] }) => {
         const year = date.getFullYear();
         return `${day}-${month}-${year}`;
     };
+    const formatDateview = (dateString) => {
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    };
     const formatDate = (dateString) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -783,11 +790,8 @@ const Form = ({ username, userRoles = [] }) => {
             if (!response.ok) return [];
             const allExpenses = await response.json();
 
-            const oneMonthAgo = new Date();
-            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
             const matching = allExpenses.filter((exp) => {
-                const expDateStr = toLocalDateStr(exp.timestamp || exp.date);
+                const expDateStr = toLocalDateStr(exp.date || exp.timestamp);
                 const dateMatch = expDateStr === dateStr;
                 if (!dateMatch) return false;
 
@@ -821,9 +825,7 @@ const Form = ({ username, userRoles = [] }) => {
                 }
                 if (!vendorContractorMatch) return false;
 
-                const expDate = new Date(exp.timestamp || exp.date);
-                const isWithinLastMonth = expDate >= oneMonthAgo;
-                return isWithinLastMonth;
+                return true;
             });
 
             return matching;
@@ -967,7 +969,7 @@ const Form = ({ username, userRoles = [] }) => {
                 vendorId: vendorId,
                 contractor: contractor,
                 contractorId: contractorId,
-                source:"Expenses Entry",
+                source: "Expenses Entry",
                 quantity: quantity,
                 amount: selectedAccountType === 'Bill Refund' ? -Math.abs(parseInt(amount)) : parseInt(amount),
                 category: selectedCategory ? selectedCategory.label : '',
@@ -978,7 +980,8 @@ const Form = ({ username, userRoles = [] }) => {
                 utilityTypeNumber: selectedEbNumber ? selectedEbNumber.label : '',
                 utilityForTheMonth: selectedMonths || '',
                 utilityValidityDays: thirdInput || '',
-                branchId: activeBranchId
+                branchId: activeBranchId,
+                enteredBy: username
             };
             const formResponse = await fetch(buildBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/save"), {
                 method: "POST",
@@ -1227,7 +1230,8 @@ const Form = ({ username, userRoles = [] }) => {
                 utilityTypeNumber: selectedEbNumber ? selectedEbNumber.label : '',
                 utilityForTheMonth: selectedMonths || '',
                 utilityValidityDays: thirdInput || '',
-                branchId: activeBranchId
+                branchId: activeBranchId,
+                enteredBy: username
             };
             const expensesResponse = await fetch(buildBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/save"), {
                 method: "POST",
@@ -1414,6 +1418,7 @@ const Form = ({ username, userRoles = [] }) => {
         const formatted = today.toISOString().split('T')[0];
         setDate(formatted);
     }, []);
+    
     return (
         <body className=' bg-[#FAF6ED]'>
             <style jsx>{`
@@ -1882,16 +1887,16 @@ const Form = ({ username, userRoles = [] }) => {
                             <span className="text-sm text-gray-600">Do you want to proceed anyway?</span>
                             <div className="flex gap-3">
                                 <button
-                                    className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded font-medium hover:bg-gray-50 transition-colors duration-200"
-                                    onClick={handleDuplicateCancel}
-                                >
-                                    Cancel
-                                </button>
-                                <button
                                     className="px-4 py-2 bg-[#BF9853] text-white rounded font-medium hover:bg-[#a67c3a] transition-colors duration-200"
                                     onClick={handleDuplicateIgnore}
                                 >
                                     Ignore & Continue
+                                </button>
+                                <button
+                                    className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded font-medium hover:bg-gray-50 transition-colors duration-200"
+                                    onClick={handleDuplicateCancel}
+                                >
+                                    Cancel
                                 </button>
                             </div>
                         </div>

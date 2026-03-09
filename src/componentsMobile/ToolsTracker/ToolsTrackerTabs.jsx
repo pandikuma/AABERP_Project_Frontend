@@ -8,7 +8,7 @@ const ToolsTrackerTabs = ({ activeTab = 'entry', onTabChange }) => {
     { id: 'add-input', label: 'AddInput' },
     { id: 'net-stock', label: 'Net Stock' },
     { id: 'tools-history', label: 'Tools History' },
-    { id: 'service-history', label: 'Service History' }
+    { id: 'service-history', label: 'Service' }
   ];
   const dropdownMenuItems = [
     { id: 'transfer', label: 'Transfer' },
@@ -17,7 +17,7 @@ const ToolsTrackerTabs = ({ activeTab = 'entry', onTabChange }) => {
     { id: 'add-input', label: 'AddInput' },
     { id: 'net-stock', label: 'Net Stock' },
     { id: 'tools-history', label: 'Tools History' },
-    { id: 'service-history', label: 'Service History' }
+    { id: 'service-history', label: 'Service' }
   ];
   const tabsContainerRef = useRef(null);
   const activeTabRef = useRef(null);

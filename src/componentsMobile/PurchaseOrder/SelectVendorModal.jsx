@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Close from '../Images/close.png'
 
 const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options = [], fieldName = 'Vendor', onAddNew, showStarIcon = true }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingNewValue, setPendingNewValue] = useState('');
+  const selectedOptionRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   const [favorites, setFavorites] = useState(() => {
     // Load favorites from localStorage based on field name
     const storageKey = `favorite${fieldName}s`;
@@ -20,6 +22,28 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
       setPendingNewValue('');
     }
   }, [isOpen]);
+
+  // Scroll to selected option when modal opens
+  useEffect(() => {
+    if (isOpen && selectedValue && selectedOptionRef.current && scrollContainerRef.current && !searchQuery) {
+      setTimeout(() => {
+        const container = scrollContainerRef.current;
+        const selectedElement = selectedOptionRef.current;
+        if (container && selectedElement) {
+          const containerRect = container.getBoundingClientRect();
+          const elementRect = selectedElement.getBoundingClientRect();
+          const scrollTop = container.scrollTop;
+          const elementOffsetTop = selectedElement.offsetTop;
+          const containerHeight = container.clientHeight;
+          const elementHeight = selectedElement.offsetHeight;
+          
+          // Calculate the scroll position to center the selected element
+          const scrollPosition = elementOffsetTop - (containerHeight / 2) + (elementHeight / 2);
+          container.scrollTop = Math.max(0, scrollPosition);
+        }
+      }, 100);
+    }
+  }, [isOpen, selectedValue, searchQuery]);
 
   // Filter options based on search query
   // Normalize search: remove hyphens/dashes and normalize spaces for flexible matching
@@ -55,6 +79,19 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
   });
 
   if (!isOpen) return null;
+
+  // Helper function to split option text at first hyphen
+  const splitOptionText = (text) => {
+    if (!text) return { firstLine: '', secondLine: '' };
+    const firstHyphenIndex = text.indexOf(' - ');
+    if (firstHyphenIndex === -1) {
+      return { firstLine: text, secondLine: '' };
+    }
+    return {
+      firstLine: text.substring(0, firstHyphenIndex),
+      secondLine: text.substring(firstHyphenIndex + 3) // +3 to skip ' - '
+    };
+  };
 
   const handleSelect = (value) => {
     onSelect(value);
@@ -106,8 +143,9 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
       <div 
-        className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
+        className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg flex flex-col transform -translate-y-24"
         onClick={(e) => e.stopPropagation()}
+        style={{ height: '60vh', maxHeight: '60vh', minHeight: '60vh' }}
       >
         {/* Header */}
         <div className="flex justify-between items-center px-6 pt-5 ">
@@ -141,24 +179,25 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
         </div>
 
         {/* Options List */}
-        <div className="flex-1 overflow-y-auto mb-4 px-6 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto mb-4 px-6 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <div className="shadow-md rounded-lg overflow-hidden">
             {/* Create New Option - Show when typing something that doesn't exist */}
             {canCreateNew && (
               <button
                 onClick={handleCreateNew}
-                className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
+                className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors flex-shrink-0"
+                style={{ minHeight: '36px', maxHeight: '36px', height: '36px' }}
               >
                 <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M7 3V11M3 7H11" stroke="#000" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
                 </div>
-                <p className="text-[14px] text-gray-600 font-normal text-left truncate">"{searchQueryTrimmed}"</p>
+                <p className="text-[14px] text-gray-600 font-normal text-left truncate whitespace-nowrap">"{searchQueryTrimmed}"</p>
               </button>
             )}
             {sortedOptions.length > 0 ? (
-              <div className="space-y-0">
+              <div className="space-y-0" style={{ display: 'flex', flexDirection: 'column' }}>
                 {sortedOptions.map((option, index) => {
                   const isFavorite = favorites.includes(option);
                   const isSelected = selectedValue === option;
@@ -166,44 +205,42 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
                   return (
                     <button
                       key={index}
+                      ref={isSelected ? selectedOptionRef : null}
                       onClick={() => handleSelect(option)}
-                      className={`w-full h-[40px] px-4 flex items-center justify-between transition-colors ${
+                      className={`w-full px-4 flex items-center justify-between transition-colors flex-shrink-0 ${
                         isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                       }`}
+                      style={{ minHeight: '48px', maxHeight: '48px', height: '48px' }}
                     >
-                      {/* Left: Star Icon (if enabled) and Option Text */}
+                      {/* Left: Star Icon and Option Text */}
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {showStarIcon && (
-                          <button
-                            onClick={(e) => handleToggleFavorite(e, option)}
-                            className="w-6 h-6 flex items-center justify-center flex-shrink-0"
-                          >
-                            {isFavorite ? (
-                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            ) : (
-                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            )}
-                          </button>
-                        )}
-                        <p className="text-[14px] font-medium text-black text-left truncate">{option}</p>
-                      </div>
-
-                      {/* Right: Radio Button */}
-                      <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-3">
-                        {isSelected ? (
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="10" cy="10" r="9" stroke="#e4572e" strokeWidth="2" fill="none"/>
-                            <circle cx="10" cy="10" r="4" fill="#e4572e"/>
-                          </svg>
-                        ) : (
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="10" cy="10" r="9" stroke="#9E9E9E" strokeWidth="1.5" fill="none"/>
-                          </svg>
-                        )}
+                        <button
+                          onClick={(e) => handleToggleFavorite(e, option)}
+                          className="w-6 h-6 flex items-center justify-center flex-shrink-0"
+                        >
+                          {isFavorite ? (
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          ) : (
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </button>
+                        <div className="flex flex-col flex-1 min-w-0">
+                          {(() => {
+                            const { firstLine, secondLine } = splitOptionText(option);
+                            return (
+                              <>
+                                <p className="text-[14px] font-medium text-black text-left truncate whitespace-nowrap">{firstLine}</p>
+                                {secondLine && (
+                                  <p className="text-[12px] font-medium text-[#777777] text-left truncate whitespace-nowrap">{secondLine}</p>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </button>
                   );

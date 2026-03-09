@@ -1,7 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const ItemNameSelectModal = ({ isOpen, onClose, onSelect, selectedValue, options = [], onAddNew }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const selectedOptionRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const [favorites, setFavorites] = useState(() => {
+    // Load favorites from localStorage
+    const storageKey = 'favoriteItemNames';
+    const saved = localStorage.getItem(storageKey);
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Reset search when modal opens/closes
   useEffect(() => {
@@ -10,12 +18,44 @@ const ItemNameSelectModal = ({ isOpen, onClose, onSelect, selectedValue, options
     }
   }, [isOpen]);
 
+  // Scroll to selected option when modal opens
+  useEffect(() => {
+    if (isOpen && selectedValue && selectedOptionRef.current && scrollContainerRef.current && !searchQuery) {
+      setTimeout(() => {
+        const container = scrollContainerRef.current;
+        const selectedElement = selectedOptionRef.current;
+        if (container && selectedElement) {
+          const elementOffsetTop = selectedElement.offsetTop;
+          const containerHeight = container.clientHeight;
+          const elementHeight = selectedElement.offsetHeight;
+          
+          // Calculate the scroll position to center the selected element
+          const scrollPosition = elementOffsetTop - (containerHeight / 2) + (elementHeight / 2);
+          container.scrollTop = Math.max(0, scrollPosition);
+        }
+      }, 100);
+    }
+  }, [isOpen, selectedValue, searchQuery]);
+
   // Filter options based on search query
   const filteredOptions = options.filter(option =>
     option.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (!isOpen) return null;
+
+  // Helper function to split option text at first hyphen
+  const splitOptionText = (text) => {
+    if (!text) return { firstLine: '', secondLine: '' };
+    const firstHyphenIndex = text.indexOf(' - ');
+    if (firstHyphenIndex === -1) {
+      return { firstLine: text, secondLine: '' };
+    }
+    return {
+      firstLine: text.substring(0, firstHyphenIndex),
+      secondLine: text.substring(firstHyphenIndex + 3) // +3 to skip ' - '
+    };
+  };
 
   const handleSelect = (value) => {
     onSelect(value);
@@ -37,7 +77,7 @@ const ItemNameSelectModal = ({ isOpen, onClose, onSelect, selectedValue, options
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={handleBackdropClick}>
-      <div className="bg-white w-full max-w-[360px] rounded-[16px] p-6 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div ref={scrollContainerRef} className="bg-white w-full max-w-[360px] rounded-[16px] p-6 max-h-[80vh] overflow-y-auto transform -translate-y-24" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <p className="text-[16px] font-medium text-black">Select Item Name</p>
           <button onClick={onClose} className="text-[#e4572e] text-[20px] font-semibold">
@@ -65,31 +105,49 @@ const ItemNameSelectModal = ({ isOpen, onClose, onSelect, selectedValue, options
           </svg>
           <p className="text-[12px] font-medium text-black">New Item Name</p>
         </button>
-        {filteredOptions.length > 0 && (
+        {sortedOptions.length > 0 && (
           <div className="space-y-2">
-            {filteredOptions.map((option, index) => {
+            {sortedOptions.map((option, index) => {
               const isSelected = selectedValue === option;
+              const isFavorite = favorites.includes(option);
               return (
                 <button
-                  key={index} onClick={() => handleSelect(option)}
-                  className={`w-full h-[36px] rounded-[6px] px-3 flex items-center justify-between ${
+                  key={index}
+                  ref={isSelected ? selectedOptionRef : null}
+                  onClick={() => handleSelect(option)}
+                  className={`w-full rounded-[6px] px-3 flex items-center gap-3 ${
                     isSelected
                       ? 'bg-[#FFF3E0]'
                       : 'bg-white'
                   }`}
+                  style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                 >
-                  <p className="text-[12px] font-medium text-black">{option}</p>
-                  <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-                    {isSelected ? (
+                  <button
+                    onClick={(e) => handleToggleFavorite(e, option)}
+                    className="w-6 h-6 flex items-center justify-center flex-shrink-0"
+                  >
+                    {isFavorite ? (
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="10" cy="10" r="9" stroke="gray" strokeWidth="2" fill="none"/>
-                        <circle cx="10" cy="10" r="4" fill="#e4572e"/>
+                        <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     ) : (
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="10" cy="10" r="9" stroke="#9E9E9E" strokeWidth="1.5" fill="none"/>
+                        <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     )}
+                  </button>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    {(() => {
+                      const { firstLine, secondLine } = splitOptionText(option);
+                      return (
+                        <>
+                          <p className="text-[12px] font-medium text-black truncate whitespace-nowrap">{firstLine}</p>
+                          {secondLine && (
+                            <p className="text-[11px] font-medium text-[#777777] truncate whitespace-nowrap">{secondLine}</p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </button>
               );

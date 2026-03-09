@@ -1068,7 +1068,7 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
             onMouseLeave={handleMouseUp}
           >
             <table className="table-fixed min-w-[1400px] w-screen border-collapse">
-              <thead className="sticky top-0 z-10 bg-white ">
+              <thead className="sticky top-0 z-99 bg-white ">
                 <tr className="bg-[#FAF6ED]">
                   <th className="pt-2 pl-3 w-36 font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('date')}>
                     Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}

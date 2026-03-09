@@ -17,7 +17,9 @@ const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/
 const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
 
 const ServiceHistory = ({ user, onTabChange }) => {
+  const [viewMode, setViewMode] = useState('live'); // 'live' or 'history'
   const [historyData, setHistoryData] = useState([]);
+  const [serviceReturnData, setServiceReturnData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [projectsMap, setProjectsMap] = useState({});
   const [vendorsMap, setVendorsMap] = useState({});
@@ -320,15 +322,24 @@ const ServiceHistory = ({ user, onTabChange }) => {
               });
             }
           });
-          // Sort by created_date_time (newest first)
-          flattenedData.sort((a, b) => {
+          // Separate service and service return entries
+          const serviceEntries = [];
+          const serviceReturnEntries = [];
+          flattenedData.forEach((entry) => {
+            const type = String(entry.toolsEntryType || '').toLowerCase();
+            if (type === 'service') {
+              serviceEntries.push(entry);
+            } else if (type === 'service_return') {
+              serviceReturnEntries.push(entry);
+            }
+          });
+
+          // Sort service entries by created_date_time (newest first)
+          serviceEntries.sort((a, b) => {
             const dateA = new Date(a.createdDateTime);
             const dateB = new Date(b.createdDateTime);
             return dateB - dateA;
           });
-
-          // Filter to only show 'Service' type data (exclude Entry and other types)
-          const filteredData = flattenedData.filter(entry => entry.toolsEntryType === 'service');
 
           // Fetch latest status list once and resolve current status by item_ids_id + machine_number_id
           let machineStatusList = [];
@@ -362,7 +373,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
             }
           });
 
-          const enrichedData = filteredData.map((entry) => {
+          const enrichedData = serviceEntries.map((entry) => {
             const key = getMachineStatusKey(entry.itemIdsId, entry.machineNumberId, entry.machineNumber);
             const latestStatusRow = key ? latestStatusByKey.get(key) : null;
             const apiStatus = latestStatusRow
@@ -380,8 +391,8 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
             return { ...entry, machineStatus: entry.machineStatus || 'Working' };
           });
-
           setHistoryData(enrichedData);
+          setServiceReturnData(serviceReturnEntries);
         } else {
           console.error('Failed to fetch history data');
           setHistoryData([]);
@@ -736,6 +747,14 @@ const ServiceHistory = ({ user, onTabChange }) => {
     };
   }, [historyData]);
 
+  const buildItemKey = (entry) => {
+    const itemNameId = entry?.itemNameId || '';
+    const itemIdsId = entry?.itemIdsId || '';
+    const machineNumberId = entry?.machineNumberId || '';
+    const machineNumber = entry?.machineNumber || '';
+    return [itemNameId, itemIdsId, machineNumberId, machineNumber].join('::');
+  };
+
   // Get status display text and color
   const getStatusDisplay = (status) => {
     const normalized = String(status || '').trim();
@@ -761,6 +780,13 @@ const ServiceHistory = ({ user, onTabChange }) => {
   );
   const filterItemIdOptions = Object.values(itemIdsMap).filter(Boolean);
   const filterProjectInchargeOptions = Object.values(employeesMap).filter(Boolean);
+
+  // Pre-compute returned item keys (items that have been returned to any project)
+  const returnedItemKeys = new Set(
+    serviceReturnData
+      .filter((retEntry) => retEntry.toProjectId)
+      .map(buildItemKey)
+  );
 
   // Filter bottom sheet handlers
   const handleCloseFilterBottomSheet = () => {
@@ -799,6 +825,31 @@ const ServiceHistory = ({ user, onTabChange }) => {
           </div>
         </div>
       </div>
+      {/* Live/History Toggle */}
+      <div className="flex-shrink-0 px-4 pt-3 pb-2">
+        <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md">
+          <button
+            onClick={() => setViewMode('live')}
+            className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${
+              viewMode === 'live'
+                ? 'bg-white text-black'
+                : 'bg-transparent text-black'
+            }`}
+          >
+            Live
+          </button>
+          <button
+            onClick={() => setViewMode('history')}
+            className={`flex-1 mr-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${
+              viewMode === 'history'
+                ? 'bg-white text-black'
+                : 'bg-transparent text-black'
+            }`}
+          >
+            History
+          </button>
+        </div>
+      </div>
       {/* Filter and Download Row */}
       <div className="flex justify-between items-center px-4 pb-1 mt-2">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowFilterBottomSheet(true)}>
@@ -822,7 +873,30 @@ const ServiceHistory = ({ user, onTabChange }) => {
           </div>
         ) : (
           <div className="space-y-0.5">
-            {historyData.map((entry) => {
+            {historyData.filter((entry) => {
+              // Apply Live vs History view filtering
+              if (viewMode === 'live') {
+                // Build a set of item keys that have been returned to any project
+                const returnedItemKeys = new Set(
+                  serviceReturnData
+                    .filter(retEntry => retEntry.toProjectId)
+                    .map(buildItemKey)
+                );
+                const key = buildItemKey(entry);
+                if (key && returnedItemKeys.has(key)) {
+                  return false;
+                }
+              }
+
+              // Filter by Item ID
+              if (filterItemId) {
+                const itemIdName = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
+                if (!itemIdName || String(itemIdName).toLowerCase() !== String(filterItemId).toLowerCase()) {
+                  return false;
+                }
+              }
+              return true;
+            }).map((entry) => {
               const { date, time } = formatDateTime(entry.createdDateTime);
 
               // For Service type: check serviceStoreId first (vendors), then toProjectId

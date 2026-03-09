@@ -586,31 +586,40 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     const hour12 = hours % 12 || 12;
     return `${day}/${month}/${year} ${hour12}:${minutes} ${ampm}`;
   };
+  const toLocalDateStr = (val) => {
+    if (!val) return '';
+    const d = new Date(val);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const normalizeStr = (s) => (s == null ? '' : String(s).trim());
+
   const checkForDuplicateEntry = async (checkDate, checkAmount) => {
-    const vendorLabel = selectedOption?.type === 'Vendor' ? selectedOption.label : '';
-    const contractorLabel = selectedOption?.type === 'Contractor' ? selectedOption.label : '';
-    const siteLabel = selectedSite ? selectedSite.label : '';
-    const dateStr = checkDate ? new Date(checkDate).toISOString().split('T')[0] : '';
+    const vendorLabel = normalizeStr(selectedOption?.type === 'Vendor' ? selectedOption.label : '');
+    const contractorLabel = normalizeStr(selectedOption?.type === 'Contractor' ? selectedOption.label : '');
+    const siteLabel = normalizeStr(selectedSite ? selectedSite.label : '');
+    const dateStr = checkDate ? (typeof checkDate === 'string' && checkDate.includes('-') ? checkDate.split('T')[0] : toLocalDateStr(checkDate)) : '';
 
     try {
       const response = await fetch(withBranchUrl('https://backendaab.in/aabuilderDash/expenses_form/get_form'));
       if (!response.ok) return [];
       const allExpenses = await response.json();
 
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
       const matching = allExpenses.filter((exp) => {
-        const expDate = new Date(exp.timestamp || exp.date).toISOString().split('T')[0];
+        const expDateStr = toLocalDateStr(exp.date || exp.timestamp);
         const expAmount = Math.abs(parseFloat(exp.amount) || 0);
-        const dateMatch = expDate === dateStr;
+        const dateMatch = expDateStr === dateStr;
         const amountMatch = Math.abs(expAmount - (checkAmount || 0)) < 0.01;
-        const projectMatch = (exp.siteName === siteLabel) || (exp.projectId && selectedSite && Number(exp.projectId) === Number(selectedSite.id));
+        const expSiteName = normalizeStr(exp.siteName || exp.projectName || '');
+        const projectMatch =
+          (siteLabel && expSiteName && expSiteName === siteLabel) ||
+          (exp.projectId && selectedSite && Number(exp.projectId) === Number(selectedSite.id));
         let vendorContractorMatch = false;
-        if (vendorLabel) vendorContractorMatch = (exp.vendor || '') === vendorLabel;
-        else if (contractorLabel) vendorContractorMatch = (exp.contractor || '') === contractorLabel;
-        const isWithinLastMonth = new Date(exp.timestamp || exp.date) >= oneMonthAgo;
-        return dateMatch && amountMatch && projectMatch && vendorContractorMatch && isWithinLastMonth;
+        if (vendorLabel) vendorContractorMatch = normalizeStr(exp.vendor || '') === vendorLabel;
+        else if (contractorLabel) vendorContractorMatch = normalizeStr(exp.contractor || '') === contractorLabel;
+        return dateMatch && amountMatch && projectMatch && vendorContractorMatch;
       });
 
       return matching;
@@ -1511,8 +1520,8 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         // Update ENo for next entry
         setEno(eno + 1);
       }
-      const successMessage = isWeeklyPaymentBillSaved 
-        ? 'Advance saved successfully and added to Weekly Payment Bills!' 
+      const successMessage = isWeeklyPaymentBillSaved
+        ? 'Advance saved successfully and added to Weekly Payment Bills!'
         : 'Advance saved successfully!';
       toast.success(successMessage, {
         position: "top-center",
@@ -2216,17 +2225,17 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [] }) =>
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded font-medium hover:bg-gray-50 transition-colors duration-200"
-                    onClick={handleDuplicateCancel}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
                     className="px-4 py-2 bg-[#BF9853] text-white rounded font-medium hover:bg-[#a67c3a] transition-colors duration-200"
                     onClick={handleDuplicateIgnore}
                   >
                     Ignore & Continue
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded font-medium hover:bg-gray-50 transition-colors duration-200"
+                    onClick={handleDuplicateCancel}
+                  >
+                    Cancel
                   </button>
                 </div>
               </div>

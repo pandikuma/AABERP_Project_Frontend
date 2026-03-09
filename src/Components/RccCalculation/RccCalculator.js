@@ -167,9 +167,7 @@ const RccCalculator = () => {
                         ))}
                     </div>
                     <button
-                        onClick={() => setIsPopupOpen(false)}
-                        className="btn"
-                    >
+                        onClick={() => setIsPopupOpen(false)} className="btn">
                         Close
                     </button>
                 </div>
@@ -196,16 +194,23 @@ const RccCalculator = () => {
                             const sandPart = parseFloat(ratioMatch[2]);
                             const jallyPart = parseFloat(ratioMatch[3]);
                             const totalParts = cementPart + sandPart + jallyPart;
-                            const L = convertToInches(tile.length || "1'");
+                            const L = convertToInches(tile.length);
                             const H = convertToInches(tile.height);
                             const B = convertToInches(tile.breadth);
+                            const quantity = parseFloat(tile.quantity) || 1;
                             const cementRate = parseFloat(values.cementRate || 0);
                             const sandRate = parseFloat(values.sandRate || 0);
                             const jallyRate = parseFloat(values.jallyRate || 0);
                             const totalVolume = L * H * B;
-                            const cement = parseFloat(((totalVolume / totalParts) * cementPart).toFixed(2));
-                            const sand = parseFloat(((totalVolume / totalParts) * sandPart).toFixed(2));
-                            const jally = parseFloat(((totalVolume / totalParts) * jallyPart).toFixed(2));
+                            const cement = parseFloat(
+                                ((totalVolume / totalParts) * cementPart) * quantity
+                            );
+                            const sand = parseFloat(
+                                ((totalVolume / totalParts) * sandPart) * quantity
+                            );
+                            const jally = parseFloat(
+                                ((totalVolume / totalParts) * jallyPart) * quantity
+                            );
                             const cementWastage = parseFloat(values.cementWastage || "0%") / 100;
                             const sandWastage = parseFloat(values.sandWastage || "0%") / 100;
                             const jallyWastage = parseFloat(values.jallyWastage || "0%") / 100;
@@ -223,12 +228,23 @@ const RccCalculator = () => {
                                 parseFloat(updatedTile.sand) +
                                 parseFloat(updatedTile.jally)
                             ).toFixed(2);
-                            const totalAmountCement = parseFloat((updatedTile.cement * cementRate).toFixed(2));
-                            const totalAmountSand = parseFloat((updatedTile.sand * (sandRate / 100)).toFixed(2));
-                            const totalAmountJally = parseFloat((updatedTile.jally * (jallyRate / 100)).toFixed(2));
-                            updatedTile.LabourAmount = parseFloat((updatedTile.totalValume * (updatedTile.labourRate || 1)).toFixed(2));
-                            updatedTile.totalAmountCft = parseFloat((totalAmountCement + totalAmountSand + totalAmountJally).toFixed(2));
-                            updatedTile.concreteTotalAmount = updatedTile.totalAmountCft + updatedTile.LabourAmount;
+                            const totalAmountCement = parseFloat(
+                                (updatedTile.cement * cementRate).toFixed(2)
+                            );
+                            const totalAmountSand = parseFloat(
+                                (updatedTile.sand * (sandRate / 100)).toFixed(2)
+                            );
+                            const totalAmountJally = parseFloat(
+                                (updatedTile.jally * (jallyRate / 100)).toFixed(2)
+                            );
+                            updatedTile.LabourAmount = parseFloat(
+                                (updatedTile.totalValume * (updatedTile.labourRate || 1)).toFixed(2)
+                            );
+                            updatedTile.totalAmountCft = parseFloat(
+                                (totalAmountCement + totalAmountSand + totalAmountJally).toFixed(2)
+                            );
+                            updatedTile.concreteTotalAmount =
+                                updatedTile.totalAmountCft + updatedTile.LabourAmount;
                         }
                     }
                     return updatedTile;
@@ -251,7 +267,7 @@ const RccCalculator = () => {
                             const sandPart = parseFloat(ratioMatch[2]);
                             const jallyPart = parseFloat(ratioMatch[3]);
                             const totalParts = cementPart + sandPart + jallyPart;
-                            const L = convertToInches(updatedTile.length || "1'");
+                            const L = convertToInches(updatedTile.length);
                             const H = convertToInches(updatedTile.height);
                             const B = convertToInches(updatedTile.breadth);
                             const cementRate = parseFloat(values.cementRate || 0);
@@ -314,16 +330,23 @@ const RccCalculator = () => {
                             const sandPart = parseFloat(ratioMatch[2]);
                             const jallyPart = parseFloat(ratioMatch[3]);
                             const totalParts = cementPart + sandPart + jallyPart;
-                            const L = convertToInches(tile.length || "1'");
+                            const L = convertToInches(tile.length);
                             const H = convertToInches(tile.height);
                             const B = convertToInches(tile.breadth);
                             const cementRate = parseFloat(updatedValues.cementRate || 0);
                             const sandRate = parseFloat(updatedValues.sandRate || 0);
                             const jallyRate = parseFloat(updatedValues.jallyRate || 0);
                             const totalVolume = L * H * B;
-                            const cement = parseFloat(((totalVolume / totalParts) * cementPart).toFixed(2));
-                            const sand = parseFloat(((totalVolume / totalParts) * sandPart).toFixed(2));
-                            const jally = parseFloat(((totalVolume / totalParts) * jallyPart).toFixed(2));
+                            const qty = parseFloat(tile.quantity) || 1;
+                            const cement = parseFloat(
+                                ((totalVolume / totalParts) * cementPart) * qty
+                            );
+                            const sand = parseFloat(
+                                ((totalVolume / totalParts) * sandPart) * qty
+                            );
+                            const jally = parseFloat(
+                                ((totalVolume / totalParts) * jallyPart) * qty
+                            );
                             const cementWastage = parseFloat(updatedValues.cementWastage || "0%") / 100;
                             const sandWastage = parseFloat(updatedValues.sandWastage || "0%") / 100;
                             const jallyWastage = parseFloat(updatedValues.jallyWastage || "0%") / 100;
@@ -1211,6 +1234,27 @@ const RccCalculator = () => {
             ...formattedData,
         }));
     };
+    const handleLengthButtonClick = (floorIndex, tileIndex) => {
+        setFloorss((prevFloors) => {
+            const updatedFloors = [...prevFloors];
+            const floor = updatedFloors[floorIndex];
+            const tile = floor?.tiles?.[tileIndex];
+            if (!tile || !tile.size) return prevFloors;
+
+            // Only custom behavior for Footing / Column
+            if (floor.areaName === "Footing" || floor.areaName === "FOOTING" || floor.areaName === "Column" || floor.areaName === "COLUMN") {
+                const parts = tile.size.split(/x/i).map((val) => val.trim());
+                const [length = "", breadth = ""] = parts;
+                tile.length = length || "";
+                tile.breadth = breadth || "";
+                return updatedFloors;
+            }
+
+            // Fallback to existing popup for other area types
+            openLengthPopupScreen(floorIndex, tileIndex);
+            return updatedFloors;
+        });
+    };
     const evaluateExpression = (expression) => {
         try {
             const sanitizedExpression = expression.replace(/x|X/g, '*').replace(/[^\d+\-*/().\s]/g, '');
@@ -1318,7 +1362,7 @@ const RccCalculator = () => {
                         const matchingBeam = beamData.find((beam) => beam.beamName === selectedAreaName);
                         let area = 0;
                         if (matchingBeam && matchingBeam.formula) {
-                            const lengthInches = convertToInches(totalLength || "1'");
+                            const lengthInches = convertToInches(totalLength );
                             const breadthInches = convertToInches(tile.breadth);
                             const heightInches = convertToInches(tile.height);
                             const normalizedDeduction = parseFloat(tile.deductionArea) || 0;
@@ -1361,7 +1405,7 @@ const RccCalculator = () => {
                                 const sandPart = parseFloat(ratioMatch[2]);
                                 const jallyPart = parseFloat(ratioMatch[3]);
                                 const totalParts = cementPart + sandPart + jallyPart;
-                                const L = convertToInches(totalLength || "1'");
+                                const L = convertToInches(totalLength );
                                 const H = convertToInches(tile.height);
                                 const B = convertToInches(tile.breadth);
                                 const cementRate = parseFloat(values.cementRate || 0);
@@ -1475,7 +1519,7 @@ const RccCalculator = () => {
             updatedFloors[floorIndex].tiles[tileIndex].deductionArea = result;
             updatedFloors[floorIndex].tiles[tileIndex].deductionInput = input;
             const tile = updatedFloors[floorIndex].tiles[tileIndex];
-            const lengthInches = convertToInches(tile.length || "1'");
+            const lengthInches = convertToInches(tile.length);
             const breadthInches = convertToInches(tile.breadth || "0'");
             const heightInches = convertToInches(tile.height || "0'");
             const normalizedDeduction = parseFloat(tile.deductionArea) || 0;
@@ -1789,7 +1833,7 @@ const RccCalculator = () => {
                     ? tile.size.split('x').map((val) => val.trim())
                     : ["", ""];
                 // Convert measurements to inches
-                const L = convertToInches(tile.length || "1'");
+                const L = convertToInches(tile.length );
                 const H = convertToInches(height);
                 const B = convertToInches(breadth);
                 const deduction = parseFloat(tile.deductionArea) || 0;
@@ -1847,7 +1891,11 @@ const RccCalculator = () => {
             if (field === "mix") {
                 tile.mix = value;
                 updatedFloors[floorIndex].tiles.forEach((t) => {
-                    if (t.type === tile.type && updatedFloors[floorIndex].areaName === selectedAreaName && updatedFloors[floorIndex].floorName === selectedFloorName) {
+                    if (
+                        t.type === tile.type &&
+                        updatedFloors[floorIndex].areaName === selectedAreaName &&
+                        updatedFloors[floorIndex].floorName === selectedFloorName
+                    ) {
                         if (t.mix) {
                             const ratioMatch = t.mix.match(/([\d.]+):([\d.]+):([\d.]+)/);
                             if (ratioMatch) {
@@ -1855,16 +1903,23 @@ const RccCalculator = () => {
                                 const sandPart = parseFloat(ratioMatch[2]);
                                 const jallyPart = parseFloat(ratioMatch[3]);
                                 const totalParts = cementPart + sandPart + jallyPart;
-                                const L = convertToInches(t.length || "1'");
+                                const L = convertToInches(t.length);
                                 const H = convertToInches(t.height);
                                 const B = convertToInches(t.breadth);
+                                const quantity = parseFloat(t.quantity) || 1;
                                 const cementRate = parseFloat(values.cementRate || 0);
                                 const sandRate = parseFloat(values.sandRate || 0);
                                 const jallyRate = parseFloat(values.jallyRate || 0);
                                 const totalVolume = L * H * B;
-                                const cement = parseFloat(((totalVolume / totalParts) * cementPart).toFixed(2));
-                                const sand = parseFloat(((totalVolume / totalParts) * sandPart).toFixed(2));
-                                const jally = parseFloat(((totalVolume / totalParts) * jallyPart).toFixed(2));
+                                const cement = parseFloat(
+                                    ((totalVolume / totalParts) * cementPart) * quantity
+                                );
+                                const sand = parseFloat(
+                                    ((totalVolume / totalParts) * sandPart) * quantity
+                                );
+                                const jally = parseFloat(
+                                    ((totalVolume / totalParts) * jallyPart) * quantity
+                                );
                                 const cementWastage = parseFloat(values.cementWastage || "0%") / 100;
                                 const sandWastage = parseFloat(values.sandWastage || "0%") / 100;
                                 const jallyWastage = parseFloat(values.jallyWastage || "0%") / 100;
@@ -1880,20 +1935,26 @@ const RccCalculator = () => {
                                 t.cement = cementWithWastage.toFixed(2);
                                 t.sand = sandWithWastage.toFixed(2);
                                 t.jally = jallyWithWastage.toFixed(2);
-                                // Calculate total volume
                                 t.totalValume = (
                                     parseFloat(t.cement) +
                                     parseFloat(t.sand) +
                                     parseFloat(t.jally)
                                 ).toFixed(2);
-                                // Calculate total costs
-                                const totalAmountCement = parseFloat((t.cement * cementRate).toFixed(2));
-                                const totalAmountSand = parseFloat((t.sand * (sandRate / 100)).toFixed(2));
-                                const totalAmountJally = parseFloat((t.jally * (jallyRate / 100)).toFixed(2));
-                                t.LabourAmount = parseFloat((
-                                    t.totalValume * (t.labourRate || 1)
-                                ).toFixed(2));
-                                t.totalAmountCft = parseFloat((totalAmountCement + totalAmountSand + totalAmountJally).toFixed(2));
+                                const totalAmountCement = parseFloat(
+                                    (t.cement * cementRate).toFixed(2)
+                                );
+                                const totalAmountSand = parseFloat(
+                                    (t.sand * (sandRate / 100)).toFixed(2)
+                                );
+                                const totalAmountJally = parseFloat(
+                                    (t.jally * (jallyRate / 100)).toFixed(2)
+                                );
+                                t.LabourAmount = parseFloat(
+                                    (t.totalValume * (t.labourRate || 1)).toFixed(2)
+                                );
+                                t.totalAmountCft = parseFloat(
+                                    (totalAmountCement + totalAmountSand + totalAmountJally).toFixed(2)
+                                );
                                 t.concreteTotalAmount = t.totalAmountCft + t.LabourAmount;
                             }
                         }
@@ -1908,143 +1969,215 @@ const RccCalculator = () => {
                         updatedFloors[floorIndex].floorName === selectedFloorName)
                     .pop();
                 let existingSize = existingRow?.size || typeSizes[newType] || "";
-                const [breadth = "", height = ""] = existingSize.split(/x/i).map((val) => val.trim());
+                const parts = existingSize.split(/x/i).map((val) => val.trim());
                 tile.size = existingSize;
-                tile.height = height || "";
-                tile.breadth = breadth || "";
-                updatedFloors[floorIndex].tiles.forEach((t) => {
-                    if (t.type === newType && updatedFloors[floorIndex].areaName === selectedAreaName &&
-                        updatedFloors[floorIndex].floorName === selectedFloorName) {
-                        t.size = existingSize;
-                        t.height = height || "";
-                        t.breadth = breadth || "";
-                    }
-                });
+                // reset area-related fields so they are recalculated per row based on its own quantity
+                tile.area = "";
+                tile.totalArea = "";
+                tile.amount = "";
+
+                if (selectedAreaName === "Footing" || selectedAreaName === "FOOTING" || selectedAreaName === "Column" || selectedAreaName === "COLUMN") {
+                    const [length = "", breadth = "", height = ""] = parts;
+                    tile.length = existingRow?.length || length || "";
+                    tile.breadth = existingRow?.breadth || breadth || "";
+                    tile.height = existingRow?.height || height || "";
+                } else {
+                    const [breadth = "", height = ""] = parts;
+                    tile.height = height || "";
+                    tile.breadth = breadth || "";
+                }
                 setTypeSizes((prevTypeSizes) => ({
                     ...prevTypeSizes,
                     [newType]: existingSize,
                 }));
-                updatedFloors[floorIndex].tiles.forEach((t) => {
-                    if (t.type === newType && updatedFloors[floorIndex].areaName === selectedAreaName && updatedFloors[floorIndex].floorName === selectedFloorName) {
-                        if (t.mix) {
-                            const ratioMatch = t.mix.match(/([\d.]+):([\d.]+):([\d.]+)/);
-                            if (ratioMatch) {
-                                const cementPart = parseFloat(ratioMatch[1]);
-                                const sandPart = parseFloat(ratioMatch[2]);
-                                const jallyPart = parseFloat(ratioMatch[3]);
-                                const totalParts = cementPart + sandPart + jallyPart;
-                                const L = convertToInches(t.length || "1'");
-                                const H = convertToInches(t.height);
-                                const B = convertToInches(t.breadth);
-                                const cementRate = parseFloat(values.cementRate || 0);
-                                const sandRate = parseFloat(values.sandRate || 0);
-                                const jallyRate = parseFloat(values.jallyRate || 0);
-                                const totalVolume = L * H * B;
-                                const cement = parseFloat(((totalVolume / totalParts) * cementPart).toFixed(2));
-                                const sand = parseFloat(((totalVolume / totalParts) * sandPart).toFixed(2));
-                                const jally = parseFloat(((totalVolume / totalParts) * jallyPart).toFixed(2));
-                                const cementWastage = parseFloat(values.cementWastage || "0%") / 100;
-                                const sandWastage = parseFloat(values.sandWastage || "0%") / 100;
-                                const jallyWastage = parseFloat(values.jallyWastage || "0%") / 100;
-                                const cementWastages = cement * cementWastage;
-                                const sandWastages = sand * sandWastage;
-                                const jallyWastages = jally * jallyWastage;
-                                const jallyWithWastage = jallyWastages + jally;
-                                const sandWithWastage = sandWastages + sand;
-                                const cementWithWastage = cementWastages + cement;
-                                t.cementWastage = values.cementWastage;
-                                t.sandWastage = values.sandWastage;
-                                t.jallyWastage = values.jallyWastage;
-                                t.cement = cementWithWastage.toFixed(2);
-                                t.sand = sandWithWastage.toFixed(2);
-                                t.jally = jallyWithWastage.toFixed(2);
-                                t.totalValume = (
-                                    parseFloat(t.cement) +
-                                    parseFloat(t.sand) +
-                                    parseFloat(t.jally)
-                                ).toFixed(2);
-                                const totalAmountCement = parseFloat((t.cement * cementRate).toFixed(2));
-                                const totalAmountSand = parseFloat((t.sand * (sandRate / 100)).toFixed(2));
-                                const totalAmountJally = parseFloat((t.jally * (jallyRate / 100)).toFixed(2));
-                                t.LabourAmount = parseFloat((
-                                    t.totalValume * (t.labourRate || 1)
-                                ).toFixed(2));
-                                t.totalAmountCft = parseFloat((totalAmountCement + totalAmountSand + totalAmountJally).toFixed(2));
-                                t.concreteTotalAmount = t.totalAmountCft + t.LabourAmount;
-                            }
-                        }
+
+                // if mix is already selected for this row, immediately
+                // recalculate concrete quantities so user doesn't need
+                // to re-enter quantity or dimensions
+                if (tile.mix) {
+                    const ratioMatch = tile.mix.match(/([\d.]+):([\d.]+):([\d.]+)/);
+                    if (ratioMatch) {
+                        const cementPart = parseFloat(ratioMatch[1]);
+                        const sandPart = parseFloat(ratioMatch[2]);
+                        const jallyPart = parseFloat(ratioMatch[3]);
+                        const totalParts = cementPart + sandPart + jallyPart;
+                        const L = convertToInches(tile.length);
+                        const H = convertToInches(tile.height);
+                        const B = convertToInches(tile.breadth);
+                        const quantity = parseFloat(tile.quantity) || 1;
+                        const cementRate = parseFloat(values.cementRate || 0);
+                        const sandRate = parseFloat(values.sandRate || 0);
+                        const jallyRate = parseFloat(values.jallyRate || 0);
+                        const totalVolume = L * H * B;
+                        const cement = parseFloat(
+                            ((totalVolume / totalParts) * cementPart) * quantity
+                        );
+                        const sand = parseFloat(
+                            ((totalVolume / totalParts) * sandPart) * quantity
+                        );
+                        const jally = parseFloat(
+                            ((totalVolume / totalParts) * jallyPart) * quantity
+                        );
+                        const cementWastage = parseFloat(values.cementWastage || "0%") / 100;
+                        const sandWastage = parseFloat(values.sandWastage || "0%") / 100;
+                        const jallyWastage = parseFloat(values.jallyWastage || "0%") / 100;
+                        const cementWastages = cement * cementWastage;
+                        const sandWastages = sand * sandWastage;
+                        const jallyWastages = jally * jallyWastage;
+                        const jallyWithWastage = jallyWastages + jally;
+                        const sandWithWastage = sandWastages + sand;
+                        const cementWithWastage = cementWastages + cement;
+                        tile.cementWastage = values.cementWastage;
+                        tile.sandWastage = values.sandWastage;
+                        tile.jallyWastage = values.jallyWastage;
+                        tile.cement = cementWithWastage.toFixed(2);
+                        tile.sand = sandWithWastage.toFixed(2);
+                        tile.jally = jallyWithWastage.toFixed(2);
+                        tile.totalValume = (
+                            parseFloat(tile.cement) +
+                            parseFloat(tile.sand) +
+                            parseFloat(tile.jally)
+                        ).toFixed(2);
+                        const totalAmountCement = parseFloat(
+                            (tile.cement * cementRate).toFixed(2)
+                        );
+                        const totalAmountSand = parseFloat(
+                            (tile.sand * (sandRate / 100)).toFixed(2)
+                        );
+                        const totalAmountJally = parseFloat(
+                            (tile.jally * (jallyRate / 100)).toFixed(2)
+                        );
+                        tile.LabourAmount = parseFloat(
+                            (tile.totalValume * (tile.labourRate || 1)).toFixed(2)
+                        );
+                        tile.totalAmountCft = parseFloat(
+                            (totalAmountCement + totalAmountSand + totalAmountJally).toFixed(2)
+                        );
+                        tile.concreteTotalAmount = tile.totalAmountCft + tile.LabourAmount;
                     }
-                });
+                }
             }
             else if (field === "size") {
-                const [breadth = "", height = ""] = value.split(/x/i).map((val) => val.trim());
+                const parts = value.split(/x/i).map((val) => val.trim());
                 const currentType = tile.type;
+
+                // previous prefilled size (if any) for this type
+                const previousSize = typeSizes[currentType] || "";
+                const [prevLen = "", prevBr = "", prevHt = ""] = previousSize
+                    ? previousSize.split(/x/i).map((val) => val.trim())
+                    : ["", "", ""];
+
+                // propagate size + L/B/H to all tiles with same type on this floor/area
                 updatedFloors[floorIndex].tiles.forEach((t) => {
-                    if (t.type === currentType && updatedFloors[floorIndex].areaName === selectedAreaName && updatedFloors[floorIndex].floorName === selectedFloorName) {
+                    if (t.type === currentType &&
+                        updatedFloors[floorIndex].areaName === selectedAreaName &&
+                        updatedFloors[floorIndex].floorName === selectedFloorName) {
                         t.size = value;
-                        t.height = height.endsWith('') ? height : `${height}`;
-                        t.breadth = breadth.endsWith('') ? breadth : `${breadth}`;
-                    }
-                });
-                updatedFloors[floorIndex].tiles.forEach((t) => {
-                    if (t.type === currentType && updatedFloors[floorIndex].areaName === selectedAreaName && updatedFloors[floorIndex].floorName === selectedFloorName) {
-                        if (t.mix) {
-                            const ratioMatch = t.mix.match(/([\d.]+):([\d.]+):([\d.]+)/);
-                            if (ratioMatch) {
-                                const cementPart = parseFloat(ratioMatch[1]);
-                                const sandPart = parseFloat(ratioMatch[2]);
-                                const jallyPart = parseFloat(ratioMatch[3]);
-                                const totalParts = cementPart + sandPart + jallyPart;
-                                const L = convertToInches(t.length || "1'");
-                                const H = convertToInches(t.height);
-                                const B = convertToInches(t.breadth);
-                                const cementRate = parseFloat(values.cementRate || 0);
-                                const sandRate = parseFloat(values.sandRate || 0);
-                                const jallyRate = parseFloat(values.jallyRate || 0);
-                                const totalVolume = L * H * B;
-                                const cement = parseFloat(((totalVolume / totalParts) * cementPart).toFixed(2));
-                                const sand = parseFloat(((totalVolume / totalParts) * sandPart).toFixed(2));
-                                const jally = parseFloat(((totalVolume / totalParts) * jallyPart).toFixed(2));
-                                const cementWastage = parseFloat(values.cementWastage || "0%") / 100;
-                                const sandWastage = parseFloat(values.sandWastage || "0%") / 100;
-                                const jallyWastage = parseFloat(values.jallyWastage || "0%") / 100;
-                                const cementWastages = cement * cementWastage;
-                                const sandWastages = sand * sandWastage;
-                                const jallyWastages = jally * jallyWastage;
-                                const jallyWithWastage = jallyWastages + jally;
-                                const sandWithWastage = sandWastages + sand;
-                                const cementWithWastage = cementWastages + cement;
-                                t.cementWastage = values.cementWastage;
-                                t.sandWastage = values.sandWastage;
-                                t.jallyWastage = values.jallyWastage;
-                                t.cement = cementWithWastage.toFixed(2);
-                                t.sand = sandWithWastage.toFixed(2);
-                                t.jally = jallyWithWastage.toFixed(2);
-                                t.totalValume = (
-                                    parseFloat(t.cement) +
-                                    parseFloat(t.sand) +
-                                    parseFloat(t.jally)
-                                ).toFixed(2);
-                                const totalAmountCement = parseFloat((t.cement * cementRate).toFixed(2));
-                                const totalAmountSand = parseFloat((t.sand * (sandRate / 100)).toFixed(2));
-                                const totalAmountJally = parseFloat((t.jally * (jallyRate / 100)).toFixed(2));
-                                t.LabourAmount = parseFloat((
-                                    t.totalValume * (t.labourRate || 1)
-                                ).toFixed(2));
-                                t.totalAmountCft = parseFloat((totalAmountCement + totalAmountSand + totalAmountJally).toFixed(2));
-                                t.concreteTotalAmount = t.totalAmountCft + t.LabourAmount;
+                        if (selectedAreaName === "Footing" || selectedAreaName === "FOOTING" ||
+                            selectedAreaName === "Column" || selectedAreaName === "COLUMN") {
+                            const [length = "", breadth = "", height = ""] = parts;
+                            t.length = length || "";
+                            t.breadth = breadth || "";
+                            // only overwrite H if it was empty or still equal to old prefilled height
+                            if (!t.height || (prevHt && t.height === prevHt)) {
+                                t.height = height || "";
+                            }
+                        } else {
+                            const [breadth = "", height = ""] = parts;
+                            t.breadth = breadth || "";
+                            // only overwrite H if it was empty or still equal to old prefilled height
+                            if (!t.height || (prevHt && t.height === prevHt)) {
+                                t.height = height || "";
                             }
                         }
                     }
                 });
+
+                // after updating size/dimensions, if any affected tiles already
+                // have a mix selected, recalculate their concrete quantities
+                updatedFloors[floorIndex].tiles.forEach((t) => {
+                    if (
+                        t.type === currentType &&
+                        updatedFloors[floorIndex].areaName === selectedAreaName &&
+                        updatedFloors[floorIndex].floorName === selectedFloorName &&
+                        t.mix
+                    ) {
+                        const ratioMatch = t.mix.match(/([\d.]+):([\d.]+):([\d.]+)/);
+                        if (ratioMatch) {
+                            const cementPart = parseFloat(ratioMatch[1]);
+                            const sandPart = parseFloat(ratioMatch[2]);
+                            const jallyPart = parseFloat(ratioMatch[3]);
+                            const totalParts = cementPart + sandPart + jallyPart;
+                            const Lval = convertToInches(t.length);
+                            const Hval = convertToInches(t.height);
+                            const Bval = convertToInches(t.breadth);
+                            const quantity = parseFloat(t.quantity) || 1;
+                            const cementRate = parseFloat(values.cementRate || 0);
+                            const sandRate = parseFloat(values.sandRate || 0);
+                            const jallyRate = parseFloat(values.jallyRate || 0);
+                            const totalVolume = Lval * Hval * Bval;
+                            const cement = parseFloat(
+                                ((totalVolume / totalParts) * cementPart) * quantity
+                            );
+                            const sand = parseFloat(
+                                ((totalVolume / totalParts) * sandPart) * quantity
+                            );
+                            const jally = parseFloat(
+                                ((totalVolume / totalParts) * jallyPart) * quantity
+                            );
+                            const cementWastage = parseFloat(values.cementWastage || "0%") / 100;
+                            const sandWastage = parseFloat(values.sandWastage || "0%") / 100;
+                            const jallyWastage = parseFloat(values.jallyWastage || "0%") / 100;
+                            const cementWastages = cement * cementWastage;
+                            const sandWastages = sand * sandWastage;
+                            const jallyWastages = jally * jallyWastage;
+                            const jallyWithWastage = jallyWastages + jally;
+                            const sandWithWastage = sandWastages + sand;
+                            const cementWithWastage = cementWastages + cement;
+                            t.cementWastage = values.cementWastage;
+                            t.sandWastage = values.sandWastage;
+                            t.jallyWastage = values.jallyWastage;
+                            t.cement = cementWithWastage.toFixed(2);
+                            t.sand = sandWithWastage.toFixed(2);
+                            t.jally = jallyWithWastage.toFixed(2);
+                            t.totalValume = (
+                                parseFloat(t.cement) +
+                                parseFloat(t.sand) +
+                                parseFloat(t.jally)
+                            ).toFixed(2);
+                            const totalAmountCement = parseFloat(
+                                (t.cement * cementRate).toFixed(2)
+                            );
+                            const totalAmountSand = parseFloat(
+                                (t.sand * (sandRate / 100)).toFixed(2)
+                            );
+                            const totalAmountJally = parseFloat(
+                                (t.jally * (jallyRate / 100)).toFixed(2)
+                            );
+                            t.LabourAmount = parseFloat(
+                                (t.totalValume * (t.labourRate || 1)).toFixed(2)
+                            );
+                            t.totalAmountCft = parseFloat(
+                                (totalAmountCement + totalAmountSand + totalAmountJally).toFixed(2)
+                            );
+                            t.concreteTotalAmount = t.totalAmountCft + t.LabourAmount;
+                        }
+                    }
+                });
+
+                // remember latest size pattern for this type
+                setTypeSizes((prev) => ({
+                    ...prev,
+                    [currentType]: value,
+                }));
             } else {
                 tile[field] = value;
             }
-            updatedFloors[floorIndex].tiles.forEach((t) => {
-                const L = convertToInches(t.length || "1'");
-                const H = convertToInches(t.height);
-                const B = convertToInches(t.breadth);
-                const deduction = parseFloat(t.deductionArea) || 0;
+            // Recalculate area and weight only for the current tile
+            const L = convertToInches(tile.length);
+            const H = convertToInches(tile.height);
+            const B = convertToInches(tile.breadth);
+            const deduction = parseFloat(tile.deductionArea) || 0;
                 let formula = matchingBeam?.formula || "";
                 let formulaWithValues = formula
                     .replace(/L/g, L)
@@ -2054,18 +2187,19 @@ const RccCalculator = () => {
                     .replace(/(\d+)\s*['"]/g, (_, inches) => (`${inches}` / 12))
                     .replace(/['"]/g, "");
                 try {
-                    t.area = evaluate(formulaWithValues).toFixed(2);
+                const baseArea = parseFloat(evaluate(formulaWithValues).toFixed(2)) || 0;
+                const qty = parseFloat(tile.quantity || "1") || 1;
+                tile.area = (baseArea * qty).toFixed(2);
                 } catch (error) {
                     console.error("Error calculating area:", error);
-                    t.area = 0;
+                tile.area = "0.00";
                 }
-                const totalArea = parseFloat(t.area) - deduction;
-                t.totalArea = Math.max(totalArea, 0).toFixed(2);
-                t.amount = t.rate ? (parseFloat(t.rate) * t.totalArea).toFixed(2) : "0.00";
-                const weightFactor = typeToWeightFactor[t.type] || 0;
-                const weightInGrams = L * weightFactor;
-                t.weight = formatWeightInKg(weightInGrams);
-            });
+            const totalArea = parseFloat(tile.area) - deduction;
+            tile.totalArea = Math.max(totalArea, 0).toFixed(2);
+            tile.amount = tile.rate ? (parseFloat(tile.rate) * tile.totalArea).toFixed(2) : "0.00";
+            const weightFactor = typeToWeightFactor[tile.type] || 0;
+            const weightInGrams = L * weightFactor;
+            tile.weight = formatWeightInKg(weightInGrams);
             updatedFloors[floorIndex].totalAmount = updatedFloors[floorIndex].tiles
                 .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0)
                 .toFixed(2);
@@ -2174,15 +2308,22 @@ const RccCalculator = () => {
         }
     };
     const addNewRowAfter = (floorIndex, tileIndex) => {
+        const sourceTile = floorss[floorIndex]?.tiles?.[tileIndex] || {};
         const newTile = {
-            type: '',
+            type: "",
+            size: "",
             length: "1'",
-            breadth: '',
-            height: '',
+            breadth: "",
+            height: "",
             quantity: "1",
-            deductionArea: '',
-            wastagePercentage: '0',
+            area: "",
+            totalArea: "",
             rate: "",
+            amount: "",
+            // carry over only meta fields that are safe to reuse
+            deductionArea: sourceTile.deductionArea || "",
+            wastagePercentage: sourceTile.wastagePercentage || "0",
+            mix: sourceTile.mix || "",
         };
         const updatedFloors = floorss.map((floor, index) => {
             if (index === floorIndex) {
@@ -2248,7 +2389,7 @@ const RccCalculator = () => {
         const selectedAreaName = updatedFloors[floorIndex].areaName;
         const matchingBeam = beamData.find((beam) => beam.beamName === selectedAreaName);
         if (tile.length && tile.breadth && tile.height && matchingBeam && matchingBeam.formula) {
-            const lengthInches = convertToInches(tile.length || "1'");
+            const lengthInches = convertToInches(tile.length);
             const breadthInches = convertToInches(tile.breadth);
             const heightInches = convertToInches(tile.height);
             if (lengthInches === 0 || breadthInches === 0 || heightInches === 0) {
@@ -2291,7 +2432,7 @@ const RccCalculator = () => {
                 const sandPart = parseFloat(ratioMatch[2]);
                 const jallyPart = parseFloat(ratioMatch[3]);
                 const totalParts = cementPart + sandPart + jallyPart;
-                const L = convertToInches(tile.length || "1'");
+                const L = convertToInches(tile.length);
                 const H = convertToInches(tile.height);
                 const B = convertToInches(tile.breadth);
                 const cementRate = parseFloat(values.cementRate || 0);
@@ -2340,7 +2481,7 @@ const RccCalculator = () => {
         updatedFloors.forEach((floor, floorIndex) => {
             floor.tiles.forEach((tile, tileIndex) => {
                 tile.rate = newRate;
-                const lengthInches = convertToInches(tile.length || "1'");
+                const lengthInches = convertToInches(tile.length);
                 const breadthInches = convertToInches(tile.breadth || "0'");
                 const heightInches = convertToInches(tile.height || "0'");
                 const normalizedDeduction = parseFloat(tile.deductionArea) || 0;
@@ -2592,7 +2733,7 @@ const RccCalculator = () => {
                             type: tile.type || "",
                             size: tile.size || "",
                             rccTypes: "Rcc",
-                            length: tile.length || "1'",
+                            length: tile.length,
                             length1: tile.length1,
                             length2: tile.length2,
                             length3: tile.length3,
@@ -2732,7 +2873,7 @@ const RccCalculator = () => {
                     tiles: calc.rccFormWorks.map(tile => ({
                         type: tile.type,
                         size: tile.size,
-                        length: tile.length || "1'",
+                        length: tile.length ,
                         length1: tile.length1,
                         length2: tile.length2,
                         length3: tile.length3,
@@ -3077,6 +3218,15 @@ const RccCalculator = () => {
     const { summary1, summary2 } = getSummaryData(floorss);
     const totalQty = summary2.reduce((acc, item) => acc + (item.qty || 0), 0);
     const totalAmount = summary2.reduce((acc, item) => acc + Number(item.amount || 0), 0).toFixed(2);
+    const totalAreaSum = floorss.reduce((sum, floor) =>
+        sum + floor.tiles.reduce((fSum, tile) => fSum + parseFloat(tile.area || 0), 0), 0
+    ).toFixed(2);
+    const totalDeductionSum = floorss.reduce((sum, floor) =>
+        sum + floor.tiles.reduce((fSum, tile) => fSum + parseFloat(tile.deductionArea || 0), 0), 0
+    ).toFixed(2);
+    const totalTotalAreaSum = floorss.reduce((sum, floor) =>
+        sum + floor.tiles.reduce((fSum, tile) => fSum + parseFloat(tile.totalArea || 0), 0), 0
+    ).toFixed(2);
     const reversedFileOptions = [...filteredRccFileOptions].reverse();
     return (
         <body className="">
@@ -3439,13 +3589,13 @@ const RccCalculator = () => {
                                                                     className="px-2 w-[90px] text-base font-medium h-[27px] bg-transparent hover:border focus:outline-none text-center"
                                                                 />
                                                                 {!["ROOF SLAB", "SEPTICK TANK", "SUMP TANK", "MAT","LOFT", "SUNSHADE","WAIST SLAB"].includes(floor.areaName) && (
-                                                                    <button className="text-[#E4572E]" onClick={() => openLengthPopupScreen(floorIndex, tileIndex)}>
+                                                                    <button className="text-[#E4572E]" onClick={() => handleLengthButtonClick(floorIndex, tileIndex)}>
                                                                         L
                                                                     </button>
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        {!["ROOF SLAB", "SEPTICK TANK", "SUMP TANK", "MAT", "LOFT", "SUNSHADE","WAIST SLAB"].includes(floor.areaName) && lengthPopupState[`${floorIndex}-${tileIndex}`] && (
+                                                        {!["ROOF SLAB", "SEPTICK TANK", "SUMP TANK", "MAT", "LOFT", "SUNSHADE","WAIST SLAB", "Footing", "FOOTING"].includes(floor.areaName) && lengthPopupState[`${floorIndex}-${tileIndex}`] && (
                                                             <div
                                                                 className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
                                                                 onClick={() => closelengthPopup(floorIndex, tileIndex)} >
@@ -3551,7 +3701,7 @@ const RccCalculator = () => {
                                                                 name="height"
                                                                 placeholder="H"
                                                                 value={tile.height}
-                                                                readOnly={!["ROOF SLAB", "SEPTICK TANK", "SUMP TANK", "MAT","LOFT", "SUNSHADE","WAIST SLAB"].includes(floor.areaName)}
+                                                                readOnly={!["ROOF SLAB", "SEPTICK TANK", "SUMP TANK", "MAT","LOFT", "SUNSHADE","WAIST SLAB", "Footing", "FOOTING", "Column", "COLUMN"].includes(floor.areaName)}
                                                                 onChange={(e) => handleInteriorTileChange(floorIndex, tileIndex, e)}
                                                                 className="px-2 w-[90px] text-base font-medium h-[27px] bg-transparent hover:border focus:outline-none text-center"
                                                             />
@@ -3710,8 +3860,12 @@ const RccCalculator = () => {
                                     ))}
                                 </tbody>
                                 <tfoot>
-                                    <tr className=" font-bold">
-                                        <td colSpan="11" className="text-right px-4 py-2"></td>
+                                    <tr className="font-bold">
+                                        <td colSpan="7" className="text-right px-4 py-2"></td>
+                                        <td className="px-4 py-2 text-center">{totalAreaSum}</td>
+                                        <td className="px-4 py-2 text-center">{totalDeductionSum}</td>
+                                        <td className="px-4 py-2 text-center">{totalTotalAreaSum}</td>
+                                        <td className="px-4 py-2"></td>
                                         <td className="px-4 py-2">{totalAmount}</td>
                                     </tr>
                                 </tfoot>

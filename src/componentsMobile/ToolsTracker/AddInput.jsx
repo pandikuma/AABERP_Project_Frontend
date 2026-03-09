@@ -262,6 +262,20 @@ const AddInput = ({ user }) => {
       return;
     }
 
+    // Ensure an Item Name is selected before creating an Item ID
+    if (context === 'main') {
+      if (!selectedItemName) {
+        alert('Please select an Item Name before creating an Item ID.');
+        return;
+      }
+    } else if (context === 'sheet') {
+      const effectiveItemName = addSheetForm.itemName || selectedItemName;
+      if (!effectiveItemName) {
+        alert('Please select an Item Name before creating an Item ID.');
+        return;
+      }
+    }
+
     const existing = findItemIdRecordByValue(trimmedItemId);
     if (existing) {
       applyItemIdSelectionByContext(trimmedItemId, context, existing);
@@ -486,7 +500,21 @@ const AddInput = ({ user }) => {
           }
         }
 
-        const payload = { item_id: pendingValue };
+        // Determine the related Item Name ID for this Item ID
+        let relatedItemNameId = null;
+        if (pendingItemIdContext === 'main') {
+          const itemNameRecord = findItemNameRecordByValue(selectedItemName);
+          relatedItemNameId = itemNameRecord?.id ?? null;
+        } else if (pendingItemIdContext === 'sheet') {
+          const effectiveItemName = addSheetForm.itemName || selectedItemName;
+          const itemNameRecord = findItemNameRecordByValue(effectiveItemName);
+          relatedItemNameId = itemNameRecord?.id ?? addSheetForm.itemNameId ?? null;
+        }
+
+        const payload = {
+          item_id: pendingValue,
+          item_name_id: relatedItemNameId
+        };
         const res = await fetch(`${TOOLS_ITEM_ID_BASE_URL}/save`, {
           method: 'POST',
           credentials: 'include',
@@ -585,22 +613,22 @@ const AddInput = ({ user }) => {
       machine: resolveMachineNumFromStock(d)
     }));
     setTableData(mappedTable);
-    const idsFromDetails = details
-      .map(d => d?.item_ids_id ?? d?.itemIdsId)
-      .filter(Boolean);
-    const detailItemIdOptions = idsFromDetails
-      .map((itemIdDbId) => {
-        const match = toolsItemIdFullData.find(
-          (item) => String(item?.id) === String(itemIdDbId)
-        );
-        return (match?.item_id ?? match?.itemId ?? '').trim();
-      })
-      .filter(Boolean);
-    if (detailItemIdOptions.length > 0) {
-      const detailSet = new Set(detailItemIdOptions.map((x) => x.toLowerCase()));
-      setItemIdOptions(apiItemIdOptions.filter((x) => detailSet.has(String(x).toLowerCase())));
+    // Filter Item IDs for the top Item ID dropdown so that it only shows
+    // Item IDs whose item_name_id matches the selected Item Name's id.
+    const itemNameId = found?.id;
+    if (itemNameId) {
+      const matchedItemIds = toolsItemIdFullData
+        .filter((item) => {
+          const linkedItemNameId = item?.item_name_id ?? item?.itemNameId;
+          return linkedItemNameId && String(linkedItemNameId) === String(itemNameId);
+        })
+        .map((item) => (item?.item_id ?? item?.itemId ?? '').trim())
+        .filter(Boolean);
+      setItemIdOptions(matchedItemIds);
     } else {
-      setItemIdOptions(apiItemIdOptions);
+      // If for some reason we don't have an id for the selected name,
+      // fall back to showing no Item IDs rather than all.
+      setItemIdOptions([]);
     }
   }, [selectedItemName, toolsItemNameListData, apiItemIdOptions, machineNumbersList, resolveMachineNumFromStock, toolsItemIdFullData]);
   useEffect(() => {
@@ -714,10 +742,13 @@ const AddInput = ({ user }) => {
     fetchMachineStatus();
   }, []);
   useEffect(() => {
+    // When there is no selected Item Name, do not show any Item IDs
+    // and clear any previously selected Item ID.
     if (!selectedItemName) {
-      setItemIdOptions(apiItemIdOptions);
+      setItemIdOptions([]);
+      setSelectedItemId(null);
     }
-  }, [selectedItemName, selectedBrand, apiItemIdOptions]);
+  }, [selectedItemName]);
   useEffect(() => {
     fetchVendorNames();
   }, []);
@@ -1256,6 +1287,14 @@ const AddInput = ({ user }) => {
     return pl || 'Select';
   };
   const openSheetPicker = (field) => {
+    // Prevent opening Item ID picker until an Item Name is selected
+    if (field === 'itemId') {
+      const effectiveItemName = addSheetForm.itemName || selectedItemName;
+      if (!effectiveItemName) {
+        alert('Please select an Item Name first.');
+        return;
+      }
+    }
     setSheetOpenPicker(field);
     setSheetPickerSearch('');
     setShowNewItemIdInput(false);
@@ -1542,8 +1581,7 @@ const AddInput = ({ user }) => {
   return (
     <div className="flex flex-col  min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       <div className="flex-shrink-0  px-4 pt-1.5 pb-1.5">
-        <div className="flex items-center pb-1.5 justify-between border-b border-gray-200 gap-2">
-          <p className="text-[12px] font-semibold text-black leading-normal">Category</p>
+        <div className="flex items-center pb-1.5 justify-end border-b border-gray-200 gap-2">
           <button onClick={() => setShowVendorsModal(true)} className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity">
             Manage shops
           </button>

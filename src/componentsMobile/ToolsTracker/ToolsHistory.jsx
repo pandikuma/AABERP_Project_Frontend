@@ -12,6 +12,7 @@ const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/
 const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
 const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
 const VENDOR_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/vendor_Names';
+const EXPENSES_CATEGORIES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/expenses_categories';
 
 const ToolsHistory = ({ user }) => {
   const [activeSegment, setActiveSegment] = useState('item'); // 'item' or 'log'
@@ -34,6 +35,9 @@ const ToolsHistory = ({ user }) => {
   const [showBrandPopup, setShowBrandPopup] = useState(false);
   const [showItemIdPopup, setShowItemIdPopup] = useState(false);
   const [showMachineNumberPopup, setShowMachineNumberPopup] = useState(false);
+  const [filterCategory, setFilterCategory] = useState('');
+  const [showFilterCategoryModal, setShowFilterCategoryModal] = useState(false);
+  const [categoryOptions, setCategoryOptions] = useState([]);
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -99,6 +103,28 @@ const ToolsHistory = ({ user }) => {
       }
     };
     fetchItemNames();
+    // Fetch categories
+    const fetchCategories = async () => {
+      try {
+        const categoriesRes = await fetch(`${EXPENSES_CATEGORIES_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (categoriesRes.ok) {
+          const raw = await categoriesRes.json();
+          // Handle different response structures
+          const data = Array.isArray(raw) ? raw : (raw?.data || raw?.content || raw?.records || raw?.items || []);
+          const categories = data
+            .map(item => item?.category || item?.categoryName || '')
+            .filter(cat => cat && String(cat).trim() !== '');
+          setCategoryOptions(categories);
+        }
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    };
+    fetchCategories();
   }, []);
 
   // Fetch brands
@@ -1333,7 +1359,7 @@ const ToolsHistory = ({ user }) => {
 
   return (
     <div className="flex flex-col bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      {/* Top row: Item Name (left) + Edit button (right) when Item tab active, Item Name (left) + Item ID (right) when Log tab active */}
+      {/* Top row: Category (left) + Item Name (left) + Edit button (right) when Item tab active, Category (left) + Item Name (left) + Item ID (right) when Log tab active */}
       <div className="flex-shrink-0 px-4 pt-1.5">
         <div className="flex justify-between items-center gap-2">
           {/* Show Item Name button when Item tab or Log tab is active */}
@@ -1898,6 +1924,18 @@ const ToolsHistory = ({ user }) => {
           </div>
         </div>
       )}
+      {/* Category Filter Modal */}
+      <SelectOptionModal
+        isOpen={showFilterCategoryModal}
+        onClose={() => setShowFilterCategoryModal(false)}
+        onSelect={(value) => {
+          setFilterCategory(value);
+          setShowFilterCategoryModal(false);
+        }}
+        selectedValue={filterCategory}
+        options={categoryOptions}
+        fieldName="Category"
+      />
       {/* Date Picker Modal */}
       {showDatePicker && (
         <DatePickerModal

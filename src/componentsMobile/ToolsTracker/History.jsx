@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import EditIcon from '../Images/edit1.png';
 import DeleteIcon from '../Images/delete.png';
+import SelectOptionModal from '../PurchaseOrder/SelectOptionModal';
 
 const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
 const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
@@ -35,6 +36,8 @@ const History = ({ user, onTabChange }) => {
   const [swipeStates, setSwipeStates] = useState({});
   const [expandedEntryId, setExpandedEntryId] = useState(null);
   const [cloneExpandedEntryId, setCloneExpandedEntryId] = useState(null);
+  const [filterItemId, setFilterItemId] = useState('');
+  const [showFilterItemIdModal, setShowFilterItemIdModal] = useState(false);
   const expandedEntryIdRef = useRef(expandedEntryId);
   const cloneExpandedEntryIdRef = useRef(cloneExpandedEntryId);
   useEffect(() => {
@@ -658,21 +661,40 @@ const History = ({ user, onTabChange }) => {
       document.removeEventListener('mouseup', globalMouseUpHandler);
     };
   }, [historyData, historyType]);
+  
+  // Get Item ID options for filter
+  const filterItemIdOptions = Array.from(new Set(Object.values(itemIdsMap))).filter(Boolean).sort();
+  
   const filteredHistoryData = historyData.filter(entry => {
     const entryType = entry.toolsEntryType || 'Entry';
+    let typeMatch = false;
     if (historyType === 'entry') {
-      return entryType.toLowerCase() === 'entry';
+      typeMatch = entryType.toLowerCase() === 'entry';
     } else if (historyType === 'service') {
-      return entryType.toLowerCase() === 'service_return';
+      typeMatch = entryType.toLowerCase() === 'service_return';
     } else {
-      return entryType.toLowerCase() === 'relocate';
+      typeMatch = entryType.toLowerCase() === 'relocate';
     }
+    
+    // Filter by Item ID if selected
+    if (filterItemId && typeMatch) {
+      const entryItemId = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
+      return entryItemId === filterItemId;
+    }
+    
+    return typeMatch;
   });
 
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden px-4 bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      <div className="flex items-center justify-between pt-1.5 pb-1.5 flex-shrink-0">
-        <p className="text-[12px] text-black font-semibold">Category</p>
+      <div className="flex items-center justify-end pt-1.5 pb-1.5 flex-shrink-0">
+        <button
+          type="button"
+          onClick={() => setShowFilterItemIdModal(true)}
+          className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent text-right"
+        >
+          {filterItemId ? filterItemId : 'Item ID'}
+        </button>
       </div>
       <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md flex-shrink-0">
         <button
@@ -982,6 +1004,18 @@ const History = ({ user, onTabChange }) => {
           </div>
         </div>
       )}
+      {/* Item ID Filter Modal */}
+      <SelectOptionModal
+        isOpen={showFilterItemIdModal}
+        onClose={() => setShowFilterItemIdModal(false)}
+        onSelect={(value) => {
+          setFilterItemId(value);
+          setShowFilterItemIdModal(false);
+        }}
+        selectedValue={filterItemId}
+        options={filterItemIdOptions}
+        fieldName="Item ID"
+      />
     </div>
   );
 };
