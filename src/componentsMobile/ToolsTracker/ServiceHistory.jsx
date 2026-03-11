@@ -6,15 +6,15 @@ import SelectOptionModal from '../PurchaseOrder/SelectOptionModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import Close from '../Images/close.png';
 
-const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
-const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
-const VENDOR_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/vendor_Names';
-const EMPLOYEE_DETAILS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/employee_details';
-const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
-const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
-const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
-const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
-const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
+const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'http://localhost:8082/api/tools_tracker_management';
+const PROJECT_NAMES_BASE_URL = 'http://localhost:8081/api/project_Names';
+const VENDOR_NAMES_BASE_URL = 'http://localhost:8081/api/vendor_Names';
+const EMPLOYEE_DETAILS_BASE_URL = 'http://localhost:8082/api/employee_details';
+const TOOLS_ITEM_NAME_BASE_URL = 'http://localhost:8082/api/tools_item_name';
+const TOOLS_BRAND_BASE_URL = 'http://localhost:8082/api/tools_brand';
+const TOOLS_ITEM_ID_BASE_URL = 'http://localhost:8082/api/tools_item_id';
+const TOOLS_MACHINE_STATUS_BASE_URL = 'http://localhost:8082/api/tools-machine-status';
+const TOOLS_MACHINE_NUMBER_BASE_URL = 'http://localhost:8082/api/tools_machine_number';
 
 const ServiceHistory = ({ user, onTabChange }) => {
   const [viewMode, setViewMode] = useState('live'); // 'live' or 'history'
@@ -851,12 +851,62 @@ const ServiceHistory = ({ user, onTabChange }) => {
         </div>
       </div>
       {/* Filter and Download Row */}
-      <div className="flex justify-between items-center px-4 pb-1 mt-2">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowFilterBottomSheet(true)}>
+      <div className="flex justify-between items-center gap-2 px-4 pb-1 mt-2 min-h-[32px]">
+        <div className="flex items-center gap-2 cursor-pointer flex-shrink-0" onClick={() => setShowFilterBottomSheet(true)}>
           <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
           <span className="text-[12px] font-medium text-gray-500">Filter</span>
         </div>
-        <button className="text-[12px] font-semibold text-gray-500 cursor-pointer hover:opacity-80">
+        <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0 overflow-hidden">
+          {filterItemName && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
+              <span className="truncate max-w-[80px]">{filterItemName}</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterItemName(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Item Name">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+            </span>
+          )}
+          {filterMachineNumber && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
+              <span className="truncate max-w-[80px]">{filterMachineNumber}</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterMachineNumber(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Machine Number">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+            </span>
+          )}
+          {filterItemId && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
+              <span className="truncate max-w-[80px]">{filterItemId}</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterItemId(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Item ID">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+            </span>
+          )}
+          {filterProjectIncharge && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
+              <span className="truncate max-w-[80px]">{filterProjectIncharge}</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterProjectIncharge(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Project Incharge">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+            </span>
+          )}
+          {filterDate && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
+              <span className="truncate max-w-[80px]">{filterDate}</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterDate(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Date">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+            </span>
+          )}
+          {filterStatus && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
+              <span className="truncate max-w-[80px]">{(statusOptions.find(o => o.value === filterStatus)?.label) || filterStatus}</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterStatus(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Status">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+            </span>
+          )}
+        </div>
+        <button className="text-[12px] font-semibold text-gray-500 cursor-pointer hover:opacity-80 flex-shrink-0">
           Download
         </button>
       </div>
@@ -1297,7 +1347,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
       {/* Filter Bottom Sheet Modal */}
       {showFilterBottomSheet && (
         <div
-          className="fixed inset-0 z-50 flex items-end"
+          className="fixed inset-0 z-50 flex items-end justify-center"
           onClick={handleCloseFilterBottomSheet}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
@@ -1306,11 +1356,11 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
           {/* Bottom Sheet */}
           <div
-            className="relative z-10 w-full bg-white rounded-t-[20px] shadow-lg max-h-[80vh] overflow-y-auto"
+            className="relative z-10 w-full max-w-[360px] bg-white rounded-tl-[16px] rounded-tr-[16px] shadow-lg max-h-[70vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-5">
+            <div className="flex-shrink-0 flex items-center justify-between px-6 pt-5 pb-1">
               <p className="text-[16px] font-bold text-black">Select Filters</p>
               <button
                 onClick={handleCloseFilterBottomSheet}
@@ -1320,8 +1370,8 @@ const ServiceHistory = ({ user, onTabChange }) => {
               </button>
             </div>
 
-            {/* Content */}
-            <div className="px-6 py-4 space-y-[6px]">
+            {/* Content - scrollable */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-[6px]">
               {/* Item Name */}
               <div>
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Item Name</p>
@@ -1337,14 +1387,16 @@ const ServiceHistory = ({ user, onTabChange }) => {
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setFilterItemName(''); }}
-                      className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                     >
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </button>
                   )}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </div>
+                  {!filterItemName && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1389,14 +1441,16 @@ const ServiceHistory = ({ user, onTabChange }) => {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setFilterItemId(''); }}
-                        className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                       </button>
                     )}
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </div>
+                    {!filterItemId && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </div>
+                    )}
                   </div>
                 </div>
                 {/* Project Incharge */}
@@ -1414,14 +1468,16 @@ const ServiceHistory = ({ user, onTabChange }) => {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setFilterProjectIncharge(''); }}
-                        className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                       </button>
                     )}
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </div>
+                    {!filterProjectIncharge && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1463,21 +1519,23 @@ const ServiceHistory = ({ user, onTabChange }) => {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setFilterStatus(''); }}
-                        className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                       </button>
                     )}
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    </div>
+                    {!filterStatus && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-4 px-6 pb-6 pt-2">
+            <div className="flex-shrink-0 flex gap-4 px-6 pb-6 pt-2">
               <button
                 onClick={handleCloseFilterBottomSheet}
                 className="flex-1 h-[40px] border border-black rounded-[8px] text-[14px] font-bold text-black bg-white"

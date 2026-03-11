@@ -131,7 +131,7 @@ const EditStock = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
+        const response = await fetch('http://localhost:8082/api/po_category/getAll');
         if (response.ok) {
           const data = await response.json();
           const options = data.map(item => ({
@@ -151,7 +151,7 @@ const EditStock = () => {
   useEffect(() => {
     const fetchStockRooms = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -193,11 +193,11 @@ const EditStock = () => {
     const fetchPOData = async () => {
       try {
         const [itemNamesRes, brandsRes, modelsRes, typesRes, categoriesRes] = await Promise.all([
-          fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll')
+          fetch('http://localhost:8082/api/po_itemNames/getAll'),
+          fetch('http://localhost:8082/api/po_brand/getAll'),
+          fetch('http://localhost:8082/api/po_model/getAll'),
+          fetch('http://localhost:8082/api/po_type/getAll'),
+          fetch('http://localhost:8082/api/po_category/getAll')
         ]);
         if (itemNamesRes.ok) {
           const data = await itemNamesRes.json();
@@ -249,7 +249,7 @@ const EditStock = () => {
   // Fetch function for refreshing data
   const fetchPoItemName = useCallback(async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+      const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoItemName(data);
@@ -262,7 +262,7 @@ const EditStock = () => {
   useEffect(() => {
     const fetchLocationNames = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -289,7 +289,7 @@ const EditStock = () => {
   useEffect(() => {
     const fetchItemNames = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+        const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
         if (response.ok) {
           const data = await response.json();
           setItemNamesData(data);
@@ -385,7 +385,7 @@ const EditStock = () => {
     const fetchInventory = async () => {
       try {
         setUpdateLoading(true);
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
+        const response = await fetch('http://localhost:8082/api/inventory/getAll');
         if (!response.ok) {
           console.error('Failed to fetch inventory data');
           setUpdateLoading(false);
@@ -787,7 +787,7 @@ const EditStock = () => {
     const qtyDelta = (Number(newCount) || 0) - (Number(currentStock) || 0);
     let eno = '';
     try {
-      const countRes = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
+      const countRes = await fetch(`http://localhost:8082/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
       if (countRes.ok) {
         const count = await countRes.json();
         eno = String((count || 0) + 1);
@@ -820,7 +820,7 @@ const EditStock = () => {
       inventoryItems: inventoryItems
     };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
+      const response = await fetch('http://localhost:8082/api/inventory/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -882,7 +882,7 @@ const EditStock = () => {
       // Attempt to fetch a new ENO (similar to incoming flow); if it fails we'll send empty string
       let eno = '';
       try {
-        const countRes = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/transferCount?stockingLocationId=${fromStockingLocationId}`);
+        const countRes = await fetch(`http://localhost:8082/api/inventory/transferCount?stockingLocationId=${fromStockingLocationId}`);
         if (countRes.ok) {
           const count = await countRes.json();
           eno = String((count || 0) + 1);
@@ -918,7 +918,7 @@ const EditStock = () => {
       if (toProjectId) {
         payload.to_client_id = toProjectId;
       }
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
+      const response = await fetch('http://localhost:8082/api/inventory/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

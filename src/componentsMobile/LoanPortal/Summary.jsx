@@ -13,7 +13,7 @@ const Summary = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/loans/all');
+        const response = await fetch('http://localhost:8082/api/loans/all');
         if (response.ok) {
           const data = await response.json();
           setLoanData(data);

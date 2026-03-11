@@ -178,7 +178,7 @@ const ToolsTrackerTabs = ({ activeTab = 'entry', onTabChange }) => {
                 key={tab.id}
                 ref={activeTab === tab.id ? activeTabRef : null}
                 onClick={() => onTabChange(tab.id)}
-                className={`font-semibold text-[12px] leading-normal whitespace-nowrap flex-shrink-0 ${activeTab === tab.id ? 'text-black' : 'text-[#848484]'
+                className={`font-semibold text-[12px] leading-normal mt-[8px] whitespace-nowrap flex-shrink-0 ${activeTab === tab.id ? 'text-black' : 'text-[#848484]'
                   }`}
               >
                 {tab.label}

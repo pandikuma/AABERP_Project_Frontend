@@ -579,6 +579,12 @@ const Transfer = ({ user }) => {
     const [day, month, year] = normalized.split('/');
     return `${year}-${month}-${day}T00:00:00`;
   };
+  // Format date for API as dd-mm-yyyy
+  const formatDateAsDdMmYyyy = (dateValue) => {
+    const normalized = normalizeDisplayDate(dateValue);
+    if (!normalized) return null;
+    return normalized.replace(/\//g, '-');
+  };
   const areFieldsFilled = entryServiceMode === 'Entry'
     ? (selectedFrom && selectedTo && selectedIncharge)
     : entryServiceMode === 'Relocate'
@@ -2169,6 +2175,8 @@ const Transfer = ({ user }) => {
         to_project_id: entryServiceMode === 'Entry' && selectedTo?.id ? String(selectedTo.id) : null,
         project_incharge_id: selectedIncharge?.id ? String(selectedIncharge.id) : null,
         service_store_id: entryServiceMode === 'Service' && selectedServiceStore?.id ? String(selectedServiceStore.id) : null,
+        // Persist the user-selected/auto-selected date
+        date: formatDateAsDdMmYyyy(date),
         created_date_time: getApiDateTimeFromDisplayDate(date),
         tools_entry_type: entryServiceMode.toLowerCase(),
         tools_tracker_item_name_table: updatedItemRows
@@ -2183,7 +2191,6 @@ const Transfer = ({ user }) => {
       if (!response.ok) {
         throw new Error(`Failed to update: ${response.status} ${response.statusText}`);
       }
-
       // Save machine_status to the new API for each item that has itemIdsId and machine_number_id
       const machineStatusPromises = statusItemsForApi
         .filter(item => item.item_ids_id && item.machine_number_id)
@@ -2230,6 +2237,7 @@ const Transfer = ({ user }) => {
         const data = await countRes.json();
         setEntryNo(data + 1);
       }
+      window.location.reload();
     } catch (error) {
       console.error('Error updating transfer:', error);
       alert('Failed to update. Please try again.');
@@ -2442,7 +2450,9 @@ const Transfer = ({ user }) => {
           to_project_id: null,
           project_incharge_id: null,
           service_store_id: null,
-          created_date_time: getApiDateTimeFromDisplayDate(date),
+        // Persist the user-selected/auto-selected date
+        date: formatDateAsDdMmYyyy(date),
+        created_date_time: getApiDateTimeFromDisplayDate(date),
           created_by: user?.name || user?.username || 'mobile',
           tools_entry_type: 'relocate',
           eno: String(entryNo),
@@ -2510,6 +2520,8 @@ const Transfer = ({ user }) => {
           created_by: user?.name || user?.username || 'mobile',
           tools_entry_type: isServiceReturn ? 'service_return' : entryServiceMode.toLowerCase(),
           eno: String(entryNo),
+          date: formatDateAsDdMmYyyy(date),
+          created_date_time: getApiDateTimeFromDisplayDate(date),
           tools_tracker_item_name_table: itemRows
         };
       }
@@ -2585,6 +2597,7 @@ const Transfer = ({ user }) => {
       } else {
         setEntryNo(prev => prev + 1);
       }
+      window.location.reload();
     } catch (error) {
       console.error('Error saving transfer:', error);
       alert('Failed to save transfer. Please try again.');
@@ -3855,8 +3868,8 @@ const Transfer = ({ user }) => {
   };
   return (
     <div className="flex flex-col min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      <div className="flex-shrink-0 px-4 pt-1 pb-0.5 flex items-center justify-between">
-        <div className="flex items-center gap-1">
+      <div className="flex-shrink-0 px-4 flex pt-1.5 pb-1.5 items-center justify-between">
+        <div className="flex items-center gap-1 ">
           <p className="text-[12px] font-semibold text-black leading-normal">
             #{entryNo || 'NO'}
           </p>
@@ -3864,7 +3877,7 @@ const Transfer = ({ user }) => {
             {date}
           </button>
         </div>
-        <div className='flex gap-3'>
+        <div className='flex gap-3 items-center'>
           {isEditMode ? (
             <>
               <button
@@ -3874,34 +3887,32 @@ const Transfer = ({ user }) => {
               >
                 {isSaving ? 'Updating...' : 'Update'}
               </button>
-              {(items.length > 0 || areFieldsFilled) && (
-                <button onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}>
-                  <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
-                </button>
-              )}
+              <button 
+                onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}
+                className={items.length > 0 ? '' : 'invisible'}
+              >
+                <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
+              </button>
             </>
           ) : (
             <>
-              {(cloneModeActive || ((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled))) && (
-                <button
-                  onClick={() => setShowConfirmModal(true)}
-                  disabled={isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0)}
-                  className={`flex items-center gap-1 text-[14px] font-medium ${isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0) ? 'text-gray-400' : 'text-black'}`}
-                >
-                  {isSaving ? (
-                    <span className="text-gray-500">...</span>
-                  ) : (
-                    <span>{entryServiceMode === 'Service' ? (serviceFlowMode === 'return' ? 'Return from Service' : 'Sent to service') : entryServiceMode === 'Relocate' ? 'Relocate' : 'Transfer'}</span>
-                  )}
-                </button>
-              )}
-              {(items.length > 0 || areFieldsFilled) && (
-                <div>
-                  <button onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}>
-                    <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={() => setShowConfirmModal(true)}
+                disabled={isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0)}
+                className={`flex items-center gap-1 text-[14px] font-medium ${isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0) ? 'text-gray-400' : 'text-black'} ${(cloneModeActive || ((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled))) ? '' : 'invisible'}`}
+              >
+                {isSaving ? (
+                  <span className="text-gray-500">...</span>
+                ) : (
+                  <span>{entryServiceMode === 'Service' ? (serviceFlowMode === 'return' ? 'Return from Service' : 'Sent to service') : entryServiceMode === 'Relocate' ? 'Relocate' : 'Transfer'}</span>
+                )}
+              </button>
+              <button 
+                onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}
+                className={items.length > 0 ? '' : 'invisible'}
+              >
+                <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
+              </button>
             </>
           )}
         </div>
@@ -3980,7 +3991,7 @@ const Transfer = ({ user }) => {
             <>
               <div className="relative dropdown-container">
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                  From<span className="text-[#eb2f8e]">*</span>
+                  From<span className="text-[#E4572E]">*</span>
                 </p>
                 <div className="relative">
                   <div
@@ -4005,18 +4016,20 @@ const Transfer = ({ user }) => {
                         e.stopPropagation();
                         setSelectedFrom(null);
                       }}
-                      className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                     >
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
                   )}
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
+                  {!selectedFrom && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                  )}
                 </div>
               </div>
               {showFromDropdown && entryServiceMode !== 'Relocate' && !(entryServiceMode === 'Service' && serviceFlowMode === 'return') && (
@@ -4174,7 +4187,7 @@ const Transfer = ({ user }) => {
             <div className=" relative dropdown-container">
               <div className="flex items-center justify-between">
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                  {isServiceSwapIconToggled ? 'From' : 'To'}<span className="text-[#eb2f8e]">*</span>
+                  {isServiceSwapIconToggled ? 'From' : 'To'}<span className="text-[#E4572E]">*</span>
                 </p>
                 {serviceFlowMode === 'sent' && (
                   <button onClick={() => {
@@ -4218,18 +4231,20 @@ const Transfer = ({ user }) => {
                       e.stopPropagation();
                       setSelectedServiceStore(null);
                     }}
-                    className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                   >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
                 )}
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
+                {!selectedServiceStore && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4290,18 +4305,20 @@ const Transfer = ({ user }) => {
                       e.stopPropagation();
                       setSelectedTo(null);
                     }}
-                    className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                   >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </button>
                 )}
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
+                {!selectedTo && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4521,7 +4538,7 @@ const Transfer = ({ user }) => {
           )}
           <div className="relative dropdown-container">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-              Project Incharge<span className="text-[#eb2f8e]">*</span>
+              Project Incharge<span className="text-[#E4572E]">*</span>
             </p>
             <div className="relative">
               <div
@@ -4547,18 +4564,20 @@ const Transfer = ({ user }) => {
                     e.stopPropagation();
                     setSelectedIncharge(null);
                   }}
-                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
               )}
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              {!selectedIncharge && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
           {showInchargeDropdown && (
@@ -4688,7 +4707,7 @@ const Transfer = ({ user }) => {
         <div className="flex-shrink-0 px-4 space-y-[6px]">
           <div className="relative dropdown-container">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-              Item ID<span className="text-[#eb2f8e]">*</span>
+              Item ID<span className="text-[#E4572E]">*</span>
             </p>
             <div className="relative">
               <div
@@ -4715,18 +4734,20 @@ const Transfer = ({ user }) => {
                     setSelectedCurrentLocation(null);
                     setRelocateItemDetails(null);
                   }}
-                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
               )}
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              {!selectedRelocateItemId && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
             </div>
             {showRelocateItemIdDropdown && (
               <div
@@ -4930,7 +4951,7 @@ const Transfer = ({ user }) => {
           </div>
           <div className="relative dropdown-container">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-              Current Location<span className="text-[#eb2f8e]">*</span>
+              Current Location<span className="text-[#E4572E]">*</span>
             </p>
             <div className="relative">
               <div
@@ -4959,23 +4980,25 @@ const Transfer = ({ user }) => {
                     setSelectedCurrentLocation(null);
                     setRelocateItemDetails(null);
                   }}
-                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
               )}
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              {!selectedCurrentLocation && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
           <div className="mb-2 relative dropdown-container">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-              Relocate Location<span className="text-[#eb2f8e]">*</span>
+              Relocate Location<span className="text-[#E4572E]">*</span>
             </p>
             <div className="relative">
               <div
@@ -5005,19 +5028,20 @@ const Transfer = ({ user }) => {
                     e.stopPropagation();
                     setSelectedRelocateLocation(null);
                   }}
-                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                  style={{ zIndex: 5 }}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
               )}
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" style={{ zIndex: 1 }}>
-                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              {!selectedRelocateLocation && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
           {selectedRelocateItemId && relocateItemDetails && (
@@ -5032,7 +5056,7 @@ const Transfer = ({ user }) => {
                     <span className="flex-1 truncate text-[#4F4F4F]">{relocateItemDetails.itemName || '-'}</span>
                   </div>
                   <div className="flex items-start text-[12px] leading-normal ">
-                    <span className="w-[102px] text-black">Birth Location</span>
+                    <span className="w-[102px] text-black">Home Location</span>
                     <span className="mx-2">:</span>
                     <span className="flex-1 truncate text-[#4F4F4F]">{relocateItemDetails.birthLocation || '-'}</span>
                   </div>
@@ -5262,7 +5286,7 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {entryServiceMode !== 'Relocate' && (
-        <div className="flex-shrink-0 px-4 pt-4">
+        <div className="flex-shrink-0 px-4 pt-2">
           <div className="flex items-center justify-between pb-2 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <p className="text-[12px] font-semibold text-black leading-normal">Items</p>
@@ -5485,11 +5509,6 @@ const Transfer = ({ user }) => {
               <p className="text-[16px] font-medium text-black leading-normal">
                 {editingItem ? 'Edit Item' : 'Add Items'}
               </p>
-              <div className="flex items-center gap-2">
-                <button onClick={() => {/* Handle category selection */ }} className="text-[16px] font-semibold text-black" >
-                  {selectedCategory ? selectedCategory.value : 'Electricals'}
-                </button>
-              </div>
             </div>
             <div className="px-6 pb-6">
               <div className="flex gap-3 mb-[10px]">
@@ -5886,11 +5905,11 @@ const Transfer = ({ user }) => {
       />
       {showUniversalSearchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" onClick={handleCloseUniversalSearch} style={{ fontFamily: "'Manrope', sans-serif" }}>
-          <div className="bg-white w-full max-w-[400px] rounded-tl-[16px] rounded-tr-[16px] max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 pt-4 pb-3 flex-shrink-0">
+          <div className="bg-white w-full max-w-[360px] rounded-tl-[16px] rounded-tr-[16px] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 pt-4 mb-[6px] flex-shrink-0">
               <p className="text-[16px] font-semibold text-black">Search Items</p>
               <button onClick={handleCloseUniversalSearch} className="text-[#E4572E] text-xl font-bold">
-                ×
+              <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
               </button>
             </div>
             <div className="px-4 pb-3 flex-shrink-0">
@@ -5911,7 +5930,7 @@ const Transfer = ({ user }) => {
                   value={universalSearchQuery}
                   onChange={(e) => setUniversalSearchQuery(e.target.value)}
                   placeholder="Search"
-                  className="w-full h-[40px] border border-gray-300 rounded-full pl-10 pr-4 text-[14px] text-black placeholder-gray-400 focus:outline-none focus:border-gray-400"
+                  className="w-full h-[40px] border border-gray-300 rounded-full pl-9 pr-4 text-[14px] text-black placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
               </div>
             </div>

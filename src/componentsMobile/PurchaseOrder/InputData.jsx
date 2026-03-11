@@ -98,7 +98,7 @@ const InputData = () => {
     // Fetch categories with IDs from API
     const fetchPoCategory = async () => {
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
+            const response = await fetch('http://localhost:8082/api/po_category/getAll');
             if (response.ok) {
                 const data = await response.json();
                 const options = (data || []).map(item => ({
@@ -125,7 +125,7 @@ const InputData = () => {
     // Fetch group names from API
     const fetchGroupNames = async () => {
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/group_name/getAll');
+            const response = await fetch('http://localhost:8082/api/group_name/getAll');
             if (response.ok) {
                 const data = await response.json();
                 const options = (data || []).map(item => item.groupName || '').filter(Boolean);
@@ -165,7 +165,7 @@ const InputData = () => {
 
     const fetchPoItemName = async () => {
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+            const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
             if (response.ok) {
                 const data = await response.json();
                 // Store full data for otherPOEntityList lookup
@@ -202,7 +202,7 @@ const InputData = () => {
 
     const fetchPoModel = async () => {
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
+            const response = await fetch('http://localhost:8082/api/po_model/getAll');
             if (response.ok) {
                 const data = await response.json();
                 // Extract model names from API response - same logic as AddItemsToPO
@@ -237,7 +237,7 @@ const InputData = () => {
 
     const fetchPoBrand = async () => {
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
+            const response = await fetch('http://localhost:8082/api/po_brand/getAll');
             if (response.ok) {
                 const data = await response.json();
                 // Extract brand names from API response - filter out empty/null/undefined values
@@ -286,7 +286,7 @@ const InputData = () => {
 
     const fetchPoType = async () => {
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
+            const response = await fetch('http://localhost:8082/api/po_type/getAll');
             if (response.ok) {
                 const data = await response.json();
                 // Extract type names from API response - same logic as AddItemsToPO
@@ -367,7 +367,7 @@ const InputData = () => {
             return;
         }
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/save', {
+            const response = await fetch('http://localhost:8082/api/po_category/save', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -480,7 +480,7 @@ const InputData = () => {
             return;
         }
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/group_name/save', {
+            const response = await fetch('http://localhost:8082/api/group_name/save', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -634,7 +634,7 @@ const InputData = () => {
 
                 // Reload item names to get updated otherPOEntityList
                 try {
-                    const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+                    const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
                     if (response.ok) {
                         const data = await response.json();
                         setPoItemNameData(data);
@@ -727,7 +727,7 @@ const InputData = () => {
 
                 // Reload item names to get updated otherPOEntityList
                 try {
-                    const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+                    const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
                     if (response.ok) {
                         const data = await response.json();
                         setPoItemNameData(data);
@@ -801,7 +801,7 @@ const InputData = () => {
         }
 
         try {
-            const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_itemNames/edit/${poItemNameId}`, {
+            const response = await fetch(`http://localhost:8082/api/po_itemNames/edit/${poItemNameId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -936,7 +936,7 @@ const InputData = () => {
 
             // Reload item names to get updated otherPOEntityList
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+                const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setPoItemNameData(data);
@@ -979,7 +979,7 @@ const InputData = () => {
         };
 
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/save', {
+            const response = await fetch('http://localhost:8082/api/po_itemNames/save', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1013,7 +1013,7 @@ const InputData = () => {
         };
 
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/save', {
+            const response = await fetch('http://localhost:8082/api/po_model/save', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1047,7 +1047,7 @@ const InputData = () => {
         };
 
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/save', {
+            const response = await fetch('http://localhost:8082/api/po_brand/save', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1081,7 +1081,7 @@ const InputData = () => {
         };
 
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/save', {
+            const response = await fetch('http://localhost:8082/api/po_type/save', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

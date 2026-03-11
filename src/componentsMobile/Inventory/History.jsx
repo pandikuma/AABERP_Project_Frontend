@@ -34,7 +34,7 @@ const History = ({ onTabChange }) => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -65,7 +65,7 @@ const History = ({ onTabChange }) => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll');
+        const response = await fetch('http://localhost:8082/api/employee_details/getAll');
         if (response.ok) {
           const data = await response.json();
           const siteEngineers = data.filter(
@@ -86,7 +86,7 @@ const History = ({ onTabChange }) => {
       try {
         setLoading(true);
         // Fetch inventory data from getAll endpoint
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll', {
+        const response = await fetch('http://localhost:8082/api/inventory/getAll', {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -564,7 +564,7 @@ const History = ({ onTabChange }) => {
         if (inventoryData?.id) {
           try {
             // Try to fetch the inventory record with items by ID
-            const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${inventoryData.id}`, {
+            const response = await fetch(`http://localhost:8082/api/inventory/edit_with_history/${inventoryData.id}`, {
               method: 'GET',
               credentials: 'include',
               headers: {
@@ -647,7 +647,7 @@ const History = ({ onTabChange }) => {
         if (inventoryData?.id) {
           try {
             // Try to fetch the inventory record with items by ID
-            const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${inventoryData.id}`, {
+            const response = await fetch(`http://localhost:8082/api/inventory/edit_with_history/${inventoryData.id}`, {
               method: 'GET',
               credentials: 'include',
               headers: {
@@ -730,7 +730,7 @@ const History = ({ onTabChange }) => {
         if (inventoryData?.id) {
           try {
             // Try to fetch the inventory record with items by ID
-            const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${inventoryData.id}`, {
+            const response = await fetch(`http://localhost:8082/api/inventory/edit_with_history/${inventoryData.id}`, {
               method: 'GET',
               credentials: 'include',
               headers: {

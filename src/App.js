@@ -18,6 +18,7 @@ import CHeading from './Components/CarpentryCalculation/CHeading';
 import LoginPage from './LoginPages/Login';
 import BillHeading from './Components/BillChecklist/BillHeading';
 import PurchaseHeading from './Components/Purchase/PurchaseHeading';
+import RequestForQuotationHeading from './Components/Purchase/RequestForQuotationHeading';
 import TestPurchaseOrder from './Components/Purchase/TestPurchaseOrder';
 import ManageHeading from './Components/ManageUsers/ManageHeading';
 import Attendancelog from './Components/Attendances/Attendancelog';
@@ -51,7 +52,7 @@ function AppContent({ user, handleLogout }) {
     };
   }, []);
 
-  const isMobileRoute = location.pathname.startsWith('/purchaseorder') || location.pathname.startsWith('/inventory') || location.pathname.startsWith('/toolsTracker') || location.pathname.startsWith('/portal') || location.pathname.startsWith('/loan');
+  const isMobileRoute = location.pathname.startsWith('/requestforquotation') || location.pathname.startsWith('/purchaseorder') || location.pathname.startsWith('/inventory') || location.pathname.startsWith('/toolsTracker') || location.pathname.startsWith('/portal') || location.pathname.startsWith('/loan');
   const shouldHideDesktopBars = isMobile && isMobileRoute;
 
   return (
@@ -77,6 +78,7 @@ function AppContent({ user, handleLogout }) {
         <Route path="/masonary/*" element={<MHeading username={user.username} userRoles={user?.userRoles || []} />} />
         <Route path="/carpentry/*" element={<CHeading username={user.username} userRoles={user?.userRoles || []} />} />
         <Route path="/entrychecklist/*" element={<BillHeading username={user.username} userRoles={user?.userRoles || []} />} />
+        <Route path='/requestforquotation/*' element={<RequestForQuotationHeading username={user.username} userRoles={user?.userRoles || []} />} />
         <Route path='/purchaseorder/*' element={<PurchaseHeading username={user.username} userRoles={user?.userRoles || []} />} />
         <Route path='/inventory/*' element={<InventoryHeading username={user.username} userRoles={user?.userRoles || []} />} />
         <Route path='/testpurchaseorder' element={<TestPurchaseOrder />} />

@@ -27,7 +27,10 @@ const ToolsTracker = ({ user, onLogout }) => {
     setSidebarOpen(false);
   };
   const handleNavigate = (page) => {
-    if (page === 'purchase-order') {
+    if (page === 'request-for-quotation') {
+      setCurrentPage('request-for-quotation');
+      navigate('/requestforquotation');
+    } else if (page === 'purchase-order') {
       setCurrentPage('purchase-order');
       navigate('/purchaseorder');
     } else if (page === 'inventory') {

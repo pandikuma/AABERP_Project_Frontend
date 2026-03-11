@@ -2,14 +2,14 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import EditIcon from '../Images/edit1.png';
 import SelectOptionModal from '../PurchaseOrder/SelectOptionModal';
 
-const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_stock_management';
-const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
-const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
-const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
-const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
-const VENDOR_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/vendor_Names';
-const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
-const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
+const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'http://localhost:8082/api/tools_tracker_stock_management';
+const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'http://localhost:8082/api/tools_tracker_management';
+const TOOLS_ITEM_NAME_BASE_URL = 'http://localhost:8082/api/tools_item_name';
+const TOOLS_ITEM_ID_BASE_URL = 'http://localhost:8082/api/tools_item_id';
+const PROJECT_NAMES_BASE_URL = 'http://localhost:8081/api/project_Names';
+const VENDOR_NAMES_BASE_URL = 'http://localhost:8081/api/vendor_Names';
+const TOOLS_BRAND_BASE_URL = 'http://localhost:8082/api/tools_brand';
+const TOOLS_MACHINE_NUMBER_BASE_URL = 'http://localhost:8082/api/tools_machine_number';
 
 const NetStock = ({ user }) => {
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'list'
@@ -986,7 +986,7 @@ const NetStock = ({ user }) => {
   };
 
   return (
-    <div className="flex flex-col bg-white px-4" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden bg-white px-4" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Category and Brand Section */}
       <div className="flex justify-end mt-1.5">
         <button
@@ -1146,7 +1146,7 @@ const NetStock = ({ user }) => {
       </div>
 
       {/* Main Content Area */}
-      <div key={viewMode} className="flex-1 pb-4">
+      <div key={viewMode} className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pb-4">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <p className="text-[14px] text-gray-500">Loading...</p>
@@ -1158,7 +1158,7 @@ const NetStock = ({ user }) => {
               <p className="text-[14px] text-gray-500 text-center mt-8">No data available</p>
             ) : (
               <>
-                <div className=" max-h-[410px] overflow-y-auto scrollbar-none no-scrollbar">
+                <div className="overflow-y-auto scrollbar-none no-scrollbar scrollbar-none">
                   {filteredTableData.map((item, index) => {
                     const itemId = item.id || index;
                     const swipeState = swipeStates[itemId];

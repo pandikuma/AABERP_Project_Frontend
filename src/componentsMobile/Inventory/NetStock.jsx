@@ -38,7 +38,7 @@ const NetStock = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
+        const response = await fetch('http://localhost:8082/api/po_category/getAll');
         if (response.ok) {
           const data = await response.json();
           const options = data.map(item => ({
@@ -58,7 +58,7 @@ const NetStock = () => {
   useEffect(() => {
     const fetchStockingLocations = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -86,7 +86,7 @@ const NetStock = () => {
   useEffect(() => {
     const fetchLocationNames = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -113,7 +113,7 @@ const NetStock = () => {
   useEffect(() => {
     const fetchItemNames = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+        const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
         if (response.ok) {
           const data = await response.json();
           setItemNamesData(data);
@@ -129,9 +129,9 @@ const NetStock = () => {
     const fetchAll = async () => {
       try {
         const [brandRes, modelRes, typeRes] = await Promise.all([
-          fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll')
+          fetch('http://localhost:8082/api/po_brand/getAll'),
+          fetch('http://localhost:8082/api/po_model/getAll'),
+          fetch('http://localhost:8082/api/po_type/getAll')
         ]);
         if (brandRes.ok) {
           const brandData = await brandRes.json();
@@ -232,7 +232,7 @@ const NetStock = () => {
     const fetchInventory = async () => {
       try {
         setLoading(true);
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
+        const response = await fetch('http://localhost:8082/api/inventory/getAll');
         if (!response.ok) {
           console.error('Failed to fetch inventory data');
           setLoading(false);

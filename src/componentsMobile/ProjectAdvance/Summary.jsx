@@ -75,7 +75,7 @@ const Summary = () => {
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll');
+      const res = await fetch('http://localhost:8081/api/vendor_Names/getAll');
       if (res.ok) {
         const data = await res.json();
         setVendorOptions(data.map((item) => ({
@@ -91,7 +91,7 @@ const Summary = () => {
 
   const fetchContractors = async () => {
     try {
-      const res = await fetch('https://backendaab.in/aabuilderDash/api/contractor_Names/getAll');
+      const res = await fetch('http://localhost:8081/api/contractor_Names/getAll');
       if (res.ok) {
         const data = await res.json();
         setContractorOptions(data.map((item) => ({
@@ -107,7 +107,7 @@ const Summary = () => {
 
   const fetchSites = async () => {
     try {
-      const res = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/getAll');
+      const res = await fetch('http://localhost:8081/api/project_Names/getAll');
       if (res.ok) {
         const data = await res.json();
         const formatted = data.map((item) => ({
@@ -126,7 +126,7 @@ const Summary = () => {
 
   const loadAdvanceData = useCallback(async () => {
     try {
-      const res = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/getAll'));
+      const res = await fetch(withBranchUrl('http://localhost:8082/api/advance_portal/getAll'));
       if (!res.ok) throw new Error('Failed to fetch advance data');
       const data = await res.json();
       setAdvanceData(data);

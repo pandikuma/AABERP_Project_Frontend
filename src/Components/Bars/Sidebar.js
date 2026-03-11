@@ -432,6 +432,19 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
         </div>
         {activeMenu === 'procurement' && (
           <div className="ml-6">
+            <Link to={hasAccessToModel('Purchase Order') ? '/requestforquotation' : '#'} className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Request For Quotation' ? 'text-red-500' : ''
+              }`}
+              onClick={(e) => {
+                if (!hasAccessToModel('Purchase Order')) {
+                  e.preventDefault();
+                  alert("No permissions for this page");
+                  return;
+                }
+                handleSubmenuItemClick('Request For Quotation');
+                if (onCloseSidebar) onCloseSidebar();
+              }}>
+              <p className="text-sm cursor-pointer"><li>Request For Quotation</li></p>
+            </Link>
             <Link to={hasAccessToModel('Purchase Order') ? '/purchaseorder' : '#'} className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Purchase Order' ? 'text-red-500' : ''
               }`}
               onClick={(e) => {
