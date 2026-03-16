@@ -11,6 +11,7 @@ import AddInput from './AddInput';
 import NetStock from './NetStock';
 import ToolsHistory from './ToolsHistory';
 import ServiceHistory from './ServiceHistory';
+import Locate from './Locate';
 
 const ToolsTracker = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -68,6 +69,8 @@ const ToolsTracker = ({ user, onLogout }) => {
         return <ToolsHistory user={user} />;
       case 'service-history':
         return <ServiceHistory user={user} onTabChange={handleTabChange} />;
+      case 'locate':
+        return <Locate user={user} />;
       default:
         return <Transfer user={user} />;
     }

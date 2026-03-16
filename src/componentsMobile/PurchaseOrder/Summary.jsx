@@ -197,11 +197,12 @@ const Summary = () => {
     setShowDatePicker(false);
   };
   return (
-    <div className="w-full px-[16px]" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="flex flex-col min-h-[calc(100vh-96px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Header Section - Sticky */}
-      <div className="sticky top-[100px] z-30 bg-white">
+      <div className="sticky top-0 bg-white z-10 flex-shrink-0">
         {/* Date Display - Clickable */}
-        <div className="mb-2 mt-2">
+        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between">
+          <div className="flex items-center pb-[8px] gap-[8px]">
           <button
             type="button"
             onClick={() => setShowDatePicker(true)}
@@ -209,12 +210,13 @@ const Summary = () => {
           >
             {selectedDate}
           </button>
+          </div>
         </div>
         {/* Segmented Control (Vendor/Project) */}
-        <div className="mb-2 flex items-center bg-[#F5F5F5] rounded-[8px] p-[4px] w-[328px]">
+        <div className="mb-2 flex items-center bg-[#F5F5F5] rounded-[8px] w-full h-[32px]">
           <button
             onClick={() => setViewMode('vendor')}
-            className={`flex-1 h-[32px] rounded-[6px] text-[12px] font-medium transition-colors ${viewMode === 'vendor'
+            className={`flex-1 ml-0.5 h-[28px] rounded text-[12px] font-medium transition-colors ${viewMode === 'vendor'
                 ? 'bg-white text-black shadow-sm'
                 : 'text-[#9E9E9E]'
               }`}
@@ -223,7 +225,7 @@ const Summary = () => {
           </button>
           <button
             onClick={() => setViewMode('project')}
-            className={`flex-1 h-[32px] rounded-[6px] text-[12px] font-medium transition-colors ${viewMode === 'project'
+            className={`flex-1 mr-0.5 h-[28px] rounded text-[12px] font-medium transition-colors ${viewMode === 'project'
                 ? 'bg-white text-black shadow-sm'
                 : 'text-[#9E9E9E]'
               }`}
@@ -241,7 +243,7 @@ const Summary = () => {
               <div className="relative">
                 <div
                   onClick={() => setShowVendorModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: selectedVendor ? '#000' : '#9E9E9E'
@@ -285,7 +287,7 @@ const Summary = () => {
               <div className="relative">
                 <div
                   onClick={() => setShowProjectModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: selectedProject ? '#000' : '#9E9E9E'
@@ -326,7 +328,7 @@ const Summary = () => {
       {summaryData.length > 0 && (
         <div className="bg-white shadow-lg w-[328px]">
           {/* Header */}
-          <div className="flex items-center justify-between px-[16px]">
+          <div className="flex items-center justify-between">
             <p className="text-[12px] font-semibold text-[#9E9E9E]">
               {viewMode === 'vendor' ? 'Project List' : 'Vendor List'}
             </p>

@@ -1721,7 +1721,7 @@ const AddInput = ({ user }) => {
       <div className="flex-shrink-0 pt-[8px] pb-[10px] space-y-[6px]">
         <div className="">
           <p className="text-[12px] font-medium text-black leading-normal mb-0.5">
-            Item Name<span className="text-[#eb2f8e]">*</span>
+            Item Name<span className="text-[#E4572E]">*</span>
           </p>
           <SearchableDropdown
             value={selectedItemName || ''}
@@ -1736,7 +1736,7 @@ const AddInput = ({ user }) => {
         <div className="flex gap-[12px]">
           <div className="flex-1">
             <p className="text-[12px] font-medium text-black leading-normal mb-0.5">
-              Brand<span className="text-[#eb2f8e]">*</span>
+              Brand<span className="text-[#E4572E]">*</span>
             </p>
             <SearchableDropdown
               value={selectedBrand || ''}
@@ -1750,7 +1750,7 @@ const AddInput = ({ user }) => {
           </div>
           <div className="flex-1">
             <p className="text-[12px] font-medium text-black leading-normal mb-0.5">
-              Item ID<span className="text-[#eb2f8e]">*</span>
+              Item ID<span className="text-[#E4572E]">*</span>
             </p>
             <SearchableDropdown
               value={selectedItemId || ''}
@@ -1836,7 +1836,7 @@ const AddInput = ({ user }) => {
               <div className="flex gap-[12px] mb-2">
                 <div className="flex-1">
                   <p className="text-[12px] font-medium text-black mb-1">
-                    Item Name<span className="text-[#eb2f8e]">*</span>
+                    Item Name<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className='w-[220px]'>
                     {renderSheetDropdown('itemName', addSheetForm.itemName, 'Select')}
@@ -1864,7 +1864,7 @@ const AddInput = ({ user }) => {
                 </div>
                 <div className={`flex-1 ${addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '' ? 'opacity-50 pointer-events-none' : ''}`}>
                   <p className="text-[12px] font-medium text-black mb-1">
-                    Model{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
+                    Model{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#E4572E]">*</span>}
                   </p>
                   <input
                     type="text"
@@ -1879,7 +1879,7 @@ const AddInput = ({ user }) => {
               <div className="flex gap-[12px] mb-2">
                 <div className={`flex-1 ${addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '' ? 'opacity-50 pointer-events-none' : ''}`}>
                   <p className="text-[12px] font-medium text-black mb-1">
-                    Machine Number{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
+                    Machine Number{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#E4572E]">*</span>}
                   </p>
                   <input
                     type="text"
@@ -1891,7 +1891,7 @@ const AddInput = ({ user }) => {
                 </div>
                 <div className="flex-1">
                   <p className="text-[12px] font-medium text-black mb-1">
-                    Brand{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
+                    Brand{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#E4572E]">*</span>}
                   </p>
                   {renderSheetDropdown('brand', addSheetForm.brand, 'Select')}
                 </div>
@@ -1916,7 +1916,7 @@ const AddInput = ({ user }) => {
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-[12px] font-medium text-black">
-                      Purchase Store{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
+                      Purchase Store{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#E4572E]">*</span>}
                     </p>
                     {addSheetForm.purchaseStore && (() => {
                       const selectedStore = purchaseStoreFullData.find(item => item?.vendorName === addSheetForm.purchaseStore);
@@ -1932,7 +1932,7 @@ const AddInput = ({ user }) => {
               <div className="flex gap-[12px] w-[100px] mb-2">
                 <div className="flex-1">
                   <p className="text-[12px] font-medium text-black mb-1">
-                    Purchase Date{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
+                    Purchase Date{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#E4572E]">*</span>}
                   </p>
                   <div className="relative">
                     <input
@@ -1954,7 +1954,7 @@ const AddInput = ({ user }) => {
                 </div>
                 <div className="flex-1">
                   <p className="text-[12px] font-medium text-black mb-1">
-                    Warranty Date{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#eb2f8e]">*</span>}
+                    Warranty Date{!(addSheetForm.quantity && addSheetForm.quantity !== '0' && addSheetForm.quantity.trim() !== '') && <span className="text-[#E4572E]">*</span>}
                   </p>
                   <div className="relative">
                     <input

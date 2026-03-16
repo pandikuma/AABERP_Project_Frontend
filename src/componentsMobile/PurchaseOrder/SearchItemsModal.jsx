@@ -1399,7 +1399,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end" onClick={onClose} style={{ fontFamily: "'Manrope', sans-serif" }} >
             <div
-                className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] flex flex-col"
+                className="bg-white w-full mx-auto rounded-t-[20px] flex flex-col"
                 style={{
                     maxHeight: 'calc(100vh - 100px)',
                     height: 'auto',

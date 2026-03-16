@@ -1673,9 +1673,9 @@ const History = () => {
     )
   ].filter(Boolean))].sort();
   return (
-    <div className="relative w-full h-screen bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      {/* Header Section - Fixed */}
-      <div className="flex-shrink-0 bg-white px-[16px] pt-[16px] z-30">
+    <div className="flex flex-col min-h-[calc(100vh-96px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      {/* Header Section - Sticky */}
+      <div className="sticky top-0 bg-white z-10 flex-shrink-0">
         {/* Search Bar */}
         <div className="relative mb-2">
           <input
@@ -1786,7 +1786,7 @@ const History = () => {
         </div>
       </div>
       {/* Purchase Orders List - Scrollable */}
-      <div className="overflow-y-auto no-scrollbar mx-auto scrollbar-none scrollbar-hide px-[16px] mt-1 " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
+      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide mt-1 " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
         onClick={() => {
           setExpandedPoId(null);
           setCloneExpandedPoId(null);
@@ -1870,7 +1870,7 @@ const History = () => {
                         e.stopPropagation();
                         handleClone(po);
                       }}
-                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-[6px] transition-colors shadow-sm"
+                      className="action-button w-[48px] h-[95px] bg-[#BF9853] rounded-[6px] flex items-center justify-center gap-[6px] transition-colors shadow-sm"
                       title="Clone"
                     >
                       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2018,7 +2018,7 @@ const History = () => {
       {/* Filter Modal */}
       {showFilterModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={() => setShowFilterModal(false)}>
-          <div className="bg-white w-full max-w-[360px] h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }} onClick={(e) => e.stopPropagation()}>
             {/* Title */}
             <div className="px-[24px] pt-[20px] pb-[16px] flex items-center justify-between">
               <p className="text-[14px] font-semibold text-black">Select Filters</p>
@@ -2125,13 +2125,13 @@ const History = () => {
             <div className="absolute mt-5 left-0 right-0 px-[24px] flex gap-[16px]">
               <button
                 onClick={() => setShowFilterModal(false)}
-                className="w-[175px] h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
+                className="w-full h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
               >
                 Cancel
               </button>
               <button
                 onClick={() => setShowFilterModal(false)}
-                className="w-[175px] h-[40px] bg-black border border-[#f4ede2] rounded-[8px] text-[14px] font-bold text-white leading-normal"
+                className="w-full h-[40px] bg-black border border-[#f4ede2] rounded-[8px] text-[14px] font-bold text-white leading-normal"
               >
                 Save
               </button>

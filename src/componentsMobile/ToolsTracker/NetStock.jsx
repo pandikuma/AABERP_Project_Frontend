@@ -522,6 +522,7 @@ const NetStock = ({ user }) => {
             location: homeLocation,
             currentLocation: currentLocation,
             brand,
+            model: (stock.model || '').trim() || '',
             machineNumber,
             status,
             quantity: 0,
@@ -558,6 +559,7 @@ const NetStock = ({ user }) => {
             location: homeLocation,
             currentLocation: '-',
             brand,
+            model: (stock.model || '').trim() || '-',
             machineNumber: '-',
             status: '-',
             quantity,
@@ -620,6 +622,7 @@ const NetStock = ({ user }) => {
         item.location || '',
         item.currentLocation || '',
         item.brand || '',
+        item.model || '',
         item.machineNumber || '',
         item.status || '',
         item.quantity?.toString() || ''
@@ -958,15 +961,13 @@ const NetStock = ({ user }) => {
       alert('No data to download');
       return;
     }
-
     const doc = new jsPDF({
       orientation: "landscape",
     });
-
     // Title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('Net Stock Report', 14, 20);
+    doc.text('Net Stock Report', 10, 18);
 
     // Prepare table data
     const tableData = filteredTableData.map((item, index) => {
@@ -1018,24 +1019,20 @@ const NetStock = ({ user }) => {
       ];
     });
 
-    // Generate table
+    // Generate table - transparent bg, lighter borders, no extra column (like PendingItems)
+    const columnWidths = [12, 36, 20, 20, 26, 30, 50, 50, 35];
+    const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
     autoTable(doc, {
       head: [['S.No', 'Item Name', 'Item ID', 'Brand', 'Model', 'Machine Number', 'Home', 'Current', 'Project Incharge']],
       body: tableData,
-      startY: 30,
-      styles: { fontSize: 7, cellPadding: 1.5 },
-      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
-      columnStyles: {
-        0: { cellWidth: 12 }, // S.No
-        1: { cellWidth: 30 }, // Item Name
-        2: { cellWidth: 20 }, // Item ID
-        3: { cellWidth: 20 }, // Brand
-        4: { cellWidth: 20 }, // Model
-        5: { cellWidth: 25 }, // Machine Number
-        6: { cellWidth: 30 }, // Home
-        7: { cellWidth: 30 }, // Current
-        8: { cellWidth: 30 } // Project Incharge
-      },
+      startY: 24,
+      tableWidth,
+      styles: { fontSize: 7, cellPadding: 1.5, fillColor: false, lineColor: [180, 180, 180], lineWidth: 0.1 },
+      headStyles: { fillColor: false, textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 7, lineColor: [180, 180, 180], lineWidth: 0.1 },
+      alternateRowStyles: { fillColor: false },
+      tableLineColor: [180, 180, 180],
+      tableLineWidth: 0.1,
+      columnStyles: Object.fromEntries(columnWidths.map((w, i) => [i, { cellWidth: w }])),
       margin: { left: 10, right: 10 },
       didDrawPage: function (data) {
         // Footer
@@ -1139,22 +1136,37 @@ const NetStock = ({ user }) => {
       <div className="sticky top-0 bg-white z-10 flex-shrink-0">
         {/* Category and Brand Section */}
         <div className="flex items-center justify-between pb-[8px] border-b border-[#E0E0E0]">
-          <p className="text-[12px] text-black font-semibold leading-normal"></p>
-          <button
-            type="button"
-            onClick={() => setShowBrandModal(true)}
-            className="text-[12px] text-black font-semibold leading-normal cursor-pointer hover:underline p-[0px] border-0 bg-transparent text-right"
-          >
-            {selectedBrand ? selectedBrand : 'Brand'}
-          </button>
+          <div className="flex items-center gap-[4px] min-w-0">
+            <button
+              type="button"
+              onClick={() => setShowBrandModal(true)}
+              className="text-[12px] text-black font-semibold leading-normal cursor-pointer hover:underline p-[0px] border-0 bg-transparent text-right"
+            >
+              {selectedBrand ? selectedBrand : 'Brand'}
+            </button>
+            {selectedBrand && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedBrand(null);
+                }}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 3L3 9M3 3L9 9" stroke="#848484" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <span className="text-[12px] font-semibold cursor-pointer whitespace-nowrap" onClick={handleDownloadPDF}>Download</span>
         </div>
-
         {/* Table/List Segmented Control */}
         <div className="flex-shrink-0 pt-[8px]">
-          <div className="flex bg-[#F2F4F7] items-center h-9 shadow-sm rounded-md">
+          <div className="flex bg-[#F2F4F7] items-center h-[32px] shadow-sm rounded-md">
             <button
               onClick={() => setViewMode('table')}
-              className={`flex-1 px-[16px] ml-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${viewMode === 'table'
+              className={`flex-1 px-[16px] ml-0.5 h-[28px] rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${viewMode === 'table'
                 ? 'bg-white text-black'
                 : 'bg-gray-100 text-gray-600'
                 }`}
@@ -1163,7 +1175,7 @@ const NetStock = ({ user }) => {
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`flex-1 px-[16px] mr-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${viewMode === 'list'
+              className={`flex-1 px-[16px] mr-0.5 h-[28px] rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${viewMode === 'list'
                 ? 'bg-white text-black'
                 : 'bg-gray-100 text-gray-600'
                 }`}
@@ -1436,7 +1448,7 @@ const NetStock = ({ user }) => {
       </div>
 
       {/* Universal Search and Download */}
-      <div className="flex items-center gap-[8px] pt-[8px]">
+      <div className="flex items-center gap-[8px] pt-[6px] pb-[6px]">
         <div className="flex-1 relative">
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1452,7 +1464,7 @@ const NetStock = ({ user }) => {
             className="w-full h-[36px] pl-[40px] pr-[12px] text-[12px] rounded-full font-medium bg-white focus:outline-none border border-[rgba(0,0,0,0.12)]"
           />
         </div>
-        <span className="text-[12px] font-semibold cursor-pointer whitespace-nowrap" onClick={handleDownloadPDF}>Download</span>
+        
       </div>
 
       {/* Main Content Area */}
@@ -1463,7 +1475,7 @@ const NetStock = ({ user }) => {
           </div>
         ) : viewMode === 'table' ? (
           /* Table View - Individual Items */
-          <div className="mt-1.5">
+          <div className="pt-[6px">
             {filteredTableData.length === 0 ? (
               <p className="text-[14px] text-gray-500 text-center mt-8">No data available</p>
             ) : (
@@ -1503,7 +1515,7 @@ const NetStock = ({ user }) => {
                         >
                           <div className="flex flex-col">
                             {/* Top line: Location, Item Name and Status badge */}
-                            <div className="flex justify-between items-start mb-0.5">
+                            <div className="flex justify-between items-start">
                               <p className="text-[12px] font-semibold leading-tight">
                                 {item.location !== '-' ? (
                                   <>
@@ -1514,37 +1526,39 @@ const NetStock = ({ user }) => {
                                 )}
                               </p>
                               {item.status !== '-' && (
-                                <span className={`px-[8px] rounded-full text-[11px] font-medium whitespace-nowrap flex-shrink-0 ml-3 ${item.status === 'Working' ? 'bg-green-100 text-green-800' :
-                                  item.status === 'Dead' ? 'bg-orange-100 text-orange-800' :
-                                    'bg-gray-100 text-gray-800'
+                                <span className={`pl-[6px] pr-[10px] py-[2px] rounded-full text-[10px] font-medium whitespace-nowrap flex-shrink-0 ml-3 ${item.status === 'Working' ? 'bg-[#E6FFEE] text-[#007233]' :
+                                  item.status === 'Not Working' ? 'bg-[#FFF2DB] text-[#BF9853]' : item.status === 'Machine Dead' ? 'bg-[#FFEAE4] text-[#E4572E]' :
+                                    'bg-[#E6E6E6] text-[#212121]'
                                   }`}>
-                                  {item.status}
+                                  • {item.status}
                                 </span>
                               )}
                             </div>
                             <div className="flex justify-between items-start mb-0.5">
                               <div className="flex flex-col">
                                 <p className="text-[11px] leading-tight">
-                                  <span className="text-[#848484] font-medium">Home: </span>
-                                  <span className="text-[#848484] font-medium">{item.location !== '-' ? item.location : '-'}</span>
+                                  <span className="text-black font-semibold">Home: </span>
+                                  <span className="text-black font-semibold">{item.location !== '-' ? item.location : '-'}</span>
                                 </p>
                                 <p className="text-[11px] leading-tight text-[#BF9853] mt-0.5">
-                                  <span className=" font-medium">Current: </span>
-                                  <span className=" font-medium">{item.currentLocation && item.currentLocation !== '-' ? item.currentLocation : '-'}</span>
+                                  <span className=" font-semibold">Current: </span>
+                                  <span className=" font-semibold">{item.currentLocation && item.currentLocation !== '-' ? item.currentLocation : '-'}</span>
                                 </p>
                               </div>
                             </div>
                             {/* Middle line: Machine number - empty opposite */}
                             <div className="flex justify-between items-start mb-0.5">
-                              <p className="text-[12px] text-gray-700 leading-tight">
+                              <p className="text-[12px] text-black leading-tight">
                                 {item.machineNumber !== '-' ? resolveMachineNumberText(item.machineNumber) : ''}
                               </p>
                               <div className="flex-shrink-0 ml-3"></div>
                             </div>
-                            {/* Bottom line: Brand and Item ID/Quantity */}
-                            <div className="flex justify-between items-start">
-                              <p className="text-[12px] text-gray-700 leading-tight">{item.brand}</p>
-                              <p className="text-[12px] font-medium text-black flex-shrink-0 ml-3">
+                            {/* Bottom line: Brand, Model and Item ID/Quantity */}
+                            <div className="flex justify-between items-start gap-2">
+                              <p className="text-[12px] text-[#9E9E9E] font-semibold leading-tight min-w-0 flex-1">
+                                {[item.brand || '', item.model && item.model !== '' ? item.model : null].filter(Boolean).join(', ') || ''}
+                              </p>
+                              <p className="text-[12px] font-medium text-black flex-shrink-0">
                                 {item.hasItemId
                                   ? (item.isMerged ? item.quantity : item.itemId)
                                   : item.quantity}
@@ -1591,33 +1605,33 @@ const NetStock = ({ user }) => {
           </div>
         ) : (
           /* List View - Aggregated Summary Table Only */
-          <div className="mt-1.5">
+          <div className="">
             {filteredAggregatedSummary.length === 0 ? (
               <p className="text-[14px] text-gray-500 text-center mt-8">No data available</p>
             ) : (
               <>
-                <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
-                  {/* Table Header */}
-                  <div className="bg-gray-50 border-b border-gray-200">
+                <div className="bg-white rounded-lg overflow-hidden border border-gray-200 flex flex-col max-h-[50vh]">
+                  {/* Table Header - fixed, does not scroll */}
+                  <div className="bg-gray-50 border-b border-gray-200 flex-shrink-0">
                     <div className="grid grid-cols-12 gap-[8px] px-[12px] py-[8px]">
-                      <div className="col-span-1 text-[12px] font-medium text-gray-700">#</div>
-                      <div className="col-span-5 text-[12px] font-medium text-gray-700">Item Name</div>
-                      <div className="col-span-3 text-[12px] font-medium text-gray-700">Brand</div>
-                      <div className="col-span-3 text-[12px] font-medium text-gray-700 text-right">Total Stock</div>
+                      <div className="col-span-1 text-[12px] font-medium font-semibold"></div>
+                      <div className="col-span-5 text-[12px] font-medium text-black font-semibold">Item Name</div>
+                      <div className="col-span-3 text-[12px] font-medium text-black font-semibold">Brand</div>
+                      <div className="col-span-3 text-[12px] font-medium text-black text-right font-semibold">Total Stock</div>
                     </div>
                   </div>
-                  {/* Table Body */}
-                  <div>
+                  {/* Table Body - scrollable */}
+                  <div className="overflow-y-auto flex-1 min-h-0">
                     {filteredAggregatedSummary.map((item, index) => (
                       <div
                         key={`${item.itemName}_${item.brand}_${index}`}
                         className="border-b border-gray-100 last:border-b-0"
                       >
                         <div className="grid grid-cols-12 gap-[8px] px-[12px] py-[12px]">
-                          <div className="col-span-1 text-[12px] text-gray-700">{index + 1}</div>
-                          <div className="col-span-5 text-[12px] text-black">{item.itemName}</div>
-                          <div className="col-span-3 text-[12px] text-gray-700">{item.brand}</div>
-                          <div className="col-span-3 text-[12px] font-medium text-black text-right">
+                          <div className="col-span-1 text-[12px] text-black font-medium">{index + 1}</div>
+                          <div className="col-span-5 text-[12px] text-black font-medium">{item.itemName}</div>
+                          <div className="col-span-3 text-[12px] text-black font-medium">{item.brand}</div>
+                          <div className="col-span-3 text-[12px] font-medium text-black text-center">
                             {String(item.total).padStart(2, '0')}
                           </div>
                         </div>

@@ -18,7 +18,7 @@ const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_bra
 
 const PendingItems = ({ user }) => {
   const [pendingData, setPendingData] = useState([]);
-  const [selectedDays, setSelectedDays] = useState('30');
+  const [selectedDays, setSelectedDays] = useState('all');
   const [selectedHomeLocation, setSelectedHomeLocation] = useState(null);
   const [showHomeLocationDropdown, setShowHomeLocationDropdown] = useState(false);
   const [homeLocationSearchQuery, setHomeLocationSearchQuery] = useState('');
@@ -575,7 +575,15 @@ const PendingItems = ({ user }) => {
               const formattedCreatedDateTime = createdDateTime ? (() => {
                 try {
                   const d = new Date(createdDateTime);
-                  return isNaN(d.getTime()) ? String(createdDateTime) : d.toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+                  if (isNaN(d.getTime())) return String(createdDateTime);
+                  const day = String(d.getDate()).padStart(2, '0');
+                  const month = String(d.getMonth() + 1).padStart(2, '0');
+                  const year = d.getFullYear();
+                  const h = d.getHours();
+                  const m = d.getMinutes();
+                  const h12 = h % 12 || 12;
+                  const ampm = h < 12 ? 'AM' : 'PM';
+                  return `${day}/${month}/${year} • ${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
                 } catch { return String(createdDateTime); }
               })() : '';
               pendingItems.push({
@@ -867,7 +875,7 @@ const PendingItems = ({ user }) => {
     // Title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('Pending Items Report', 14, 20);
+    doc.text('Pending Items Report', 10, 18);
 
     // Prepare table data
     const tableData = pendingData.map((item, index) => {
@@ -913,7 +921,7 @@ const PendingItems = ({ user }) => {
     autoTable(doc, {
       head: [['S.No', 'Date', 'Item Name', 'Item ID', 'Brand', 'Model', 'Machine Number', 'From', 'To', 'Project Incharge']],
       body: tableData,
-      startY: 30,
+      startY: 24,
       tableWidth,
       styles: { fontSize: 7, cellPadding: 1.5, fillColor: false, lineColor: [180, 180, 180], lineWidth: 0.1 },
       headStyles: { fillColor: false, textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 7, lineColor: [180, 180, 180], lineWidth: 0.1 },
@@ -1109,11 +1117,40 @@ const PendingItems = ({ user }) => {
             Download
           </button>
         </div>
+        <div className="flex w-full bg-[#F2F4F7] items-center h-[32px] rounded-md mt-[8px]">
+          <button
+            onClick={() => setSelectedDays('all')}
+            className={`flex-1 ml-0.5 h-[28px] rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${selectedDays === 'all'
+              ? 'bg-white text-black'
+              : 'bg-transparent text-[#848484]'
+              }`}
+          >
+            All Days
+          </button>
+          <button
+            onClick={() => setSelectedDays('30')}
+            className={`flex-1 h-[28px] rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${selectedDays === '30'
+              ? 'bg-white text-black'
+              : 'bg-transparent text-[#848484]'
+              }`}
+          >
+            30 Days
+          </button>
+          <button
+            onClick={() => setSelectedDays('60')}
+            className={`flex-1 mr-0.5 h-[28px] rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${selectedDays === '60'
+              ? 'bg-white text-black'
+              : 'bg-transparent text-[#848484]'
+              }`}
+          >
+            60 Days
+          </button>
+        </div>
         {/* Home Location - clickable text, opens popup; shows selected location or placeholder */}
-        <div className="flex justify-between items-center gap-[4px] mb-2 flex-shrink-0 pt-[8px]">
-          <div className="flex items-center gap-[8px] min-w-0 flex-1">
+        <div className="flex justify-between items-center gap-[4px] mb-0 flex-shrink-0 pt-[6px]">
+          <div className="flex items-center gap-[4px] min-w-0 flex-1">
             <button onClick={() => setShowFilterSheet(true)} className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0">
-              <img src={Filter} alt="Filter" className="w-[12px] h-[12px]" />
+              <img src={Filter} alt="Filter" className="w-[13px] h-[12px]" />
               {!(filterItemName || filterLocation || filterItemId || filterDate || filterEntryNo || filterProjectIncharge) && (
                 <span className="text-[12px] font-medium text-black flex-shrink-0">Filter</span>
               )}
@@ -1174,35 +1211,9 @@ const PendingItems = ({ user }) => {
               )}
             </div>
           </div>
-          <div className="flex bg-[#F2F4F7] items-center h-6 shadow-sm rounded-full flex-shrink-0">
-            <button onClick={() => setSelectedDays('all')}
-              className={`flex px-[16px] ml-0.5 h-5 rounded-full text-[11px] items-center font-medium transition-colors duration-1000 ease-out ${selectedDays === 'all'
-                ? 'bg-white text-black'
-                : 'bg-gray-100 text-gray-600'
-                }`}
-            >
-              All Days
-            </button>
-            <button onClick={() => setSelectedDays('30')}
-              className={`flex px-[16px] h-5 rounded-full text-[11px] items-center font-medium transition-colors duration-1000 ease-out ${selectedDays === '30'
-                ? 'bg-white text-black'
-                : 'bg-gray-100 text-gray-600'
-                }`}
-            >
-              30 Days
-            </button>
-            <button onClick={() => setSelectedDays('60')}
-              className={`flex px-[16px] mr-0.5 h-5 rounded-full text-[11px] items-center font-medium transition-colors duration-1000 ease-out ${selectedDays === '60'
-                ? 'bg-white text-black'
-                : 'bg-gray-100 text-gray-600'
-                }`}
-            >
-              60 Days
-            </button>
-          </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pb-[16px]">
+      <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pt-[6px] pb-[16px]">
         {loading ? (
           <div className="flex items-center justify-center py-[32px]">
             <p className="text-[12px] text-gray-500">Loading...</p>
@@ -1233,17 +1244,17 @@ const PendingItems = ({ user }) => {
                     To - {item.to}
                   </p>
                   {item.daysPending && (
-                    <button onClick={() => handleDaysClick(item)} className="text-[12px] font-semibold text-[#e06256] leading-normal flex-shrink-0 cursor-pointer hover:underline">
+                    <button onClick={() => handleDaysClick(item)} className={`text-[12px] font-semibold leading-normal flex-shrink-0 cursor-pointer hover:underline ${(item.daysAway ?? 0) < 30 ? 'text-black' : 'text-[#E4572E]'}`}>
                       {item.daysPending}
                     </button>
                   )}
                 </div>
                 <div className="flex justify-between items-center gap-2">
-                  <p className="flex items-center gap-0 text-[11px] leading-normal min-w-0">
+                  <p className="flex items-center gap-[2px] text-[11px] leading-normal min-w-0">
                     <span className="font-bold text-black">{item.date}</span>
-                    {item.createdDateTimeFormatted && <span className=" font-semibold text-[#9E9E9E]">&nbsp;{item.createdDateTimeFormatted}</span>}
+                    {item.createdDateTimeFormatted && <span className=" font-semibold text-[#9E9E9E]"> • {item.createdDateTimeFormatted}</span>}
                   </p>
-                  <p className="text-[12px] font-semibold text-[#848484] leading-normal flex-shrink-0">
+                  <p className="text-[12px] font-semibold text-black leading-normal flex-shrink-0">
                     {item.personName}
                   </p>
                 </div>

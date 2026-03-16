@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import EditIcon from '../Images/edit1.png';
 import DeleteIcon from '../Images/delete.png';
 import Filter from '../Images/Filter.png';
-import SelectOptionModal from '../PurchaseOrder/SelectOptionModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import Close from '../Images/close.png';
+import Search from '../Images/Search.png';
+import CloseIcon from '../Images/Close F.svg';
 
 const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
 const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
@@ -60,6 +61,10 @@ const ServiceHistory = ({ user, onTabChange }) => {
   const [showFilterDatePicker, setShowFilterDatePicker] = useState(false);
   const [showFilterStatusDropdown, setShowFilterStatusDropdown] = useState(false);
   const [filterStatusSearchQuery, setFilterStatusSearchQuery] = useState('');
+  const [filterItemNameSearchQuery, setFilterItemNameSearchQuery] = useState('');
+  const [filterMachineNumberSearchQuery, setFilterMachineNumberSearchQuery] = useState('');
+  const [filterItemIdSearchQuery, setFilterItemIdSearchQuery] = useState('');
+  const [filterProjectInchargeSearchQuery, setFilterProjectInchargeSearchQuery] = useState('');
 
   const statusOptions = [
     { value: 'Working', label: 'Problem Solved' },
@@ -859,6 +864,27 @@ const ServiceHistory = ({ user, onTabChange }) => {
   );
 
   // Filter bottom sheet handlers
+  const getFilteredFilterItemNames = () => {
+    if (!filterItemNameSearchQuery.trim()) return filterItemNameOptions;
+    const q = normalizeSearchText(filterItemNameSearchQuery);
+    return filterItemNameOptions.filter(name => normalizeSearchText(name).includes(q));
+  };
+  const getFilteredFilterMachineNumbers = () => {
+    if (!filterMachineNumberSearchQuery.trim()) return filterMachineNumberOptions;
+    const q = normalizeSearchText(filterMachineNumberSearchQuery);
+    return filterMachineNumberOptions.filter(num => normalizeSearchText(num).includes(q));
+  };
+  const getFilteredFilterItemIds = () => {
+    if (!filterItemIdSearchQuery.trim()) return filterItemIdOptions;
+    const q = normalizeSearchText(filterItemIdSearchQuery);
+    return filterItemIdOptions.filter(id => normalizeSearchText(id).includes(q));
+  };
+  const getFilteredFilterProjectIncharges = () => {
+    if (!filterProjectInchargeSearchQuery.trim()) return filterProjectInchargeOptions;
+    const q = normalizeSearchText(filterProjectInchargeSearchQuery);
+    return filterProjectInchargeOptions.filter(name => normalizeSearchText(name).includes(q));
+  };
+
   const handleCloseFilterBottomSheet = () => {
     setShowFilterBottomSheet(false);
     setShowFilterItemNameModal(false);
@@ -868,6 +894,10 @@ const ServiceHistory = ({ user, onTabChange }) => {
     setShowFilterDatePicker(false);
     setShowFilterStatusDropdown(false);
     setFilterStatusSearchQuery('');
+    setFilterItemNameSearchQuery('');
+    setFilterMachineNumberSearchQuery('');
+    setFilterItemIdSearchQuery('');
+    setFilterProjectInchargeSearchQuery('');
   };
 
   const handleSaveFilterBottomSheet = () => {
@@ -879,34 +909,49 @@ const ServiceHistory = ({ user, onTabChange }) => {
     <div className="flex flex-col bg-white min-h-[calc(100vh-90px-80px)]" style={{ fontFamily: "'Manrope', sans-serif" }}>
       <div className="sticky top-0 bg-white z-10 flex-shrink-0">
         {/* Top Header Section */}
-        <div className="flex-shrink-0 px-[16px] pt-[6px]">
+        <div className="flex-shrink-0">
           <div className="flex justify-between  items-start border-b border-gray-200 pb-[8px]">
-            <div>
-              <p 
+            <div className="flex items-center gap-[4px] min-w-0">
+              <p
                 className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline"
                 onClick={() => setShowShopNameDropdown(true)}
               >
                 {selectedShopName ? selectedShopName.label : 'Shop Name'}
               </p>
+              {selectedShopName && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedShopName(null);
+                    setShopNameSearchQuery('');
+                  }}
+                  className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 3L3 9M3 3L9 9" stroke="#848484" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                </button>
+              )}
             </div>
-            <div className="flex items-center gap-[12px]">
-              <span className="text-[10px] text-[#848484] leading-normal flex items-center gap-[4px]">
+            <div className="flex items-center gap-[10px]">
+              <span className="text-[12px] text-[#848484] leading-normal flex items-center gap-[4px]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#848484]" />
-                Purchase Cost: 0
+                {selectedShopName ? 'P C: 0' : 'Purchase Cost: 0'}
               </span>
-              <span className="text-[10px] font-semibold text-[#BF9853] leading-normal flex items-center gap-[4px]">
+              <span className="text-[12px] font-semibold text-[#BF9853] leading-normal flex items-center gap-[4px]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#BF9853]" />
-                Service Cost: 0
+                {selectedShopName ? 'S C: 0' : 'Service Cost: 0'}
               </span>
             </div>
           </div>
         </div>
         {/* Live/History Toggle */}
-        <div className="flex-shrink-0 px-[16px] pt-[12px] pb-[8px]">
-          <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md">
+        <div className="flex-shrink-0 pt-[8px]">
+          <div className="flex bg-[#F2F4F7] items-center h-[32px] rounded-md">
           <button
             onClick={() => setViewMode('live')}
-            className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${
+            className={`flex-1 ml-0.5 h-[28px] rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${
               viewMode === 'live'
                 ? 'bg-white text-black'
                 : 'bg-transparent text-black'
@@ -916,7 +961,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
           </button>
           <button
             onClick={() => setViewMode('history')}
-            className={`flex-1 mr-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${
+            className={`flex-1 mr-0.5 h-[28px] rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${
               viewMode === 'history'
                 ? 'bg-white text-black'
                 : 'bg-transparent text-black'
@@ -927,106 +972,72 @@ const ServiceHistory = ({ user, onTabChange }) => {
         </div>
         </div>
       </div>
-      {/* Filter and Download Row */}
-      <div className="flex justify-between items-center gap-[8px] px-[16px] pb-[4px] mt-2 min-h-[32px]">
-        <div className="flex items-center gap-[8px] cursor-pointer flex-shrink-0" onClick={() => setShowFilterBottomSheet(true)}>
-          <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
-          <span className="text-[12px] font-medium text-gray-500">Filter</span>
+      {/* Filter and Download Row - same look as History.jsx */}
+      <div className="flex justify-between items-center gap-[4px] px-0 pt-[6px] pb-[6px] flex-shrink-0">
+        <div className="flex items-center gap-[4px] min-w-0">
+          <button onClick={() => setShowFilterBottomSheet(true)} className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0">
+            <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
+            {!(filterItemName || filterMachineNumber || filterItemId || filterProjectIncharge || filterDate || filterStatus) && (
+              <span className="text-[12px] font-medium text-black flex-shrink-0">Filter</span>
+            )}
+          </button>
+          <div className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none min-w-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {(filterItemName || filterMachineNumber || filterItemId || filterProjectIncharge || filterDate || filterStatus) && (
+              <div className="flex items-center gap-[4px] flex-nowrap">
+                
+                {filterItemName && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Item Name</span>
+                    <button onClick={() => setFilterItemName('')} className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors">
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  </div>
+                )}
+                {filterMachineNumber && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Machine</span>
+                    <button onClick={() => setFilterMachineNumber('')} className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors">
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  </div>
+                )}
+                {filterItemId && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Item ID</span>
+                    <button onClick={() => setFilterItemId('')} className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors">
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  </div>
+                )}
+                {filterProjectIncharge && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Incharge</span>
+                    <button onClick={() => setFilterProjectIncharge('')} className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors">
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  </div>
+                )}
+                {filterDate && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Date</span>
+                    <button onClick={() => setFilterDate('')} className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors">
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  </div>
+                )}
+                {filterStatus && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Status</span>
+                    <button onClick={() => setFilterStatus('')} className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors">
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex-1 flex flex-wrap items-center gap-[6px] min-w-0 overflow-hidden">
-          {selectedShopName && (
-            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
-              <span className="text-[11px] font-medium text-black">Shop Name</span>
-              <button
-                onClick={() => setSelectedShopName(null)}
-                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          )}
-          {filterItemName && (
-            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
-              <span className="text-[11px] font-medium text-black">Item Name</span>
-              <button
-                onClick={() => setFilterItemName('')}
-                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          )}
-          {filterMachineNumber && (
-            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
-              <span className="text-[11px] font-medium text-black">Machine</span>
-              <button
-                onClick={() => setFilterMachineNumber('')}
-                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          )}
-          {filterItemId && (
-            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
-              <span className="text-[11px] font-medium text-black">Item ID</span>
-              <button
-                onClick={() => setFilterItemId('')}
-                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          )}
-          {filterProjectIncharge && (
-            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
-              <span className="text-[11px] font-medium text-black">Incharge</span>
-              <button
-                onClick={() => setFilterProjectIncharge('')}
-                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          )}
-          {filterDate && (
-            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
-              <span className="text-[11px] font-medium text-black">Date</span>
-              <button
-                onClick={() => setFilterDate('')}
-                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          )}
-          {filterStatus && (
-            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
-              <span className="text-[11px] font-medium text-black">Status</span>
-              <button
-                onClick={() => setFilterStatus('')}
-                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-          )}
-        </div>
-        <button className="text-[12px] font-semibold text-gray-500 cursor-pointer hover:opacity-80 flex-shrink-0">
+        <button className="text-[12px] font-semibold text-black cursor-pointer hover:opacity-80 flex-shrink-0">
           Download
         </button>
       </div>
@@ -1062,6 +1073,43 @@ const ServiceHistory = ({ user, onTabChange }) => {
               if (filterItemId) {
                 const itemIdName = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
                 if (!itemIdName || String(itemIdName).toLowerCase() !== String(filterItemId).toLowerCase()) {
+                  return false;
+                }
+              }
+              // Filter by Item Name
+              if (filterItemName) {
+                const itemName = itemNamesMap[entry.itemNameId] || itemNamesMap[String(entry.itemNameId)] || '';
+                if (!itemName || String(itemName).toLowerCase() !== String(filterItemName).toLowerCase()) {
+                  return false;
+                }
+              }
+              // Filter by Machine Number
+              if (filterMachineNumber) {
+                const machineText = resolveMachineNumberText(entry);
+                if (!machineText || String(machineText).toLowerCase() !== String(filterMachineNumber).toLowerCase()) {
+                  return false;
+                }
+              }
+              // Filter by Project Incharge
+              if (filterProjectIncharge) {
+                const inchargeName = employeesMap[entry.projectInchargeId] || employeesMap[String(entry.projectInchargeId)] || '';
+                if (!inchargeName || String(inchargeName).toLowerCase() !== String(filterProjectIncharge).toLowerCase()) {
+                  return false;
+                }
+              }
+              // Filter by Date
+              if (filterDate) {
+                const entryDate = entry.date || (entry.createdDateTime ? new Date(entry.createdDateTime).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).split('/').join('-') : '');
+                const filterDateNorm = filterDate.replace(/\//g, '-');
+                if (!entryDate || entryDate.replace(/\//g, '-') !== filterDateNorm) {
+                  return false;
+                }
+              }
+              // Filter by Status
+              if (filterStatus) {
+                const entryStatus = (entry.machineStatus || entry.machine_status || '').toString().toLowerCase();
+                const statusVal = (filterStatus || '').toString().toLowerCase();
+                if (entryStatus !== statusVal) {
                   return false;
                 }
               }
@@ -1467,134 +1515,121 @@ const ServiceHistory = ({ user, onTabChange }) => {
       {/* Filter Bottom Sheet Modal */}
       {showFilterBottomSheet && (
         <div
-          className="fixed inset-0 z-[100] flex items-end justify-center"
+          className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center"
           onClick={handleCloseFilterBottomSheet}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
-          {/* Semi-transparent overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-
-          {/* Bottom Sheet */}
+          {/* Bottom Sheet - same as History.jsx */}
           <div
-            className="relative z-10 w-full max-w-[360px] bg-white rounded-tl-[16px] rounded-tr-[16px] shadow-lg max-h-[70vh] overflow-hidden flex flex-col"
+            className="bg-white w-full max-h-[70vh] rounded-tl-[16px] rounded-tr-[16px] relative z-[101] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-[24px] pt-[20px] pb-[4px]">
+            <div className="flex-shrink-0 flex items-center justify-between px-6 pt-5 pb-1">
               <p className="text-[16px] font-bold text-black">Select Filters</p>
-              <button
-                onClick={handleCloseFilterBottomSheet}
-                className="text-[#e06256] text-xl font-bold leading-none"
-              >
+              <button type="button" onClick={handleCloseFilterBottomSheet} className="text-[#e06256] text-xl font-bold leading-none">
                 <img src={Close} alt="close" className="w-[11px] h-[11px]" />
               </button>
             </div>
 
             {/* Content - scrollable */}
-            <div className="flex-1 overflow-y-auto px-[24px] py-[16px] space-y-[6px]">
-              {/* Item Name */}
-              <div>
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {/* Item Name - same as History.jsx */}
+              <div className="mb-4">
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Item Name</p>
                 <div className="relative">
                   <div
                     onClick={() => setShowFilterItemNameModal(true)}
-                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
-                    style={{ color: filterItemName ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer min-w-0"
+                    style={{ color: filterItemName ? '#000' : '#9E9E9E', boxSizing: 'border-box' }}
                   >
-                    {filterItemName || 'Select'}
+                    <span className="truncate">{filterItemName || 'Select Item Name'}</span>
                   </div>
                   {filterItemName && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setFilterItemName(''); }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setFilterItemName(''); }}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                     >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                     </button>
                   )}
                   {!filterItemName && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                       <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Machine Number */}
-              <div>
+              {/* Machine Number - same as History.jsx */}
+              <div className="mb-4">
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Machine Number</p>
                 <div className="relative">
                   <div
                     onClick={() => setShowFilterMachineNumberModal(true)}
-                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
-                    style={{ color: filterMachineNumber ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer min-w-0"
+                    style={{ color: filterMachineNumber ? '#000' : '#9E9E9E', boxSizing: 'border-box' }}
                   >
-                    {filterMachineNumber || 'Select'}
+                    <span className="truncate">{filterMachineNumber || 'Select Machine Number'}</span>
                   </div>
                   {filterMachineNumber && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setFilterMachineNumber(''); }}
-                      className="absolute right-8 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setFilterMachineNumber(''); }}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                     >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                     </button>
                   )}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </div>
+                  {!filterMachineNumber && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
+                  )}
                 </div>
               </div>
-              {/* Item ID */}
-              <div className='flex gap-[8px]'>
-                <div className='flex-1'>
+              {/* Item ID & Project Incharge - flex side by side */}
+              <div className="flex gap-[8px] mb-4">
+                <div className="flex-1 min-w-0">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Item ID</p>
                   <div className="relative">
                     <div
                       onClick={() => setShowFilterItemIdModal(true)}
-                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
-                      style={{ color: filterItemId ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer min-w-0"
+                      style={{ color: filterItemId ? '#000' : '#9E9E9E', boxSizing: 'border-box' }}
                     >
-                      {filterItemId || 'Select'}
+                      <span className="truncate">{filterItemId || 'Select Item ID'}</span>
                     </div>
                     {filterItemId && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setFilterItemId(''); }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setFilterItemId(''); }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                       </button>
                     )}
                     {!filterItemId && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                       </div>
                     )}
                   </div>
                 </div>
-                {/* Project Incharge */}
-                <div className='flex-1'>
+                <div className="flex-1 min-w-0">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Project Incharge</p>
                   <div className="relative">
                     <div
                       onClick={() => setShowFilterProjectInchargeModal(true)}
-                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
-                      style={{ color: filterProjectIncharge ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer min-w-0"
+                      style={{ color: filterProjectIncharge ? '#000' : '#9E9E9E', boxSizing: 'border-box' }}
                     >
-                      {filterProjectIncharge || 'Select'}
+                      <span className="truncate">{filterProjectIncharge || 'Select Incharge'}</span>
                     </div>
                     {filterProjectIncharge && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setFilterProjectIncharge(''); }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setFilterProjectIncharge(''); }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                       </button>
                     )}
                     {!filterProjectIncharge && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                       </div>
                     )}
@@ -1654,17 +1689,15 @@ const ServiceHistory = ({ user, onTabChange }) => {
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex-shrink-0 flex gap-[16px] px-[24px] pb-[24px] pt-[8px]">
-              <button
-                onClick={handleCloseFilterBottomSheet}
-                className="flex-1 h-[40px] border border-black rounded-[8px] text-[14px] font-bold text-black bg-white"
+            {/* Footer: Cancel + Save - same as History.jsx */}
+            <div className="flex-shrink-0 flex gap-[16px] px-6 pb-[20px] pt-[8px]">
+              <button type="button" onClick={handleCloseFilterBottomSheet}
+                className="flex-1 h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
               >
                 Cancel
               </button>
-              <button
-                onClick={handleSaveFilterBottomSheet}
-                className="flex-1 h-[40px] rounded-[8px] text-[14px] font-bold text-white bg-black"
+              <button type="button" onClick={handleSaveFilterBottomSheet}
+                className="flex-1 h-[40px] border border-[#f4ede2] rounded-[8px] text-[14px] font-bold text-white bg-black leading-normal"
               >
                 Save
               </button>
@@ -1673,51 +1706,115 @@ const ServiceHistory = ({ user, onTabChange }) => {
         </div>
       )}
 
-      {/* Filter Modals */}
-      <SelectOptionModal
-        isOpen={showFilterItemNameModal}
-        onClose={() => setShowFilterItemNameModal(false)}
-        onSelect={(value) => {
-          setFilterItemName(value);
-          setShowFilterItemNameModal(false);
-        }}
-        selectedValue={filterItemName}
-        options={filterItemNameOptions}
-        fieldName="Item Name"
-      />
-      <SelectOptionModal
-        isOpen={showFilterMachineNumberModal}
-        onClose={() => setShowFilterMachineNumberModal(false)}
-        onSelect={(value) => {
-          setFilterMachineNumber(value);
-          setShowFilterMachineNumberModal(false);
-        }}
-        selectedValue={filterMachineNumber}
-        options={filterMachineNumberOptions}
-        fieldName="Machine Number"
-      />
-      <SelectOptionModal
-        isOpen={showFilterItemIdModal}
-        onClose={() => setShowFilterItemIdModal(false)}
-        onSelect={(value) => {
-          setFilterItemId(value);
-          setShowFilterItemIdModal(false);
-        }}
-        selectedValue={filterItemId}
-        options={filterItemIdOptions}
-        fieldName="Item ID"
-      />
-      <SelectOptionModal
-        isOpen={showFilterProjectInchargeModal}
-        onClose={() => setShowFilterProjectInchargeModal(false)}
-        onSelect={(value) => {
-          setFilterProjectIncharge(value);
-          setShowFilterProjectInchargeModal(false);
-        }}
-        selectedValue={filterProjectIncharge}
-        options={filterProjectInchargeOptions}
-        fieldName="Project Incharge"
-      />
+      {/* Filter dropdown modals - History.jsx style */}
+      {showFilterItemNameModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[102] flex items-center justify-center p-4" onClick={() => { setShowFilterItemNameModal(false); setFilterItemNameSearchQuery(''); }}>
+          <div className="w-full max-w-[360px] rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col bg-white overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <p className="text-[16px] font-semibold text-black">Select Item Name</p>
+              <button type="button" onClick={() => { setShowFilterItemNameModal(false); setFilterItemNameSearchQuery(''); }} className="w-6 h-6 flex items-center justify-center">
+                <img src={CloseIcon} alt="Close" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-4 pb-2">
+              <div className="relative">
+                <img src={Search} alt="Search" className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 opacity-60" />
+                <input type="text" value={filterItemNameSearchQuery} onChange={(e) => setFilterItemNameSearchQuery(e.target.value)} placeholder="Search" className="w-full h-[32px] pl-[30px] pr-3 border border-[rgba(0,0,0,0.16)] rounded text-[12px] outline-none" />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-4">
+              {getFilteredFilterItemNames().length === 0 ? (
+                <p className="text-[12px] text-gray-500 py-4">No options found</p>
+              ) : (
+                getFilteredFilterItemNames().map((opt) => (
+                  <button key={opt} type="button" onClick={() => { setFilterItemName(opt); setShowFilterItemNameModal(false); setFilterItemNameSearchQuery(''); }} className="w-full h-[44px] flex items-center justify-start px-3 rounded text-left text-[14px] font-medium hover:bg-[#F5F5F5] transition-colors" style={{ backgroundColor: filterItemName === opt ? '#FFF9E6' : undefined }}>{opt}</button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {showFilterMachineNumberModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[102] flex items-center justify-center p-4" onClick={() => { setShowFilterMachineNumberModal(false); setFilterMachineNumberSearchQuery(''); }}>
+          <div className="w-full max-w-[360px] rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col bg-white overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <p className="text-[16px] font-semibold text-black">Select Machine Number</p>
+              <button type="button" onClick={() => { setShowFilterMachineNumberModal(false); setFilterMachineNumberSearchQuery(''); }} className="w-6 h-6 flex items-center justify-center">
+                <img src={CloseIcon} alt="Close" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-4 pb-2">
+              <div className="relative">
+                <img src={Search} alt="Search" className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 opacity-60" />
+                <input type="text" value={filterMachineNumberSearchQuery} onChange={(e) => setFilterMachineNumberSearchQuery(e.target.value)} placeholder="Search" className="w-full h-[32px] pl-[30px] pr-3 border border-[rgba(0,0,0,0.16)] rounded text-[12px] outline-none" />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-4">
+              {getFilteredFilterMachineNumbers().length === 0 ? (
+                <p className="text-[12px] text-gray-500 py-4">No options found</p>
+              ) : (
+                getFilteredFilterMachineNumbers().map((opt) => (
+                  <button key={opt} type="button" onClick={() => { setFilterMachineNumber(opt); setShowFilterMachineNumberModal(false); setFilterMachineNumberSearchQuery(''); }} className="w-full h-[44px] flex items-center justify-start px-3 rounded text-left text-[14px] font-medium hover:bg-[#F5F5F5] transition-colors" style={{ backgroundColor: filterMachineNumber === opt ? '#FFF9E6' : undefined }}>{opt}</button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {showFilterItemIdModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[102] flex items-center justify-center p-4" onClick={() => { setShowFilterItemIdModal(false); setFilterItemIdSearchQuery(''); }}>
+          <div className="w-full max-w-[360px] rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col bg-white overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <p className="text-[16px] font-semibold text-black">Select Item ID</p>
+              <button type="button" onClick={() => { setShowFilterItemIdModal(false); setFilterItemIdSearchQuery(''); }} className="w-6 h-6 flex items-center justify-center">
+                <img src={CloseIcon} alt="Close" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-4 pb-2">
+              <div className="relative">
+                <img src={Search} alt="Search" className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 opacity-60" />
+                <input type="text" value={filterItemIdSearchQuery} onChange={(e) => setFilterItemIdSearchQuery(e.target.value)} placeholder="Search" className="w-full h-[32px] pl-[30px] pr-3 border border-[rgba(0,0,0,0.16)] rounded text-[12px] outline-none" />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-4">
+              {getFilteredFilterItemIds().length === 0 ? (
+                <p className="text-[12px] text-gray-500 py-4">No options found</p>
+              ) : (
+                getFilteredFilterItemIds().map((opt) => (
+                  <button key={opt} type="button" onClick={() => { setFilterItemId(opt); setShowFilterItemIdModal(false); setFilterItemIdSearchQuery(''); }} className="w-full h-[44px] flex items-center justify-start px-3 rounded text-left text-[14px] font-medium hover:bg-[#F5F5F5] transition-colors" style={{ backgroundColor: filterItemId === opt ? '#FFF9E6' : undefined }}>{opt}</button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {showFilterProjectInchargeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[102] flex items-center justify-center p-4" onClick={() => { setShowFilterProjectInchargeModal(false); setFilterProjectInchargeSearchQuery(''); }}>
+          <div className="w-full max-w-[360px] rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col bg-white overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <p className="text-[16px] font-semibold text-black">Select Incharge</p>
+              <button type="button" onClick={() => { setShowFilterProjectInchargeModal(false); setFilterProjectInchargeSearchQuery(''); }} className="w-6 h-6 flex items-center justify-center">
+                <img src={CloseIcon} alt="Close" className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-4 pb-2">
+              <div className="relative">
+                <img src={Search} alt="Search" className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 opacity-60" />
+                <input type="text" value={filterProjectInchargeSearchQuery} onChange={(e) => setFilterProjectInchargeSearchQuery(e.target.value)} placeholder="Search" className="w-full h-[32px] pl-[30px] pr-3 border border-[rgba(0,0,0,0.16)] rounded text-[12px] outline-none" />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-4">
+              {getFilteredFilterProjectIncharges().length === 0 ? (
+                <p className="text-[12px] text-gray-500 py-4">No options found</p>
+              ) : (
+                getFilteredFilterProjectIncharges().map((opt) => (
+                  <button key={opt} type="button" onClick={() => { setFilterProjectIncharge(opt); setShowFilterProjectInchargeModal(false); setFilterProjectInchargeSearchQuery(''); }} className="w-full h-[44px] flex items-center justify-start px-3 rounded text-left text-[14px] font-medium hover:bg-[#F5F5F5] transition-colors" style={{ backgroundColor: filterProjectIncharge === opt ? '#FFF9E6' : undefined }}>{opt}</button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <DatePickerModal
         isOpen={showFilterDatePicker}
         onClose={() => setShowFilterDatePicker(false)}
@@ -1800,7 +1897,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
         </div>
       )}
 
-      {/* Shop Name Dropdown Modal */}
+      {/* Shop Name / Service Store Dropdown Modal - same as Transfer.jsx */}
       {showShopNameDropdown && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 -top-[16px] z-50 flex items-center justify-center p-[16px]"
@@ -1813,38 +1910,48 @@ const ServiceHistory = ({ user, onTabChange }) => {
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center px-[24px] pt-[20px]">
+            <div className="flex justify-between items-center px-[24px] pt-[24px]">
               <p className="text-[16px] font-semibold text-black">Select Service Store</p>
-              <button onClick={() => { setShowShopNameDropdown(false); setShopNameSearchQuery(''); }} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
+              <button type="button" onClick={() => { setShowShopNameDropdown(false); setShopNameSearchQuery(''); }} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                 <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
               </button>
             </div>
-            <div className="px-[24px] pt-[16px] pb-[16px]">
+            <div className="px-[24px] pt-[4px] pb-[6px]">
               <div className="relative">
                 <input
                   type="text"
                   value={shopNameSearchQuery}
                   onChange={(e) => setShopNameSearchQuery(e.target.value)}
                   placeholder="Search"
-                  className="w-full h-[32px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                  className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                   autoFocus
                 />
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                    <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
+                  <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
                 </div>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
               <div className="shadow-md rounded-lg overflow-hidden">
+                {shopNameSearchQuery.trim() && !serviceStoreOptions.some(opt => {
+                  const normalizedOpt = normalizeSearchText(opt.label);
+                  const normalizedQuery = normalizeSearchText(shopNameSearchQuery.trim());
+                  return normalizedOpt === normalizedQuery;
+                }) && (
+                  <button type="button" onClick={() => {}} className="w-full h-[36px] px-[24px] flex items-center bg-gray-100 gap-[8px] hover:bg-[#F5F5F5] transition-colors">
+                    <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3V11M3 7H11" stroke="#000" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <p className="text-[14px] text-gray-600 font-normal text-left truncate">"{shopNameSearchQuery.trim()}"</p>
+                  </button>
+                )}
                 {getFilteredServiceStoreOptions().length > 0 ? (
                   <div className="space-y-0">
                     {getFilteredServiceStoreOptions().map((option) => {
                       const isFavorite = shopNameFavorites.includes(option.id);
                       const isSelected = selectedShopName?.id === option.id;
-                      // Helper function to split option text at first hyphen
                       const splitOptionText = (text) => {
                         if (!text) return { firstLine: '', secondLine: '' };
                         const firstHyphenIndex = text.indexOf(' - ');
@@ -1853,22 +1960,23 @@ const ServiceHistory = ({ user, onTabChange }) => {
                         }
                         return {
                           firstLine: text.substring(0, firstHyphenIndex),
-                          secondLine: text.substring(firstHyphenIndex + 3) // +3 to skip ' - '
+                          secondLine: text.substring(firstHyphenIndex + 3)
                         };
                       };
                       const { firstLine, secondLine } = splitOptionText(option.label);
                       return (
                         <button
                           key={option.id}
+                          type="button"
                           onClick={() => {
                             setSelectedShopName(option);
                             setShowShopNameDropdown(false);
                             setShopNameSearchQuery('');
                           }}
-                          className={`w-full px-[24px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`}
+                          className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`}
                           style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                         >
-                          <button onClick={(e) => handleToggleShopNameFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                          <button type="button" onClick={(e) => handleToggleShopNameFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                             {isFavorite ? (
                               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

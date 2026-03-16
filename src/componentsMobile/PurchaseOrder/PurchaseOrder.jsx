@@ -2606,8 +2606,8 @@ const PurchaseOrder = ({ user, onLogout }) => {
       <Header user={user} onLogout={onLogout} onMenuClick={handleMenuClick} />
       {/* Tabs - Fixed */}
       <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
-      {/* Content Area - Add padding to account for fixed Header and Tabs */}
-      <div className="pt-[85px]">
+      {/* Content Area */}
+      <div className="mt-[96px]">
         {/* History Tab Content */}
         {activeTab === 'history' && <History />}
         {/* Input Data Tab Content */}
@@ -2616,11 +2616,11 @@ const PurchaseOrder = ({ user, onLogout }) => {
         {activeTab === 'summary' && <Summary />}
         {/* Create PO Tab Content */}
         {activeTab === 'create' && (
-          <div className="flex px-[16px] flex-col h-[calc(100vh-85px-80px)] overflow-hidden">
+          <div className="flex flex-col min-h-[calc(100vh-96px-80px)] bg-white">
             {/* PO Number and Date Row - Only show date when not in empty state */}
             {!isEmptyState && (
-              <div className="flex-shrink-0 pt-[12px] pb-[6px] border-b border-gray-200">
-                <div className="flex items-center justify-between">
+              <div className="sticky top-0 bg-white z-10 flex-shrink-0">
+                <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
                   <div className="flex items-center gap-[8px]">
                     {poData.poNumber && (
                       <p className="text-[12px] font-semibold text-black leading-normal">{poData.poNumber}</p>
@@ -2690,7 +2690,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
             {/* For edit/clone mode: show dropdowns before clicking + */}
             {/* For regular flow: show dropdowns before clicking + (when selecting fields) */}
             {(!hasOpenedAdd && isEditMode) || ((!showAddItems && !hasOpenedAdd) && !isEditMode) || (items.length > 0 && hasOpenedAdd && (!poData.vendorName || !poData.projectName || !poData.projectIncharge)) ? (
-              <div className="flex-shrink-0 pt-[16px] space-y-[6px]">
+              <div className="flex-shrink-0  space-y-[6px]">
                 {/* Vendor Name Field */}
                 <div className=" relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
@@ -2704,7 +2704,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                           setShowVendorModal(true);
                         }
                       }}
-                      className={`w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium flex items-center ${isEditFromHistory ? 'bg-gray-100 cursor-not-allowed' : 'bg-white cursor-pointer'
+                      className={`w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium flex items-center ${isEditFromHistory ? 'bg-gray-100 cursor-not-allowed' : 'bg-white cursor-pointer'
                         }`}
                       style={{
                         boxSizing: 'border-box',
@@ -2745,7 +2745,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowProjectModal(true)}
-                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         boxSizing: 'border-box',
                         color: poData.projectName ? '#000' : '#9E9E9E'
@@ -2781,7 +2781,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowInchargeModal(true)}
-                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         boxSizing: 'border-box',
                         color: poData.projectIncharge ? '#000' : '#9E9E9E'
@@ -2817,7 +2817,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
             {/* These two views are mutually exclusive - never show both at the same time */}
             {((hasOpenedAdd && isEditMode && (poData.vendorName || poData.projectName || poData.projectIncharge)) ||
               (hasOpenedAdd && !isEmptyState && (poData.vendorName || poData.projectName || poData.projectIncharge) && !isEditMode)) && (
-                <div className="flex-shrink-0 mx-2 mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+                <div className="flex-shrink-0 mx-2 mb-1 p-[8px] mt-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
                   <div className="flex flex-col gap-[8px] px-[8px]">
                     {poData.vendorName && (
                       <div className="flex items-start">
@@ -2858,9 +2858,9 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 {/* Items Section - Show when items exist (from NetStock) or when all three fields are filled */}
                 {/* For edit/clone mode, always show items if they exist, regardless of hasOpenedAdd */}
                 {((items.length > 0 && (hasOpenedAdd || isEditMode)) || ((!isEmptyState || isEditMode) && poData.vendorName && poData.projectName && poData.projectIncharge)) && (
-                  <div className="flex flex-col flex-1 min-h-0 mb-4 mt-2">
+                  <div className="flex flex-col flex-1 min-h-0 mb-[8px] mt-[4px]">
                     {/* Items Header - Fixed */}
-                    <div className="flex-shrink-0 flex items-center gap-[8px] mb-2 border-b border-[#E0E0E0] pb-[8px]">
+                    <div className="flex-shrink-0 flex items-center gap-[8px] mb-[8px] border-b border-[#E0E0E0] pb-[8px]">
                       <p className="text-[14px] font-medium text-black leading-normal">Items</p>
                       <input
                         type="text"

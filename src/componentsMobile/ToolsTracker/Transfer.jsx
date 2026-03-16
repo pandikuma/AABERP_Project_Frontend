@@ -1270,6 +1270,31 @@ const Transfer = ({ user }) => {
   const validateDraftItemBeforeAdd = (draft) => {
     if (!selectedFrom || !draft?.itemNameId) return true;
 
+    // Prevent duplicate item set: same item_ids_id + brand_id + machine_number already in cart
+    if (draft.itemIdDbId) {
+      const isDuplicate = items.some(
+        (it) =>
+          String(it.item_ids_id || '') === String(draft.itemIdDbId || '') &&
+          String(it.brand_id || '') === String(draft.brandId || '') &&
+          String((it.machine_number || '').trim()) === String((draft.machineNumber || '').trim())
+      );
+      if (isDuplicate) {
+        alert('This item set is already added to the transfer.');
+        return false;
+      }
+    } else {
+      // For quantity-based items: prevent duplicate item_name_id + brand_id
+      const isDuplicate = items.some(
+        (it) =>
+          String(it.item_name_id || '') === String(draft.itemNameId || '') &&
+          String(it.brand_id || '') === String(draft.brandId || '')
+      );
+      if (isDuplicate) {
+        alert('This item is already added to the transfer.');
+        return false;
+      }
+    }
+
     if (draft.itemIdDbId) {
       const itemSetValidation = validateItemSetAvailability(
         draft.itemIdDbId,
@@ -1310,6 +1335,17 @@ const Transfer = ({ user }) => {
         // If itemId is selected, only check the full set (itemIdsId + brandId + machineNumber)
         // Don't check itemNameId separately when itemId is selected
         if (selectedFrom && newItemIdDbId) {
+          const isDuplicateSet = items.some(
+            (it) =>
+              it.id !== editingItem.id &&
+              String(it.item_ids_id || '') === String(newItemIdDbId || '') &&
+              String(it.brand_id || '') === String(newBrandId || '') &&
+              String((it.machine_number || '').trim()) === String((newMachineNumber || '').trim())
+          );
+          if (isDuplicateSet) {
+            alert('This item set is already added to the transfer.');
+            return;
+          }
           const itemSetValidation = validateItemSetAvailability(
             newItemIdDbId,
             newBrandId,
@@ -1325,13 +1361,22 @@ const Transfer = ({ user }) => {
           }
         } else if (selectedFrom && newItemNameId) {
           // Only check itemNameId if itemId is NOT selected (for quantity-based transfers)
-          // Check quantity availability with brandId if provided
-          const newBrandId = addItemFormData.brandId ? String(addItemFormData.brandId) : editingItem.brand_id;
+          const newBrandIdForQty = addItemFormData.brandId ? String(addItemFormData.brandId) : editingItem.brand_id;
+          const isDuplicateQty = items.some(
+            (it) =>
+              it.id !== editingItem.id &&
+              String(it.item_name_id || '') === String(newItemNameId || '') &&
+              String(it.brand_id || '') === String(newBrandIdForQty || '')
+          );
+          if (isDuplicateQty) {
+            alert('This item is already added to the transfer.');
+            return;
+          }
           const newQuantity = addItemFormData.quantity ? String(addItemFormData.quantity) : String(editingItem.quantity || 0);
           const validation = validateItemLocation(
             newItemNameId,
             addItemFormData.itemName,
-            newBrandId,
+            newBrandIdForQty,
             newQuantity,
             selectedFrom.id
           );
@@ -1585,6 +1630,38 @@ const Transfer = ({ user }) => {
     }
 
     return latestMovement;
+  };
+  const getLastEntryProjectInchargeForItemSet = (itemIdsId, brandId, machineNumber) => {
+    if (!itemIdsId) return null;
+    const movement = getLatestItemSetMovement(
+      String(itemIdsId),
+      brandId != null && brandId !== '' ? String(brandId) : '',
+      String(machineNumber ?? '').trim()
+    );
+    const entry = movement?.entry;
+    if (!entry) return null;
+    const inchargeId = entry.project_incharge_id ?? entry.projectInchargeId;
+    if (!inchargeId) return null;
+    const opt = inchargeOptions.find(i => String(i?.id) === String(inchargeId));
+    return opt?.label ?? null;
+  };
+  const getLastEntryDateAndInchargeForItemSet = (itemIdsId, brandId, machineNumber) => {
+    if (!itemIdsId) return { dateTime: null, inchargeName: null };
+    const movement = getLatestItemSetMovement(
+      String(itemIdsId),
+      brandId != null && brandId !== '' ? String(brandId) : '',
+      String(machineNumber ?? '').trim()
+    );
+    const entry = movement?.entry;
+    if (!entry) return { dateTime: null, inchargeName: null };
+    const ts = entry.created_date_time ?? entry.createdDateTime ?? entry.timestamp ?? '';
+    const inchargeId = entry.project_incharge_id ?? entry.projectInchargeId;
+    const inchargeName = inchargeId
+      ? (inchargeOptions.find(i => String(i?.id) === String(inchargeId))?.label ?? null)
+      : null;
+    const { date, time } = formatDateTime(ts);
+    const dateTime = date && time ? `${date} • ${time}` : null;
+    return { dateTime, inchargeName };
   };
   // Helper function to get current location of an item (quantity-based: itemNameId + brandId)
   const getItemCurrentLocation = (itemNameId, brandId) => {
@@ -2884,10 +2961,21 @@ const Transfer = ({ user }) => {
     handleCloseSearchUploadModal();
   };
   const getFilteredSearchItems = () => {
+    const searchTerms = universalSearchQuery.trim().split(/\s+/).map(s => s.toLowerCase()).filter(Boolean);
+    const matchesSearch = (itemName, itemIdName, brandName, machineNumber, modelStr, statusStr) => {
+      if (searchTerms.length === 0) return true;
+      return searchTerms.every(term =>
+        (itemName && itemName.toLowerCase().includes(term)) ||
+        (itemIdName && itemIdName.toLowerCase().includes(term)) ||
+        (brandName && brandName.toLowerCase().includes(term)) ||
+        (machineNumber && machineNumber.toLowerCase().includes(term)) ||
+        (modelStr && modelStr.toLowerCase().includes(term)) ||
+        (statusStr && statusStr.toLowerCase().includes(term))
+      );
+    };
     // Special handling for Service Return: pull items from service store using movement history
     if (entryServiceMode === 'Service' && serviceFlowMode === 'return' && selectedServiceStore) {
       const serviceStoreIdStr = String(selectedServiceStore.id);
-      const searchLower = universalSearchQuery.toLowerCase();
 
       const results = [];
 
@@ -2941,15 +3029,9 @@ const Transfer = ({ user }) => {
             ''
           );
 
-          if (
-            searchLower &&
-            !(
-              itemName.toLowerCase().includes(searchLower) ||
-              itemIdName.toLowerCase().includes(searchLower) ||
-              brandName.toLowerCase().includes(searchLower) ||
-              machineNumberDisplay.toLowerCase().includes(searchLower)
-            )
-          ) {
+          const modelDisplay = (entryItem?.model ?? '').trim();
+          const statusDisplay = (entryItem?.machine_status ?? entryItem?.machineStatus ?? 'Working').trim();
+          if (!matchesSearch(itemName, itemIdName, brandName, machineNumberDisplay, modelDisplay, statusDisplay)) {
             return;
           }
 
@@ -3014,13 +3096,9 @@ const Transfer = ({ user }) => {
       const itemIdName = itemIdObj?.item_id || itemIdObj?.itemId || '';
       const brandName = brandObj?.tools_brand || brandObj?.toolsBrand || '';
       const machineNumber = item?.machine_number ?? item?.machineNumber ?? '';
-      const searchLower = universalSearchQuery.toLowerCase();
-      return (
-        itemName.toLowerCase().includes(searchLower) ||
-        itemIdName.toLowerCase().includes(searchLower) ||
-        brandName.toLowerCase().includes(searchLower) ||
-        machineNumber.toLowerCase().includes(searchLower)
-      );
+      const modelStr = (item?.model ?? '').trim();
+      const statusStr = (item?.machine_status ?? item?.machineStatus ?? 'Working').trim();
+      return matchesSearch(itemName, itemIdName, brandName, machineNumber, modelStr, statusStr);
     });
   };
   const formatSearchItemDate = (timestamp) => {
@@ -3957,7 +4035,7 @@ const Transfer = ({ user }) => {
       </div>
       {items.length > 0 && !isEditingTransferDetails && entryServiceMode !== 'Relocate' && (
         <div className="flex-shrink-0">
-          <div className="border border-gray-200 rounded-lg">
+          <div className="border border-gray-200 rounded-lg px-[16px] py-[12px]">
             <div className="space-y-1">
               {!(entryServiceMode === 'Service' && serviceFlowMode === 'return') && (
                 <div className="flex items-center">
@@ -4045,9 +4123,9 @@ const Transfer = ({ user }) => {
                   style={{ fontFamily: "'Manrope', sans-serif" }}
                 >
                   <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                    <div className="flex justify-between items-center px-[24px] pt-[20px]">
+                    <div className="flex justify-between items-center px-[24px] pt-[24px]">
                       <p className="text-[16px] font-semibold text-black">Select From</p>
-                      <button onClick={() => setShowFromDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
+                      <button type="button" onClick={() => setShowFromDropdown(false)} className="text-[#E4572E] text-[20px] font-semibold hover:opacity-80 transition-opacity">
                         <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                       </button>
                     </div>
@@ -4088,6 +4166,7 @@ const Transfer = ({ user }) => {
                               const { firstLine, secondLine } = splitOptionText(option.label);
                               return (
                                 <button
+                                  type="button"
                                   key={option.id}
                                   onClick={() => {
                                     // Validate existing items before changing "From" project
@@ -4147,7 +4226,7 @@ const Transfer = ({ user }) => {
                                     }`}
                                   style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                                 >
-                                  <button onClick={(e) => handleToggleFromFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                  <button type="button" onClick={(e) => handleToggleFromFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                     {isFavorite ? (
                                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -4159,7 +4238,7 @@ const Transfer = ({ user }) => {
                                     )}
                                   </button>
                                   <div className="flex flex-col flex-1 min-w-0 text-left">
-                                    <p className="text-[12px] font-medium text-black truncate whitespace-nowrap text-left">{firstLine}</p>
+                                    <p className="text-[12px] font-semibold text-black truncate whitespace-nowrap text-left">{firstLine}</p>
                                     {secondLine && (
                                       <p className="text-[11px] font-medium text-[#777777] truncate whitespace-nowrap text-left">{secondLine}</p>
                                     )}
@@ -4249,7 +4328,7 @@ const Transfer = ({ user }) => {
             <div className="relative dropdown-container">
               <div className="flex items-center justify-between">
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                  To<span className="text-[#eb2f8e]">*</span>
+                  To<span className="text-[#E4572E]">*</span>
                 </p>
                 {entryServiceMode === 'Entry' && (
                   <button onClick={() => handleSwapFromTo()} className="flex items-center justify-center">
@@ -4330,7 +4409,7 @@ const Transfer = ({ user }) => {
               <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center px-[24px] pt-[24px]">
                   <p className="text-[16px] font-semibold text-black">Select To</p>
-                  <button onClick={() => setShowToDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
+                  <button type="button" onClick={() => setShowToDropdown(false)} className="text-[#E4572E] text-[20px] font-semibold hover:opacity-80 transition-opacity">
                     <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
@@ -4341,14 +4420,11 @@ const Transfer = ({ user }) => {
                       value={toSearchQuery}
                       onChange={(e) => setToSearchQuery(e.target.value)}
                       placeholder="Search"
-                      className="w-full h-[32px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                      className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                       autoFocus
                     />
                     <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                        <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
+                      <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
                     </div>
                   </div>
                 </div>
@@ -4374,6 +4450,7 @@ const Transfer = ({ user }) => {
                           const { firstLine, secondLine } = splitOptionText(option.label);
                           return (
                             <button
+                              type="button"
                               key={option.id}
                               onClick={() => {
                                 setSelectedTo(option);
@@ -4384,7 +4461,7 @@ const Transfer = ({ user }) => {
                                 }`}
                               style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                             >
-                              <button onClick={(e) => handleToggleToFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                              <button type="button" onClick={(e) => handleToggleToFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
                                 {isFavorite ? (
                                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -4396,7 +4473,7 @@ const Transfer = ({ user }) => {
                                 )}
                               </button>
                               <div className="flex flex-col flex-1 min-w-0 text-left">
-                                <p className="text-[12px] font-medium text-black truncate whitespace-nowrap text-left">{firstLine}</p>
+                                <p className="text-[12px] font-semibold text-black truncate whitespace-nowrap text-left">{firstLine}</p>
                                 {secondLine && (
                                   <p className="text-[11px] font-medium text-[#777777] truncate whitespace-nowrap text-left">{secondLine}</p>
                                 )}
@@ -5487,7 +5564,7 @@ const Transfer = ({ user }) => {
                 <div className="flex-1 relative">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-[13px] font-medium text-black leading-normal">
-                      Item Name<span className="text-[#eb2f8e]">*</span>
+                      Item Name<span className="text-[#E4572E]">*</span>
                     </p>
                     {selectedItemNameQuantity > 0 && (
                       <span className="text-[13px] font-semibold text-[#e06256]">{selectedItemNameQuantity}</span>
@@ -5576,20 +5653,20 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]" onClick={handleCloseUploadModal} style={{ fontFamily: "'Manrope', sans-serif" }}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[110] flex items-center justify-center p-[16px]" onClick={handleCloseUploadModal} style={{ fontFamily: "'Manrope', sans-serif" }}>
           <div className="bg-white w-full max-w-[360px] rounded-[16px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className='flex justify-end mr-[20px] mt-[14px]'>
               <button onClick={handleCloseUploadModal} className="text-[#e06256] text-xl font-bold">
                 <img src={Close} alt="Close" className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <div className="flex items-center justify-center px-[24px] pb-[8px] flex-shrink-0">
-              <div className="  items-center">
+            <div className="flex items-center justify-center px-[24px] pb-[8px] gap-[2px] flex-shrink-0">
+              <div className="items-center">
                 <p className="text-[16px] font-semibold text-black">Upload and Attach files</p>
-                <p className="text-[10px] text-gray-500">Attachments will be of this Transfer</p>
+                <p className="text-[10px] text-gray-500 ml-[8px]">Attachments will be of this Transfer</p>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none">
+            <div className={`flex-1 min-h-0 no-scrollbar scrollbar-none ${showStatusDropdown ? 'overflow-visible relative z-[1]' : 'overflow-y-auto'}`}>
               <div className="px-[24px] py-[8px]">
                 <label htmlFor="file-upload-input"
                   className="flex flex-col items-center justify-center w-full h-[120px] border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
@@ -5662,7 +5739,7 @@ const Transfer = ({ user }) => {
                     </svg>
                   </div>
                   {showStatusDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-[200] max-h-[200px] overflow-y-auto">
                       {(entryServiceMode === 'Service' && serviceFlowMode === 'sent' ? filteredStatusOptions : statusOptions).map((status) => (
                         <button
                           key={status}
@@ -5690,7 +5767,7 @@ const Transfer = ({ user }) => {
                 />
               </div>
             </div>
-            <div className="px-[24px] pb-[24px] pt-[8px] flex-shrink-0">
+            <div className="px-[24px] pb-[24px] flex-shrink-0 relative z-0">
               <button
                 onClick={handleConfirmUpload}
                 disabled={isUploading || !uploadStatus || (entryServiceMode === 'Service' && uploadFiles.length === 0)}
@@ -5879,7 +5956,7 @@ const Transfer = ({ user }) => {
       />
       {showUniversalSearchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" onClick={handleCloseUniversalSearch} style={{ fontFamily: "'Manrope', sans-serif" }}>
-          <div className="bg-white w-full rounded-tl-[16px] rounded-tr-[16px] h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full rounded-tl-[16px] rounded-tr-[16px] h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-[16px] pt-[16px] mb-[6px] flex-shrink-0">
               <p className="text-[16px] font-semibold text-black">Search Items</p>
               <button onClick={handleCloseUniversalSearch} className="text-[#E4572E] text-xl font-bold">
@@ -5942,9 +6019,6 @@ const Transfer = ({ user }) => {
                       const brandObj = toolsBrandFullData.find(
                         i => String(i?.id) === String(item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId)
                       );
-                      const inchargeObj = inchargeOptions.find(
-                        i => String(i?.id) === String(item?.project_incharge_id ?? item?.projectInchargeId)
-                      );
                       const categoryObj = categoryOptions.find(
                         i => String(i?.id) === String(item?.category_id ?? item?.categoryId)
                       );
@@ -5957,8 +6031,17 @@ const Transfer = ({ user }) => {
                         : (brandName || modelName || '');
                       const machineNumber = resolveMachineNumFromStock(item);
                       const machineStatus = item?.machine_status ?? item?.machineStatus ?? 'Working';
-                      const inchargeName = inchargeObj?.label || '';
-                      const { date, time } = formatDateTime(item?.created_date_time || item?.createdDateTime || item?.timestamp || '');
+                      const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
+                      const brandId = item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId;
+                      const lastEntry = itemIdsId ? getLastEntryDateAndInchargeForItemSet(itemIdsId, brandId, machineNumber) : { dateTime: null, inchargeName: null };
+                      const inchargeObj = inchargeOptions.find(
+                        i => String(i?.id) === String(item?.project_incharge_id ?? item?.projectInchargeId)
+                      );
+                      const inchargeName = lastEntry.inchargeName ?? inchargeObj?.label ?? '';
+                      const displayDateTime = lastEntry.dateTime ?? (() => {
+                        const { date, time } = formatDateTime(item?.created_date_time || item?.createdDateTime || item?.timestamp || '');
+                        return date && time ? `${date} • ${time}` : '';
+                      })();
                       const categoryName = categoryObj?.value || categoryObj?.label || (item?.category_name || item?.categoryName || '');
                       const quantity = item?.quantity || item?.qty || '';
                       return (
@@ -5979,14 +6062,13 @@ const Transfer = ({ user }) => {
                             </div>
                             <div className="flex justify-between items-start mb-0.5">
                               <p className="text-[13px] text-black flex-1 font-medium min-w-0 pr-2">{brandModelText}</p>
-                              {inchargeName && <p className="text-[12px] font-medium text-black flex-shrink-0">{inchargeName}</p>}
                             </div>
-                            {date && time && (
-                              <div className="flex justify-between items-start">
-                                <p className="text-[11px] text-[#575757] leading-snug truncate flex-1 min-w-0">{date} • {time}</p>
-                                <span className="flex-shrink-0"></span>
+                            {(displayDateTime || inchargeName) ? (
+                              <div className="flex justify-between items-center gap-2">
+                                <p className="text-[11px] text-[#575757] leading-snug truncate flex-1 min-w-0">{displayDateTime}</p>
+                                {inchargeName ? <p className="text-[11px] font-medium text-black flex-shrink-0">{inchargeName}</p> : null}
                               </div>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       );
@@ -6032,30 +6114,32 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showSearchUploadModal && selectedSearchItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]" onClick={handleCloseSearchUploadModal}
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[110] flex items-center justify-center p-[16px]" onClick={handleCloseSearchUploadModal}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div className="bg-white w-full max-w-[360px] rounded-[16px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[8px] flex-shrink-0">
-              <div>
-                <p className="text-[16px] font-semibold text-black">Upload and Attach files</p>
-                <p className="text-[12px] text-gray-500">Attachments will be of this Transfer</p>
-              </div>
-              <button onClick={handleCloseSearchUploadModal} className="text-[#E4572E] text-xl font-bold">
-                ×
+            <div className='flex justify-end mr-[20px] mt-[14px]'>
+              <button onClick={handleCloseSearchUploadModal} className="text-[#e06256] text-xl font-bold">
+                <img src={Close} alt="Close" className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none">
-              <div className="px-[24px] py-[16px]">
+            <div className="flex items-center justify-center px-[24px] pb-[8px] gap-[2px] flex-shrink-0">
+              <div className="items-center">
+                <p className="text-[16px] font-semibold text-black">Upload and Attach files</p>
+                <p className="text-[10px] text-gray-500 ml-[8px]">Attachments will be of this Transfer</p>
+              </div>
+            </div>
+            <div className={`flex-1 min-h-0 no-scrollbar scrollbar-none ${showSearchStatusDropdown ? 'overflow-visible relative z-[1]' : 'overflow-y-auto'}`}>
+              <div className="px-[24px] py-[8px]">
                 <label htmlFor="search-file-upload-input"
                   className="flex flex-col items-center justify-center w-full h-[100px] border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                 >
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="40" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M17 8L12 3L7 8" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M12 3V15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <p className="text-[14px] font-medium text-[#E4572E] mt-2">Click to Upload</p>
+                  <p className="text-[14px] font-medium text-[#E4572E] mt-[4px]">Click to Upload</p>
                   <p className="text-[10px] text-gray-400">(Max. File size: 5 MB)</p>
                 </label>
                 <input
@@ -6068,8 +6152,8 @@ const Transfer = ({ user }) => {
                 />
               </div>
               {searchUploadFiles.length > 0 && (
-                <div className="px-[24px] pb-[16px]">
-                  <p className="text-[12px] font-medium text-black mb-2">File Uploading</p>
+                <div className="px-[24px] pb-[8px]">
+                  <p className="text-[12px] font-medium text-black mb-[4px]">File Uploading</p>
                   <div className="space-y-2 max-h-[150px] overflow-y-auto no-scrollbar scrollbar-none">
                     {searchUploadFiles.map((fileItem) => (
                       <div key={fileItem.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-[12px]">
@@ -6112,7 +6196,7 @@ const Transfer = ({ user }) => {
                     </svg>
                   </div>
                   {showSearchStatusDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-[200] max-h-[200px] overflow-y-auto">
                       {(entryServiceMode === 'Service' && serviceFlowMode === 'sent' ? filteredStatusOptions : statusOptions).map((status) => (
                         <button
                           key={status}
@@ -6130,7 +6214,7 @@ const Transfer = ({ user }) => {
                   )}
                 </div>
               </div>
-              <div className="px-[24px] ">
+              <div className="px-[24px] pb-[16px]">
                 <p className="text-[12px] font-medium text-black mb-[2px]">Description</p>
                 <textarea
                   value={searchUploadDescription}
@@ -6140,7 +6224,7 @@ const Transfer = ({ user }) => {
                 />
               </div>
             </div>
-            <div className="px-[24px] pb-[24px] pt-[8px] flex-shrink-0">
+            <div className="px-[24px] pb-[24px] flex-shrink-0 relative z-0">
               <button
                 onClick={handleConfirmSearchUpload}
                 disabled={!searchUploadStatus || (entryServiceMode === 'Service' && searchUploadFiles.length === 0)}

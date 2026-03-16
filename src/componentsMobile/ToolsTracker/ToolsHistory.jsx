@@ -372,18 +372,20 @@ const ToolsHistory = ({ user }) => {
         const second = Number(ddMmYyyyMatch[6] || 0);
         const parsedDdMm = new Date(year, month, day, hour, minute, second);
         if (!Number.isNaN(parsedDdMm.getTime())) {
+          const t = parsedDdMm.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
           return {
             date: parsedDdMm.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-            time: parsedDdMm.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            time: t ? t.replace(/\b(am|pm)\b/gi, (m) => m.toUpperCase()) : '',
             sortTime: parsedDdMm.getTime()
           };
         }
       }
       const parsed = new Date(rawValue);
       if (Number.isNaN(parsed.getTime())) return { date: '', time: '', sortTime: 0 };
+      const t = parsed.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
       return {
         date: parsed.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-        time: parsed.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        time: t ? t.replace(/\b(am|pm)\b/gi, (m) => m.toUpperCase()) : '',
         sortTime: parsed.getTime()
       };
     };
@@ -1506,97 +1508,120 @@ const ToolsHistory = ({ user }) => {
     <div className="flex flex-col bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Top row: Item Name (left) + Edit button (right) when Item tab active, Item Name (left) + Item ID (right) when Log tab active */}
       <div className="sticky top-0 bg-white z-10 flex-shrink-0">
-      <div className="px-[16px]">
-        <div className="flex justify-between items-center border-b border-gray-200 pb-[8px] gap-[8px]">
-          {/* Show Item Name button when Item tab or Log tab is active */}
-          {(activeSegment === 'item' || activeSegment === 'log') && (
-            <button
-              type="button"
-              onClick={() => {
-                setShowItemNamePopup(true);
-                setShowBrandPopup(false);
-                setShowItemIdPopup(false);
-                setShowMachineNumberPopup(false);
-              }}
-              className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-[0px] border-0 bg-transparent text-left"
-            >
-              {selectedItemName ? selectedItemName : 'Item Name'}
-            </button>
-          )}
-          {/* Show Edit button when Item Name and Item ID are selected (details auto-fill from selected itemId) */}
-          {activeSegment === 'item' && selectedItemName && selectedItemId && !isItemInToolsTrackerManagement && (
-            <button
-              type="button"
-              onClick={handleEditClick}
-              className="text-[12px] font-medium text-black leading-normal cursor-pointer hover:opacity-80 p-[0px] border-0 bg-transparent text-right flex-shrink-0 flex items-center gap-[4px]"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M18.5 2.5C18.8978 2.10217 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10217 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10217 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Edit
-            </button>
-          )}
-          {/* Show Item ID button when Log tab is active */}
-          {activeSegment === 'log' && (
-            <div className="flex items-center gap-[8px] flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowItemIdPopup(true);
-                  setShowItemNamePopup(false);
-                  setShowBrandPopup(false);
-                  setShowMachineNumberPopup(false);
-                }}
-                className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-[0px] border-0 bg-transparent text-right"
-              >
-                {selectedItemId || 'Item ID'}
-              </button>
-              {selectedItemId && (
+        <div className="">
+          <div className="flex justify-between items-center border-b border-gray-200 pb-[8px] gap-[8px]">
+            {/* Show Item Name button when Item tab or Log tab is active */}
+            {(activeSegment === 'item' || activeSegment === 'log') && (
+              <div className="flex items-center gap-[4px] min-w-0">
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedItemId('');
-                    setSelectedItemIdDbId(null);
-                    setSelectedMachineNumber('');
-                    setMachineStatusHistory([]);
+                  onClick={() => {
+                    setShowItemNamePopup(true);
+                    setShowBrandPopup(false);
+                    setShowItemIdPopup(false);
+                    setShowMachineNumberPopup(false);
                   }}
-                  className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-[0px] border-0 bg-transparent text-left"
                 >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  {selectedItemName ? selectedItemName : 'Item Name'}
                 </button>
-              )}
-            </div>
-          )}
+                {selectedItemName && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedItemName('');
+                      setSelectedItemNameId(null);
+                      setSelectedBrand('');
+                      setSelectedBrandId(null);
+                      setSelectedItemId('');
+                      setSelectedItemIdDbId(null);
+                      setSelectedMachineNumber('');
+                      setMachineStatusHistory([]);
+                    }}
+                    className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9 3L3 9M3 3L9 9" stroke="#848484" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+            {/* Show Edit button when Item Name and Item ID are selected (details auto-fill from selected itemId) */}
+            {activeSegment === 'item' && selectedItemName && selectedItemId && !isItemInToolsTrackerManagement && (
+              <button
+                type="button"
+                onClick={handleEditClick}
+                className="text-[12px] font-medium text-black leading-normal cursor-pointer hover:opacity-80 p-[0px] border-0 bg-transparent text-right flex-shrink-0 flex items-center gap-[4px]"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M18.5 2.5C18.8978 2.10217 19.4374 1.87868 20 1.87868C20.5626 1.87868 21.1022 2.10217 21.5 2.5C21.8978 2.89782 22.1213 3.43739 22.1213 4C22.1213 4.56261 21.8978 5.10217 21.5 5.5L12 15L8 16L9 12L18.5 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Edit
+              </button>
+            )}
+            {/* Show Item ID button when Log tab is active */}
+            {activeSegment === 'log' && (
+              <div className="flex items-center gap-[4px] flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowItemIdPopup(true);
+                    setShowItemNamePopup(false);
+                    setShowBrandPopup(false);
+                    setShowMachineNumberPopup(false);
+                  }}
+                  className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-[0px] border-0 bg-transparent text-right"
+                >
+                  {selectedItemId || 'Item ID'}
+                </button>
+                {selectedItemId && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedItemId('');
+                      setSelectedItemIdDbId(null);
+                      setSelectedMachineNumber('');
+                      setMachineStatusHistory([]);
+                    }}
+                    className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9 3L3 9M3 3L9 9" stroke="#848484" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {/* Item / Log segmented control */}
+          <div className="flex bg-[#F2F4F7] items-center h-[32px] shadow-sm rounded-md mt-[8px]">
+            <button
+              type="button" onClick={() => setActiveSegment('item')}
+              className={`flex-1 px-[16px] ml-0.5 h-[28px] rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${activeSegment === 'item' ? 'bg-white text-black' : 'bg-gray-100 text-gray-600'
+                }`}
+            >
+              Item
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSegment('log')}
+              className={`flex-1 px-[16px] mr-0.5 h-[28px] rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${activeSegment === 'log' ? 'bg-white text-black' : 'bg-gray-100 text-gray-600'
+                }`}
+            >
+              Log
+            </button>
+          </div>
         </div>
-        {/* Item / Log segmented control */}
-        <div className="flex bg-[#F2F4F7] items-center h-9 shadow-sm rounded-md mt-2">
-          <button
-            type="button" onClick={() => setActiveSegment('item')}
-            className={`flex-1 px-[16px] ml-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${activeSegment === 'item' ? 'bg-white text-black' : 'bg-gray-100 text-gray-600'
-              }`}
-          >
-            Item
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSegment('log')}
-            className={`flex-1 px-[16px] mr-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${activeSegment === 'log' ? 'bg-white text-black' : 'bg-gray-100 text-gray-600'
-              }`}
-          >
-            Log
-          </button>
-        </div>
-      </div>
       </div>
 
       {/* Item tab: Brand, Item ID, Machine Number, Location dropdowns + details card */}
       {activeSegment === 'item' && (
         <>
-          <div className="flex-shrink-0 px-[16px] mt-2 pb-[8px] space-y-[6px]">
+          <div className="flex-shrink-0 mt-[8px] pb-[8px] space-y-[6px]">
             <div className="flex gap-[12px]">
               {renderDropdownTrigger('Item ID', selectedItemId, 'Select', () => {
                 setShowItemIdPopup(true);
@@ -1640,7 +1665,7 @@ const ToolsHistory = ({ user }) => {
               <div className="relative">
                 <p className="text-[12px] font-medium text-black mb-0.5 leading-normal">Location</p>
                 <div
-                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-[#E0E0E0] text-black flex items-center"
+                  className="w-full h-[32px] border border-[#EDEDED] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-[#EDEDED] text-black flex items-center"
                   style={{ boxSizing: 'border-box' }}
                 >
                   {currentLocation || '—'}
@@ -1648,10 +1673,9 @@ const ToolsHistory = ({ user }) => {
               </div>
             </div>
           </div>
-
           {/* Details card + image from stock management API */}
           {selectedItemName && selectedBrand && selectedItemId && selectedMachineNumber && selectedStockForCard && (
-            <div className="flex-1 px-[16px] pb-[16px] mt-2">
+            <div className="flex-1 pb-[16px] mt-2">
               <div className="rounded-[8px] border border-[rgba(0,0,0,0.16)] p-[12px] bg-white">
                 {selectedStockForCard.model != null && String(selectedStockForCard.model).trim() !== '' && (
                   <p className="text-[12px] text-black mb-1"><span className="font-medium">Model:</span> {selectedStockForCard.model}</p>
@@ -1691,7 +1715,7 @@ const ToolsHistory = ({ user }) => {
 
       {/* Log tab: no dropdowns, just log entries list (Item ID is already in top right as button) */}
       {activeSegment === 'log' && (
-        <div className="flex-1 px-[16px] pb-[16px] mt-4 min-h-[200px] overflow-y-auto">
+        <div className="flex-1 pb-[16px] mt-4 min-h-[200px] overflow-y-auto">
           {!selectedItemIdDbId ? (
             <div className="flex items-center justify-center py-[32px]">
               <p className="text-[12px] text-gray-500">Please select an Item ID to view log history</p>
@@ -1708,9 +1732,9 @@ const ToolsHistory = ({ user }) => {
             <div className="bg-white rounded-lg overflow-hidden border border-gray-200 shadow-lg">
               {/* Table Header */}
               <div className="">
-                <div className="grid grid-cols-2 gap-[8px] px-[12px] py-[8px]">
-                  <div className="text-[12px] font-medium text-[#848484]">Date</div>
-                  <div className="text-[12px] font-semibold text-[#848484] text-right">Machine Number</div>
+                <div className="grid grid-cols-2 gap-[8px] px-[16px] py-[8px]">
+                  <div className="text-[14px] font-semibold text-[#939393]">Date</div>
+                  <div className="text-[14px] font-semibold text-[#939393] text-right">Machine Number</div>
                 </div>
               </div>
               {/* Table Body */}
@@ -1720,13 +1744,13 @@ const ToolsHistory = ({ user }) => {
                     key={logEntry.key || logEntry.id || index}
                     className="border-b border-gray-100 last:border-b-0"
                   >
-                    <div className="grid grid-cols-2 gap-[8px] px-[12px] py-[12px]">
+                    <div className="grid grid-cols-2 gap-[8px] px-[16px] py-[12px]">
                       {/* Left column: Event/Status and Date & Time */}
                       <div className="flex flex-col">
-                        <p className="text-[13px] font-semibold text-black leading-snug mb-1">
+                        <p className="text-[12px] font-semibold text-black leading-snug mb-[2px]">
                           {logEntry.status}
                         </p>
-                        <p className="text-[11px] text-[#848484] leading-snug">
+                        <p className="text-[10px] text-[#7B7B7B] font-semibold leading-snug">
                           {logEntry.date} • {logEntry.time}
                         </p>
                       </div>
@@ -1734,26 +1758,26 @@ const ToolsHistory = ({ user }) => {
                       <div className="text-right">
                         {logEntry.type === 'machine_number_changed' ? (
                           <div className="flex flex-col items-end">
-                            <p className="text-[13px] font-semibold text-black leading-snug mb-1">
+                            <p className="text-[12px] font-semibold text-[black] leading-snug mb-[2px]">
                               {logEntry.oldMachineNumber}
                             </p>
-                            <p className="text-[13px] font-semibold text-[#007233] leading-snug">
+                            <p className="text-[12px] font-semibold text-[#007233] leading-snug">
                               {logEntry.machineNumber}
                             </p>
                           </div>
                         ) : logEntry.type === 'home_location_changed' ? (
                           <div className="flex flex-col items-end">
-                            <p className="text-[13px] font-semibold text-[#007233] leading-snug mb-1">
+                            <p className="text-[12px] font-semibold text-[#007233] leading-snug mb-[2px]">
                               {logEntry.machineNumber || '-'}
                             </p>
-                            <p className="text-[11px] font-medium text-[#848484] leading-snug">
+                            <p className="text-[12px] font-medium text-[#848484] leading-snug">
                               {(logEntry.oldHomeLocation && logEntry.oldHomeLocation !== '-')
                                 ? `${logEntry.oldHomeLocation} -> ${logEntry.newHomeLocation || '-'}`
                                 : (logEntry.newHomeLocation || '-')}
                             </p>
                           </div>
                         ) : (
-                          <p className="text-[13px] font-semibold text-[#007233] leading-snug">
+                          <p className="text-[12px] font-semibold text-[#007233] leading-snug">
                             {logEntry.machineNumber || '-'}
                           </p>
                         )}

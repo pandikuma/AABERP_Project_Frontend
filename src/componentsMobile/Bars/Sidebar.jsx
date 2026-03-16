@@ -179,7 +179,7 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
           <div className="flex items-center justify-between p-[16px] border-b border-gray-200">
-            <div className="flex items-center gap-[4px]">
+            <div className="flex items-center gap-[12px]">
                 <img src={logo} alt="logo" className="w-8 h-8" />
               <span className="font-semibold text-lg text-black">BUILDERS</span>
             </div>

@@ -905,7 +905,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         style={{ fontFamily: "'Manrope', sans-serif" }}
         onClick={handleBackdropClick}
       >
-        <div className="bg-white w-full max-w-[360px] h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white w-full h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
           {/* Header with Title and Category */}
           <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[12px]">
             {/* Title on the left */}
@@ -1014,13 +1014,13 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
             <div className="mt-5 mb-3 flex gap-[16px]">
               <button
                 onClick={onClose}
-                className="w-[175px] h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
+                className="w-full h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAdd}
-                className="w-[175px] h-[40px] bg-black border border-[#f4ede2] rounded-[8px] text-[14px] font-bold text-white leading-normal"
+                className="w-full h-[40px] bg-black border border-[#f4ede2] rounded-[8px] text-[14px] font-bold text-white leading-normal"
               >
                 Add
               </button>

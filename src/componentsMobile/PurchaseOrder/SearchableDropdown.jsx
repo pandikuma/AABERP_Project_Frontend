@@ -334,7 +334,7 @@ const SearchableDropdown = ({
       {/* Dropdown Menu - Always show as popup modal */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 -top-[16px] flex items-center justify-center p-[16px] searchable-dropdown-modal"
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px] searchable-dropdown-modal"
           onClick={(e) => {
             // Only close if clicking directly on the backdrop, not on any child elements
             if (e.target === e.currentTarget) {
@@ -350,7 +350,7 @@ const SearchableDropdown = ({
           }}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
-          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col searchable-dropdown-content" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg flex flex-col transform -translate-y-24 searchable-dropdown-content" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} style={{ height: '60vh', maxHeight: '60vh', minHeight: '60vh' }}>
             <div className="flex justify-between items-center px-[24px] pt-[20px]">
               <p className="text-[16px] font-semibold text-black">Select {fieldName}</p>
               <button onClick={() => {
@@ -397,7 +397,7 @@ const SearchableDropdown = ({
                 </div>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-[24px] px-[24px] min-h-[65vh]">
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-[24px] px-[24px]">
               <div className="shadow-md rounded-lg overflow-hidden">
                 {/* Create New Option - Show when typing something that doesn't exist */}
                 {canCreateNew && (

@@ -1103,11 +1103,11 @@ const InputData = () => {
 
 
     return (
-        <div className="relative w-full bg-white max-w-[360px] mx-auto" style={{ fontFamily: "'Manrope', sans-serif" }}>
+        <div className="flex flex-col min-h-[calc(100vh-96px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
             {/* New Input Section */}
-            <div className="mt-2 px-[16px]">
-                {/* New Input Header - Sticky */}
-                <div className="sticky top-[100px] z-30 bg-white flex items-center justify-between mb-3 border-b border-[#E0E0E0] pb-[6px]">
+            {/* New Input Header - Sticky */}
+            <div className="sticky top-0 bg-white z-10 flex-shrink-0">
+                <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
                     {/* Group Dropdown - Left Side */}
                     <button
                         onClick={() => setShowGroupModal(true)}
@@ -1299,7 +1299,7 @@ const InputData = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowBrandModal(true)}
-                                    className="w-[120px] h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
+                                    className="w-[150px] h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
                                     style={{
                                         paddingRight: formData.brand ? '32px' : '12px',
                                         boxSizing: 'border-box'
@@ -1367,7 +1367,7 @@ const InputData = () => {
                                 value={formData.defaultQty}
                                 onChange={(e) => handleFieldChange('defaultQty', e.target.value)}
                                 placeholder="Enter"
-                                className="w-[90px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[16px] text-[12px] font-medium text-black bg-white placeholder:text-[#9E9E9E] focus:outline-none"
+                                className="w-[95px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[16px] text-[12px] font-medium text-black bg-white placeholder:text-[#9E9E9E] focus:outline-none"
                             />
                         </div>
                     </div>
@@ -1379,7 +1379,7 @@ const InputData = () => {
                     <button
                         onClick={handleAddToList}
                         disabled={!formData.itemName || !formData.model || !formData.type || !formData.brand}
-                        className={`w-[328px] h-[32px] rounded flex items-center justify-center gap-[8px] text-white text-[12px] font-medium transition-colors ${formData.itemName && formData.model && formData.type && formData.brand
+                        className={`w-[356px] h-[32px] rounded flex items-center justify-center gap-[8px] text-white text-[12px] font-medium transition-colors ${formData.itemName && formData.model && formData.type && formData.brand
                                 ? 'bg-black hover:bg-gray-800'
                                 : 'bg-[#757575] cursor-not-allowed'
                             }`}

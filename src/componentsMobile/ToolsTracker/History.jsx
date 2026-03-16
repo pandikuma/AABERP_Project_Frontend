@@ -291,9 +291,14 @@ const History = ({ user, onTabChange }) => {
           try {
             const d = oldDate ? new Date(oldDate) : null;
             if (d && !isNaN(d.getTime())) {
-              const dateStr = d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-              const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-              return `${dateStr} • ${timeStr}`;
+              const day = String(d.getDate()).padStart(2, '0');
+              const month = String(d.getMonth() + 1).padStart(2, '0');
+              const year = d.getFullYear();
+              const h = d.getHours();
+              const m = d.getMinutes();
+              const h12 = h % 12 || 12;
+              const ampm = h < 12 ? 'AM' : 'PM';
+              return `${day}/${month}/${year} • ${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
             }
             return oldDate || '-';
           } catch {
@@ -564,22 +569,23 @@ const History = ({ user, onTabChange }) => {
   }, [historyType, fullEntriesData, historyData, projectsMap, vendorsMap, employeesMap, itemNamesMap, itemIdsMap, machineNumbersMap]);
 
   const formatDateTime = (timestamp) => {
-    if (!timestamp) return { date: '', time: '' };
+    if (!timestamp) return { date: '', time: '', dateTime: '' };
     try {
-      const date = new Date(timestamp);
-      const formattedDate = date.toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-      const formattedTime = date.toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-      return { date: formattedDate, time: formattedTime };
+      const d = new Date(timestamp);
+      if (isNaN(d.getTime())) return { date: '', time: '', dateTime: '' };
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const formattedDate = `${day}/${month}/${year}`;
+      const h = d.getHours();
+      const m = d.getMinutes();
+      const h12 = h % 12 || 12;
+      const ampm = h < 12 ? 'AM' : 'PM';
+      const formattedTime = `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+      const dateTime = `${formattedDate} • ${formattedTime}`;
+      return { date: formattedDate, time: formattedTime, dateTime };
     } catch {
-      return { date: '', time: '' };
+      return { date: '', time: '', dateTime: '' };
     }
   };
   const resolveMachineNumberText = (entry) => {
@@ -730,7 +736,7 @@ const History = ({ user, onTabChange }) => {
       const entryId = entry.entryId || entry.id;
       if (entryId) {
         localStorage.setItem('editingToolsTrackerEntryId', String(entryId));
-          localStorage.removeItem('toolsTrackerCloneMode');
+        localStorage.removeItem('toolsTrackerCloneMode');
         if (onTabChange) {
           onTabChange('transfer');
         }
@@ -979,10 +985,10 @@ const History = ({ user, onTabChange }) => {
       document.removeEventListener('mouseup', globalMouseUpHandler);
     };
   }, [historyData, historyType]);
-  
+
   // Get Item ID options for filter
   const filterItemIdOptions = Array.from(new Set(Object.values(itemIdsMap))).filter(Boolean).sort();
-  
+
   // Get filter options from all entries
   const getAllItemNames = () => {
     const names = new Set();
@@ -992,7 +998,7 @@ const History = ({ user, onTabChange }) => {
     });
     return Array.from(names).sort();
   };
-  
+
   const getAllFromLocations = () => {
     const locations = new Set();
     historyData.forEach(entry => {
@@ -1007,7 +1013,7 @@ const History = ({ user, onTabChange }) => {
     });
     return Array.from(locations).sort();
   };
-  
+
   const getAllToLocations = () => {
     const locations = new Set();
     historyData.forEach(entry => {
@@ -1027,9 +1033,9 @@ const History = ({ user, onTabChange }) => {
     });
     return Array.from(locations).sort();
   };
-  
+
   const getAllMachineStatuses = () => ['Working', 'Not Working', 'Under Repair'];
-  
+
   const getAllProjectIncharges = () => {
     const incharges = new Set();
     historyData.forEach(entry => {
@@ -1038,7 +1044,7 @@ const History = ({ user, onTabChange }) => {
     });
     return Array.from(incharges).sort();
   };
-  
+
   const getAllMachineNumbers = () => {
     const numbers = new Set();
     historyData.forEach(entry => {
@@ -1047,227 +1053,243 @@ const History = ({ user, onTabChange }) => {
     });
     return Array.from(numbers).sort();
   };
-  
+
   // Filter functions
   const normalizeSearchText = (text) => {
     if (!text) return '';
     return String(text).toLowerCase().trim();
   };
-  
+
   const getFilteredItemNames = () => {
     const options = getAllItemNames();
     if (!filterItemNameSearchQuery.trim()) return options;
     const query = normalizeSearchText(filterItemNameSearchQuery);
     return options.filter(name => normalizeSearchText(name).includes(query));
   };
-  
+
   const getFilteredFromLocations = () => {
     const options = getAllFromLocations();
     if (!filterFromLocationSearchQuery.trim()) return options;
     const query = normalizeSearchText(filterFromLocationSearchQuery);
     return options.filter(loc => normalizeSearchText(loc).includes(query));
   };
-  
+
   const getFilteredToLocations = () => {
     const options = getAllToLocations();
     if (!filterToLocationSearchQuery.trim()) return options;
     const query = normalizeSearchText(filterToLocationSearchQuery);
     return options.filter(loc => normalizeSearchText(loc).includes(query));
   };
-  
+
   const getFilteredProjectIncharges = () => {
     const options = getAllProjectIncharges();
     if (!filterProjectInchargeSearchQuery.trim()) return options;
     const query = normalizeSearchText(filterProjectInchargeSearchQuery);
     return options.filter(incharge => normalizeSearchText(incharge).includes(query));
   };
-  
+
   const getFilteredMachineNumbers = () => {
     const options = getAllMachineNumbers();
     if (!filterMachineNumberSearchQuery.trim()) return options;
     const query = normalizeSearchText(filterMachineNumberSearchQuery);
     return options.filter(num => normalizeSearchText(num).includes(query));
   };
-  
+
   const filteredHistoryData = historyType === 'log'
     ? logEditEvents.filter(ev => {
-        const e = ev.flattenedEntry;
-        // Filter by Item ID
-        if (filterItemId) {
-          const entryItemId = e?.itemIdsId ? (itemIdsMap[e.itemIdsId] || itemIdsMap[String(e.itemIdsId)] || '') : '';
-          if (entryItemId !== filterItemId) return false;
+      const e = ev.flattenedEntry;
+      // Filter by Item ID
+      if (filterItemId) {
+        const entryItemId = e?.itemIdsId ? (itemIdsMap[e.itemIdsId] || itemIdsMap[String(e.itemIdsId)] || '') : '';
+        if (entryItemId !== filterItemId) return false;
+      }
+      // Filter by Item Name
+      if (filterItemName) {
+        const entryItemName = itemNamesMap[e?.itemNameId] || itemNamesMap[String(e?.itemNameId)] || '';
+        if (entryItemName !== filterItemName) return false;
+      }
+      // Filter by From Location
+      if (filterFromLocation) {
+        const entryType = String(e?.toolsEntryType || '').toLowerCase();
+        let entryFromLocation = '';
+        if (entryType === 'service_return') {
+          entryFromLocation = vendorsMap[e?.serviceStoreId] || vendorsMap[String(e?.serviceStoreId)] || '';
+        } else {
+          entryFromLocation = projectsMap[e?.fromProjectId] || projectsMap[String(e?.fromProjectId)] || '';
         }
-        // Filter by Item Name
-        if (filterItemName) {
-          const entryItemName = itemNamesMap[e?.itemNameId] || itemNamesMap[String(e?.itemNameId)] || '';
-          if (entryItemName !== filterItemName) return false;
+        if (entryFromLocation !== filterFromLocation) return false;
+      }
+      // Filter by To Location
+      if (filterToLocation) {
+        const entryType = String(e?.toolsEntryType || '').toLowerCase();
+        let entryToLocation = '';
+        if (entryType === 'entry') {
+          entryToLocation = projectsMap[e?.toProjectId] || projectsMap[String(e?.toProjectId)] || '';
+          if (!entryToLocation) entryToLocation = vendorsMap[e?.serviceStoreId] || vendorsMap[String(e?.serviceStoreId)] || '';
+        } else if (entryType === 'relocate' || entryType === 'relocation') {
+          entryToLocation = projectsMap[e?.homeLocationId] || projectsMap[String(e?.homeLocationId)] || '';
+          if (!entryToLocation) entryToLocation = projectsMap[e?.toProjectId] || projectsMap[String(e?.toProjectId)] || '';
+        } else if (entryType === 'service_return') {
+          entryToLocation = projectsMap[e?.toProjectId] || projectsMap[String(e?.toProjectId)] || '';
+          if (!entryToLocation) entryToLocation = projectsMap[e?.fromProjectId] || projectsMap[String(e?.fromProjectId)] || '';
         }
-        // Filter by From Location
-        if (filterFromLocation) {
-          const entryType = String(e?.toolsEntryType || '').toLowerCase();
-          let entryFromLocation = '';
-          if (entryType === 'service_return') {
-            entryFromLocation = vendorsMap[e?.serviceStoreId] || vendorsMap[String(e?.serviceStoreId)] || '';
-          } else {
-            entryFromLocation = projectsMap[e?.fromProjectId] || projectsMap[String(e?.fromProjectId)] || '';
-          }
-          if (entryFromLocation !== filterFromLocation) return false;
-        }
-        // Filter by To Location
-        if (filterToLocation) {
-          const entryType = String(e?.toolsEntryType || '').toLowerCase();
-          let entryToLocation = '';
-          if (entryType === 'entry') {
-            entryToLocation = projectsMap[e?.toProjectId] || projectsMap[String(e?.toProjectId)] || '';
-            if (!entryToLocation) entryToLocation = vendorsMap[e?.serviceStoreId] || vendorsMap[String(e?.serviceStoreId)] || '';
-          } else if (entryType === 'relocate' || entryType === 'relocation') {
-            entryToLocation = projectsMap[e?.homeLocationId] || projectsMap[String(e?.homeLocationId)] || '';
-            if (!entryToLocation) entryToLocation = projectsMap[e?.toProjectId] || projectsMap[String(e?.toProjectId)] || '';
-          } else if (entryType === 'service_return') {
-            entryToLocation = projectsMap[e?.toProjectId] || projectsMap[String(e?.toProjectId)] || '';
-            if (!entryToLocation) entryToLocation = projectsMap[e?.fromProjectId] || projectsMap[String(e?.fromProjectId)] || '';
-          }
-          if (entryToLocation !== filterToLocation) return false;
-        }
-        // Filter by Machine Status
-        if (filterMachineStatus) {
-          const entryMachineStatus = e?.machineStatus || 'Working';
-          if (entryMachineStatus !== filterMachineStatus) return false;
-        }
-        // Filter by Project Incharge
-        if (filterProjectIncharge) {
-          const entryIncharge = employeesMap[e?.projectInchargeId] || employeesMap[String(e?.projectInchargeId)] || '';
-          if (entryIncharge !== filterProjectIncharge) return false;
-        }
-        // Filter by Machine Number
-        if (filterMachineNumber) {
-          const entryMachineNumber = resolveMachineNumberText(e);
-          if (entryMachineNumber !== filterMachineNumber) return false;
-        }
-        return true;
-      })
+        if (entryToLocation !== filterToLocation) return false;
+      }
+      // Filter by Machine Status
+      if (filterMachineStatus) {
+        const entryMachineStatus = e?.machineStatus || 'Working';
+        if (entryMachineStatus !== filterMachineStatus) return false;
+      }
+      // Filter by Project Incharge
+      if (filterProjectIncharge) {
+        const entryIncharge = employeesMap[e?.projectInchargeId] || employeesMap[String(e?.projectInchargeId)] || '';
+        if (entryIncharge !== filterProjectIncharge) return false;
+      }
+      // Filter by Machine Number
+      if (filterMachineNumber) {
+        const entryMachineNumber = resolveMachineNumberText(e);
+        if (entryMachineNumber !== filterMachineNumber) return false;
+      }
+      return true;
+    })
     : historyData.filter(entry => {
-    const entryType = entry.toolsEntryType || 'Entry';
-    let typeMatch = false;
-    if (historyType === 'entry') {
-      typeMatch = entryType.toLowerCase() === 'entry';
-    } else if (historyType === 'service') {
-      typeMatch = entryType.toLowerCase() === 'service_return';
-    } else {
-      typeMatch = entryType.toLowerCase() === 'relocate';
-    }
-    if (!typeMatch) return false;
-
-    // Filter by Item ID
-    if (filterItemId) {
-      const entryItemId = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
-      if (entryItemId !== filterItemId) return false;
-    }
-    // Filter by Item Name
-    if (filterItemName) {
-      const entryItemName = itemNamesMap[entry.itemNameId] || itemNamesMap[String(entry.itemNameId)] || '';
-      if (entryItemName !== filterItemName) return false;
-    }
-    // Filter by From Location
-    if (filterFromLocation) {
-      const entryTypeLower = String(entry.toolsEntryType || '').toLowerCase();
-      let entryFromLocation = '';
-      if (entryTypeLower === 'service_return') {
-        entryFromLocation = vendorsMap[entry.serviceStoreId] || vendorsMap[String(entry.serviceStoreId)] || '';
+      const entryType = entry.toolsEntryType || 'Entry';
+      let typeMatch = false;
+      if (historyType === 'entry') {
+        typeMatch = entryType.toLowerCase() === 'entry';
+      } else if (historyType === 'service') {
+        typeMatch = entryType.toLowerCase() === 'service_return';
       } else {
-        entryFromLocation = projectsMap[entry.fromProjectId] || projectsMap[String(entry.fromProjectId)] || '';
+        typeMatch = entryType.toLowerCase() === 'relocate';
       }
-      if (entryFromLocation !== filterFromLocation) return false;
-    }
-    // Filter by To Location
-    if (filterToLocation) {
-      const entryTypeLower = String(entry.toolsEntryType || '').toLowerCase();
-      let entryToLocation = '';
-      if (entryTypeLower === 'entry') {
-        entryToLocation = projectsMap[entry.toProjectId] || projectsMap[String(entry.toProjectId)] || '';
-        if (!entryToLocation) entryToLocation = vendorsMap[entry.serviceStoreId] || vendorsMap[String(entry.serviceStoreId)] || '';
-      } else if (entryTypeLower === 'relocate' || entryTypeLower === 'relocation') {
-        entryToLocation = projectsMap[entry.homeLocationId] || projectsMap[String(entry.homeLocationId)] || '';
-        if (!entryToLocation) entryToLocation = projectsMap[entry.toProjectId] || projectsMap[String(entry.toProjectId)] || '';
-      } else if (entryTypeLower === 'service_return') {
-        entryToLocation = projectsMap[entry.toProjectId] || projectsMap[String(entry.toProjectId)] || '';
-        if (!entryToLocation) entryToLocation = projectsMap[entry.fromProjectId] || projectsMap[String(entry.fromProjectId)] || '';
+      if (!typeMatch) return false;
+
+      // Filter by Item ID
+      if (filterItemId) {
+        const entryItemId = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
+        if (entryItemId !== filterItemId) return false;
       }
-      if (entryToLocation !== filterToLocation) return false;
-    }
-    // Filter by Machine Status
-    if (filterMachineStatus) {
-      const entryMachineStatus = entry.machineStatus || 'Working';
-      if (entryMachineStatus !== filterMachineStatus) return false;
-    }
-    // Filter by Project Incharge
-    if (filterProjectIncharge) {
-      const entryIncharge = employeesMap[entry.projectInchargeId] || employeesMap[String(entry.projectInchargeId)] || '';
-      if (entryIncharge !== filterProjectIncharge) return false;
-    }
-    // Filter by Machine Number
-    if (filterMachineNumber) {
-      const entryMachineNumber = resolveMachineNumberText(entry);
-      if (entryMachineNumber !== filterMachineNumber) return false;
-    }
-    return true;
-  });
+      // Filter by Item Name
+      if (filterItemName) {
+        const entryItemName = itemNamesMap[entry.itemNameId] || itemNamesMap[String(entry.itemNameId)] || '';
+        if (entryItemName !== filterItemName) return false;
+      }
+      // Filter by From Location
+      if (filterFromLocation) {
+        const entryTypeLower = String(entry.toolsEntryType || '').toLowerCase();
+        let entryFromLocation = '';
+        if (entryTypeLower === 'service_return') {
+          entryFromLocation = vendorsMap[entry.serviceStoreId] || vendorsMap[String(entry.serviceStoreId)] || '';
+        } else {
+          entryFromLocation = projectsMap[entry.fromProjectId] || projectsMap[String(entry.fromProjectId)] || '';
+        }
+        if (entryFromLocation !== filterFromLocation) return false;
+      }
+      // Filter by To Location
+      if (filterToLocation) {
+        const entryTypeLower = String(entry.toolsEntryType || '').toLowerCase();
+        let entryToLocation = '';
+        if (entryTypeLower === 'entry') {
+          entryToLocation = projectsMap[entry.toProjectId] || projectsMap[String(entry.toProjectId)] || '';
+          if (!entryToLocation) entryToLocation = vendorsMap[entry.serviceStoreId] || vendorsMap[String(entry.serviceStoreId)] || '';
+        } else if (entryTypeLower === 'relocate' || entryTypeLower === 'relocation') {
+          entryToLocation = projectsMap[entry.homeLocationId] || projectsMap[String(entry.homeLocationId)] || '';
+          if (!entryToLocation) entryToLocation = projectsMap[entry.toProjectId] || projectsMap[String(entry.toProjectId)] || '';
+        } else if (entryTypeLower === 'service_return') {
+          entryToLocation = projectsMap[entry.toProjectId] || projectsMap[String(entry.toProjectId)] || '';
+          if (!entryToLocation) entryToLocation = projectsMap[entry.fromProjectId] || projectsMap[String(entry.fromProjectId)] || '';
+        }
+        if (entryToLocation !== filterToLocation) return false;
+      }
+      // Filter by Machine Status
+      if (filterMachineStatus) {
+        const entryMachineStatus = entry.machineStatus || 'Working';
+        if (entryMachineStatus !== filterMachineStatus) return false;
+      }
+      // Filter by Project Incharge
+      if (filterProjectIncharge) {
+        const entryIncharge = employeesMap[entry.projectInchargeId] || employeesMap[String(entry.projectInchargeId)] || '';
+        if (entryIncharge !== filterProjectIncharge) return false;
+      }
+      // Filter by Machine Number
+      if (filterMachineNumber) {
+        const entryMachineNumber = resolveMachineNumberText(entry);
+        if (entryMachineNumber !== filterMachineNumber) return false;
+      }
+      return true;
+    });
 
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       <div className="sticky top-0 bg-white z-10 flex-shrink-0">
         <div className="flex items-center justify-between pb-[8px] border-b border-[#E0E0E0]">
           <p className="text-[12px] text-black font-semibold">Category</p>
+          <div className="flex items-center gap-[4px] flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowFilterItemIdModal(true)}
+              className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent text-right"
+            >
+              {filterItemId ? filterItemId : 'Item ID'}
+            </button>
+            {filterItemId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterItemId('');
+                }}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 3L3 9M3 3L9 9" stroke="#848484" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex w-full bg-[#F2F4F7] items-center h-[32px] rounded-md mt-[8px]">
           <button
-            type="button"
-            onClick={() => setShowFilterItemIdModal(true)}
-            className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent text-right"
+            onClick={() => setHistoryType('entry')}
+            className={`flex-1 ml-0.5 h-[28px] rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'entry'
+              ? 'bg-white text-black shadow-sm'
+              : 'text-[#9E9E9E]'
+              }`}
+            style={{ minWidth: 0 }}
           >
-            {filterItemId ? filterItemId : 'Item ID'}
+            Entry
+          </button>
+          <button
+            onClick={() => setHistoryType('service')}
+            className={`flex-1 ml-0.5 h-[28px] rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'service'
+              ? 'bg-white text-black shadow-sm'
+              : 'text-[#9E9E9E]'
+              }`}
+            style={{ minWidth: 0 }}
+          >
+            Service
+          </button>
+          <button
+            onClick={() => setHistoryType('relocate')}
+            className={`flex-1 ml-0.5 h-[28px] rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'relocate'
+              ? 'bg-white text-black shadow-sm'
+              : 'text-[#9E9E9E]'
+              }`}
+            style={{ minWidth: 0 }}
+          >
+            Relocate
+          </button>
+          <button
+            onClick={() => setHistoryType('log')}
+            className={`flex-1 mr-0.5 h-[28px] rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'log'
+              ? 'bg-white text-black shadow-sm'
+              : 'text-[#9E9E9E]'
+              }`}
+            style={{ minWidth: 0 }}
+          >
+            Log
           </button>
         </div>
-        <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md mt-[8px]">
-        <button
-          onClick={() => setHistoryType('entry')}
-          className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'entry'
-              ? 'bg-white text-black shadow-sm'
-              : 'text-[#9E9E9E]'
-            }`}
-          style={{ minWidth: 0 }}
-        >
-          Entry
-        </button>
-        <button
-          onClick={() => setHistoryType('service')}
-          className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'service'
-              ? 'bg-white text-black shadow-sm'
-              : 'text-[#9E9E9E]'
-            }`}
-          style={{ minWidth: 0 }}
-        >
-          Service
-        </button>
-        <button
-          onClick={() => setHistoryType('relocate')}
-          className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'relocate'
-              ? 'bg-white text-black shadow-sm'
-              : 'text-[#9E9E9E]'
-            }`}
-          style={{ minWidth: 0 }}
-        >
-          Relocate
-        </button>
-        <button
-          onClick={() => setHistoryType('log')}
-          className={`flex-1 mr-0.5 h-8 rounded text-[12px] font-semibold leading-normal transition-colors ${historyType === 'log'
-              ? 'bg-white text-black shadow-sm'
-              : 'text-[#9E9E9E]'
-            }`}
-          style={{ minWidth: 0 }}
-        >
-          Log
-        </button>
-      </div>
       </div>
       {/* Filter and Download Row */}
       <div className="flex justify-between items-center gap-[4px] px-0 mt-[6px] flex-shrink-0">
@@ -1385,7 +1407,7 @@ const History = ({ user, onTabChange }) => {
               const newVals = historyType === 'log' ? (rawEntry.newValues || {}) : {};
               const createdDateTime = historyType === 'log' ? rawEntry.editedDate : rawEntry.createdDateTime;
               const entryKey = historyType === 'log' ? rawEntry.id : entry.id;
-              const { date, time } = formatDateTime(createdDateTime);
+              const { date, time, dateTime } = formatDateTime(createdDateTime);
               const entryType = String(entry.toolsEntryType || '').toLowerCase();
               let fromLocation = getLocationName(entry.fromProjectId, false);
               let toLocation = '-';
@@ -1426,13 +1448,8 @@ const History = ({ user, onTabChange }) => {
                   return isNaN(d.getTime()) ? entryDate : d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 } catch { return entryDate; }
               })() : '';
-              const formattedCreatedDateTime = createdDateTime ? (() => {
-                try {
-                  const d = new Date(createdDateTime);
-                  return isNaN(d.getTime()) ? String(createdDateTime) : d.toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-                } catch { return String(createdDateTime); }
-              })() : '';
-              let dateTimeDisplay = `${date} • ${time}`;
+              const formattedCreatedDateTime = createdDateTime ? dateTime : '';
+              let dateTimeDisplay = dateTime || `${date} • ${time}`;
               if (historyType === 'log') {
                 // In Log tab, show NEW values (after edit) on the card
                 if (editedFields.has('fromLocation')) fromLocation = newVals.fromLocation ?? fromLocation;
@@ -1579,16 +1596,16 @@ const History = ({ user, onTabChange }) => {
                       <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${entry.machineStatus === 'Working' ? 'bg-[#4CAF50]' :
-                              entry.machineStatus === 'Not Working' ? 'bg-[#F44336]' :
-                                entry.machineStatus === 'Under Repair' ? 'bg-[#FF9800]' :
-                                  'bg-[#9E9E9E]'
+                            entry.machineStatus === 'Not Working' ? 'bg-[#F44336]' :
+                              entry.machineStatus === 'Under Repair' ? 'bg-[#FF9800]' :
+                                'bg-[#9E9E9E]'
                             }`}
                         ></span>
                         <p
                           className={`text-[11px] font-medium leading-snug ${entry.machineStatus === 'Working' ? 'text-[#4CAF50]' :
-                              entry.machineStatus === 'Not Working' ? 'text-[#F44336]' :
-                                entry.machineStatus === 'Under Repair' ? 'text-[#FF9800]' :
-                                  'text-[#9E9E9E]'
+                            entry.machineStatus === 'Not Working' ? 'text-[#F44336]' :
+                              entry.machineStatus === 'Under Repair' ? 'text-[#FF9800]' :
+                                'text-[#9E9E9E]'
                             }`}
                         >
                           {entry.machineStatus}
@@ -1596,9 +1613,9 @@ const History = ({ user, onTabChange }) => {
                       </div>
                     </div>
                     <div className="flex items-start justify-between">
-                      <p className="flex items-center gap-0 text-[11px] leading-normal min-w-0 flex-1">
+                      <p className="flex items-center gap-[2px] text-[11px] leading-normal min-w-0 flex-1">
                         <span className={`font-bold ${editedFields.has('date') ? 'text-[#2563eb]' : 'text-black'}`}>{formattedDate || date}</span>
-                        {formattedCreatedDateTime && <span className={`font-semibold ${editedFields.has('date') ? 'text-[#2563eb]' : 'text-[#9E9E9E]'}`}>&nbsp;{formattedCreatedDateTime}</span>}
+                        {formattedCreatedDateTime && <span className={`font-semibold ${editedFields.has('date') ? 'text-[#2563eb]' : 'text-[#9E9E9E]'}`}> • {formattedCreatedDateTime}</span>}
                       </p>
                       <p
                         className={`text-[12px] font-medium leading-snug flex-shrink-0 ml-2 ${editedFields.has('incharge') ? 'text-[#2563eb] font-semibold' : 'text-black'}`}
@@ -1696,16 +1713,16 @@ const History = ({ user, onTabChange }) => {
             <div className="flex items-center justify-center gap-2 mt-3">
               <span
                 className={`w-2 h-2 rounded-full ${imageViewerData.machineStatus === 'Working' ? 'bg-[#4CAF50]' :
-                    imageViewerData.machineStatus === 'Not Working' ? 'bg-[#F44336]' :
-                      imageViewerData.machineStatus === 'Under Repair' ? 'bg-[#FF9800]' :
-                        'bg-[#9E9E9E]'
+                  imageViewerData.machineStatus === 'Not Working' ? 'bg-[#F44336]' :
+                    imageViewerData.machineStatus === 'Under Repair' ? 'bg-[#FF9800]' :
+                      'bg-[#9E9E9E]'
                   }`}
               ></span>
               <p
                 className={`text-[12px] font-medium ${imageViewerData.machineStatus === 'Working' ? 'text-[#4CAF50]' :
-                    imageViewerData.machineStatus === 'Not Working' ? 'text-[#F44336]' :
-                      imageViewerData.machineStatus === 'Under Repair' ? 'text-[#FF9800]' :
-                        'text-[#9E9E9E]'
+                  imageViewerData.machineStatus === 'Not Working' ? 'text-[#F44336]' :
+                    imageViewerData.machineStatus === 'Under Repair' ? 'text-[#FF9800]' :
+                      'text-[#9E9E9E]'
                   }`}
               >
                 {imageViewerData.machineStatus}
