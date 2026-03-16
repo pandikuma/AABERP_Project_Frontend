@@ -901,13 +901,13 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
   return (
     <>
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center"
+        className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center"
         style={{ fontFamily: "'Manrope', sans-serif" }}
         onClick={handleBackdropClick}
       >
         <div className="bg-white w-full max-w-[360px] h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
           {/* Header with Title and Category */}
-          <div className="flex items-center justify-between px-6 pt-5 pb-3">
+          <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[12px]">
             {/* Title on the left */}
             <p className="text-[16px] font-medium text-black leading-normal">
               Add Items
@@ -922,7 +922,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
             </button>
           </div>
           {/* Form fields - All fields are enabled and can be used independently of category selection */}
-          <div className="px-6">
+          <div className="px-[24px]">
             {/* Item Name - Can be selected without category */}
             <div className="space-y-[6px]">
               <div className=" relative">
@@ -971,7 +971,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
                 />
               </div>
               {/* Type and Quantity row */}
-              <div className="flex gap-3">
+              <div className="flex gap-[12px]">
                 {/* Type - Can be selected without category */}
                 <div className="w-full relative">
                   <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
@@ -997,7 +997,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
                       type="text"
                       value={formData.quantity}
                       onChange={handleQuantityChange}
-                      className={`w-[100px] h-[32px] border rounded px-3 text-[12px] font-medium bg-white focus:outline-none ${quantityError ? 'border-[#e06256] text-black' : 'border-[#d6d6d6] text-black'
+                      className={`w-[100px] h-[32px] border rounded px-[12px] text-[12px] font-medium bg-white focus:outline-none ${quantityError ? 'border-[#e06256] text-black' : 'border-[#d6d6d6] text-black'
                         }`}
                       placeholder="Enter"
                     />
@@ -1011,7 +1011,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
               </div>
             </div>
             {/* Buttons */}
-            <div className="mt-5 mb-3 flex gap-4">
+            <div className="mt-5 mb-3 flex gap-[16px]">
               <button
                 onClick={onClose}
                 className="w-[175px] h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"

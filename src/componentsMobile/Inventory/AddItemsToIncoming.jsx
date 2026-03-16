@@ -48,7 +48,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
 
   const fetchPoItemName = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoItemName(data);
@@ -70,7 +70,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
 
   const fetchPoModel = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_model/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoModel(data);
@@ -92,7 +92,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
 
   const fetchPoBrand = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_brand/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoBrand(data);
@@ -114,7 +114,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
 
   const fetchPoType = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_type/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoType(data);
@@ -131,7 +131,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
   useEffect(() => {
     const fetchPoCategory = async () => {
       try {
-        const response = await fetch('http://localhost:8082/api/po_category/getAll');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
         if (response.ok) {
           const data = await response.json();
           const options = (data || []).map(item => ({
@@ -346,7 +346,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
       return;
     }
     try {
-      const response = await fetch('http://localhost:8082/api/po_category/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -356,7 +356,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
       if (response.ok) {
         console.log('Category saved successfully!');
         // Reload categories from API
-        const fetchResponse = await fetch('http://localhost:8082/api/po_category/getAll');
+        const fetchResponse = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
         if (fetchResponse.ok) {
           const data = await fetchResponse.json();
           const options = (data || []).map(item => ({
@@ -450,7 +450,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
     };
 
     try {
-      const response = await fetch('http://localhost:8082/api/po_itemNames/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -487,7 +487,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
     };
 
     try {
-      const response = await fetch('http://localhost:8082/api/po_model/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -525,7 +525,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
     };
 
     try {
-      const response = await fetch('http://localhost:8082/api/po_brand/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -563,7 +563,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
     };
 
     try {
-      const response = await fetch('http://localhost:8082/api/po_type/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -691,13 +691,13 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
   return (
     <>
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center"
+        className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center"
         style={{ fontFamily: "'Manrope', sans-serif" }}
         onClick={handleBackdropClick}
       >
         <div className="bg-white w-full max-w-[360px] h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
           {/* Header with Title and Category */}
-          <div className="flex items-center justify-between px-6 pt-5 mb-3">
+          <div className="flex items-center justify-between px-[24px] pt-[20px] mb-3">
             {/* Title on the left */}
             <p className="text-[16px] font-medium text-black leading-normal">
               Add Items
@@ -713,7 +713,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
           </div>
 
           {/* Form fields - All fields are enabled and can be used independently of category selection */}
-          <div className="px-6 ">
+          <div className="px-[24px] ">
             {/* Item Name - Can be selected without category */}
             <div className="space-y-[6px]">
               <div className="relative">
@@ -766,7 +766,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
               </div>
 
               {/* Type and Quantity row */}
-              <div className="flex gap-3">
+              <div className="flex gap-[12px]">
                 {/* Type - Can be selected without category */}
                 <div className="w-full relative">
                   <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
@@ -793,7 +793,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
                       type="text"
                       value={formData.quantity}
                       onChange={handleQuantityChange}
-                      className={`w-[100px] h-[32px] border rounded px-3 text-[12px] font-medium bg-white focus:outline-none ${quantityError ? 'border-[#e06256] text-black' : 'border-[#d6d6d6] text-black'
+                      className={`w-[100px] h-[32px] border rounded px-[12px] text-[12px] font-medium bg-white focus:outline-none ${quantityError ? 'border-[#e06256] text-black' : 'border-[#d6d6d6] text-black'
                         }`}
                       style={{ fontFamily: "'Manrope', sans-serif" }}
                       placeholder="Enter"
@@ -808,7 +808,7 @@ const AddItemsToIncoming = ({ isOpen, onClose, onAdd, initialData = {}, selected
               </div>
             </div>
             {/* Buttons */}
-            <div className="mt-5 mb-3 flex gap-4">
+            <div className="mt-5 mb-3 flex gap-[16px]">
               <button
                 onClick={onClose}
                 className="w-[175px] h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"

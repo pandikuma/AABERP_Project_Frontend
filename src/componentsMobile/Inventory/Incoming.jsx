@@ -63,7 +63,7 @@ const Incoming = ({ user }) => {
   useEffect(() => {
     const fetchVendorNames = async () => {
       try {
-        const response = await fetch('http://localhost:8081/api/vendor_Names/getAll');
+        const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll');
         if (response.ok) {
           const data = await response.json();
           const formattedData = data.map(item => ({
@@ -88,7 +88,7 @@ const Incoming = ({ user }) => {
   useEffect(() => {
     const fetchSites = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -146,7 +146,7 @@ const Incoming = ({ user }) => {
   // Fetch PO item names from API
   const fetchPoItemName = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoItemName(data);
@@ -158,7 +158,7 @@ const Incoming = ({ user }) => {
   // Fetch PO brand from API
   const fetchPoBrand = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_brand/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoBrand(data);
@@ -170,7 +170,7 @@ const Incoming = ({ user }) => {
   // Fetch PO model from API
   const fetchPoModel = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_model/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoModel(data);
@@ -182,7 +182,7 @@ const Incoming = ({ user }) => {
   // Fetch PO type from API
   const fetchPoType = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_type/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoType(data);
@@ -194,7 +194,7 @@ const Incoming = ({ user }) => {
   // Fetch PO categories from API
   const fetchPoCategory = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_category/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
       if (response.ok) {
         const data = await response.json();
         const options = (data || []).map(item => ({
@@ -255,7 +255,7 @@ const Incoming = ({ user }) => {
   // Fetch all purchase orders and cache them
   const fetchAllPurchaseOrders = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/purchase_orders/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
       if (response.ok) {
         const data = await response.json();
         setAllPurchaseOrders(data);
@@ -325,7 +325,7 @@ const Incoming = ({ user }) => {
         let inventoryItemQuantities = {}; // Map of composite key to total quantity already added
         try {
           const poNumberStr = String(eno).replace('#', '').trim();
-          const inventoryResponse = await fetch('http://localhost:8082/api/inventory/getAll');
+          const inventoryResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
           if (inventoryResponse.ok) {
             const inventoryRecords = await inventoryResponse.json();
             // Filter inventory records by purchase_no matching the PO number and exclude deleted records
@@ -1267,7 +1267,7 @@ const Incoming = ({ user }) => {
         const formData = new FormData();
         formData.append('file', pdfFile);
         formData.append('file_name', finalName);
-        const uploadResponse = await fetch("http://localhost:8081/expenses/googleUploader/uploadToGoogleDrive", {
+        const uploadResponse = await fetch("https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
           method: "POST",
           body: formData,
         });
@@ -1377,7 +1377,7 @@ const Incoming = ({ user }) => {
       // For new records, get ENO
       if (!isUpdate) {
         const countResponse = await fetch(
-          `http://localhost:8082/api/inventory/incomingCount?stockingLocationId=${stockingLocationId}`
+          `https://backendaab.in/aabuildersDash/api/inventory/incomingCount?stockingLocationId=${stockingLocationId}`
         );
         if (!countResponse.ok) {
           throw new Error('Failed to fetch incoming count');
@@ -1392,8 +1392,8 @@ const Incoming = ({ user }) => {
       const username = (user && user.username) || '';
       // Save or update to backend
       const url = isUpdate
-        ? `http://localhost:8082/api/inventory/edit_with_history/${incomingData.inventoryId}?changedBy=${encodeURIComponent(username)}`
-        : 'http://localhost:8082/api/inventory/save';
+        ? `https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${incomingData.inventoryId}?changedBy=${encodeURIComponent(username)}`
+        : 'https://backendaab.in/aabuildersDash/api/inventory/save';
       const method = isUpdate ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -1421,7 +1421,7 @@ const Incoming = ({ user }) => {
                 incoming_pdf: file.pdfUrl,
                 inventory_management_id: inventoryManagementId
               };
-              const pdfResponse = await fetch('http://localhost:8082/api/incoming_pdfs/save', {
+              const pdfResponse = await fetch('https://backendaab.in/aabuildersDash/api/incoming_pdfs/save', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'
@@ -1463,12 +1463,12 @@ const Incoming = ({ user }) => {
     }
   };
   return (
-    <div className="flex flex-col px-4 h-[calc(100vh-90px-80px)] overflow-hidden">
+    <div className="flex flex-col px-[16px] h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* PO Number and Date Row - Only show when not in empty state */}
       {!isEmptyState && (
         <div className="">
           <div className="sticky top-[100px] z-30 bg-white flex items-center justify-between mt-2 border-b border-[#E0E0E0]">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-[8px] mb-1">
               <button
                 type="button"
                 onClick={() => {
@@ -1499,7 +1499,7 @@ const Incoming = ({ user }) => {
                 <button
                   type="button"
                   onClick={handleSaveIncoming}
-                  className="text-[13px] font-medium text-black leading-normal rounded-[8px] px-3 py-1.5 hover:bg-gray-100"
+                  className="text-[13px] font-medium text-black leading-normal rounded-[8px] px-[12px] py-[6px] hover:bg-gray-100"
                 >
                   {isEditMode ? 'Update' : 'Add to Stock'}
                 </button>
@@ -1511,7 +1511,7 @@ const Incoming = ({ user }) => {
                     setIsEditMode(true);
                     setHasOpenedAdd(false);
                   }}
-                  className="flex items-center font-semibold justify-center rounded p-1"
+                  className="flex items-center font-semibold justify-center rounded p-[4px]"
                 >
                   <img src={editIcon} alt="Edit" className="w-[15px] h-[15px]" />
                 </button>
@@ -1526,7 +1526,7 @@ const Incoming = ({ user }) => {
           {/* Date in empty state */}
           {isEmptyState && (
             <div className="sticky z-30 bg-white flex items-center justify-between mt-2 border-b border-[#E0E0E0]">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-[8px] mb-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -1563,7 +1563,7 @@ const Incoming = ({ user }) => {
               <div className="relative">
                 <div
                   onClick={() => setShowVendorModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: incomingData.vendorName ? '#000' : '#9E9E9E'
@@ -1603,7 +1603,7 @@ const Incoming = ({ user }) => {
               <div className="relative">
                 <div
                   onClick={() => setShowStockingLocationModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: incomingData.stockingLocation ? '#000' : '#9E9E9E'
@@ -1638,8 +1638,8 @@ const Incoming = ({ user }) => {
       )}
       {/* Summary details card - show after first + click */}
       {hasOpenedAdd && !isEmptyState && (incomingData.vendorName || incomingData.stockingLocation) && (
-        <div className="flex-shrink-0 mx-2 mb-1 p-2 bg-white border border-[#aaaaaa] rounded-[8px]">
-          <div className="flex flex-col gap-2 px-2">
+        <div className="flex-shrink-0 mx-2 mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+          <div className="flex flex-col gap-[8px] px-[8px]">
             {incomingData.vendorName && (
               <div className="flex items-start">
                 <p className="text-[12px] font-medium text-[#3f3f3f] leading-normal w-[111px]">Vendor Name</p>
@@ -1664,13 +1664,13 @@ const Incoming = ({ user }) => {
           {(!isEmptyState || isEditMode) && incomingData.vendorName && incomingData.stockingLocation && (
             <div className="flex flex-col flex-1 min-h-0 mb-4 mt-2">
               {/* Items Header - Fixed */}
-              <div className="flex-shrink-0 flex items-center gap-2 mb-2 border-b border-[#E0E0E0] pb-2">
+              <div className="flex-shrink-0 flex items-center gap-[8px] mb-2 border-b border-[#E0E0E0] pb-[8px]">
                 <p className="text-[14px] font-medium text-black leading-normal">Items</p>
                 <input
                   type="text"
                   value={items.length}
                   readOnly
-                  className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-2 text-[12px] font-medium text-black bg-gray-200 text-center"
+                  className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-[8px] text-[12px] font-medium text-black bg-gray-200 text-center"
                 />
                 <div className="ml-auto cursor-pointer" onClick={() => setShowSearchItemsModal(true)}>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1681,7 +1681,7 @@ const Incoming = ({ user }) => {
               </div>
               {/* Loading indicator */}
               {loadingPOItems && (
-                <div className="flex items-center justify-center py-8">
+                <div className="flex items-center justify-center py-[32px]">
                   <p className="text-[14px] text-gray-500">Loading items...</p>
                 </div>
               )}
@@ -1790,7 +1790,7 @@ const Incoming = ({ user }) => {
           <button
             type="button"
             onClick={() => setShowFileUploadModal(true)}
-            className="flex items-center gap-2 bg-black text-white rounded-full px-4 py-2.5 text-[14px] font-medium"
+            className="flex items-center gap-[8px] bg-black text-white rounded-full px-[16px] py-[10px] text-[14px] font-medium"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M8 2V10M8 2L5 5M8 2L11 5M3 10V13C3 13.5523 3.44772 14 4 14H12C12.5523 14 13 13.5523 13 13V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1919,10 +1919,10 @@ const Incoming = ({ user }) => {
       />
       {/* File Upload Modal */}
       {showFileUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]">
           <div className="bg-white rounded-[20px] w-full max-w-[350px] max-h-[70vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between p-[16px] border-b border-gray-200">
               <h2 className="text-[16px] font-semibold text-black">Upload and Attach files</h2>
               <button
                 type="button"
@@ -1935,11 +1935,11 @@ const Incoming = ({ user }) => {
               </button>
             </div>
             {/* Modal Content */}
-            <div className="p-4">
+            <div className="p-[16px]">
               <p className="text-[12px] font-medium text-[#616161] mb-4">Attachments will be of this invoice</p>
               {/* Upload Area */}
               <div onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-[#FF9800] rounded-[8px] p-8 mb-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                className="border-2 border-dashed border-[#FF9800] rounded-[8px] p-[32px] mb-4 cursor-pointer hover:bg-gray-50 transition-colors"
               >
                 <input
                   ref={fileInputRef}
@@ -1965,7 +1965,7 @@ const Incoming = ({ user }) => {
                     {attachedFiles.map((file) => (
                       <div
                         key={file.id}
-                        className="flex items-start gap-3 p-3 bg-gray-50 rounded-[8px] cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="flex items-start gap-[12px] p-[12px] bg-gray-50 rounded-[8px] cursor-pointer hover:bg-gray-100 transition-colors"
                         onClick={() => {
                           if (file.status === 'completed' && filePreviews[file.id]) {
                             setSelectedFilePreview(filePreviews[file.id]);
@@ -2040,7 +2040,7 @@ const Incoming = ({ user }) => {
       )}
       {/* Invoice Preview Modal */}
       {showInvoicePreview && selectedFilePreview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center p-2">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center p-[8px]">
           {/* Close Button - Above the image, centered */}
           <button
             type="button"

@@ -70,7 +70,7 @@ const Outgoing = ({ user }) => {
   useEffect(() => {
     const fetchOutgoingSites = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -105,7 +105,7 @@ const Outgoing = ({ user }) => {
   useEffect(() => {
     const fetchOutgoingEmployeeList = async () => {
       try {
-        const response = await fetch('http://localhost:8082/api/employee_details/site_engineers');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/site_engineers');
         if (response.ok) {
           const data = await response.json();
           setOutgoingEmployeeList(data);
@@ -156,7 +156,7 @@ const Outgoing = ({ user }) => {
   // Fetch PO item names from API
   const fetchPoItemName = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoItemName(data);
@@ -168,7 +168,7 @@ const Outgoing = ({ user }) => {
   // Fetch PO brand from API
   const fetchPoBrand = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_brand/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoBrand(data);
@@ -180,7 +180,7 @@ const Outgoing = ({ user }) => {
   // Fetch PO model from API
   const fetchPoModel = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_model/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoModel(data);
@@ -192,7 +192,7 @@ const Outgoing = ({ user }) => {
   // Fetch PO type from API
   const fetchPoType = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_type/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoType(data);
@@ -204,7 +204,7 @@ const Outgoing = ({ user }) => {
   // Fetch category options from API
   const fetchCategoryOptions = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_category/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
       if (response.ok) {
         const data = await response.json();
         setCategoryOptions(data);
@@ -590,7 +590,7 @@ const Outgoing = ({ user }) => {
     let itemPrice = 0; // Default price
     if (itemId !== null && itemId !== undefined) {
       try {
-        const response = await fetch('http://localhost:8082/api/inventory/getAll');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
         if (response.ok) {
           const inventoryRecords = await response.json();
           // Filter out deleted records and filter by stocking location
@@ -954,7 +954,7 @@ const Outgoing = ({ user }) => {
       const clientId = projectSite.id;
       if ((outgoingType || '').toLowerCase() === 'dispatch' && !isEditMode) {
         try {
-          const inventoryResponse = await fetch('http://localhost:8082/api/inventory/getAll');
+          const inventoryResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
           if (inventoryResponse.ok) {
             const inventoryRecords = await inventoryResponse.json();
             const activeRecords = inventoryRecords.filter(record => {
@@ -1019,7 +1019,7 @@ const Outgoing = ({ user }) => {
       // Validate stock return: check if return quantity exceeds dispatch quantity for this client_id
       if ((outgoingType || '').toLowerCase() === 'stock return' || (outgoingType || '').toLowerCase() === 'stockreturn') {
         try {
-          const inventoryResponse = await fetch('http://localhost:8082/api/inventory/getAll');
+          const inventoryResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
           if (inventoryResponse.ok) {
             const inventoryRecords = await inventoryResponse.json();
             // Filter for outgoing records for this client_id (not deleted)
@@ -1117,7 +1117,7 @@ const Outgoing = ({ user }) => {
       if (!isUpdate) {
         // Get outgoing count for ENO only for new records
         const countResponse = await fetch(
-          `http://localhost:8082/api/inventory/outgoingCount?stockingLocationId=${stockingLocationId}`
+          `https://backendaab.in/aabuildersDash/api/inventory/outgoingCount?stockingLocationId=${stockingLocationId}`
         );
         if (!countResponse.ok) {
           throw new Error('Failed to fetch outgoing count');
@@ -1177,8 +1177,8 @@ const Outgoing = ({ user }) => {
       }
       // Determine API endpoint and method
       const apiUrl = isUpdate
-        ? `http://localhost:8082/api/inventory/edit_with_history/${editingInventoryId}?changedBy=${encodeURIComponent(username)}`
-        : 'http://localhost:8082/api/inventory/save';
+        ? `https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${editingInventoryId}?changedBy=${encodeURIComponent(username)}`
+        : 'https://backendaab.in/aabuildersDash/api/inventory/save';
       const method = isUpdate ? 'PUT' : 'POST';
       // Save/Update to backend
       const response = await fetch(apiUrl, {
@@ -1216,7 +1216,7 @@ const Outgoing = ({ user }) => {
     }
   };
   return (
-    <div className="flex flex-col px-4 h-[calc(100vh-90px-80px)] overflow-hidden">
+    <div className="flex flex-col px-[16px] h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date and Actions Row - Only show when not in empty state */}
       {!isEmptyState && (
         <div className="items-center border-b border-[#E0E0E0] mb-2">
@@ -1231,31 +1231,31 @@ const Outgoing = ({ user }) => {
             <div className="flex items-center">
               {isEditMode && fromHistory ? (
                 <button type="button" onClick={() => handleSaveOutgoing(outgoingData.outgoingType || 'stock return')}
-                  className="flex items-center text-[13px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                  className="flex items-center text-[13px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
                 >
                   Update
                 </button>
               ) : fromHistory && !isEditMode && ((outgoingData.outgoingType || '').toLowerCase() === 'stock return' || (outgoingData.outgoingType || '').toLowerCase() === 'stockreturn') ? (
                 <button type="button" onClick={() => handleDownloadPDF()}
-                  className="flex items-center text-[13px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                  className="flex items-center text-[13px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
                 >
                   Download
                 </button>
               ) : fromHistory && !isEditMode && (outgoingData.outgoingType || '').toLowerCase() === 'dispatch' ? (
                 <button type="button" onClick={() => handleDownloadPDF()}
-                  className="flex items-center text-[13px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                  className="flex items-center text-[13px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
                 >
                   Download
                 </button>
               ) : (
                 <>
                   <button type="button" onClick={() => handleSaveOutgoing('stock return')}
-                    className="flex items-center text-[12px] gap-1 font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                    className="flex items-center text-[12px] gap-[4px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
                   >
                     Stock Return <img src={SR} alt="SR" className="w-[11px] h-[11px]" />
                   </button>
                   <button type="button" onClick={() => handleSaveOutgoing('dispatch')}
-                    className="flex items-center text-[12px] gap-1 font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-2 py-1.5"
+                    className="flex items-center text-[12px] gap-[4px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
                   >
                     Dispatch <img src={DP} alt="DP" className="w-[11px] h-[11px]" />
                   </button>
@@ -1295,7 +1295,7 @@ const Outgoing = ({ user }) => {
         <div className=" ">
           {/* Date in empty state */}
           {isEmptyState && (
-            <div className="mb-2 items-center border-b border-gray-200 pb-1 mt-0.5">
+            <div className="mb-2 items-center border-b border-gray-200 pb-[4px] mt-0.5">
               <button
                 type="button"
                 onClick={() => setShowDatePicker(true)}
@@ -1314,7 +1314,7 @@ const Outgoing = ({ user }) => {
               <div className="relative">
                 <div
                   onClick={() => setShowProjectModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: outgoingData.projectName ? '#000' : '#9E9E9E'
@@ -1352,7 +1352,7 @@ const Outgoing = ({ user }) => {
               <div className="relative">
                 <div
                   onClick={() => setShowInchargeModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: outgoingData.projectIncharge ? '#000' : '#9E9E9E'
@@ -1391,7 +1391,7 @@ const Outgoing = ({ user }) => {
               <div className="relative">
                 <div
                   onClick={() => setShowStockingLocationModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: outgoingData.stockingLocation ? '#000' : '#9E9E9E'
@@ -1426,8 +1426,8 @@ const Outgoing = ({ user }) => {
       )}
       {/* Summary details card - show after first + click or in edit mode */}
       {(hasOpenedAdd || isEditMode) && !hideSummaryCard && !isEmptyState && (outgoingData.projectName || outgoingData.projectIncharge || outgoingData.stockingLocation) && (
-        <div className="flex-shrink-0 mx-2 mb-1 p-2 bg-white border border-[#aaaaaa] rounded-[8px]">
-          <div className="flex flex-col gap-2 px-2">
+        <div className="flex-shrink-0 mx-2 mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+          <div className="flex flex-col gap-[8px] px-[8px]">
             {outgoingData.projectName && (
               <div className="flex items-start">
                 <p className="text-[12px] font-medium text-[#3f3f3f] leading-normal w-[111px]">Project Name</p>
@@ -1468,13 +1468,13 @@ const Outgoing = ({ user }) => {
           {(!isEmptyState || isEditMode) && outgoingData.projectName && outgoingData.projectIncharge && outgoingData.stockingLocation && (
             <div className="flex flex-col flex-1 min-h-0 mx-4 mb-4 mt-2">
               {/* Items Header - Fixed */}
-              <div className="flex-shrink-0 flex items-center gap-2 mb-2 border-b border-[#E0E0E0] pb-2">
+              <div className="flex-shrink-0 flex items-center gap-[8px] mb-2 border-b border-[#E0E0E0] pb-[8px]">
                 <p className="text-[14px] font-medium text-black leading-normal">Items</p>
                 <input
                   type="text"
                   value={items.length}
                   readOnly
-                  className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-2 text-[12px] font-medium text-black bg-gray-200 text-center"
+                  className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-[8px] text-[12px] font-medium text-black bg-gray-200 text-center"
                 />
                 <div className="ml-auto cursor-pointer" onClick={() => setShowSearchItemsModal(true)}>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

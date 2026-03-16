@@ -7,8 +7,11 @@ import FlottingButton from '../Images/Flotting Button Black.png'
 import FlottingButtonWhite from '../Images/Flotting Button.png'
 import Close from '../Images/close.png'
 import Edit from '../Images/edit.png'
-import Swap from '../Images/up-and-down-arrow.png'
-import Swap1 from '../Images/swap.png'
+import Swap from '../Images/Down.svg'
+import Swap1 from '../Images/Down1.svg'
+import CloseIcon from '../Images/Close F.svg'
+import DropdownIcon from '../Images/Dropdown F.svg'
+import Search from '../Images/Search.png'
 const Transfer = ({ user }) => {
   const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
   const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
@@ -2450,9 +2453,9 @@ const Transfer = ({ user }) => {
           to_project_id: null,
           project_incharge_id: null,
           service_store_id: null,
-        // Persist the user-selected/auto-selected date
-        date: formatDateAsDdMmYyyy(date),
-        created_date_time: getApiDateTimeFromDisplayDate(date),
+          // Persist the user-selected/auto-selected date
+          date: formatDateAsDdMmYyyy(date),
+          created_date_time: getApiDateTimeFromDisplayDate(date),
           created_by: user?.name || user?.username || 'mobile',
           tools_entry_type: 'relocate',
           eno: String(entryNo),
@@ -2521,7 +2524,6 @@ const Transfer = ({ user }) => {
           tools_entry_type: isServiceReturn ? 'service_return' : entryServiceMode.toLowerCase(),
           eno: String(entryNo),
           date: formatDateAsDdMmYyyy(date),
-          created_date_time: getApiDateTimeFromDisplayDate(date),
           tools_tracker_item_name_table: itemRows
         };
       }
@@ -3868,92 +3870,94 @@ const Transfer = ({ user }) => {
   };
   return (
     <div className="flex flex-col min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      <div className="flex-shrink-0 px-4 flex pt-1.5 pb-1.5 items-center justify-between">
-        <div className="flex items-center gap-1 ">
-          <p className="text-[12px] font-semibold text-black leading-normal">
-            #{entryNo || 'NO'}
-          </p>
-          <button type="button" onClick={() => setShowDatePicker(true)} className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline">
-            {date}
-          </button>
+      <div className="sticky top-0 bg-white z-10 flex-shrink-0">
+        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between">
+          <div className="flex items-center pb-[8px] gap-[8px] ">
+            <p className="text-[12px] font-semibold text-black leading-normal">
+              #{entryNo || 'NO'}
+            </p>
+            <button type="button" onClick={() => setShowDatePicker(true)} className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline">
+              {date}
+            </button>
+          </div>
+          <div className='flex gap-[12px] items-center'>
+            {isEditMode ? (
+              <>
+                <button
+                  onClick={handleUpdateTransfer}
+                  disabled={isSaving || !areFieldsFilled || items.length === 0}
+                  className="text-[12px] font-semibold leading-normal text-black"
+                >
+                  {isSaving ? 'Updating...' : 'Update'}
+                </button>
+                <button
+                  onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}
+                  className={items.length > 0 ? '' : 'invisible'}
+                >
+                  <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowConfirmModal(true)}
+                  disabled={isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0)}
+                  className={`flex items-center gap-[4px] text-[14px] font-medium ${isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0) ? 'text-gray-400' : 'text-black'} ${(cloneModeActive || ((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled))) ? '' : 'invisible'}`}
+                >
+                  {isSaving ? (
+                    <span className="text-gray-500">...</span>
+                  ) : (
+                    <span>{entryServiceMode === 'Service' ? (serviceFlowMode === 'return' ? 'Return from Service' : 'Sent to service') : entryServiceMode === 'Relocate' ? 'Relocate' : 'Transfer'}</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}
+                  className={items.length > 0 ? '' : 'invisible'}
+                >
+                  <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
-        <div className='flex gap-3 items-center'>
-          {isEditMode ? (
-            <>
-              <button
-                onClick={handleUpdateTransfer}
-                disabled={isSaving || !areFieldsFilled || items.length === 0}
-                className="text-[12px] font-semibold leading-normal text-black"
-              >
-                {isSaving ? 'Updating...' : 'Update'}
-              </button>
-              <button 
-                onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}
-                className={items.length > 0 ? '' : 'invisible'}
-              >
-                <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setShowConfirmModal(true)}
-                disabled={isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0)}
-                className={`flex items-center gap-1 text-[14px] font-medium ${isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0) ? 'text-gray-400' : 'text-black'} ${(cloneModeActive || ((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled))) ? '' : 'invisible'}`}
-              >
-                {isSaving ? (
-                  <span className="text-gray-500">...</span>
-                ) : (
-                  <span>{entryServiceMode === 'Service' ? (serviceFlowMode === 'return' ? 'Return from Service' : 'Sent to service') : entryServiceMode === 'Relocate' ? 'Relocate' : 'Transfer'}</span>
-                )}
-              </button>
-              <button 
-                onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}
-                className={items.length > 0 ? '' : 'invisible'}
-              >
-                <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-      <div className="flex-shrink-0 px-4 pb-2">
-        <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md">
-          <button
-            onClick={handleSwitchToEntry}
-            disabled={isEditMode && originalEditData && (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate')}
-            className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Entry'
-              ? 'bg-white text-black'
-              : 'bg-transparent text-[#848484]'
-              } ${isEditMode && originalEditData && (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate') ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            Entry
-          </button>
-          <button
-            onClick={handleSwitchToService}
-            disabled={isEditMode && originalEditData && ((originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') || (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate'))}
-            className={`flex-1 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Service'
-              ? 'bg-white text-black'
-              : 'bg-transparent text-[#848484]'
-              } ${isEditMode && originalEditData && ((originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') || (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate')) ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            Service
-          </button>
-          <button
-            onClick={handleSwitchToRelocate}
-            disabled={isEditMode && originalEditData && (originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry')}
-            className={`flex-1 h-8 rounded mr-0.5 text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Relocate'
-              ? 'bg-white text-black'
-              : 'bg-transparent text-[#848484]'
-              } ${isEditMode && originalEditData && (originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            Relocate
-          </button>
+        <div className="flex-shrink-0 pb-[8px]">
+          <div className="flex bg-[#F2F4F7] items-center h-[32px] rounded-md">
+            <button
+              onClick={handleSwitchToEntry}
+              disabled={isEditMode && originalEditData && (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate')}
+              className={`flex-1 ml-0.5 h-[28px] rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Entry'
+                ? 'bg-white text-black'
+                : 'bg-transparent text-[#848484]'
+                } ${isEditMode && originalEditData && (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate') ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              Entry
+            </button>
+            <button
+              onClick={handleSwitchToService}
+              disabled={isEditMode && originalEditData && ((originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') || (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate'))}
+              className={`flex-1 h-[28px] rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Service'
+                ? 'bg-white text-black'
+                : 'bg-transparent text-[#848484]'
+                } ${isEditMode && originalEditData && ((originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') || (originalEditData.tools_entry_type === 'relocate' || originalEditData.tools_entry_type === 'Relocate')) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              Service
+            </button>
+            <button
+              onClick={handleSwitchToRelocate}
+              disabled={isEditMode && originalEditData && (originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry')}
+              className={`flex-1 h-[28px] rounded mr-0.5 text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${entryServiceMode === 'Relocate'
+                ? 'bg-white text-black'
+                : 'bg-transparent text-[#848484]'
+                } ${isEditMode && originalEditData && (originalEditData.tools_entry_type === 'entry' || originalEditData.tools_entry_type === 'Entry') ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              Relocate
+            </button>
+          </div>
         </div>
       </div>
       {items.length > 0 && !isEditingTransferDetails && entryServiceMode !== 'Relocate' && (
-        <div className="flex-shrink-0 px-4">
-          <div className="border border-gray-200 rounded-lg p-3">
+        <div className="flex-shrink-0">
+          <div className="border border-gray-200 rounded-lg">
             <div className="space-y-1">
               {!(entryServiceMode === 'Service' && serviceFlowMode === 'return') && (
                 <div className="flex items-center">
@@ -3986,7 +3990,7 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {(items.length === 0 || isEditingTransferDetails) && entryServiceMode !== 'Relocate' && (
-        <div className="flex-shrink-0 px-4 space-y-[6px]">
+        <div className="flex-shrink-0 space-y-[6px]">
           {!(entryServiceMode === 'Service' && serviceFlowMode === 'return') && (
             <>
               <div className="relative dropdown-container">
@@ -4000,7 +4004,7 @@ const Transfer = ({ user }) => {
                       setShowToDropdown(false);
                       setShowInchargeDropdown(false);
                     }}
-                    className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                     style={{
                       color: selectedFrom ? '#000' : '#9E9E9E',
                       boxSizing: 'border-box',
@@ -4016,11 +4020,9 @@ const Transfer = ({ user }) => {
                         e.stopPropagation();
                         setSelectedFrom(null);
                       }}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[20px] h-[24px] flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                     >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
+                      <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                     </button>
                   )}
                   {!selectedFrom && (
@@ -4034,7 +4036,7 @@ const Transfer = ({ user }) => {
               </div>
               {showFromDropdown && entryServiceMode !== 'Relocate' && !(entryServiceMode === 'Service' && serviceFlowMode === 'return') && (
                 <div
-                  className="fixed inset-0 bg-black bg-opacity-50 z-50 -top-4 flex items-center justify-center p-4"
+                  className="fixed inset-0 bg-black bg-opacity-50 z-50 -top-[16px] flex items-center justify-center p-[16px]"
                   onClick={(e) => {
                     if (e.target === e.currentTarget) {
                       setShowFromDropdown(false);
@@ -4042,32 +4044,29 @@ const Transfer = ({ user }) => {
                   }}
                   style={{ fontFamily: "'Manrope', sans-serif" }}
                 >
-                  <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-between items-center px-6 pt-5">
+                  <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                    <div className="flex justify-between items-center px-[24px] pt-[20px]">
                       <p className="text-[16px] font-semibold text-black">Select From</p>
                       <button onClick={() => setShowFromDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                         <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                       </button>
                     </div>
-                    <div className="px-6 pt-4 pb-4">
+                    <div className="px-[24px] pt-[4px] pb-[6px]">
                       <div className="relative">
                         <input
                           type="text"
                           value={fromSearchQuery}
                           onChange={(e) => setFromSearchQuery(e.target.value)}
                           placeholder="Search"
-                          className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                          className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                           autoFocus
                         />
                         <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                            <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
+                          <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
                         </div>
                       </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6">
+                    <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
                       <div className="shadow-md rounded-lg overflow-hidden">
                         {getFilteredFromOptions().length > 0 ? (
                           <div className="space-y-0">
@@ -4144,7 +4143,7 @@ const Transfer = ({ user }) => {
                                     setShowFromDropdown(false);
                                     setIsEditingTransferDetails(false);
                                   }}
-                                  className={`w-full px-6 flex items-center gap-3 transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                                  className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                                     }`}
                                   style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                                 >
@@ -4170,7 +4169,7 @@ const Transfer = ({ user }) => {
                             })}
                           </div>
                         ) : (
-                          <div className="flex flex-col items-center justify-center py-4">
+                          <div className="flex flex-col items-center justify-center py-[16px]">
                             <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
                               {fromSearchQuery ? 'No options found' : 'No options available'}
                             </p>
@@ -4202,7 +4201,7 @@ const Transfer = ({ user }) => {
                     <img
                       src={isServiceSwapIconToggled ? Swap1 : Swap}
                       alt="change"
-                      className="w-5 h-5"
+                      className="w-[16px] h-[16px]"
                     />
                   </button>
                 )}
@@ -4215,7 +4214,7 @@ const Transfer = ({ user }) => {
                     setShowToDropdown(false);
                     setShowInchargeDropdown(false);
                   }}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     color: selectedServiceStore ? '#000' : '#9E9E9E',
                     boxSizing: 'border-box',
@@ -4231,11 +4230,9 @@ const Transfer = ({ user }) => {
                       e.stopPropagation();
                       setSelectedServiceStore(null);
                     }}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[20px] h-[24px] flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                   >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                   </button>
                 )}
                 {!selectedServiceStore && (
@@ -4259,7 +4256,7 @@ const Transfer = ({ user }) => {
                     <img
                       src={isSwapIconToggled ? Swap1 : Swap}
                       alt="change"
-                      className="w-5 h-5"
+                      className="w-[16px] h-[16px]"
                     />
                   </button>
                 )}
@@ -4276,7 +4273,7 @@ const Transfer = ({ user }) => {
                     <img
                       src={isServiceSwapIconToggled ? Swap1 : Swap}
                       alt="change"
-                      className="w-5 h-5"
+                      className="w-[16px] h-[16px]"
                     />
                   </button>
                 )}
@@ -4289,7 +4286,7 @@ const Transfer = ({ user }) => {
                     setShowServiceStoreDropdown(false);
                     setShowInchargeDropdown(false);
                   }}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     color: selectedTo ? '#000' : '#9E9E9E',
                     boxSizing: 'border-box',
@@ -4305,11 +4302,9 @@ const Transfer = ({ user }) => {
                       e.stopPropagation();
                       setSelectedTo(null);
                     }}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[20px] h-[24px] flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                   >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                   </button>
                 )}
                 {!selectedTo && (
@@ -4324,7 +4319,7 @@ const Transfer = ({ user }) => {
           )}
           {showToDropdown && (
             <div
-              className="fixed inset-0 bg-black bg-opacity-50 -top-4 z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 bg-black bg-opacity-50 -top-[16px] z-50 flex items-center justify-center p-[16px]"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
                   setShowToDropdown(false);
@@ -4332,21 +4327,21 @@ const Transfer = ({ user }) => {
               }}
               style={{ fontFamily: "'Manrope', sans-serif" }}
             >
-              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center px-6 pt-5">
+              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center px-[24px] pt-[24px]">
                   <p className="text-[16px] font-semibold text-black">Select To</p>
                   <button onClick={() => setShowToDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                     <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
-                <div className="px-6 pt-4 pb-4">
+                <div className="px-[24px] pt-[4px] pb-[6px]">
                   <div className="relative">
                     <input
                       type="text"
                       value={toSearchQuery}
                       onChange={(e) => setToSearchQuery(e.target.value)}
                       placeholder="Search"
-                      className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                      className="w-full h-[32px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                       autoFocus
                     />
                     <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -4357,7 +4352,7 @@ const Transfer = ({ user }) => {
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6">
+                <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
                   <div className="shadow-md rounded-lg overflow-hidden">
                     {getFilteredToOptions().length > 0 ? (
                       <div className="space-y-0">
@@ -4385,7 +4380,7 @@ const Transfer = ({ user }) => {
                                 setShowToDropdown(false);
                                 setIsEditingTransferDetails(false);
                               }}
-                              className={`w-full px-6 flex items-center gap-3 transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                              className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                                 }`}
                               style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                             >
@@ -4411,7 +4406,7 @@ const Transfer = ({ user }) => {
                         })}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-4">
+                      <div className="flex flex-col items-center justify-center py-[16px]">
                         <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
                           {toSearchQuery ? 'No options found' : 'No options available'}
                         </p>
@@ -4424,7 +4419,7 @@ const Transfer = ({ user }) => {
           )}
           {showServiceStoreDropdown && (
             <div
-              className="fixed inset-0 bg-black bg-opacity-50 -top-4 z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 bg-black bg-opacity-50 -top-[16px] z-50 flex items-center justify-center p-[16px]"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
                   setShowServiceStoreDropdown(false);
@@ -4432,39 +4427,36 @@ const Transfer = ({ user }) => {
               }}
               style={{ fontFamily: "'Manrope', sans-serif" }}
             >
-              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center px-6 pt-5">
+              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center px-[24px] pt-[24px]">
                   <p className="text-[16px] font-semibold text-black">Select Service Store</p>
                   <button onClick={() => setShowServiceStoreDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                     <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
-                <div className="px-6 pt-4 pb-4">
+                <div className="px-[24px] pt-[4px] pb-[6px]">
                   <div className="relative">
                     <input
                       type="text"
                       value={serviceStoreSearchQuery}
                       onChange={(e) => setServiceStoreSearchQuery(e.target.value)}
                       placeholder="Search"
-                      className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                      className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                       autoFocus
                     />
                     <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                        <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
+                      <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6">
+                <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
                   <div className="shadow-md rounded-lg overflow-hidden">
                     {serviceStoreSearchQuery.trim() && !serviceStoreOptions.some(opt => {
                       const normalizedOpt = normalizeSearchText(opt.label);
                       const normalizedQuery = normalizeSearchText(serviceStoreSearchQuery.trim());
                       return normalizedOpt === normalizedQuery;
                     }) && (
-                        <button onClick={() => { }} className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors">
+                        <button onClick={() => { }} className="w-full h-[36px] px-[24px] flex items-center bg-gray-100 gap-[8px] hover:bg-[#F5F5F5] transition-colors">
                           <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M7 3V11M3 7H11" stroke="#000" strokeWidth="1.5" strokeLinecap="round" />
@@ -4499,7 +4491,7 @@ const Transfer = ({ user }) => {
                                 setShowServiceStoreDropdown(false);
                                 setIsEditingTransferDetails(false);
                               }}
-                              className={`w-full px-6 flex items-center gap-3 transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                              className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                                 }`}
                               style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                             >
@@ -4525,7 +4517,7 @@ const Transfer = ({ user }) => {
                         })}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-4">
+                      <div className="flex flex-col items-center justify-center py-[16px]">
                         <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
                           {serviceStoreSearchQuery ? 'No options found' : 'No options available'}
                         </p>
@@ -4548,7 +4540,7 @@ const Transfer = ({ user }) => {
                   setShowToDropdown(false);
                   setShowServiceStoreDropdown(false);
                 }}
-                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                 style={{
                   color: selectedIncharge ? '#000' : '#9E9E9E',
                   boxSizing: 'border-box',
@@ -4564,11 +4556,9 @@ const Transfer = ({ user }) => {
                     e.stopPropagation();
                     setSelectedIncharge(null);
                   }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[20px] h-[24px] flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                 </button>
               )}
               {!selectedIncharge && (
@@ -4581,35 +4571,32 @@ const Transfer = ({ user }) => {
             </div>
           </div>
           {showInchargeDropdown && (
-            <div className="fixed inset-0 bg-black -top-4 bg-opacity-50 z-50 flex items-center justify-center p-4"
+            <div className="fixed inset-0 bg-black -top-[16px] bg-opacity-50 z-50 flex items-center justify-center p-[16px]"
               onClick={(e) => { if (e.target === e.currentTarget) { setShowInchargeDropdown(false); } }} style={{ fontFamily: "'Manrope', sans-serif" }}
             >
-              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()} >
-                <div className="flex justify-between items-center px-6 pt-5">
+              <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center px-[24px] pt-[24px]">
                   <p className="text-[16px] font-semibold text-black">Select Project Incharge</p>
                   <button onClick={() => setShowInchargeDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity" >
                     <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                   </button>
                 </div>
-                <div className="px-6 pt-4 pb-4">
+                <div className="px-[24px] pt-[4px] pb-[6px]">
                   <div className="relative">
                     <input
                       type="text"
                       value={inchargeSearchQuery}
                       onChange={(e) => setInchargeSearchQuery(e.target.value)}
                       placeholder="Search"
-                      className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                      className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                       autoFocus
                     />
                     <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                        <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
+                      <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6">
+                <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
                   <div className="shadow-md rounded-lg overflow-hidden">
                     {inchargeSearchQuery.trim() && !inchargeOptions.some(opt => {
                       const normalizedOpt = normalizeSearchText(opt.label);
@@ -4619,7 +4606,7 @@ const Transfer = ({ user }) => {
                         <button
                           onClick={() => {
                           }}
-                          className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
+                          className="w-full h-[36px] px-[24px] flex items-center bg-gray-100 gap-[8px] hover:bg-[#F5F5F5] transition-colors"
                         >
                           <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -4642,7 +4629,7 @@ const Transfer = ({ user }) => {
                                 setShowInchargeDropdown(false);
                                 setIsEditingTransferDetails(false);
                               }}
-                              className={`w-full px-6 flex items-center gap-3 transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                              className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                                 }`}
                               style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                             >
@@ -4665,7 +4652,7 @@ const Transfer = ({ user }) => {
                         })}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-4">
+                      <div className="flex flex-col items-center justify-center py-[16px]">
                         <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
                           {inchargeSearchQuery ? 'No options found' : 'No options available'}
                         </p>
@@ -4679,8 +4666,8 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {items.length > 0 && !isEditingTransferDetails && entryServiceMode === 'Relocate' && (
-        <div className="flex-shrink-0 px-4">
-          <div className="border border-gray-200 rounded-lg p-3">
+        <div className="flex-shrink-0 px-[16px]">
+          <div className="border border-gray-200 rounded-lg p-[12px]">
             <div className="space-y-1">
               <div className="flex items-center">
                 <span className="text-[12px] text-gray-500 w-[120px]">Item ID</span>
@@ -4704,7 +4691,7 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {(items.length === 0 || isEditingTransferDetails) && entryServiceMode === 'Relocate' && (
-        <div className="flex-shrink-0 px-4 space-y-[6px]">
+        <div className="flex-shrink-0 space-y-[6px]">
           <div className="relative dropdown-container">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
               Item ID<span className="text-[#E4572E]">*</span>
@@ -4716,7 +4703,7 @@ const Transfer = ({ user }) => {
                   setShowCurrentLocationDropdown(false);
                   setShowRelocateLocationDropdown(false);
                 }}
-                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                 style={{
                   color: selectedRelocateItemId ? '#000' : '#9E9E9E',
                   boxSizing: 'border-box',
@@ -4734,11 +4721,9 @@ const Transfer = ({ user }) => {
                     setSelectedCurrentLocation(null);
                     setRelocateItemDetails(null);
                   }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[20px] h-[24px] flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                 </button>
               )}
               {!selectedRelocateItemId && (
@@ -4751,7 +4736,7 @@ const Transfer = ({ user }) => {
             </div>
             {showRelocateItemIdDropdown && (
               <div
-                className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+                className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]"
                 onClick={(e) => {
                   if (e.target === e.currentTarget) {
                     setShowRelocateItemIdDropdown(false);
@@ -4759,32 +4744,29 @@ const Transfer = ({ user }) => {
                 }}
                 style={{ fontFamily: "'Manrope', sans-serif" }}
               >
-                <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex justify-between items-center px-6 pt-5">
+                <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                  <div className="flex justify-between items-center px-[24px] pt-[24px]">
                     <p className="text-[16px] font-semibold text-black">Select Item ID</p>
                     <button onClick={() => setShowRelocateItemIdDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                       <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
                     </button>
                   </div>
-                  <div className="px-6 pt-4 pb-4">
+                  <div className="px-[24px] pt-[4px] pb-[6px]">
                     <div className="relative">
                       <input
                         type="text"
                         value={relocateItemIdSearchQuery}
                         onChange={(e) => setRelocateItemIdSearchQuery(e.target.value)}
                         placeholder="Search"
-                        className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                        className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                         autoFocus
                       />
                       <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                          <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
+                        <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
                       </div>
                     </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     <div className="shadow-md rounded-lg overflow-hidden">
                       {relocateItemIdSearchQuery.trim() && !itemIdOptions.some(opt => {
                         const normalizedOpt = normalizeSearchText(opt);
@@ -4795,7 +4777,7 @@ const Transfer = ({ user }) => {
                             onClick={() => {
                               handleAddNewItemId(relocateItemIdSearchQuery.trim());
                             }}
-                            className="w-full h-[36px] px-6 flex items-center bg-gray-100 gap-2 hover:bg-[#F5F5F5] transition-colors"
+                            className="w-full h-[36px] px-[24px] flex items-center bg-gray-100 gap-[8px] hover:bg-[#F5F5F5] transition-colors"
                           >
                             <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -4911,7 +4893,7 @@ const Transfer = ({ user }) => {
                                     setRelocateItemDetails(null);
                                   }
                                 }}
-                                className={`w-full px-6 flex items-center gap-3 transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                                className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                                   }`}
                                 style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                               >
@@ -4937,7 +4919,7 @@ const Transfer = ({ user }) => {
                           })}
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-4">
+                        <div className="flex flex-col items-center justify-center py-[16px]">
                           <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
                             {relocateItemIdSearchQuery ? 'No options found' : 'No options available'}
                           </p>
@@ -4963,7 +4945,7 @@ const Transfer = ({ user }) => {
                   setShowInchargeDropdown(false);
                   setShowRelocateLocationDropdown(false);
                 }}
-                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                 style={{
                   color: selectedCurrentLocation ? '#000' : '#9E9E9E',
                   boxSizing: 'border-box',
@@ -4980,11 +4962,9 @@ const Transfer = ({ user }) => {
                     setSelectedCurrentLocation(null);
                     setRelocateItemDetails(null);
                   }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[20px] h-[24px] flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                 </button>
               )}
               {!selectedCurrentLocation && (
@@ -5012,7 +4992,7 @@ const Transfer = ({ user }) => {
                   setShowInchargeDropdown(false);
                   setShowCurrentLocationDropdown(false);
                 }}
-                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                 style={{
                   color: selectedRelocateLocation ? '#000' : '#9E9E9E',
                   boxSizing: 'border-box',
@@ -5028,11 +5008,9 @@ const Transfer = ({ user }) => {
                     e.stopPropagation();
                     setSelectedRelocateLocation(null);
                   }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[20px] h-[24px] flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                 </button>
               )}
               {!selectedRelocateLocation && (
@@ -5045,10 +5023,10 @@ const Transfer = ({ user }) => {
             </div>
           </div>
           {selectedRelocateItemId && relocateItemDetails && (
-            <div className="pt-1 pb-2">
+            <div className="pt-[4px] pb-[8px]">
 
               <p className="text-[12px] leading-normal font-semibold text-black mb-2">Product Detail</p>
-              <div className="border border-[#BDBDBD] rounded-[8px] bg-white p-3">
+              <div className="border border-[#BDBDBD] rounded-[8px] bg-white p-[12px]">
                 <div className="space-y-1">
                   <div className="flex items-start text-[12px] leading-normal ">
                     <span className="w-[102px] text-black">Item Name</span>
@@ -5087,7 +5065,7 @@ const Transfer = ({ user }) => {
       )}
       {showRelocateLocationDropdown && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-[16px]"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowRelocateLocationDropdown(false);
@@ -5095,8 +5073,8 @@ const Transfer = ({ user }) => {
           }}
           style={{ fontFamily: "'Manrope', sans-serif", zIndex: 9999 }}
         >
-          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center px-6 pt-5">
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-[24px] pt-[24px]">
               <p className="text-[16px] font-semibold text-black">Select Relocate Location</p>
               <button onClick={() => {
                 setShowRelocateLocationDropdown(false);
@@ -5105,25 +5083,22 @@ const Transfer = ({ user }) => {
                 <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
               </button>
             </div>
-            <div className="px-6 pt-4 pb-4">
+            <div className="px-[24px] pt-[4px] pb-[6px]">
               <div className="relative">
                 <input
                   type="text"
                   value={relocateLocationSearchQuery}
                   onChange={(e) => setRelocateLocationSearchQuery(e.target.value)}
                   placeholder="Search"
-                  className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                  className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                   autoFocus
                 />
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                    <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
+                  <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
                 </div>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6">
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
               <div className="shadow-md rounded-lg overflow-hidden">
                 {getFilteredRelocateLocationOptions().length > 0 ? (
                   <div className="space-y-0">
@@ -5152,7 +5127,7 @@ const Transfer = ({ user }) => {
                             setRelocateLocationSearchQuery('');
                             setIsEditingTransferDetails(false);
                           }}
-                          className={`w-full px-6 flex items-center gap-3 transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                          className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                             }`}
                           style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                         >
@@ -5178,7 +5153,7 @@ const Transfer = ({ user }) => {
                     })}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-4">
+                  <div className="flex flex-col items-center justify-center py-[16px]">
                     <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
                       {relocateLocationSearchQuery ? 'No options found' : 'No options available'}
                     </p>
@@ -5190,36 +5165,33 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showCurrentLocationDropdown && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-[16px]"
           onClick={(e) => { if (e.target === e.currentTarget) { setShowCurrentLocationDropdown(false); } }}
           style={{ fontFamily: "'Manrope', sans-serif", zIndex: 9999 }}
         >
-          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center px-6 pt-5">
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-[24px] pt-[24px]">
               <p className="text-[16px] font-semibold text-black">Select Current Location</p>
               <button onClick={() => { setShowCurrentLocationDropdown(false); setCurrentLocationSearchQuery(''); }} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
                 <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
               </button>
             </div>
-            <div className="px-6 pt-4 pb-4">
+            <div className="px-[24px] pt-[4px] pb-[6px]">
               <div className="relative">
                 <input
                   type="text"
                   value={currentLocationSearchQuery}
                   onChange={(e) => setCurrentLocationSearchQuery(e.target.value)}
                   placeholder="Search"
-                  className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                  className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                   autoFocus
                 />
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                    <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
+                  <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
                 </div>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6">
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
               <div className="shadow-md rounded-lg overflow-hidden">
                 {getFilteredCurrentLocationOptions().length > 0 ? (
                   <div className="space-y-0">
@@ -5248,7 +5220,7 @@ const Transfer = ({ user }) => {
                             setCurrentLocationSearchQuery('');
                             setIsEditingTransferDetails(false);
                           }}
-                          className={`w-full px-6 flex items-center gap-3 transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                          className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                             }`}
                           style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                         >
@@ -5274,7 +5246,7 @@ const Transfer = ({ user }) => {
                     })}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-4">
+                  <div className="flex flex-col items-center justify-center py-[16px]">
                     <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
                       {currentLocationSearchQuery ? 'No options found' : 'No options available'}
                     </p>
@@ -5286,9 +5258,9 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {entryServiceMode !== 'Relocate' && (
-        <div className="flex-shrink-0 px-4 pt-2">
-          <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-            <div className="flex items-center gap-2">
+        <div className="flex-shrink-0 pt-[10px]">
+          <div className="flex items-center justify-between pb-[8px] border-b border-gray-200">
+            <div className="flex items-center gap-[8px]">
               <p className="text-[12px] font-semibold text-black leading-normal">Items</p>
               <div className="w-[20px] h-[20px] rounded-full bg-[#E0E0E0] flex items-center justify-center">
                 <span className="text-[10px] font-medium text-black">{items.length}</span>
@@ -5306,7 +5278,7 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {items.length > 0 && (
-        <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none px-4 pt-2 pb-[120px]">
+        <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pt-[8px] pb-[120px]">
           <div className="shadow-md rounded-lg">
             {items.map((item, index) => {
               const itemId = item.id;
@@ -5398,7 +5370,7 @@ const Transfer = ({ user }) => {
               return (
                 <div key={itemId} className="relative overflow-hidden">
                   <div
-                    className="bg-white border-2 border-[#E0E0E0] rounded-[8px] px-3 py-2 min-h-[66px] cursor-pointer transition-transform duration-300 ease-out select-none"
+                    className="bg-white border-2 border-[#E0E0E0] rounded-[8px] px-[12px] py-[8px] min-h-[66px] cursor-pointer transition-transform duration-300 ease-out select-none"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',
@@ -5429,9 +5401,9 @@ const Transfer = ({ user }) => {
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      <div className="flex flex-col items-end gap-[6px] flex-shrink-0">
                         {item.localImageUrls?.length > 0 && (
-                          <div className="flex items-center gap-1 text-[#E4572E] cursor-pointer" onClick={(e) => { e.stopPropagation(); handleOpenImageViewer(item, 0); }}>
+                          <div className="flex items-center gap-[4px] text-[#E4572E] cursor-pointer" onClick={(e) => { e.stopPropagation(); handleOpenImageViewer(item, 0); }}>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" />
                               <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="2" />
@@ -5446,7 +5418,7 @@ const Transfer = ({ user }) => {
                           {item.itemId || getItemIdLabelById(item.item_ids_id || item.itemIdsId) || (item.quantity > 0 ? `${item.quantity} Qty` : '')}
                         </p>
                         {machineStatus && (
-                          <div className="flex items-center justify-end gap-1 w-full">
+                          <div className="flex items-center justify-end gap-[4px] w-full">
                             <span className={`w-1.5 h-1.5 rounded-full ${machineStatus === 'Working' ? 'bg-[#4CAF50]' :
                               machineStatus === 'Not Working' ? 'bg-[#F44336]' :
                                 machineStatus === 'Under Repair' ? 'bg-[#FF9800]' :
@@ -5467,7 +5439,7 @@ const Transfer = ({ user }) => {
                     </div>
                   </div>
                   <div
-                    className="absolute right-0 top-0 bottom-0 flex gap-2 flex-shrink-0 z-0"
+                    className="absolute right-0 top-[0px] bottom-0 flex gap-[8px] flex-shrink-0 z-0"
                     style={{
                       opacity:
                         isExpanded ||
@@ -5479,12 +5451,12 @@ const Transfer = ({ user }) => {
                     }}
                   >
                     <button onClick={(e) => { e.stopPropagation(); setExpandedItemId(null); handleEditItem(item); }}
-                      className="action-button w-[40px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+                      className="action-button w-[40px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-[6px] hover:bg-[#22a882] transition-colors shadow-sm"
                     >
                       <img src={EditIcon} alt="Edit" className="w-[18px] h-[18px]" />
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); setExpandedItemId(null); handleRemoveItem(item.id); }}
-                      className="action-button w-[40px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+                      className="action-button w-[40px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-[6px] hover:bg-[#cc4d26] transition-colors shadow-sm"
                     >
                       <img src={DeleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
                     </button>
@@ -5503,15 +5475,15 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showAddItemsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={handleCloseAddItemsModal} >
-          <div className="bg-white w-full max-w-[360px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 pt-5 pb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={handleCloseAddItemsModal} >
+          <div className="bg-white w-full  rounded-tl-[16px] rounded-tr-[16px] relative z-[101]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[16px]">
               <p className="text-[16px] font-medium text-black leading-normal">
                 {editingItem ? 'Edit Item' : 'Add Items'}
               </p>
             </div>
-            <div className="px-6 pb-6">
-              <div className="flex gap-3 mb-[10px]">
+            <div className="px-[24px] pb-[24px]">
+              <div className="flex gap-[12px] mb-[10px]">
                 <div className="flex-1 relative">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-[13px] font-medium text-black leading-normal">
@@ -5542,7 +5514,7 @@ const Transfer = ({ user }) => {
                       value={addItemFormData.quantity}
                       onChange={(e) => handleFieldChange('quantity', e.target.value)}
                       disabled={!!addItemFormData.itemId}
-                      className={`w-full h-[32px] border border-[#d6d6d6] rounded px-3 pr-7 text-[12px] font-medium focus:outline-none text-black ${addItemFormData.itemId ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white'
+                      className={`w-full h-[32px] border border-[#d6d6d6] rounded px-[12px] pr-[28px] text-[12px] font-medium focus:outline-none text-black ${addItemFormData.itemId ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white'
                         }`}
                       placeholder="Enter"
                     />
@@ -5584,7 +5556,7 @@ const Transfer = ({ user }) => {
                   />
                 </div>
               </div>
-              <div className="flex gap-4">
+              <div className="flex gap-[16px]">
                 <button onClick={handleCloseAddItemsModal} className="flex-1 h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal">
                   Cancel
                 </button>
@@ -5604,28 +5576,30 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={handleCloseUploadModal} style={{ fontFamily: "'Manrope', sans-serif" }}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]" onClick={handleCloseUploadModal} style={{ fontFamily: "'Manrope', sans-serif" }}>
           <div className="bg-white w-full max-w-[360px] rounded-[16px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 pt-5 pb-2 flex-shrink-0">
-              <div>
-                <p className="text-[16px] font-semibold text-black">Upload and Attach files</p>
-                <p className="text-[12px] text-gray-500">Attachments will be of this Transfer</p>
-              </div>
+            <div className='flex justify-end mr-[20px] mt-[14px]'>
               <button onClick={handleCloseUploadModal} className="text-[#e06256] text-xl font-bold">
-                ×
+                <img src={Close} alt="Close" className="w-[14px] h-[14px]" />
               </button>
             </div>
+            <div className="flex items-center justify-center px-[24px] pb-[8px] flex-shrink-0">
+              <div className="  items-center">
+                <p className="text-[16px] font-semibold text-black">Upload and Attach files</p>
+                <p className="text-[10px] text-gray-500">Attachments will be of this Transfer</p>
+              </div>
+            </div>
             <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none">
-              <div className="px-6 py-4">
+              <div className="px-[24px] py-[8px]">
                 <label htmlFor="file-upload-input"
-                  className="flex flex-col items-center justify-center w-full h-[100px] border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="flex flex-col items-center justify-center w-full h-[120px] border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                 >
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="40" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M17 8L12 3L7 8" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M12 3V15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <p className="text-[14px] font-medium text-[#E4572E] mt-2">Click to Upload</p>
+                  <p className="text-[14px] font-medium text-[#E4572E] mt-[4px]">Click to Upload</p>
                   <p className="text-[10px] text-gray-400">(Max. File size: 5 MB)</p>
                 </label>
                 <input
@@ -5638,12 +5612,12 @@ const Transfer = ({ user }) => {
                 />
               </div>
               {uploadFiles.length > 0 && (
-                <div className="px-6 pb-4">
-                  <p className="text-[12px] font-medium text-black mb-2">File Uploading</p>
+                <div className="px-[24px] pb-[8px]">
+                  <p className="text-[12px] font-medium text-black mb-[4px]">File Uploading</p>
                   <div className="space-y-2 max-h-[150px] overflow-y-auto no-scrollbar scrollbar-none">
                     {uploadFiles.map((fileItem) => (
-                      <div key={fileItem.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div key={fileItem.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-[12px]">
+                        <div className="flex items-center gap-[12px] flex-1 min-w-0">
                           <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
                             {fileItem.name.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) ? (
                               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5662,7 +5636,7 @@ const Transfer = ({ user }) => {
                             <p className="text-[10px] text-gray-500">{(fileItem.size / (1024 * 1024)).toFixed(2)} MB</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-[12px]">
                           <button onClick={() => handleDeleteUploadFile(fileItem.id)} className="text-red-500 hover:text-red-700">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -5676,11 +5650,11 @@ const Transfer = ({ user }) => {
                   </div>
                 </div>
               )}
-              <div className="px-6 pb-4">
-                <p className="text-[12px] font-medium text-black mb-2">Status</p>
+              <div className="px-[24px] pb-[8px]">
+                <p className="text-[12px] font-medium text-black mb-[2px]">Status</p>
                 <div className="relative">
                   <div onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                    className="w-full h-[40px] border border-gray-300 rounded-lg px-4 flex items-center justify-between cursor-pointer bg-white"
+                    className="w-full h-[40px] border border-gray-300 rounded-lg px-[16px] flex items-center justify-between cursor-pointer bg-white"
                   >
                     <span className="text-[14px] text-black">{uploadStatus || 'Select'}</span>
                     <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5696,7 +5670,7 @@ const Transfer = ({ user }) => {
                             setUploadStatus(status);
                             setShowStatusDropdown(false);
                           }}
-                          className={`w-full px-4 py-2 text-left text-[14px] hover:bg-gray-100 ${uploadStatus === status ? 'bg-gray-50 font-semibold' : ''
+                          className={`w-full px-[16px] py-[8px] text-left text-[14px] hover:bg-gray-100 ${uploadStatus === status ? 'bg-gray-50 font-semibold' : ''
                             }`}
                         >
                           {status}
@@ -5706,17 +5680,17 @@ const Transfer = ({ user }) => {
                   )}
                 </div>
               </div>
-              <div className="px-6 pb-4">
-                <p className="text-[12px] font-medium text-black mb-2">Description</p>
+              <div className="px-[24px] pb-[16px]">
+                <p className="text-[12px] font-medium text-black mb-[2px]">Description</p>
                 <textarea
                   value={uploadDescription}
                   onChange={(e) => setUploadDescription(e.target.value)}
                   placeholder="Enter"
-                  className="w-full h-[80px] border border-gray-300 rounded-lg px-4 py-3 text-[14px] text-black placeholder-gray-400 resize-none focus:outline-none focus:border-gray-400"
+                  className="w-full h-[80px] border border-gray-300 rounded-lg px-[16px] py-[12px] text-[14px] text-black placeholder-gray-400 resize-none focus:outline-none focus:border-gray-400"
                 />
               </div>
             </div>
-            <div className="px-6 pb-6 pt-2 flex-shrink-0">
+            <div className="px-[24px] pb-[24px] pt-[8px] flex-shrink-0">
               <button
                 onClick={handleConfirmUpload}
                 disabled={isUploading || !uploadStatus || (entryServiceMode === 'Service' && uploadFiles.length === 0)}
@@ -5733,13 +5707,13 @@ const Transfer = ({ user }) => {
       )}
       {showImageViewer && (
         <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex flex-col" style={{ fontFamily: "'Manrope', sans-serif" }}>
-          <div className="flex items-center justify-between px-4 py-3 bg-black bg-opacity-60">
+          <div className="flex items-center justify-between px-[16px] py-[12px] bg-black bg-opacity-60">
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-semibold text-white truncate">
                 #{items.findIndex(item => item.itemName === imageViewerData.itemName) + 1}. {imageViewerData.itemName}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-[12px]">
               {imageViewerData.itemId && (
                 <span className="text-[12px] font-medium text-white">{imageViewerData.itemId}</span>
               )}
@@ -5779,14 +5753,14 @@ const Transfer = ({ user }) => {
               </>
             )}
             {imageViewerData.images.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black bg-opacity-50 px-3 py-1 rounded-full">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black bg-opacity-50 px-[12px] py-[4px] rounded-full">
                 <span className="text-[12px] text-white">
                   {imageViewerData.currentIndex + 1} / {imageViewerData.images.length}
                 </span>
               </div>
             )}
           </div>
-          <div className="px-4 py-3 bg-black bg-opacity-60">
+          <div className="px-[16px] py-[12px] bg-black bg-opacity-60">
             <div className="flex items-center justify-between">
               <p className="text-[12px] text-white">
                 To - {imageViewerData.toLocation || 'N/A'}
@@ -5794,7 +5768,7 @@ const Transfer = ({ user }) => {
               <div className="relative">
                 <button
                   onClick={() => setShowImageViewerStatusDropdown(prev => !prev)}
-                  className={`text-[11px] font-medium px-2 py-1 rounded flex items-center gap-1 ${imageViewerData.machineStatus === 'Working' ? 'bg-green-500 text-white' :
+                  className={`text-[11px] font-medium px-[8px] py-[4px] rounded flex items-center gap-[4px] ${imageViewerData.machineStatus === 'Working' ? 'bg-green-500 text-white' :
                     imageViewerData.machineStatus === 'Not Working' ? 'bg-red-500 text-white' :
                       imageViewerData.machineStatus === 'Under Repair' ? 'bg-yellow-500 text-white' :
                         'bg-gray-500 text-white'
@@ -5809,7 +5783,7 @@ const Transfer = ({ user }) => {
                   <div className="absolute right-0 bottom-full mb-2 w-[130px] bg-white border border-gray-300 rounded-lg shadow-lg z-10 overflow-hidden">
                     {statusOptions.map((status) => (
                       <button key={status} onClick={() => handleUpdateImageViewerStatus(status)}
-                        className={`w-full px-3 py-2 text-left text-[12px] text-black hover:bg-gray-100 ${imageViewerData.machineStatus === status ? 'bg-gray-50 font-semibold' : ''
+                        className={`w-full px-[12px] py-[8px] text-left text-[12px] text-black hover:bg-gray-100 ${imageViewerData.machineStatus === status ? 'bg-gray-50 font-semibold' : ''
                           }`}
                       >
                         {status}
@@ -5820,8 +5794,8 @@ const Transfer = ({ user }) => {
               </div>
             </div>
           </div>
-          <div className="px-4 py-2 bg-black bg-opacity-60 overflow-x-auto">
-            <div className="flex gap-2 items-center">
+          <div className="px-[16px] py-[8px] bg-black bg-opacity-60 overflow-x-auto">
+            <div className="flex gap-[8px] items-center">
               {imageViewerData.images.map((img, index) => (
                 <div key={index} className="relative flex-shrink-0">
                   <div onClick={() => setImageViewerData(prev => ({ ...prev, currentIndex: index }))}
@@ -5836,7 +5810,7 @@ const Transfer = ({ user }) => {
                   </div>
                   {index === imageViewerData.currentIndex && (
                     <button onClick={(e) => { e.stopPropagation(); handleDeleteViewerImage(index); }}
-                      className="absolute -top-1 -right-1 w-[18px] h-[18px] bg-[#E4572E] rounded-full flex items-center justify-center shadow-md"
+                      className="absolute -top-[4px] -right-1 w-[18px] h-[18px] bg-[#E4572E] rounded-full flex items-center justify-center shadow-md"
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M18 6L6 18M6 6L18 18" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -5862,10 +5836,10 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowConfirmModal(false)}
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]" onClick={() => setShowConfirmModal(false)}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
-          <div className="bg-white w-full max-w-[320px] rounded-[16px] p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-[320px] rounded-[16px] p-[24px] shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-center mb-4">
               <div className="w-[60px] h-[60px] rounded-full bg-[#FFF3E0] flex items-center justify-center">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5879,7 +5853,7 @@ const Transfer = ({ user }) => {
             <p className="text-[13px] text-[#666666] text-center mb-6 leading-relaxed">
               Please check that all the machines you take are in proper running condition before taking them.
             </p>
-            <div className="flex gap-3">
+            <div className="flex gap-[12px]">
               <button onClick={() => setShowConfirmModal(false)}
                 className="flex-1 h-[44px] border border-gray-300 rounded-[8px] text-[14px] font-semibold text-black bg-white hover:bg-gray-50 transition-colors"
               >
@@ -5904,15 +5878,15 @@ const Transfer = ({ user }) => {
         initialDate={date}
       />
       {showUniversalSearchModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" onClick={handleCloseUniversalSearch} style={{ fontFamily: "'Manrope', sans-serif" }}>
-          <div className="bg-white w-full max-w-[360px] rounded-tl-[16px] rounded-tr-[16px] max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 pt-4 mb-[6px] flex-shrink-0">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" onClick={handleCloseUniversalSearch} style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white w-full rounded-tl-[16px] rounded-tr-[16px] h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-[16px] pt-[16px] mb-[6px] flex-shrink-0">
               <p className="text-[16px] font-semibold text-black">Search Items</p>
               <button onClick={handleCloseUniversalSearch} className="text-[#E4572E] text-xl font-bold">
-              <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+                <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
               </button>
             </div>
-            <div className="px-4 pb-3 flex-shrink-0">
+            <div className="px-[16px] pb-[12px] flex-shrink-0">
               <div className="relative">
                 <svg
                   width="16"
@@ -5930,11 +5904,11 @@ const Transfer = ({ user }) => {
                   value={universalSearchQuery}
                   onChange={(e) => setUniversalSearchQuery(e.target.value)}
                   placeholder="Search"
-                  className="w-full h-[40px] border border-gray-300 rounded-full pl-9 pr-4 text-[14px] text-black placeholder-gray-400 focus:outline-none focus:border-gray-400"
+                  className="w-full h-[40px] border border-gray-300 rounded-full pl-[36px] pr-[16px] text-[14px] text-black placeholder-gray-400 focus:outline-none focus:border-gray-400"
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none px-4 pb-4">
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none px-[16px] pb-[16px]">
               {(() => {
                 const fromLocationId = entryServiceMode === 'Relocate'
                   ? (selectedCurrentLocation?.id ? String(selectedCurrentLocation.id) : null)
@@ -5944,110 +5918,80 @@ const Transfer = ({ user }) => {
                 const filtered = getFilteredSearchItems();
                 if (!fromLocationId) {
                   return (
-                    <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center justify-center py-[32px]">
                       <p className="text-[12px] text-gray-500">Please select From location first</p>
                     </div>
                   );
                 }
                 if (filtered.length === 0) {
                   return (
-                    <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center justify-center py-[32px]">
                       <p className="text-[12px] text-gray-500">No items found</p>
                     </div>
                   );
                 }
                 return (
-                <div className="" key="search-results">
-                  {filtered.map((item, index, entry) => {
-                    const itemNameObj = toolsItemNameListData.find(
-                      i => String(i?.id) === String(item?.item_name_id ?? item?.itemNameId)
-                    );
-                    const itemIdObj = toolsItemIdFullData.find(
-                      i => String(i?.id) === String(item?.item_ids_id ?? item?.itemIdsId)
-                    );
-                    const brandObj = toolsBrandFullData.find(
-                      i => String(i?.id) === String(item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId)
-                    );
-                    const inchargeObj = inchargeOptions.find(
-                      i => String(i?.id) === String(item?.project_incharge_id ?? item?.projectInchargeId)
-                    );
-                    const categoryObj = categoryOptions.find(
-                      i => String(i?.id) === String(item?.category_id ?? item?.categoryId)
-                    );
-                    const itemName = itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown';
-                    const itemIdName = itemIdObj?.item_id || itemIdObj?.itemId || '';
-                    const brandName = brandObj?.tools_brand || brandObj?.toolsBrand || '';
-                    const modelName = (item?.model || '').trim();
-                    const brandModelText = brandName && modelName
-                      ? `${brandName}, ${modelName}`
-                      : (brandName || modelName || '');
-                    const machineNumber = resolveMachineNumFromStock(item);
-                    const machineStatus = item?.machine_status ?? item?.machineStatus ?? 'Working';
-                    const inchargeName = inchargeObj?.label || '';
-                    const { date, time } = formatDateTime(item?.created_date_time || item?.createdDateTime || item?.timestamp || '');
-                    const categoryName = categoryObj?.value || categoryObj?.label || (item?.category_name || item?.categoryName || '');
-                    const quantity = item?.quantity || item?.qty || '';
-                    return (
-                      <div key={item.id || index} className="bg-white border border-gray-200 rounded-lg px-4 py-1.5 cursor-pointer hover:shadow-md transition-shadow mb-1.5" onClick={() => handleSelectSearchItem(item)}>
-                        <div className="flex justify-between items-start h-full">
-                          <div className="flex-1 flex flex-col">
-                            <div className="mb-0.5">
-                              <p className="text-[14px] font-semibold text-black">{itemName}</p>
+                  <div className="" key="search-results">
+                    {filtered.map((item, index, entry) => {
+                      const itemNameObj = toolsItemNameListData.find(
+                        i => String(i?.id) === String(item?.item_name_id ?? item?.itemNameId)
+                      );
+                      const itemIdObj = toolsItemIdFullData.find(
+                        i => String(i?.id) === String(item?.item_ids_id ?? item?.itemIdsId)
+                      );
+                      const brandObj = toolsBrandFullData.find(
+                        i => String(i?.id) === String(item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId)
+                      );
+                      const inchargeObj = inchargeOptions.find(
+                        i => String(i?.id) === String(item?.project_incharge_id ?? item?.projectInchargeId)
+                      );
+                      const categoryObj = categoryOptions.find(
+                        i => String(i?.id) === String(item?.category_id ?? item?.categoryId)
+                      );
+                      const itemName = itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown';
+                      const itemIdName = itemIdObj?.item_id || itemIdObj?.itemId || '';
+                      const brandName = brandObj?.tools_brand || brandObj?.toolsBrand || '';
+                      const modelName = (item?.model || '').trim();
+                      const brandModelText = brandName && modelName
+                        ? `${brandName}, ${modelName}`
+                        : (brandName || modelName || '');
+                      const machineNumber = resolveMachineNumFromStock(item);
+                      const machineStatus = item?.machine_status ?? item?.machineStatus ?? 'Working';
+                      const inchargeName = inchargeObj?.label || '';
+                      const { date, time } = formatDateTime(item?.created_date_time || item?.createdDateTime || item?.timestamp || '');
+                      const categoryName = categoryObj?.value || categoryObj?.label || (item?.category_name || item?.categoryName || '');
+                      const quantity = item?.quantity || item?.qty || '';
+                      return (
+                        <div key={item.id || index} className="bg-white border border-gray-200 rounded-lg px-[16px] py-[6px] cursor-pointer hover:shadow-md transition-shadow mb-1.5" onClick={() => handleSelectSearchItem(item)}>
+                          <div className="flex flex-col">
+                            <div className="flex justify-between items-start mb-0.5">
+                              <p className="text-[14px] font-semibold text-black flex-1 min-w-0 pr-2">{itemName}</p>
+                              {itemIdName && <p className="text-[13px] font-medium text-black flex-shrink-0">{itemIdName}</p>}
                             </div>
-                            {machineNumber && (
-                              <div className="mb-0.5">
-                                <p className="text-[12px] text-[#848484]">{machineNumber}</p>
-                              </div>
-                            )}
-                            {brandName && (
-                              <div className="mb-0.5">
-                                <p className="text-[13px] text-black">{brandName}</p>
-                              </div>
-                            )}
-                            {categoryName && (
-                              <div className="mb-0.5">
-                                <p className="text-[12px] text-blue-600 line-through decoration-blue-600">{categoryName}</p>
-                              </div>
-                            )}
-                            {date && time && (
-                              <div className="mt-auto">
-                                <p className="text-[11px] text-[#848484] leading-snug truncate flex-1 min-w-0">
-                                  {date} • {time}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-col items-end ml-4 h-full">
-                            <div className="mb-0.5 h-[20px]"></div>
-                            {itemIdName && (
-                              <div className="mb-0.5">
-                                <p className="text-[13px] font-medium text-black">{itemIdName}</p>
-                              </div>
-                            )}
-                            <div className="mb-0.5 flex items-center gap-1">
-                              <p className={`text-[12px] font-medium ${machineStatus === 'Working' ? 'text-[#4CAF50]' :
-                                machineStatus === 'Not Working' ? 'text-[#F44336]' :
+                            <div className="flex justify-between items-start mb-0.5">
+                              <p className="text-[12px] text-[#575757] flex-1 min-w-0 pr-2">{machineNumber || '-'}</p>
+                              <p className={`text-[12px] font-medium flex-shrink-0 ${machineStatus === 'Working' ? 'text-[#007233]' :
+                                machineStatus === 'Not Working' ? 'text-[#E4572E]' :
                                   'text-[#FF9800]'
                                 }`}>
                                 • {machineStatus}
                               </p>
                             </div>
-                            {quantity && (
-                              <div className="mb-0.5">
-                                <p className="text-[13px] text-black">{quantity}</p>
-                              </div>
-                            )}
-                            {inchargeName && (
-                              <div className="mt-auto">
-                                <p className="text-[12px] font-medium text-black">{inchargeName}</p>
+                            <div className="flex justify-between items-start mb-0.5">
+                              <p className="text-[13px] text-black flex-1 font-medium min-w-0 pr-2">{brandModelText}</p>
+                              {inchargeName && <p className="text-[12px] font-medium text-black flex-shrink-0">{inchargeName}</p>}
+                            </div>
+                            {date && time && (
+                              <div className="flex justify-between items-start">
+                                <p className="text-[11px] text-[#575757] leading-snug truncate flex-1 min-w-0">{date} • {time}</p>
+                                <span className="flex-shrink-0"></span>
                               </div>
                             )}
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
                 );
               })()}
             </div>
@@ -6055,10 +5999,10 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showSearchConfirmModal && selectedSearchItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={handleCancelSearchConfirm}
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]" onClick={handleCancelSearchConfirm}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
-          <div className="bg-white w-full max-w-[320px] rounded-[16px] p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-[320px] rounded-[16px] p-[24px] shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-center mb-4">
               <div className="w-[60px] h-[60px] rounded-full bg-[#E8F5E9] flex items-center justify-center">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -6072,7 +6016,7 @@ const Transfer = ({ user }) => {
             <p className="text-[13px] text-[#666666] text-center mb-6 leading-relaxed">
               Do you Want to Confirm Move the machine please upload Image
             </p>
-            <div className="flex gap-3">
+            <div className="flex gap-[12px]">
               <button onClick={handleCancelSearchConfirm}
                 className="flex-1 h-[44px] border border-gray-300 rounded-[8px] text-[14px] font-semibold text-black bg-white hover:bg-gray-50 transition-colors"
               >
@@ -6088,11 +6032,11 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showSearchUploadModal && selectedSearchItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={handleCloseSearchUploadModal}
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]" onClick={handleCloseSearchUploadModal}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div className="bg-white w-full max-w-[360px] rounded-[16px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 pt-5 pb-2 flex-shrink-0">
+            <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[8px] flex-shrink-0">
               <div>
                 <p className="text-[16px] font-semibold text-black">Upload and Attach files</p>
                 <p className="text-[12px] text-gray-500">Attachments will be of this Transfer</p>
@@ -6102,7 +6046,7 @@ const Transfer = ({ user }) => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none">
-              <div className="px-6 py-4">
+              <div className="px-[24px] py-[16px]">
                 <label htmlFor="search-file-upload-input"
                   className="flex flex-col items-center justify-center w-full h-[100px] border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                 >
@@ -6124,12 +6068,12 @@ const Transfer = ({ user }) => {
                 />
               </div>
               {searchUploadFiles.length > 0 && (
-                <div className="px-6 pb-4">
+                <div className="px-[24px] pb-[16px]">
                   <p className="text-[12px] font-medium text-black mb-2">File Uploading</p>
                   <div className="space-y-2 max-h-[150px] overflow-y-auto no-scrollbar scrollbar-none">
                     {searchUploadFiles.map((fileItem) => (
-                      <div key={fileItem.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div key={fileItem.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-[12px]">
+                        <div className="flex items-center gap-[12px] flex-1 min-w-0">
                           <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -6142,7 +6086,7 @@ const Transfer = ({ user }) => {
                             <p className="text-[10px] text-gray-500">{(fileItem.size / (1024 * 1024)).toFixed(2)} MB</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-[12px]">
                           <button onClick={() => handleDeleteSearchUploadFile(fileItem.id)} className="text-red-500 hover:text-red-700">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -6156,11 +6100,11 @@ const Transfer = ({ user }) => {
                   </div>
                 </div>
               )}
-              <div className="px-6 pb-4">
+              <div className="px-[24px] pb-[8px]">
                 <p className="text-[12px] font-medium text-black mb-2">Status</p>
                 <div className="relative">
                   <div onClick={() => setShowSearchStatusDropdown(!showSearchStatusDropdown)}
-                    className="w-full h-[40px] border border-gray-300 rounded-lg px-4 flex items-center justify-between cursor-pointer bg-white"
+                    className="w-full h-[40px] border border-gray-300 rounded-lg px-[16px] flex items-center justify-between cursor-pointer bg-white"
                   >
                     <span className="text-[14px] text-black">{searchUploadStatus || 'Select'}</span>
                     <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -6176,7 +6120,7 @@ const Transfer = ({ user }) => {
                             setSearchUploadStatus(status);
                             setShowSearchStatusDropdown(false);
                           }}
-                          className={`w-full px-4 py-2 text-left text-[14px] hover:bg-gray-100 ${searchUploadStatus === status ? 'bg-gray-50 font-semibold' : ''
+                          className={`w-full px-[16px] py-[8px] text-left text-[14px] hover:bg-gray-100 ${searchUploadStatus === status ? 'bg-gray-50 font-semibold' : ''
                             }`}
                         >
                           {status}
@@ -6186,17 +6130,17 @@ const Transfer = ({ user }) => {
                   )}
                 </div>
               </div>
-              <div className="px-6 pb-4">
-                <p className="text-[12px] font-medium text-black mb-2">Description</p>
+              <div className="px-[24px] ">
+                <p className="text-[12px] font-medium text-black mb-[2px]">Description</p>
                 <textarea
                   value={searchUploadDescription}
                   onChange={(e) => setSearchUploadDescription(e.target.value)}
                   placeholder="Enter"
-                  className="w-full h-[80px] border border-gray-300 rounded-lg px-4 py-3 text-[14px] text-black placeholder-gray-400 resize-none focus:outline-none focus:border-gray-400"
+                  className="w-full h-[80px] border border-gray-300 rounded-lg px-[16px] py-[12px] text-[14px] text-black placeholder-gray-400 resize-none focus:outline-none focus:border-gray-400"
                 />
               </div>
             </div>
-            <div className="px-6 pb-6 pt-2 flex-shrink-0">
+            <div className="px-[24px] pb-[24px] pt-[8px] flex-shrink-0">
               <button
                 onClick={handleConfirmSearchUpload}
                 disabled={!searchUploadStatus || (entryServiceMode === 'Service' && searchUploadFiles.length === 0)}
@@ -6212,9 +6156,9 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {customAlert.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[120] flex items-center justify-center p-4" onClick={closeCustomAlert} style={{ fontFamily: "'Manrope', sans-serif" }}>
-          <div className="bg-white w-full max-w-[360px] rounded-[16px] p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-3">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[120] flex items-center justify-center p-[16px]" onClick={closeCustomAlert} style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white w-full max-w-[360px] rounded-[16px] p-[20px] shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-[12px] mb-3">
               <div className="w-10 h-10 rounded-full bg-[#FFF4F0] flex items-center justify-center">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -6227,7 +6171,7 @@ const Transfer = ({ user }) => {
             </p>
             <div className="mt-5 flex justify-end">
               <button onClick={closeCustomAlert}
-                className="min-w-[88px] h-[38px] px-5 rounded-full bg-[#8A4B2D] text-white text-[14px] font-semibold hover:opacity-90 transition-opacity"
+                className="min-w-[88px] h-[38px] px-[20px] rounded-full bg-[#8A4B2D] text-white text-[14px] font-semibold hover:opacity-90 transition-opacity"
               >
                 OK
               </button>

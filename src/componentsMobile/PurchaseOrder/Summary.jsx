@@ -30,7 +30,7 @@ const Summary = () => {
   useEffect(() => {
     const fetchVendors = async () => {
       try {
-        const res = await fetch('http://localhost:8081/api/vendor_Names/getAll');
+        const res = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll');
         if (res.ok) {
           const data = await res.json();
           setAllVendors(data);
@@ -45,7 +45,7 @@ const Summary = () => {
     };
     const fetchProjects = async () => {
       try {
-        const res = await fetch('http://localhost:8081/api/project_Names/getAll', {
+        const res = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/getAll', {
           method: 'GET',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
@@ -72,7 +72,7 @@ const Summary = () => {
       return;
     }
     try {
-      const response = await fetch('http://localhost:8082/api/purchase_orders/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
       if (!response.ok) {
         throw new Error('Failed to fetch purchase orders');
       }
@@ -197,7 +197,7 @@ const Summary = () => {
     setShowDatePicker(false);
   };
   return (
-    <div className="w-full px-4" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="w-full px-[16px]" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Header Section - Sticky */}
       <div className="sticky top-[100px] z-30 bg-white">
         {/* Date Display - Clickable */}
@@ -211,7 +211,7 @@ const Summary = () => {
           </button>
         </div>
         {/* Segmented Control (Vendor/Project) */}
-        <div className="mb-2 flex items-center bg-[#F5F5F5] rounded-[8px] p-1 w-[328px]">
+        <div className="mb-2 flex items-center bg-[#F5F5F5] rounded-[8px] p-[4px] w-[328px]">
           <button
             onClick={() => setViewMode('vendor')}
             className={`flex-1 h-[32px] rounded-[6px] text-[12px] font-medium transition-colors ${viewMode === 'vendor'
@@ -241,7 +241,7 @@ const Summary = () => {
               <div className="relative">
                 <div
                   onClick={() => setShowVendorModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: selectedVendor ? '#000' : '#9E9E9E'
@@ -285,7 +285,7 @@ const Summary = () => {
               <div className="relative">
                 <div
                   onClick={() => setShowProjectModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: selectedProject ? '#000' : '#9E9E9E'
@@ -326,7 +326,7 @@ const Summary = () => {
       {summaryData.length > 0 && (
         <div className="bg-white shadow-lg w-[328px]">
           {/* Header */}
-          <div className="flex items-center justify-between px-4">
+          <div className="flex items-center justify-between px-[16px]">
             <p className="text-[12px] font-semibold text-[#9E9E9E]">
               {viewMode === 'vendor' ? 'Project List' : 'Vendor List'}
             </p>
@@ -337,7 +337,7 @@ const Summary = () => {
             {summaryData.map((item, index) => (
               <div
                 key={index}
-                className={`flex items-center justify-between px-4 py-3 ${index < summaryData.length - 1 ? 'border-b border-[rgba(0,0,0,0.08)]' : ''
+                className={`flex items-center justify-between px-[16px] py-[12px] ${index < summaryData.length - 1 ? 'border-b border-[rgba(0,0,0,0.08)]' : ''
                   }`}
               >
                 <p className="text-[12px] font-medium text-black flex-1 text-left">
@@ -353,7 +353,7 @@ const Summary = () => {
       )}
       {/* Empty State */}
       {((viewMode === 'vendor' && selectedVendor) || (viewMode === 'project' && selectedProject)) && summaryData.length === 0 && (
-        <div className="bg-white rounded- border border-[rgba(0,0,0,0.16)] w-[328px] p-8 text-center">
+        <div className="bg-white rounded- border border-[rgba(0,0,0,0.16)] w-[328px] p-[32px] text-center">
           <p className="text-[12px] font-medium text-[#9E9E9E]">
             No {viewMode === 'vendor' ? 'projects' : 'vendors'} found
           </p>

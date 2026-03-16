@@ -296,7 +296,7 @@ const SearchableDropdown = ({
             setIsOpen(true);
             setSearchQuery(''); // Clear search to show all options including selected one
           }}
-          className={`${className || 'w-full h-[32px]'} border border-[rgba(0,0,0,0.16)] rounded pl-3 text-[12px] font-medium text-black bg-white focus:outline-none`}
+          className={`${className || 'w-full h-[32px]'} border border-[rgba(0,0,0,0.16)] rounded pl-[12px] text-[12px] font-medium text-black bg-white focus:outline-none`}
           style={{ 
             boxSizing: 'border-box',
             paddingRight: value ? '40px' : '40px'
@@ -345,7 +345,7 @@ const SearchableDropdown = ({
       {/* Dropdown Menu - Always show as popup modal */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 -top-4 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 -top-[16px] flex items-center justify-center p-[16px]"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsOpen(false);
@@ -355,7 +355,7 @@ const SearchableDropdown = ({
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center px-6 pt-5">
+            <div className="flex justify-between items-center px-[24px] pt-[20px]">
               <p className="text-[16px] font-semibold text-black">Select {fieldName}</p>
               <button onClick={() => {
                 setIsOpen(false);
@@ -364,14 +364,14 @@ const SearchableDropdown = ({
                 <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
               </button>
             </div>
-            <div className="px-6 pt-4 pb-4">
+            <div className="px-[24px] pt-[16px] pb-[16px]">
               <div className="relative">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search"
-                  className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                  className="w-full h-[32px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                   autoFocus
                 />
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -382,7 +382,7 @@ const SearchableDropdown = ({
                 </div>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6">
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px]">
               <div className="shadow-md rounded-lg overflow-hidden">
                 {/* Create New Option - Show when typing something that doesn't exist */}
                 {canCreateNew && (
@@ -390,7 +390,7 @@ const SearchableDropdown = ({
                     onClick={() => {
                       handleCreateNewFromSearch();
                     }}
-                    className="w-full px-6 flex items-center gap-3 transition-colors hover:bg-[#F5F5F5]"
+                    className="w-full px-[24px] flex items-center gap-[12px] transition-colors hover:bg-[#F5F5F5]"
                     style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                   >
                     <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -410,7 +410,7 @@ const SearchableDropdown = ({
                         onClick={() => {
                           setShowAddInput(true);
                         }}
-                        className="w-full px-6 flex items-center gap-3 transition-colors hover:bg-[#F5F5F5]"
+                        className="w-full px-[24px] flex items-center gap-[12px] transition-colors hover:bg-[#F5F5F5]"
                         style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                       >
                         <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -421,18 +421,18 @@ const SearchableDropdown = ({
                         <p className="text-[12px] font-medium text-black">Add New {fieldName}</p>
                       </button>
                     ) : (
-                      <div className="p-4 border-b border-[rgba(0,0,0,0.16)]">
+                      <div className="p-[16px] border-b border-[rgba(0,0,0,0.16)]">
                         <input
                           type="text"
                           value={newOption}
                           onChange={(e) => setNewOption(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && handleAddNew()}
-                          className="w-full h-[36px] border border-[rgba(0,0,0,0.16)] rounded-[6px] px-3 text-[12px] font-medium text-black bg-white mb-2"
+                          className="w-full h-[36px] border border-[rgba(0,0,0,0.16)] rounded-[6px] px-[12px] text-[12px] font-medium text-black bg-white mb-2"
                           placeholder={`Enter new ${fieldName.toLowerCase()}`}
                           autoFocus
                           onClick={(e) => e.stopPropagation()}
                         />
-                        <div className="flex gap-2">
+                        <div className="flex gap-[8px]">
                           <button
                             onClick={() => {
                               handleAddNew();
@@ -488,7 +488,7 @@ const SearchableDropdown = ({
                             e.stopPropagation();
                             handleSelect(option);
                           }}
-                          className={`w-full px-6 flex items-center gap-3 transition-colors ${
+                          className={`w-full px-[24px] flex items-center gap-[12px] transition-colors ${
                             isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                           }`}
                           style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
@@ -509,7 +509,7 @@ const SearchableDropdown = ({
                     })}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-4">
+                  <div className="flex flex-col items-center justify-center py-[16px]">
                     <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
                       {searchQuery ? 'No options found' : 'No options available'}
                     </p>
@@ -529,7 +529,7 @@ const SearchableDropdown = ({
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div 
-            className="bg-white w-full max-w-[360px] mx-4 rounded-[16px] p-6 shadow-lg"
+            className="bg-white w-full max-w-[360px] mx-4 rounded-[16px] p-[24px] shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
@@ -546,7 +546,7 @@ const SearchableDropdown = ({
               Do you want to create "{pendingNewValue}" as a new {fieldName.toLowerCase()}?
             </p>
             
-            <div className="flex gap-4">
+            <div className="flex gap-[16px]">
               <button
                 onClick={handleCancelCreate}
                 className="flex-1 h-[40px] border border-black rounded-[8px] text-[14px] font-bold text-black bg-white hover:bg-gray-50 transition-colors"

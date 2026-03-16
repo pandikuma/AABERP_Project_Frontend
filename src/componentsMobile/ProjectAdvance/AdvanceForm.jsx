@@ -156,7 +156,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
   useEffect(() => {
     const fetchVendorNames = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/vendor_Names/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -185,7 +185,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
   useEffect(() => {
     const fetchContractorNames = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/contractor_Names/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -214,7 +214,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
   useEffect(() => {
     const fetchSites = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -273,7 +273,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/expenses_categories/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -300,7 +300,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
   // Fetch latest ENo
   const fetchLatestEno = async () => {
     try {
-      const response = await fetch('http://localhost:8081/expenses_form/get_form');
+      const response = await fetch('https://backendaab.in/aabuilderDash/expenses_form/get_form');
       if (!response.ok) {
         throw new Error('Failed to fetch ENo');
       }
@@ -324,7 +324,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
   useEffect(() => {
     const fetchAccountDetails = async () => {
       try {
-        const response = await fetch("http://localhost:8082/api/account-details/getAll", {
+        const response = await fetch("https://backendaab.in/aabuildersDash/api/account-details/getAll", {
           method: "GET",
           credentials: "include",
           headers: { "Content-Type": "application/json" }
@@ -342,7 +342,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
   // Fetch advance data (use branch URL so list matches History and filter works)
   const fetchAdvanceData = async () => {
     try {
-      const response = await fetch(withBranchUrl('http://localhost:8082/api/advance_portal/getAll'));
+      const response = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/getAll'));
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
@@ -420,7 +420,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
       return;
     }
     try {
-      const response = await fetch(withBranchUrl('http://localhost:8082/api/advance_portal/getAll'));
+      const response = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/getAll'));
       if (!response.ok) throw new Error('Failed to fetch data');
       const data = await response.json();
       const vid = Number(selected.id);
@@ -471,7 +471,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
       return;
     }
     try {
-      const response = await fetch(withBranchUrl('http://localhost:8082/api/advance_portal/getAll'));
+      const response = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/getAll'));
       if (!response.ok) throw new Error('Failed to fetch advance portal data');
       const data = await response.json();
       run(data);
@@ -569,7 +569,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
     const dateStr = checkDate ? new Date(checkDate).toISOString().split('T')[0] : '';
 
     try {
-      const response = await fetch(withBranchUrl('http://localhost:8081/expenses_form/get_form'));
+      const response = await fetch(withBranchUrl('https://backendaab.in/aabuilderDash/expenses_form/get_form'));
       if (!response.ok) return [];
       const allExpenses = await response.json();
 
@@ -636,7 +636,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
           const finalName = `${formatDateOnly(dateValue)} ${selectedSite.sNo} ${selectedOption.label}`;
           formData.append('file', selectedAdvanceFile);
           formData.append('file_name', finalName);
-          const uploadResponse = await fetch("http://localhost:8081/expenses/googleUploader/uploadToGoogleDrive", {
+          const uploadResponse = await fetch("https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
             method: "POST",
             body: formData,
           });
@@ -652,7 +652,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
           return;
         }
       }
-      const res = await fetch('http://localhost:8082/api/advance_portal/getAll');
+      const res = await fetch('https://backendaab.in/aabuildersDash/api/advance_portal/getAll');
       if (!res.ok) throw new Error('Failed to fetch entry numbers');
       const allData = await res.json();
       const maxEntryNo = allData.length > 0 ? Math.max(...allData.map(item => item.entry_no || 0)) : 0;
@@ -700,7 +700,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             file_url: "",
             branch_id: activeBranchId
           };
-          const loanResponse = await fetch(withBranchUrl("http://localhost:8082/api/loans/save"), {
+          const loanResponse = await fetch(withBranchUrl("https://backendaab.in/aabuildersDash/api/loans/save"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(loanPayload)
@@ -714,7 +714,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             amount: -Math.abs(amountValue),
             loan_portal_id: loanPortalId
           });
-          await fetch(withBranchUrl('http://localhost:8082/api/advance_portal/save'), {
+          await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(advancePayload)
@@ -729,7 +729,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             bill_amount: 0,
             refund_amount: 0
           };
-          const vendorCarryForwardResponse = await fetch("http://localhost:8082/api/vendor_carry_forward/save", {
+          const vendorCarryForwardResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/save", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(vendorCarryForwardPayload)
@@ -743,7 +743,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             amount: -Math.abs(amountValue),
             vendor_carry_forward_id: vendorCarryForwardId
           });
-          await fetch(withBranchUrl('http://localhost:8082/api/advance_portal/save'), {
+          await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(advancePayload)
@@ -756,12 +756,12 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             amount: Math.abs(amountValue)
           });
           await Promise.all([
-            fetch(withBranchUrl('http://localhost:8082/api/advance_portal/save'), {
+            fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(firstPayload)
             }),
-            fetch(withBranchUrl('http://localhost:8082/api/advance_portal/save'), {
+            fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(secondPayload)
@@ -770,7 +770,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
         }
       } else {
         const payload = createPayload();
-        await fetch(withBranchUrl('http://localhost:8082/api/advance_portal/save'), {
+        await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -802,7 +802,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             source: "Advance Portal",
             branchId: activeBranchId,
           };
-          const expensesResponse = await fetch(withBranchUrl("http://localhost:8081/expenses_form/save"), {
+          const expensesResponse = await fetch(withBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/save"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -962,7 +962,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
         const finalName = `${formatDateOnly(paymentModalData.date)} ${selectedSite.sNo} ${selectedOption.label}`;
         formData.append('file', selectedAdvanceFile);
         formData.append('file_name', finalName);
-        const uploadResponse = await fetch("http://localhost:8081/expenses/googleUploader/uploadToGoogleDrive", {
+        const uploadResponse = await fetch("https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
           method: "POST",
           body: formData,
         });
@@ -970,7 +970,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
         const uploadResult = await uploadResponse.json();
         fileUrl = uploadResult.url;
       }
-      const res = await fetch(withBranchUrl('http://localhost:8082/api/advance_portal/getAll'));
+      const res = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/getAll'));
       if (!res.ok) throw new Error('Failed to fetch entry numbers');
       const allData = await res.json();
       const maxEntryNo = allData.length > 0 ? Math.max(...allData.map(item => item.entry_no || 0)) : 0;
@@ -995,7 +995,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
         file_url: fileUrl,
         branch_id: activeBranchId,
       };
-      const advanceResponse = await fetch(withBranchUrl('http://localhost:8082/api/advance_portal/save'), {
+      const advanceResponse = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/advance_portal/save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(advancePayload)
@@ -1026,7 +1026,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
         account_number: paymentModalData.accountNumber || null,
         branch_id: activeBranchId
       };
-      const weeklyResponse = await fetch(withBranchUrl('http://localhost:8082/api/weekly-payment-bills/save'), {
+      const weeklyResponse = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(weeklyPaymentBillPayload)
@@ -1057,7 +1057,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
           source: "Advance Portal",
           branchId: activeBranchId,
         };
-        const expensesResponse = await fetch(withBranchUrl("http://localhost:8081/expenses_form/save"), {
+        const expensesResponse = await fetch(withBranchUrl("https://backendaab.in/aabuilderDash/expenses_form/save"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(expensesPayload),
@@ -1168,14 +1168,14 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
 
   return (
     <div
-      className="px-4 flex flex-col flex-1 min-h-0 overflow-hidden"
+      className="px-[16px] flex flex-col flex-1 min-h-0 overflow-hidden"
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
       {/* Form section - no scroll */}
       <div className="flex-shrink-0">
       {/* Advance Number and Date */}
-      <div className="mb-2 items-center border-b border-gray-200 pb-1 mt-1.5 flex justify-between">
-        <div className="flex items-center gap-2 mt-0.5">
+      <div className="mb-2 items-center border-b border-gray-200 pb-[4px] mt-1.5 flex justify-between">
+        <div className="flex items-center gap-[8px] mt-0.5">
           <button
             type="button"
             className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
@@ -1210,7 +1210,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
           <div className="relative">
             <div
               onClick={() => setShowContractorVendorModal(true)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
               style={{
                 boxSizing: 'border-box',
                 color: selectedOption ? '#000' : '#9E9E9E'
@@ -1250,7 +1250,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
           <div className="relative">
             <div
               onClick={() => setShowProjectModal(true)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
               style={{
                 boxSizing: 'border-box',
                 color: selectedSite ? '#000' : '#9E9E9E'
@@ -1297,7 +1297,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                     setBillAmount(rawValue);
                   }
                 }}
-                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-3 text-[12px] font-medium bg-white focus:outline-none"
+                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
                 style={{
                   boxSizing: 'border-box',
                   color: billAmount ? '#000' : '#9E9E9E'
@@ -1316,7 +1316,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             <div className="relative">
               <div
                 onClick={() => setShowCategoryModal(true)}
-                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                 style={{
                   boxSizing: 'border-box',
                   color: selectedCategory ? '#000' : '#9E9E9E'
@@ -1358,7 +1358,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
               <div className="relative">
                 <div
                   onClick={() => setShowTransferSiteModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: transferSiteId ? '#000' : '#9E9E9E'
@@ -1398,7 +1398,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                   type="text"
                   value={formatWithCommas(advanceAmount)}
                   onChange={handleAmountChange}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-3 text-[12px] font-medium bg-white focus:outline-none"
+                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
                   style={{
                     boxSizing: 'border-box',
                     color: advanceAmount ? '#000' : '#9E9E9E'
@@ -1419,7 +1419,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                   type="text"
                   value={formatWithCommas(advanceAmount)}
                   onChange={handleAmountChange}
-                  className="w-[160px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-3 text-[12px] font-medium bg-white focus:outline-none"
+                  className="w-[160px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
                   style={{
                     boxSizing: 'border-box',
                     color: advanceAmount ? '#000' : '#9E9E9E'
@@ -1436,7 +1436,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
               <div className="relative">
                 <div
                   onClick={() => setShowPaymentModeModal(true)}
-                  className="w-[160px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[160px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: paymentMode ? '#000' : '#9E9E9E'
@@ -1474,7 +1474,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             Description
           </p>
           <textarea
-            className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-3 pt-1 items-center text-[12px] font-medium bg-white focus:outline-none"
+            className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] pt-[4px] items-center text-[12px] font-medium bg-white focus:outline-none"
             placeholder="Type Here"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -1486,7 +1486,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
         </div>
       </div>
       {/* Attach File - same pattern as AdvancePortal: label wraps clickable area */}
-      <div className="flex flex-wrap items-center gap-x-2 mb-1 gap-y-1 w-full max-w-[328px]">
+      <div className="flex flex-wrap items-center gap-x-[8px] mb-1 gap-y-[4px] w-full max-w-[328px]">
         <input
           type="file"
           id="fileInput"
@@ -1497,7 +1497,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
         />
         <label
           htmlFor="fileInput"
-          className="cursor-pointer flex items-center gap-0.5 text-orange-600 hover:text-orange-700 active:opacity-80 flex-shrink-0"
+          className="cursor-pointer flex items-center gap-[2px] text-orange-600 hover:text-orange-700 active:opacity-80 flex-shrink-0"
         >
           <img className='w-4 h-3' alt='#' src={Attach}></img>
           <span className="text-[12px] font-medium underline">Attach File</span>
@@ -1525,7 +1525,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
       {/* Advance Records - only this section scrolls */}
       <div className="mt-3 w-full max-w-[328px] flex-1 min-h-0 flex flex-col">
         {!selectedOption || !selectedSite ? (
-          <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-4 py-6 text-center">
+          <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
             <p className="text-[12px] font-medium text-[#9E9E9E]">
               Please select a contractor/vendor and project to view advance records.
             </p>
@@ -1551,7 +1551,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             });
           if (filteredEntries.length === 0) {
             return (
-              <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-4 py-6 text-center">
+              <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
                 <p className="text-[12px] font-medium text-[#9E9E9E]">
                   No records found for the selected contractor/vendor and project.
                 </p>
@@ -1607,10 +1607,10 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                 return (
                   <div
                     key={entry.advancePortalId || index}
-                    className="bg-white border border-[#E0E0E0] border-opacity-30 rounded-[8px] px-3 py-2 shadow-lg flex justify-between items-start gap-2"
+                    className="bg-white border border-[#E0E0E0] border-opacity-30 rounded-[8px] px-[12px] py-[8px] shadow-lg flex justify-between items-start gap-[8px]"
                   >
                     {/* Left side: Transaction ID and additional info */}
-                    <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    <div className="flex flex-col gap-[4px] flex-1 min-w-0">
                       <p className="text-[12px] font-semibold text-black">
                         {transactionId}
                       </p>
@@ -1627,10 +1627,10 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                     </div>
                     
                     {/* Right side: Payment Mode and Amount(s) */}
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <div className="flex flex-col items-end gap-[4px] flex-shrink-0">
                       {(payment_mode || (type === 'Transfer' && !payment_mode)) && (
                         <span
-                          className={`inline-block text-[10px] font-medium pl-2 pr-2 rounded-full ${
+                          className={`inline-block text-[10px] font-medium pl-[8px] pr-[8px] rounded-full ${
                             type === 'Transfer'
                               ? 'bg-[#FFF3E0] text-black'
                               : type === 'Bill Settlement'
@@ -1677,7 +1677,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
       {/* Select Type Modal */}
       {showTypeModal && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]"
           onClick={() => {
             setShowTypeModal(false);
             setTypeSearchQuery('');
@@ -1689,7 +1689,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex justify-between items-center px-6 pt-5">
+            <div className="flex justify-between items-center px-[24px] pt-[20px]">
               <p className="text-[16px] font-semibold text-black">Select Type</p>
               <button
                 onClick={() => {
@@ -1705,14 +1705,14 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             </div>
 
             {/* Search Bar */}
-            <div className="px-6 pt-4 pb-4">
+            <div className="px-[24px] pt-[16px] pb-[16px]">
               <div className="relative">
                 <input
                   type="text"
                   value={typeSearchQuery}
                   onChange={(e) => setTypeSearchQuery(e.target.value)}
                   placeholder="Search"
-                  className="w-full h-[32px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                  className="w-full h-[32px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
                   autoFocus
                 />
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -1725,7 +1725,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             </div>
 
             {/* Options List */}
-            <div className="flex-1 overflow-y-auto mb-4 px-6 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex-1 overflow-y-auto mb-4 px-[24px] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <div className="shadow-md rounded-lg overflow-hidden">
                 {(['Advance', 'Bill Settlement', 'Transfer', 'Refund']
                   .filter(type => type.toLowerCase().includes(typeSearchQuery.toLowerCase()))
@@ -1740,11 +1740,11 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                           setShowTypeModal(false);
                           setTypeSearchQuery('');
                         }}
-                        className={`w-full h-[40px] px-6 flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                        className={`w-full h-[40px] px-[24px] flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                           }`}
                       >
                         {/* Left: Option Text */}
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="flex items-center gap-[12px] flex-1 min-w-0">
                           <p className="text-[14px] font-medium text-black text-left truncate">{type}</p>
                         </div>
 
@@ -1878,7 +1878,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
       {/* Payment Details Bottom Sheet - for Net Banking, Online UPI (GPay/PhonePe), Cheque */}
       {showPaymentDetailsBottomSheet && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center px-0"
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center px-[0px]"
           onClick={() => !isSubmitting && setShowPaymentDetailsBottomSheet(false)}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
@@ -1886,7 +1886,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] shadow-lg max-h-[80vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center px-4 pt-4 pb-2 border-b border-[rgba(0,0,0,0.08)]">
+            <div className="flex justify-between items-center px-[16px] pt-[16px] pb-[8px] border-b border-[rgba(0,0,0,0.08)]">
               <p className="text-[16px] font-semibold text-black">Payment Details</p>
               <button
                 type="button"
@@ -1898,24 +1898,24 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                 </svg>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-[16px] py-[16px] space-y-4">
               {/* Date, Amount, Payment Mode - readonly */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-[8px]">
                 <div>
                   <p className="text-[11px] font-semibold text-black mb-1">Date</p>
-                  <div className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
+                  <div className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
                     {paymentModalData.date ? new Date(paymentModalData.date).toLocaleDateString('en-GB') : '-'}
                   </div>
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold text-black mb-1">Amount</p>
-                  <div className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
+                  <div className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
                     {paymentModalData.amount ? `₹${Number(paymentModalData.amount).toLocaleString('en-IN')}` : '-'}
                   </div>
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold text-black mb-1">Payment Mode</p>
-                  <div className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
+                  <div className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
                     {paymentModalData.paymentMode || '-'}
                   </div>
                 </div>
@@ -1923,7 +1923,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
 
               {/* Cheque fields - only for Cheque */}
               {paymentModalData.paymentMode === 'Cheque' && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-[12px]">
                   <div>
                     <p className="text-[12px] font-semibold text-black mb-1">Cheque No<span className="text-[#eb2f8e]">*</span></p>
                     <input
@@ -1931,14 +1931,14 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                       value={paymentModalData.chequeNo}
                       onChange={(e) => setPaymentModalData(prev => ({ ...prev, chequeNo: e.target.value }))}
                       placeholder="Enter cheque number"
-                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 text-[12px] font-medium bg-white focus:outline-none"
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] text-[12px] font-medium bg-white focus:outline-none"
                     />
                   </div>
                   <div>
                     <p className="text-[12px] font-semibold text-black mb-1">Cheque Date<span className="text-[#eb2f8e]">*</span></p>
                     <div
                       onClick={() => setShowChequeDatePicker(true)}
-                      className="relative w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 flex items-center text-[12px] font-medium bg-white cursor-pointer"
+                      className="relative w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] flex items-center text-[12px] font-medium bg-white cursor-pointer"
                       style={{ color: paymentModalData.chequeDate ? '#000' : '#9E9E9E' }}
                     >
                       {paymentModalData.chequeDate
@@ -1965,7 +1965,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                   value={paymentModalData.transactionNumber}
                   onChange={(e) => setPaymentModalData(prev => ({ ...prev, transactionNumber: e.target.value }))}
                   placeholder="Enter transaction number"
-                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 text-[12px] font-medium bg-white focus:outline-none"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] text-[12px] font-medium bg-white focus:outline-none"
                 />
               </div>
 
@@ -1977,7 +1977,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                 <div className="relative">
                   <div
                     onClick={() => setShowAccountSelectModal(true)}
-                    className="relative w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    className="relative w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                     style={{ color: paymentModalData.accountNumber ? '#000' : '#9E9E9E' }}
                   >
                     {paymentModalData.accountNumber || 'Select Account'}
@@ -2030,7 +2030,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
               </div>
             </div>
 
-            <div className="flex gap-3 px-4 pb-6 pt-2 border-t border-[rgba(0,0,0,0.08)]">
+            <div className="flex gap-[12px] px-[16px] pb-[24px] pt-[8px] border-t border-[rgba(0,0,0,0.08)]">
               <button
                 type="button"
                 onClick={() => !isSubmitting && setShowPaymentDetailsBottomSheet(false)}
@@ -2053,9 +2053,9 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
 
       {/* Duplicate Entry Modal - card view matching page UI */}
       {showDuplicateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-[16px]">
           <div className="bg-white rounded-[12px] w-full max-w-[90vw] max-h-[85vh] shadow-lg flex flex-col">
-            <div className="px-4 py-3 border-b border-[#E0E0E0] flex-shrink-0">
+            <div className="px-[16px] py-[12px] border-b border-[#E0E0E0] flex-shrink-0">
               <div className="flex justify-between items-center">
                 <h3 className="text-base font-bold text-black">Possible Duplicate Entry</h3>
                 <button
@@ -2071,15 +2071,15 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                 Total: ₹{duplicateMatchedExpenses.reduce((s, i) => s + Number(i.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="flex-1 overflow-auto p-3 space-y-2">
+            <div className="flex-1 overflow-auto p-[12px] space-y-2">
               {duplicateMatchedExpenses.map((exp, idx) => (
                 <div
                   key={idx}
-                  className="bg-white border border-[#E0E0E0] border-opacity-30 rounded-[8px] px-3 py-3 shadow-lg border-l-4 border-l-[#BF9853]"
+                  className="bg-white border border-[#E0E0E0] border-opacity-30 rounded-[8px] px-[12px] py-[12px] shadow-lg border-l-4 border-l-[#BF9853]"
                 >
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-gray-600">
+                  <div className="flex justify-between items-start gap-[12px]">
+                    <div className="flex flex-col gap-[6px] flex-1 min-w-0">
+                      <div className="flex flex-wrap gap-x-[8px] gap-y-[2px] text-[11px] text-gray-600">
                         <span>{formatDate(exp.timestamp || exp.date)}</span>
                         <span>•</span>
                         <span>{formatDateOnly(exp.date)}</span>
@@ -2108,19 +2108,19 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                 </div>
               ))}
             </div>
-            <div className="bg-[#FAFAFA] border-t border-[#E0E0E0] px-4 py-3 flex justify-between items-center">
+            <div className="bg-[#FAFAFA] border-t border-[#E0E0E0] px-[16px] py-[12px] flex justify-between items-center">
               <span className="text-xs text-gray-600">Proceed anyway?</span>
-              <div className="flex gap-2">
+              <div className="flex gap-[8px]">
                 <button
                   type="button"
-                  className="px-3 py-1.5 text-sm bg-white border border-[rgba(0,0,0,0.16)] rounded font-medium"
+                  className="px-[12px] py-[6px] text-sm bg-white border border-[rgba(0,0,0,0.16)] rounded font-medium"
                   onClick={handleDuplicateCancel}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  className="px-3 py-1.5 text-sm bg-black text-white rounded font-medium"
+                  className="px-[12px] py-[6px] text-sm bg-black text-white rounded font-medium"
                   onClick={handleDuplicateIgnore}
                 >
                   Ignore & Continue

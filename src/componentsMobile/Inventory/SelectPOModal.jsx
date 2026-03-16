@@ -28,7 +28,7 @@ const SelectPOModal = ({ isOpen, onClose, onSelect, selectedValue, vendorName, v
       if (data.length === 0 && onFetchPOs) {
         data = await onFetchPOs();
       } else if (data.length === 0) {
-        const response = await fetch('http://localhost:8082/api/purchase_orders/getAll');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
         if (response.ok) {
           data = await response.json();
         }
@@ -109,11 +109,11 @@ const SelectPOModal = ({ isOpen, onClose, onSelect, selectedValue, vendorName, v
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-[16px]"
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white w-full max-w-[360px] rounded-[16px] p-4 max-h-[70vh] flex flex-col"
+        className="bg-white w-full max-w-[360px] rounded-[16px] p-[16px] max-h-[70vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -137,7 +137,7 @@ const SelectPOModal = ({ isOpen, onClose, onSelect, selectedValue, vendorName, v
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-[40px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none focus:border-[#e4572e]"
+            className="w-full h-[40px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none focus:border-[#e4572e]"
           />
         </div>
 
@@ -146,7 +146,7 @@ const SelectPOModal = ({ isOpen, onClose, onSelect, selectedValue, vendorName, v
           <p className="text-[14px] font-medium text-black mb-2">Non PO</p>
           <div
             onClick={() => handleSelect('')}
-            className={`flex items-center justify-between p-3 rounded-[8px] cursor-pointer transition-colors mb-2 ${
+            className={`flex items-center justify-between p-[12px] rounded-[8px] cursor-pointer transition-colors mb-2 ${
               !selectedValue || selectedValue === '' ? 'bg-[#FFF4E6]' : 'hover:bg-gray-50'
             }`}
           >
@@ -166,7 +166,7 @@ const SelectPOModal = ({ isOpen, onClose, onSelect, selectedValue, vendorName, v
         {/* PO Numbers List */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-[32px]">
               <p className="text-[14px] text-gray-500">Loading...</p>
             </div>
           ) : filteredPOs.length > 0 ? (
@@ -177,7 +177,7 @@ const SelectPOModal = ({ isOpen, onClose, onSelect, selectedValue, vendorName, v
                   <div
                     key={poNumber}
                     onClick={() => handleSelect(poNumber)}
-                    className={`flex items-center justify-between p-3 rounded-[8px] cursor-pointer transition-colors ${
+                    className={`flex items-center justify-between p-[12px] rounded-[8px] cursor-pointer transition-colors ${
                       isSelected ? 'bg-[#FFF4E6]' : 'hover:bg-gray-50'
                     }`}
                   >
@@ -196,7 +196,7 @@ const SelectPOModal = ({ isOpen, onClose, onSelect, selectedValue, vendorName, v
               })}
             </div>
           ) : (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-[32px]">
               <p className="text-[14px] text-gray-500">No PO numbers found</p>
             </div>
           )}

@@ -127,7 +127,7 @@ const History = () => {
 
   const fetchAllVendors = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/vendor_Names/getAll');
+      const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll');
       if (response.ok) {
         const data = await response.json();
         setAllVendors(data); // Store full objects instead of just names
@@ -139,7 +139,7 @@ const History = () => {
 
   const fetchAllProjects = async () => {
     try {
-      const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+      const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
         method: "GET",
         credentials: "include",
         headers: {
@@ -157,7 +157,7 @@ const History = () => {
 
   const fetchAllEmployees = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/employee_details/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll');
       if (response.ok) {
         const data = await response.json();
         setAllEmployees(data); // Store full objects instead of just names
@@ -169,7 +169,7 @@ const History = () => {
 
   const fetchAllSupportStaff = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/support_staff/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/support_staff/getAll');
       if (response.ok) {
         const data = await response.json();
         setAllSupportStaff(data);
@@ -210,8 +210,8 @@ const History = () => {
     }
     try {
       const apiUrl = hasActiveFilters
-        ? 'http://localhost:8082/api/purchase_orders/getAll'
-        : 'http://localhost:8082/api/purchase_orders/get/latest';
+        ? 'https://backendaab.in/aabuildersDash/api/purchase_orders/getAll'
+        : 'https://backendaab.in/aabuildersDash/api/purchase_orders/get/latest';
 
       const response = await fetch(apiUrl);
       if (!response.ok) {
@@ -422,13 +422,13 @@ const History = () => {
 
       const [vendorObj, projectObj, inchargeObj] = await Promise.all([
         vendorId
-          ? quickFetchJson(`http://localhost:8081/api/vendor_Names/get/${vendorId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuilderDash/api/vendor_Names/get/${vendorId}`)
           : Promise.resolve(null),
         clientId
-          ? quickFetchJson(`http://localhost:8081/api/project_Names/get/${clientId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuilderDash/api/project_Names/get/${clientId}`)
           : Promise.resolve(null),
         inchargeId && (!inchargeType || inchargeType === 'employee')
-          ? quickFetchJson(`http://localhost:8082/api/employee_details/get/${inchargeId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/employee_details/get/${inchargeId}`)
           : Promise.resolve(null),
       ]);
 
@@ -470,19 +470,19 @@ const History = () => {
 
             const [itemObj, modelObj, brandObj, typeObj, categoryObj] = await Promise.all([
               itemId
-                ? quickFetchJson(`http://localhost:8082/api/po_itemNames/get/${itemId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_itemNames/get/${itemId}`)
                 : Promise.resolve(null),
               modelId
-                ? quickFetchJson(`http://localhost:8082/api/po_model/get/${modelId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_model/get/${modelId}`)
                 : Promise.resolve(null),
               brandId
-                ? quickFetchJson(`http://localhost:8082/api/po_brand/get/${brandId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_brand/get/${brandId}`)
                 : Promise.resolve(null),
               typeId
-                ? quickFetchJson(`http://localhost:8082/api/po_type/get/${typeId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_type/get/${typeId}`)
                 : Promise.resolve(null),
               categoryId
-                ? quickFetchJson(`http://localhost:8082/api/po_category/get/${categoryId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_category/get/${categoryId}`)
                 : Promise.resolve(null),
             ]);
 
@@ -590,13 +590,13 @@ const History = () => {
 
       const [vendorObj, projectObj, inchargeObj] = await Promise.all([
         vendorId
-          ? quickFetchJson(`http://localhost:8081/api/vendor_Names/get/${vendorId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuilderDash/api/vendor_Names/get/${vendorId}`)
           : Promise.resolve(null),
         clientId
-          ? quickFetchJson(`http://localhost:8081/api/project_Names/get/${clientId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuilderDash/api/project_Names/get/${clientId}`)
           : Promise.resolve(null),
         inchargeId && (!inchargeType || inchargeType === 'employee')
-          ? quickFetchJson(`http://localhost:8082/api/employee_details/get/${inchargeId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/employee_details/get/${inchargeId}`)
           : Promise.resolve(null),
       ]);
 
@@ -638,19 +638,19 @@ const History = () => {
 
             const [itemObj, modelObj, brandObj, typeObj, categoryObj] = await Promise.all([
               itemId
-                ? quickFetchJson(`http://localhost:8082/api/po_itemNames/get/${itemId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_itemNames/get/${itemId}`)
                 : Promise.resolve(null),
               modelId
-                ? quickFetchJson(`http://localhost:8082/api/po_model/get/${modelId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_model/get/${modelId}`)
                 : Promise.resolve(null),
               brandId
-                ? quickFetchJson(`http://localhost:8082/api/po_brand/get/${brandId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_brand/get/${brandId}`)
                 : Promise.resolve(null),
               typeId
-                ? quickFetchJson(`http://localhost:8082/api/po_type/get/${typeId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_type/get/${typeId}`)
                 : Promise.resolve(null),
               categoryId
-                ? quickFetchJson(`http://localhost:8082/api/po_category/get/${categoryId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_category/get/${categoryId}`)
                 : Promise.resolve(null),
             ]);
 
@@ -731,7 +731,7 @@ const History = () => {
   const fetchPurchaseOrderById = useCallback(
     async (poId) => {
       if (!poId) return null;
-      return await quickFetchJson(`http://localhost:8082/api/purchase_orders/get/${poId}`);
+      return await quickFetchJson(`https://backendaab.in/aabuildersDash/api/purchase_orders/get/${poId}`);
     },
     [quickFetchJson]
   );
@@ -795,14 +795,14 @@ const History = () => {
 
       const [vendorObj, projectObj, inchargeObj] = await Promise.all([
         vendorId
-          ? quickFetchJson(`http://localhost:8081/api/vendor_Names/get/${vendorId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuilderDash/api/vendor_Names/get/${vendorId}`)
           : Promise.resolve(null),
         clientId
-          ? quickFetchJson(`http://localhost:8081/api/project_Names/get/${clientId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuilderDash/api/project_Names/get/${clientId}`)
           : Promise.resolve(null),
         // Fast fetch for employee incharge (if it's an employee); support-staff stays best-effort via existing list
         inchargeId && (!inchargeType || inchargeType === 'employee')
-          ? quickFetchJson(`http://localhost:8082/api/employee_details/get/${inchargeId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/employee_details/get/${inchargeId}`)
           : Promise.resolve(null),
       ]);
 
@@ -814,7 +814,7 @@ const History = () => {
 
         // Prefetch next PO number for this vendor in background (non-blocking)
         // Don't await - let it fetch in background while page opens
-        fetch('http://localhost:8082/api/purchase_orders/getAll')
+        fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll')
           .then(response => {
             if (response.ok) {
               return response.json();
@@ -891,19 +891,19 @@ const History = () => {
 
             const [itemObj, modelObj, brandObj, typeObj, categoryObj] = await Promise.all([
               itemId
-                ? quickFetchJson(`http://localhost:8082/api/po_itemNames/get/${itemId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_itemNames/get/${itemId}`)
                 : Promise.resolve(null),
               modelId
-                ? quickFetchJson(`http://localhost:8082/api/po_model/get/${modelId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_model/get/${modelId}`)
                 : Promise.resolve(null),
               brandId
-                ? quickFetchJson(`http://localhost:8082/api/po_brand/get/${brandId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_brand/get/${brandId}`)
                 : Promise.resolve(null),
               typeId
-                ? quickFetchJson(`http://localhost:8082/api/po_type/get/${typeId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_type/get/${typeId}`)
                 : Promise.resolve(null),
               categoryId
-                ? quickFetchJson(`http://localhost:8082/api/po_category/get/${categoryId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_category/get/${categoryId}`)
                 : Promise.resolve(null),
             ]);
 
@@ -984,7 +984,7 @@ const History = () => {
         const order = purchaseOrders.find(po => po.id === poToDelete);
         if (order) {
           // Call API to mark PO as deleted - matching working example format
-          const apiUrl = `http://localhost:8082/api/purchase_orders/markDeleted/${order.id}?deleteStatus=true`;
+          const apiUrl = `https://backendaab.in/aabuildersDash/api/purchase_orders/markDeleted/${order.id}?deleteStatus=true`;
           const response = await fetch(apiUrl, {
             method: 'PUT',
           });
@@ -1675,7 +1675,7 @@ const History = () => {
   return (
     <div className="relative w-full h-screen bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Header Section - Fixed */}
-      <div className="flex-shrink-0 bg-white px-4 pt-4 z-30">
+      <div className="flex-shrink-0 bg-white px-[16px] pt-[16px] z-30">
         {/* Search Bar */}
         <div className="relative mb-2">
           <input
@@ -1683,7 +1683,7 @@ const History = () => {
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-[328px] h-[40px] pl-10 pr-4 border border-[#E0E0E0] rounded-3xl text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
+            className="w-[328px] h-[40px] pl-[40px] pr-[16px] border border-[#E0E0E0] rounded-3xl text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
           />
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -1693,9 +1693,9 @@ const History = () => {
           </div>
         </div>
         {/* Filter and Clear Buttons with Filter Tags */}
-        <div className="flex items-center justify-between gap-5">
-          <div className="flex items-center gap-2  min-w-0">
-            <button onClick={() => setShowFilterModal(true)} className="flex items-center gap-2 px-0 flex-shrink-0" >
+        <div className="flex items-center justify-between gap-[20px]">
+          <div className="flex items-center gap-[8px]  min-w-0">
+            <button onClick={() => setShowFilterModal(true)} className="flex items-center gap-[8px] px-[0px] flex-shrink-0" >
               <img src={Filter} alt='filter' className=' w-[11px] h-[11px]' />
               {!hasActiveFilters && (
                 <span className="text-[14px] font-medium flex-shrink-0 text-[#9E9E9E]">
@@ -1704,13 +1704,13 @@ const History = () => {
               )}
             </button>
             {/* Active Filter Tags - Next to Filter button */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none  min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex items-center gap-[8px] overflow-x-auto no-scrollbar scrollbar-none  min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {/* Show "Filter" text only when no filters are active */}
               {/* Show filter tags when filters are active */}
               {(filters.vendorName || filters.clientName || filters.siteIncharge || filters.startDate || filters.endDate || filters.branch) && (
-                <div className="flex items-center gap-2 flex-nowrap">
+                <div className="flex items-center gap-[8px] flex-nowrap">
                   {filters.branch && (
-                    <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Branch</span>
                       <button
                         onClick={() => {
@@ -1725,7 +1725,7 @@ const History = () => {
                     </div>
                   )}
                   {filters.vendorName && (
-                    <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Vendor</span>
                       <button onClick={() => setFilters({ ...filters, vendorName: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
@@ -1737,7 +1737,7 @@ const History = () => {
                     </div>
                   )}
                   {filters.clientName && (
-                    <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Project</span>
                       <button onClick={() => setFilters({ ...filters, clientName: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
@@ -1749,7 +1749,7 @@ const History = () => {
                     </div>
                   )}
                   {filters.siteIncharge && (
-                    <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Incharge</span>
                       <button onClick={() => setFilters({ ...filters, siteIncharge: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
@@ -1761,7 +1761,7 @@ const History = () => {
                     </div>
                   )}
                   {(filters.startDate || filters.endDate) && (
-                    <div className="flex items-center gap-1.5 border px-2.5 py-1.5 rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black whitespace-nowrap">
                         Date
                       </span>
@@ -1786,7 +1786,7 @@ const History = () => {
         </div>
       </div>
       {/* Purchase Orders List - Scrollable */}
-      <div className="overflow-y-auto no-scrollbar mx-auto scrollbar-none scrollbar-hide px-4 mt-1 " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
+      <div className="overflow-y-auto no-scrollbar mx-auto scrollbar-none scrollbar-hide px-[16px] mt-1 " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
         onClick={() => {
           setExpandedPoId(null);
           setCloneExpandedPoId(null);
@@ -1858,7 +1858,7 @@ const History = () => {
                 >
                   {/* Clone Button - Behind the card on the left, revealed on right swipe */}
                   <div
-                    className="absolute left-0 top-0 flex gap-2 flex-shrink-0 z-0"
+                    className="absolute left-0 top-[0px] flex gap-[8px] flex-shrink-0 z-0"
                     style={{
                       opacity: (isCloneExpanded || (swipeState && swipeState.isSwiping && swipeOffset > 20)) && !isExpanded ? 1 : 0,
                       transition: 'opacity 0.2s ease-out',
@@ -1870,7 +1870,7 @@ const History = () => {
                         e.stopPropagation();
                         handleClone(po);
                       }}
-                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-[6px] transition-colors shadow-sm"
                       title="Clone"
                     >
                       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1888,7 +1888,7 @@ const History = () => {
                         delete cardRefs.current[po.id];
                       }
                     }}
-                    className="flex-1 bg-white rounded-[8px] h-full px-3 py-3 transition-all duration-300 ease-out"
+                    className="flex-1 bg-white rounded-[8px] h-full px-[12px] py-[12px] transition-all duration-300 ease-out"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',
@@ -1906,10 +1906,10 @@ const History = () => {
                       }
                     }}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-[8px]">
                       {/* Left: PO Details */}
                       <div className=" min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
+                        <div className="flex items-center gap-[8px] mb-0.5">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1937,10 +1937,10 @@ const History = () => {
                         )}
                       </div>
                       {/* Right: Payment Status Badge and Amount - Always visible */}
-                      <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                      <div className="flex-shrink-0 flex flex-col items-end gap-[4px]">
                         {po.paymentStatus && (
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${po.paymentStatus === 'Paid'
+                            className={`px-[8px] py-[2px] rounded-full text-[10px] font-medium flex items-center gap-[4px] ${po.paymentStatus === 'Paid'
                               ? 'bg-[#E8F5E9] text-[#2E7D32]'
                               : po.paymentStatus === 'Unpaid'
                                 ? 'bg-[#FFEBEE] text-[#C62828]'
@@ -1975,7 +1975,7 @@ const History = () => {
                   </div>
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
-                    className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
+                    className="absolute right-0 top-[0px] flex gap-[8px] flex-shrink-0 z-0"
                     style={{
                       opacity: isExpanded || (swipeState && swipeState.isSwiping && swipeOffset < -20) ? 1 : 0,
                       transform: swipeOffset < 0
@@ -1992,7 +1992,7 @@ const History = () => {
                         handleEdit(po);
                         setExpandedPoId(null); // Close after edit
                       }}
-                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-[6px] hover:bg-[#22a882] transition-colors shadow-sm"
                       title="Edit"
                     >
                       <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
@@ -2003,7 +2003,7 @@ const History = () => {
                         handleDelete(po.id);
                         setExpandedPoId(null); // Close after delete
                       }}
-                      className="action-button w-[48px] h-[95px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+                      className="action-button w-[48px] h-[95px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-[6px] hover:bg-[#cc4d26] transition-colors shadow-sm"
                       title="Delete"
                     >
                       <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />
@@ -2017,10 +2017,10 @@ const History = () => {
       </div>
       {/* Filter Modal */}
       {showFilterModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={() => setShowFilterModal(false)}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={() => setShowFilterModal(false)}>
           <div className="bg-white w-full max-w-[360px] h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }} onClick={(e) => e.stopPropagation()}>
             {/* Title */}
-            <div className="px-6 pt-5 pb-4 flex items-center justify-between">
+            <div className="px-[24px] pt-[20px] pb-[16px] flex items-center justify-between">
               <p className="text-[14px] font-semibold text-black">Select Filters</p>
               {/* Branch Filter Button */}
               <button
@@ -2033,7 +2033,7 @@ const History = () => {
                 {filters.branch || 'Branch'}
               </button>
             </div>
-            <div className="px-6">
+            <div className="px-[24px]">
               <div className="space-y-[6px]">
                 {/* Vendor Name Filter */}
                 <div>
@@ -2080,7 +2080,7 @@ const History = () => {
                     showAllOptions={true}
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-[8px]">
                   {/* Date Filter */}
                   <div className="flex-1">
                     <label className="text-[12px] font-semibold text-black mb-0.5 block">Date</label>
@@ -2088,7 +2088,7 @@ const History = () => {
                       <button
                         type="button"
                         onClick={() => setShowDatePicker(true)}
-                        className="w-full h-[32px] px-4 border border-[#E0E0E0] rounded text-[10px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
+                        className="w-full h-[32px] px-[16px] border border-[#E0E0E0] rounded text-[10px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
                       >
                         <span className={`${(filters.startDate || filters.endDate) ? 'text-black' : 'text-[#9E9E9E]'} whitespace-nowrap overflow-hidden text-ellipsis`}>
                           {filters.startDate && filters.endDate
@@ -2114,7 +2114,7 @@ const History = () => {
                         value={filters.poNumber}
                         onChange={(e) => setFilters({ ...filters, poNumber: e.target.value })}
                         placeholder="Enter"
-                        className="w-full h-[32px] px-4 border border-[#E0E0E0] rounded text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
+                        className="w-full h-[32px] px-[16px] border border-[#E0E0E0] rounded text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
                       />
                     </div>
                   </div>
@@ -2122,7 +2122,7 @@ const History = () => {
               </div>
             </div>
             {/* Action Buttons - Fixed at bottom */}
-            <div className="absolute mt-5 left-0 right-0 px-6 flex gap-4">
+            <div className="absolute mt-5 left-0 right-0 px-[24px] flex gap-[16px]">
               <button
                 onClick={() => setShowFilterModal(false)}
                 className="w-[175px] h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"

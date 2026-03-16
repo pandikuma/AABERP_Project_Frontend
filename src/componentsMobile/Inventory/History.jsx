@@ -34,7 +34,7 @@ const History = ({ onTabChange }) => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -65,7 +65,7 @@ const History = ({ onTabChange }) => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await fetch('http://localhost:8082/api/employee_details/getAll');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll');
         if (response.ok) {
           const data = await response.json();
           const siteEngineers = data.filter(
@@ -86,7 +86,7 @@ const History = ({ onTabChange }) => {
       try {
         setLoading(true);
         // Fetch inventory data from getAll endpoint
-        const response = await fetch('http://localhost:8082/api/inventory/getAll', {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll', {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -564,7 +564,7 @@ const History = ({ onTabChange }) => {
         if (inventoryData?.id) {
           try {
             // Try to fetch the inventory record with items by ID
-            const response = await fetch(`http://localhost:8082/api/inventory/edit_with_history/${inventoryData.id}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${inventoryData.id}`, {
               method: 'GET',
               credentials: 'include',
               headers: {
@@ -647,7 +647,7 @@ const History = ({ onTabChange }) => {
         if (inventoryData?.id) {
           try {
             // Try to fetch the inventory record with items by ID
-            const response = await fetch(`http://localhost:8082/api/inventory/edit_with_history/${inventoryData.id}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${inventoryData.id}`, {
               method: 'GET',
               credentials: 'include',
               headers: {
@@ -730,7 +730,7 @@ const History = ({ onTabChange }) => {
         if (inventoryData?.id) {
           try {
             // Try to fetch the inventory record with items by ID
-            const response = await fetch(`http://localhost:8082/api/inventory/edit_with_history/${inventoryData.id}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/edit_with_history/${inventoryData.id}`, {
               method: 'GET',
               credentials: 'include',
               headers: {
@@ -813,7 +813,7 @@ const History = ({ onTabChange }) => {
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Date and Category Section */}
-      <div className="px-4 pt-2">
+      <div className="px-[16px] pt-[8px]">
         <div className="flex items-center justify-between">
           <button className="text-[12px] font-semibold text-black leading-normal">
             {getTodayDate()}
@@ -824,14 +824,14 @@ const History = ({ onTabChange }) => {
         </div>
       </div>
       {/* Stack Return/Dispatch Toggle */}
-      <div className="px-4 mt-1">
+      <div className="px-[16px] mt-1">
         <div className="flex items-center ga">
           {/* Stack Return/Dispatch Tabs */}
           <div className="flex bg-gray-100 items-center rounded-md h-9 flex-1">
             <button
               type="button"
               onClick={() => setActiveType('dispatch')}
-              className={`flex-1 py-1 px-4 ml-0.5 h-8 rounded-lg text-[14px] font-medium transition-colors duration-1000 ease-out ${activeType === 'dispatch'
+              className={`flex-1 py-[4px] px-[16px] ml-0.5 h-8 rounded-lg text-[14px] font-medium transition-colors duration-1000 ease-out ${activeType === 'dispatch'
                 ? 'bg-white text-black'
                 : 'bg-gray-100 text-gray-600'
                 }`}
@@ -841,7 +841,7 @@ const History = ({ onTabChange }) => {
             <button
               type="button"
               onClick={() => setActiveType('stack return')}
-              className={`flex-1 py-1 px-4 mr-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${activeType === 'stack return'
+              className={`flex-1 py-[4px] px-[16px] mr-0.5 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${activeType === 'stack return'
                 ? 'bg-white text-black'
                 : 'bg-gray-100 text-gray-600'
                 }`}
@@ -853,7 +853,7 @@ const History = ({ onTabChange }) => {
       </div>
 
       {/* Search Bar */}
-      <div className="flex-shrink-0 px-4 pt-2 pb-2">
+      <div className="flex-shrink-0 px-[16px] pt-[8px] pb-[8px]">
         <div className="relative">
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -866,22 +866,22 @@ const History = ({ onTabChange }) => {
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-[40px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-full text-[12px] font-medium text-black bg-white focus:outline-none focus:border-[#BF9853]"
+            className="w-full h-[40px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-full text-[12px] font-medium text-black bg-white focus:outline-none focus:border-[#BF9853]"
           />
         </div>
       </div>
 
       {/* Filter */}
-      <div className="flex-shrink-0 px-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <button type="button" onClick={() => setShowFilterModal(true)} className="flex items-center gap-2 cursor-pointer">
+      <div className="flex-shrink-0 px-[16px]">
+        <div className="flex items-center gap-[8px] flex-wrap">
+          <button type="button" onClick={() => setShowFilterModal(true)} className="flex items-center gap-[8px] cursor-pointer">
             <img src={Filter} alt="Filter" className="w-[11px] h-[11px]" />
             {!(filterProjectName || filterProjectIncharge || filterStockingLocation || filterSRNumber || filterDate) && (
               <span className="text-[14px] font-medium text-[#9E9E9E]">Filter</span>
             )}
           </button>
           {filterProjectName && (
-            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full">
+            <div className="flex items-center gap-[4px] px-[12px] py-[4px] bg-gray-100 rounded-full">
               <span className="text-[12px] font-medium text-black">Project Name</span>
               <button
                 type="button"
@@ -898,7 +898,7 @@ const History = ({ onTabChange }) => {
             </div>
           )}
           {filterProjectIncharge && (
-            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full">
+            <div className="flex items-center gap-[4px] px-[12px] py-[4px] bg-gray-100 rounded-full">
               <span className="text-[12px] font-medium text-black">Project Incharge</span>
               <button
                 type="button"
@@ -915,7 +915,7 @@ const History = ({ onTabChange }) => {
             </div>
           )}
           {filterStockingLocation && (
-            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full">
+            <div className="flex items-center gap-[4px] px-[12px] py-[4px] bg-gray-100 rounded-full">
               <span className="text-[12px] font-medium text-black">Stocking Location</span>
               <button
                 type="button"
@@ -932,7 +932,7 @@ const History = ({ onTabChange }) => {
             </div>
           )}
           {filterSRNumber && (
-            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full">
+            <div className="flex items-center gap-[4px] px-[12px] py-[4px] bg-gray-100 rounded-full">
               <span className="text-[12px] font-medium text-black">{activeType === 'dispatch' ? 'DP Number' : 'SR Number'}</span>
               <button
                 type="button"
@@ -949,7 +949,7 @@ const History = ({ onTabChange }) => {
             </div>
           )}
           {filterDate && (
-            <div className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded-full">
+            <div className="flex items-center gap-[4px] px-[12px] py-[4px] bg-gray-100 rounded-full">
               <span className="text-[12px] font-medium text-black">Date</span>
               <button
                 type="button"
@@ -969,13 +969,13 @@ const History = ({ onTabChange }) => {
       </div>
 
       {/* History List */}
-      <div className="flex overflow-y-auto no-scrollbar scrollbar-none px-4">
+      <div className="flex overflow-y-auto no-scrollbar scrollbar-none px-[16px]">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-[32px]">
             <p className="text-[12px] text-gray-500">Loading...</p>
           </div>
         ) : filteredData.length === 0 ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-[32px]">
             <p className="text-[12px] text-gray-500">No history found</p>
           </div>
         ) : (
@@ -1017,7 +1017,7 @@ const History = ({ onTabChange }) => {
                 <div key={item.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] min-w-[330px]">
                   {/* Clone Button - Behind the card on the left, revealed on right swipe */}
                   <div
-                    className="absolute left-0 top-0 flex gap-2 flex-shrink-0 z-0"
+                    className="absolute left-0 top-[0px] flex gap-[8px] flex-shrink-0 z-0"
                     style={{
                       opacity: isCloneExpanded || (swipeState && swipeState.isSwiping && swipeOffset > 20) ? 1 : 0,
                       transition: 'opacity 0.2s ease-out',
@@ -1029,7 +1029,7 @@ const History = ({ onTabChange }) => {
                         e.stopPropagation();
                         handleClone(item);
                       }}
-                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-[6px] transition-colors shadow-sm"
                       title="Clone"
                     >
                       <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1047,7 +1047,7 @@ const History = ({ onTabChange }) => {
                         delete cardRefs.current[item.id];
                       }
                     }}
-                    className="flex-1 bg-white rounded-[8px] h-full px-3 py-3 transition-all duration-300 ease-out"
+                    className="flex-1 bg-white rounded-[8px] h-full px-[12px] py-[12px] transition-all duration-300 ease-out"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',
@@ -1113,7 +1113,7 @@ const History = ({ onTabChange }) => {
 
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
-                    className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
+                    className="absolute right-0 top-[0px] flex gap-[8px] flex-shrink-0 z-0"
                     style={{
                       opacity: isExpanded || (swipeState && swipeState.isSwiping && swipeOffset < -20) ? 1 : 0,
                       transform: swipeOffset < 0
@@ -1128,7 +1128,7 @@ const History = ({ onTabChange }) => {
                         e.stopPropagation();
                         handleEdit(item);
                       }}
-                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-[6px] hover:bg-[#22a882] transition-colors shadow-sm"
                       title="Edit"
                     >
                       <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
@@ -1138,7 +1138,7 @@ const History = ({ onTabChange }) => {
                         e.stopPropagation();
                         handleDelete(item.id);
                       }}
-                      className="action-button w-[48px] h-[95px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+                      className="action-button w-[48px] h-[95px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-[6px] hover:bg-[#cc4d26] transition-colors shadow-sm"
                       title="Delete"
                     >
                       <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />
@@ -1171,7 +1171,7 @@ const History = ({ onTabChange }) => {
             style={{ fontFamily: "'Manrope', sans-serif" }}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 pt-4 mb-3">
+            <div className="flex items-center justify-between px-[24px] pt-[16px] mb-3">
               <h2 className="text-[16px] font-semibold text-black">Select Filters</h2>
               <button
                 type="button"
@@ -1188,7 +1188,7 @@ const History = ({ onTabChange }) => {
             </div>
 
             {/* Modal Content */}
-            <div className="px-6 overflow-visible">
+            <div className="px-[24px] overflow-visible">
               {/* Project Name */}
               <div className="space-y-[6px]">
                 <div className="relative">
@@ -1250,14 +1250,14 @@ const History = ({ onTabChange }) => {
                 </div>
 
 
-                <div className=" flex items-center gap-2 ">
+                <div className=" flex items-center gap-[8px] ">
                   {/* Date */}
                   <div className="flex-1">
                     <label className="block text-[13px] font-medium text-black mb-0.5">Date</label>
                     <button
                       type="button"
                       onClick={() => setShowDatePicker(true)}
-                      className="w-full h-[32px] px-3 border border-gray-300 rounded text-[14px] bg-white focus:outline-none focus:border-gray-400 flex items-center justify-between"
+                      className="w-full h-[32px] px-[12px] border border-gray-300 rounded text-[14px] bg-white focus:outline-none focus:border-gray-400 flex items-center justify-between"
                       style={{ fontFamily: "'Manrope', sans-serif" }}
                     >
                       <span className={`${filterDate ? 'text-black' : 'text-[#9E9E9E]'} truncate`}>
@@ -1276,14 +1276,14 @@ const History = ({ onTabChange }) => {
                       placeholder="Enter"
                       value={filterSRNumber}
                       onChange={(e) => setFilterSRNumber(e.target.value)}
-                      className="w-full h-[32px] px-3 border border-gray-300 rounded text-[12px] bg-white focus:outline-none focus:border-gray-400"
+                      className="w-full h-[32px] px-[12px] border border-gray-300 rounded text-[12px] bg-white focus:outline-none focus:border-gray-400"
                       style={{ fontFamily: "'Manrope', sans-serif" }}
                     />
                   </div>
                 </div>
               </div>
               {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-3 mt-5">
+              <div className="flex items-center justify-end gap-[12px] mt-5">
                 <button
                   type="button"
                   onClick={() => {
@@ -1297,7 +1297,7 @@ const History = ({ onTabChange }) => {
                     setShowInchargeDropdown(false);
                     setShowLocationDropdown(false);
                   }}
-                  className="px-6 py-2 w-[175px] h-[40px] border border-black rounded-lg text-[14px] font-medium text-black bg-white hover:bg-gray-50"
+                  className="px-[24px] py-[8px] w-[175px] h-[40px] border border-black rounded-lg text-[14px] font-medium text-black bg-white hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -1309,7 +1309,7 @@ const History = ({ onTabChange }) => {
                     setShowInchargeDropdown(false);
                     setShowLocationDropdown(false);
                   }}
-                  className="px-6 py-2 w-[175px] h-[40px] bg-black text-white rounded-lg text-[14px] font-medium hover:bg-gray-800"
+                  className="px-[24px] py-[8px] w-[175px] h-[40px] bg-black text-white rounded-lg text-[14px] font-medium hover:bg-gray-800"
                 >
                   Save
                 </button>

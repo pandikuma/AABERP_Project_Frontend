@@ -35,7 +35,7 @@ const ProjectUsageHistory = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -62,7 +62,7 @@ const ProjectUsageHistory = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('http://localhost:8082/api/po_category/getAll');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
         if (response.ok) {
           const data = await response.json();
           const options = data.map(item => ({
@@ -84,10 +84,10 @@ const ProjectUsageHistory = () => {
     const fetchPOData = async () => {
       try {
         const [itemNamesRes, brandsRes, typesRes, categoriesRes] = await Promise.all([
-          fetch('http://localhost:8082/api/po_itemNames/getAll'),
-          fetch('http://localhost:8082/api/po_brand/getAll'),
-          fetch('http://localhost:8082/api/po_type/getAll'),
-          fetch('http://localhost:8082/api/po_category/getAll')
+          fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll'),
+          fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll'),
+          fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll'),
+          fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll')
         ]);
 
         if (itemNamesRes.ok) {
@@ -148,7 +148,7 @@ const ProjectUsageHistory = () => {
     const fetchInventoryData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:8082/api/inventory/getAll', {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll', {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -523,7 +523,7 @@ const ProjectUsageHistory = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date Row */}
-      <div className="flex-shrink-0 px-4 pt-2 pb-1 border-b border-gray-100">
+      <div className="flex-shrink-0 px-[16px] pt-[8px] pb-[4px] border-b border-gray-100">
         <button
           type="button"
           onClick={() => setShowDatePicker(true)}
@@ -534,7 +534,7 @@ const ProjectUsageHistory = () => {
       </div>
 
       {/* Filters Section */}
-      <div className="flex-shrink-0 px-4 pt-4 pb-2 space-y-3">
+      <div className="flex-shrink-0 px-[16px] pt-[16px] pb-[8px] space-y-3">
         {/* Project Name Filter */}
         <div>
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -543,7 +543,7 @@ const ProjectUsageHistory = () => {
           <div className="relative">
             <div
               onClick={() => setShowProjectModal(true)}
-              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
               style={{
                 boxSizing: 'border-box',
                 color: selectedProject ? '#000' : '#9E9E9E'
@@ -582,7 +582,7 @@ const ProjectUsageHistory = () => {
           <div className="relative">
             <div
               onClick={() => setShowCategoryModal(true)}
-              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-3 pr-4 text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
+              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-[12px] pr-[16px] text-[12px] font-medium bg-white flex items-center cursor-pointer justify-between"
               style={{
                 paddingRight: selectedCategory ? '40px' : '12px',
                 boxSizing: 'border-box',
@@ -625,13 +625,13 @@ const ProjectUsageHistory = () => {
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-10 pr-3 text-[12px] font-medium bg-white"
+            className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded-[8px] pl-[40px] pr-[12px] text-[12px] font-medium bg-white"
           />
         </div>
       </div>
 
       {/* Usage List */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-auto px-[16px] pb-[16px]">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-[14px] text-gray-500">Loading...</p>
@@ -641,7 +641,7 @@ const ProjectUsageHistory = () => {
             <p className="text-[14px] text-gray-500">No usage data found</p>
           </div>
         ) : (
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-[8px]">
             {filteredData.map((item, index) => {
               const itemId = `${item.itemId}-${item.categoryId}-${item.modelId}-${item.brandId}-${item.typeId}-${item.projectId}-${index}`;
               const isExpanded = expandedItemId === itemId;
@@ -665,7 +665,7 @@ const ProjectUsageHistory = () => {
                     ref={(el) => {
                       if (el) cardRefs.current[itemId] = el;
                     }}
-                    className="bg-white border border-[rgba(0,0,0,0.16)] rounded-[8px] p-2 cursor-pointer transition-transform duration-300 ease-out select-none"
+                    className="bg-white border border-[rgba(0,0,0,0.16)] rounded-[8px] p-[8px] cursor-pointer transition-transform duration-300 ease-out select-none"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',
@@ -692,7 +692,7 @@ const ProjectUsageHistory = () => {
                   >
                     <div className="flex items-start justify-between">
                       {/* Left Side */}
-                      <div className="flex-1 pr-3">
+                      <div className="flex-1 pr-[12px]">
                         {/* Product Name */}
                         <p className="text-[14px] font-semibold text-black">
                           {item.itemName}
@@ -723,7 +723,7 @@ const ProjectUsageHistory = () => {
                       <div className="flex flex-col items-end">
                         {/* Category Tag */}
                         {item.category && (
-                          <span className={`px-2 py-1 mb-8 rounded-full text-[10px] font-medium ${getCategoryColor(item.category)}`}>
+                          <span className={`px-[8px] py-[4px] mb-8 rounded-full text-[10px] font-medium ${getCategoryColor(item.category)}`}>
                             {item.category}
                           </span>
                         )}
@@ -742,7 +742,7 @@ const ProjectUsageHistory = () => {
 
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
-                    className="absolute right-0 top-0 flex gap-2 flex-shrink-0 z-0"
+                    className="absolute right-0 top-[0px] flex gap-[8px] flex-shrink-0 z-0"
                     style={{
                       opacity:
                         isExpanded ||
@@ -761,7 +761,7 @@ const ProjectUsageHistory = () => {
                         e.stopPropagation();
                         handleEdit(item);
                       }}
-                      className="action-button w-[40px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+                      className="action-button w-[40px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-[6px] hover:bg-[#22a882] transition-colors shadow-sm"
                       style={{ minHeight: '100px' }}
                     >
                       <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
@@ -771,7 +771,7 @@ const ProjectUsageHistory = () => {
                         e.stopPropagation();
                         handleDelete(item);
                       }}
-                      className="action-button w-[40px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+                      className="action-button w-[40px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-[6px] hover:bg-[#cc4d26] transition-colors shadow-sm"
                       style={{ minHeight: '100px' }}
                     >
                       <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />

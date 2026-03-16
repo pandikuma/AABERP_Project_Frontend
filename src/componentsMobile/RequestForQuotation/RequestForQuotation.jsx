@@ -2617,12 +2617,12 @@ const RequestForQuotation = ({ user, onLogout }) => {
         {activeTab === 'summary' && <Summary />}
         {/* Create PO Tab Content */}
         {activeTab === 'create' && (
-          <div className="flex px-4 flex-col h-[calc(100vh-85px-80px)] overflow-hidden">
+          <div className="flex px-[16px] flex-col h-[calc(100vh-85px-80px)] overflow-hidden">
             {/* PO Number and Date Row - Only show date when not in empty state */}
             {!isEmptyState && (
-              <div className="flex-shrink-0 pt-3 pb-1.5 border-b border-gray-200">
+              <div className="flex-shrink-0 pt-[12px] pb-[6px] border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-[8px]">
                     {poData.poNumber && (
                       <p className="text-[12px] font-semibold text-black leading-normal">{poData.poNumber}</p>
                     )}
@@ -2632,7 +2632,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                       {poData.date}
                     </button>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-[16px]">
                     {isPdfGenerated ? (
                       <>
                         <button type="button" onClick={downloadPDF} className="text-[13px] font-semibold text-black leading-normal" >
@@ -2691,7 +2691,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
             {/* For edit/clone mode: show dropdowns before clicking + */}
             {/* For regular flow: show dropdowns before clicking + (when selecting fields) */}
             {(!hasOpenedAdd && isEditMode) || ((!showAddItems && !hasOpenedAdd) && !isEditMode) || (items.length > 0 && hasOpenedAdd && (!poData.vendorName || !poData.projectName || !poData.projectIncharge)) ? (
-              <div className="flex-shrink-0 pt-4 space-y-[6px]">
+              <div className="flex-shrink-0 pt-[16px] space-y-[6px]">
                 {/* Vendor Name Field */}
                 <div className=" relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
@@ -2705,7 +2705,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                           setShowVendorModal(true);
                         }
                       }}
-                      className={`w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium flex items-center ${isEditFromHistory ? 'bg-gray-100 cursor-not-allowed' : 'bg-white cursor-pointer'
+                      className={`w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium flex items-center ${isEditFromHistory ? 'bg-gray-100 cursor-not-allowed' : 'bg-white cursor-pointer'
                         }`}
                       style={{
                         boxSizing: 'border-box',
@@ -2746,7 +2746,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowProjectModal(true)}
-                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         boxSizing: 'border-box',
                         color: poData.projectName ? '#000' : '#9E9E9E'
@@ -2782,7 +2782,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowInchargeModal(true)}
-                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         boxSizing: 'border-box',
                         color: poData.projectIncharge ? '#000' : '#9E9E9E'
@@ -2818,8 +2818,8 @@ const RequestForQuotation = ({ user, onLogout }) => {
             {/* These two views are mutually exclusive - never show both at the same time */}
             {((hasOpenedAdd && isEditMode && (poData.vendorName || poData.projectName || poData.projectIncharge)) ||
               (hasOpenedAdd && !isEmptyState && (poData.vendorName || poData.projectName || poData.projectIncharge) && !isEditMode)) && (
-                <div className="flex-shrink-0 mx-2 mb-1 p-2 bg-white border border-[#aaaaaa] rounded-[8px]">
-                  <div className="flex flex-col gap-2 px-2">
+                <div className="flex-shrink-0 mx-2 mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+                  <div className="flex flex-col gap-[8px] px-[8px]">
                     {poData.vendorName && (
                       <div className="flex items-start">
                         <p className="text-[12px] font-medium text-[#3f3f3f] leading-normal w-[111px]">Vendor Name</p>
@@ -2861,13 +2861,13 @@ const RequestForQuotation = ({ user, onLogout }) => {
                 {((items.length > 0 && (hasOpenedAdd || isEditMode)) || ((!isEmptyState || isEditMode) && poData.vendorName && poData.projectName && poData.projectIncharge)) && (
                   <div className="flex flex-col flex-1 min-h-0 mb-4 mt-2">
                     {/* Items Header - Fixed */}
-                    <div className="flex-shrink-0 flex items-center gap-2 mb-2 border-b border-[#E0E0E0] pb-2">
+                    <div className="flex-shrink-0 flex items-center gap-[8px] mb-2 border-b border-[#E0E0E0] pb-[8px]">
                       <p className="text-[14px] font-medium text-black leading-normal">Items</p>
                       <input
                         type="text"
                         value={items.length}
                         readOnly
-                        className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-2 text-[12px] font-medium text-black bg-gray-200 text-center"
+                        className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-[8px] text-[12px] font-medium text-black bg-gray-200 text-center"
                       />
                       <div className="ml-auto cursor-pointer" onClick={() => setShowSearchItemsModal(true)}>
                         <img src={SearchBlack} alt='search' className=' w-[16px] h-[16px]' />

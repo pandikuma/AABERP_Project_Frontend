@@ -103,7 +103,7 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex justify-between items-center px-6 pt-5 pb-4 border-b border-[#E0E0E0]">
+                <div className="flex justify-between items-center px-[24px] pt-[20px] pb-[16px] border-b border-[#E0E0E0]">
                     <p className="text-[16px] font-semibold text-black">{itemName} - Stock Summary</p>
                     <button
                         onClick={onClose}
@@ -116,15 +116,15 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto px-6 py-4">
+                <div className="flex-1 overflow-y-auto px-[24px] py-[16px]">
                     {breakdownArray.length === 0 ? (
-                        <p className="text-[14px] font-medium text-[#9E9E9E] text-center py-8">
+                        <p className="text-[14px] font-medium text-[#9E9E9E] text-center py-[32px]">
                             No stock available
                         </p>
                     ) : (
                         <div className="space-y-3">
                             {breakdownArray.map((entry, index) => (
-                                <div key={entry.locationId} className="flex items-center justify-between py-2 border-b border-[#E0E0E0]">
+                                <div key={entry.locationId} className="flex items-center justify-between py-[8px] border-b border-[#E0E0E0]">
                                     <p className="text-[14px] font-medium text-black">{entry.locationName}</p>
                                     <p className="text-[14px] font-medium text-black">{entry.quantity}</p>
                                 </div>
@@ -135,7 +135,7 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
 
                 {/* Grand Total */}
                 {breakdownArray.length > 0 && (
-                    <div className="px-6 py-4 border-t border-[#E0E0E0] bg-gray-50">
+                    <div className="px-[24px] py-[16px] border-t border-[#E0E0E0] bg-gray-50">
                         <div className="flex items-center justify-between">
                             <p className="text-[16px] font-semibold text-black">Grand Total</p>
                             <p className="text-[16px] font-semibold text-black">{grandTotal} Qty</p>
@@ -183,7 +183,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         if (isOpen && isFromUpdate) {
             const fetchProjects = async () => {
                 try {
-                    const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+                    const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
                         method: "GET",
                         credentials: "include",
                         headers: {
@@ -994,11 +994,11 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         const fetchPOData = async () => {
             try {
                 const [itemNamesRes, brandsRes, modelsRes, typesRes, categoriesRes] = await Promise.all([
-                    fetch('http://localhost:8082/api/po_itemNames/getAll'),
-                    fetch('http://localhost:8082/api/po_brand/getAll'),
-                    fetch('http://localhost:8082/api/po_model/getAll'),
-                    fetch('http://localhost:8082/api/po_type/getAll'),
-                    fetch('http://localhost:8082/api/po_category/getAll')
+                    fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll'),
+                    fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll'),
+                    fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll'),
+                    fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll'),
+                    fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll')
                 ]);
 
                 if (itemNamesRes.ok) {
@@ -1078,7 +1078,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
 
             try {
                 // Fetch all inventory records to get complete data
-                const response = await fetch('http://localhost:8082/api/inventory/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
                 if (!response.ok) {
                     console.error('Failed to fetch inventory data');
                     setStockQuantities({});
@@ -1361,7 +1361,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
     useEffect(() => {
         const fetchLocationNames = async () => {
             try {
-                const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -1408,7 +1408,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex justify-between items-center px-6 pt-5">
+                <div className="flex justify-between items-center px-[24px] pt-[20px]">
                     <p className="text-[16px] font-semibold text-black">Search Items</p>
                     <button
                         onClick={onClose}
@@ -1421,11 +1421,11 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                 </div>
                 {/* Project Name Dropdown - ONLY for Update → Other Returns */}
                 {isFromUpdate && (
-                    <div className=" px-4">
+                    <div className=" px-[16px]">
                         <p className="text-[12px] font-semibold text-black leading-normal mb-1">Project Name</p>
                         <div
                             onClick={() => setShowMoveProjectModal(true)}
-                            className="relative w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-3 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                            className="relative w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                             style={{ color: moveProject ? '#000' : '#9E9E9E', paddingRight: moveProject ? '40px' : '12px' }}
                         >
                             {moveProject || 'Select Project'}
@@ -1448,14 +1448,14 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                 type="text"
                                 value={moveDescription}
                                 onChange={(e) => setMoveDescription(e.target.value)}
-                                className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-3 text-[12px] font-medium bg-white text-black"
+                                className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white text-black"
                                 placeholder="Enter description"
                             />
                         </div>
                     </div>
                 )}
                 {/* Search Input */}
-                <div className="px-4 pt-1">
+                <div className="px-[16px] pt-[4px]">
                     <div className="relative items-center">
                         <input
                             type="text"
@@ -1471,7 +1471,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                 }, 300);
                             }}
                             placeholder="Search by Item Name, Model, Brand, or Type"
-                            className="w-full h-[40px] pl-10 pr-4 border border-[rgba(0,0,0,0.16)] rounded-full text-[14px] font-medium text-black placeholder:text-[#bdbbbb] placeholder:text-[12px]  placeholder:font-extralight bg-white focus:outline-none"
+                            className="w-full h-[40px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-full text-[14px] font-medium text-black placeholder:text-[#bdbbbb] placeholder:text-[12px]  placeholder:font-extralight bg-white focus:outline-none"
                             autoFocus={false}
                         />
                         <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -1480,7 +1480,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     </div>
                 </div>
                 {/* Results List */}
-                <div className="flex-1 overflow-y-auto px-6 py-2 no-scrollbar scrollbar-none" style={{ maxHeight: 'calc(100vh - 250px)' }}>
+                <div className="flex-1 overflow-y-auto px-[24px] py-[8px] no-scrollbar scrollbar-none" style={{ maxHeight: 'calc(100vh - 250px)' }}>
                     {(() => {
                         // For isFromUpdate, merge search results with selected items that aren't in search results
                         let itemsToDisplay = [...searchResults];
@@ -1496,7 +1496,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         
                         if (itemsToDisplay.length === 0) {
                             return (
-                                <div className="flex flex-col items-center justify-center py-12">
+                                <div className="flex flex-col items-center justify-center py-[48px]">
                                     <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
                                         {searchQuery ? 'No items found' : 'Start typing to search for items'}
                                     </p>
@@ -1545,7 +1545,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
 
                                 const availableQty = getAvailableQuantity(item);
                                 return (
-                                    <div key={itemId} className="bg-white border border-[#E0E0E0] rounded-[8px] p-2" >
+                                    <div key={itemId} className="bg-white border border-[#E0E0E0] rounded-[8px] p-[8px]" >
                                         <div className="">
                                             {/* Left Side: Item Name, Model, Type and Brand */}
                                             <div className="w-full">
@@ -1555,7 +1555,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                                         {highlightText(item.itemName || '', debouncedSearchQuery)}
                                                     </p>
                                                     {/* Category Tag */}
-                                                    <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full mb-1.5 whitespace-nowrap ${getCategoryColor(item.category || 'Electricals')}`}>
+                                                    <span className={`text-[10px] font-medium px-[10px] py-[4px] rounded-full mb-1.5 whitespace-nowrap ${getCategoryColor(item.category || 'Electricals')}`}>
                                                         {item.category || 'Electricals'}
                                                     </span>
                                                 </div>
@@ -1701,7 +1701,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                 </div>
                 {/* Sticky Footer - Update Button */}
                 {isFromUpdate && (
-                    <div className="sticky bottom-0 bg-white border-t border-[#E0E0E0] px-4 py-3 flex justify-end">
+                    <div className="sticky bottom-0 bg-white border-t border-[#E0E0E0] px-[16px] py-[12px] flex justify-end">
                         <button
                             onClick={async () => {
                                 // Collect all items with quantity > 0
@@ -1759,7 +1759,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                     // Get ENO
                                     let eno = '';
                                     try {
-                                        const countRes = await fetch(`http://localhost:8082/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
+                                        const countRes = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
                                         if (countRes.ok) {
                                             const count = await countRes.json();
                                             eno = String((count || 0) + 1);
@@ -1804,7 +1804,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                     };
 
                                     // Send the payload
-                                    const response = await fetch('http://localhost:8082/api/inventory/save', {
+                                    const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json'
@@ -1825,7 +1825,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                     alert(`Error updating stock: ${error.message}`);
                                 }
                             }}
-                            className="h-[36px] px-6 rounded border border-[#BF9853] text-[#BF9853] text-[14px] font-semibold hover:opacity-90 transition"
+                            className="h-[36px] px-[24px] rounded border border-[#BF9853] text-[#BF9853] text-[14px] font-semibold hover:opacity-90 transition"
                         >
                             Update
                         </button>

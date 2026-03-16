@@ -44,7 +44,7 @@ const AddInput = () => {
   // Fetch group names from API (same as InputData page but independent)
   const fetchGroupNames = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/group_name/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/group_name/getAll');
       if (response.ok) {
         const data = await response.json();
         const options = (data || []).map(item => item.groupName || '').filter(Boolean);
@@ -62,7 +62,7 @@ const AddInput = () => {
   // Fetch categories with IDs from API
   const fetchPoCategory = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_category/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
       if (response.ok) {
         const data = await response.json();
         const options = (data || []).map(item => ({
@@ -123,7 +123,7 @@ const AddInput = () => {
       return;
     }
     try {
-      const response = await fetch('http://localhost:8082/api/po_category/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -146,7 +146,7 @@ const AddInput = () => {
       return;
     }
     try {
-      const response = await fetch('http://localhost:8082/api/group_name/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/group_name/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +190,7 @@ const AddInput = () => {
   useEffect(() => {
     const fetchOutgoingSites = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -251,7 +251,7 @@ const AddInput = () => {
   // Refresh site data from API
   const refreshSiteData = async () => {
     try {
-      const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+      const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
         method: "GET",
         credentials: "include",
         headers: {
@@ -286,7 +286,7 @@ const AddInput = () => {
           const wasSelected = previousSelectedLocators.includes(site.value);
           // Only update if the status needs to change
           if (shouldBeSelected !== wasSelected) {
-            const url = `http://localhost:8081/api/project_Names/${site.id}/stocking-location?markedAsStockingLocation=${shouldBeSelected}`;
+            const url = `https://backendaab.in/aabuilderDash/api/project_Names/${site.id}/stocking-location?markedAsStockingLocation=${shouldBeSelected}`;
             const updatePromise = fetch(url, {
               method: 'PUT',
               credentials: 'include',
@@ -339,7 +339,7 @@ const AddInput = () => {
   // Fetch item names from API
   const fetchPoItemName = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
       if (response.ok) {
         const data = await response.json();
         // Store full data for otherPOEntityList lookup
@@ -376,7 +376,7 @@ const AddInput = () => {
   // Fetch models from API
   const fetchPoModel = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_model/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoModel(data);
@@ -413,7 +413,7 @@ const AddInput = () => {
   // Fetch brands from API
   const fetchPoBrand = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_brand/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoBrand(data);
@@ -464,7 +464,7 @@ const AddInput = () => {
   // Fetch types from API
   const fetchPoType = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_type/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoType(data);
@@ -533,7 +533,7 @@ const AddInput = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:8082/api/po_itemNames/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -567,7 +567,7 @@ const AddInput = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:8082/api/po_model/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -602,7 +602,7 @@ const AddInput = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:8082/api/po_brand/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -637,7 +637,7 @@ const AddInput = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:8082/api/po_type/save', {
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -852,7 +852,7 @@ const AddInput = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8082/api/po_itemNames/edit/${poItemNameId}`, {
+      const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_itemNames/edit/${poItemNameId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -988,7 +988,7 @@ const AddInput = () => {
 
       // Reload item names to get updated otherPOEntityList
       try {
-        const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
         if (response.ok) {
           const data = await response.json();
           setPoItemNameData(data);
@@ -1115,7 +1115,7 @@ const AddInput = () => {
 
         // Reload item names to get updated otherPOEntityList
         try {
-          const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
+          const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
           if (response.ok) {
             const data = await response.json();
             setPoItemNameData(data);
@@ -1192,7 +1192,7 @@ const AddInput = () => {
 
         // Reload item names to get updated otherPOEntityList
         try {
-          const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
+          const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
           if (response.ok) {
             const data = await response.json();
             setPoItemNameData(data);
@@ -1243,11 +1243,11 @@ const AddInput = () => {
   };
 
   return (
-    <div className="relative w-full bg-white max-w-[360px] px-4" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="relative w-full bg-white max-w-[360px] px-[16px]" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* New Input Section */}
-      <div className=" pt-2">
+      <div className=" pt-[8px]">
         {/* New Input Header - Sticky */}
-        <div className=" top-[100px] z-30 bg-white flex items-center justify-between mb-2 border-b border-[#E0E0E0] pb-1">
+        <div className=" top-[100px] z-30 bg-white flex items-center justify-between mb-2 border-b border-[#E0E0E0] pb-[4px]">
           {/* Group Dropdown - Left Side */}
           <button
             onClick={() => setShowGroupModal(true)}
@@ -1255,7 +1255,7 @@ const AddInput = () => {
           >
             {selectedGroup || 'Group'}
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[8px]">
             {/* Locators - Middle */}
             <button
               onClick={() => setShowLocatorsModal(true)}
@@ -1284,7 +1284,7 @@ const AddInput = () => {
               <button
                 type="button"
                 onClick={() => setShowItemNameModal(true)}
-                className="w-full h-[32px] px-3 border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
+                className="w-full h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
                 style={{
                   paddingRight: formData.itemName ? '32px' : '12px',
                   boxSizing: 'border-box'
@@ -1338,7 +1338,7 @@ const AddInput = () => {
               <button
                 type="button"
                 onClick={() => setShowModelModal(true)}
-                className="w-full h-[32px] px-3 border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
+                className="w-full h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
                 style={{
                   paddingRight: formData.model ? '32px' : '12px',
                   boxSizing: 'border-box'
@@ -1392,7 +1392,7 @@ const AddInput = () => {
               <button
                 type="button"
                 onClick={() => setShowTypeModal(true)}
-                className="w-full h-[32px] px-3 border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
+                className="w-full h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
                 style={{
                   paddingRight: formData.type ? '32px' : '12px',
                   boxSizing: 'border-box'
@@ -1437,7 +1437,7 @@ const AddInput = () => {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-[12px]">
             {/* Brand */}
             <div>
               <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
@@ -1447,7 +1447,7 @@ const AddInput = () => {
                 <button
                   type="button"
                   onClick={() => setShowBrandModal(true)}
-                  className="w-[120px] h-[32px] px-3 border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
+                  className="w-[120px] h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
                   style={{
                     paddingRight: formData.brand ? '32px' : '12px',
                     boxSizing: 'border-box'
@@ -1502,7 +1502,7 @@ const AddInput = () => {
                 value={formData.minQty}
                 onChange={(e) => handleFieldChange('minQty', e.target.value)}
                 placeholder="Enter"
-                className="w-[90px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-4 text-[12px] font-medium text-black bg-white placeholder:text-[#9E9E9E] focus:outline-none"
+                className="w-[90px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[16px] text-[12px] font-medium text-black bg-white placeholder:text-[#9E9E9E] focus:outline-none"
               />
             </div>
             {/* Default Qty */}
@@ -1515,7 +1515,7 @@ const AddInput = () => {
                 value={formData.defaultQty}
                 onChange={(e) => handleFieldChange('defaultQty', e.target.value)}
                 placeholder="Enter"
-                className="w-[90px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-4 text-[12px] font-medium text-black bg-white placeholder:text-[#9E9E9E] focus:outline-none"
+                className="w-[90px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[16px] text-[12px] font-medium text-black bg-white placeholder:text-[#9E9E9E] focus:outline-none"
               />
             </div>
           </div>
@@ -1525,7 +1525,7 @@ const AddInput = () => {
           <button
             onClick={handleAddToList}
             disabled={!formData.itemName || !formData.model || !formData.type || !formData.brand}
-            className={`w-[328px] h-[32px] rounded flex items-center justify-center gap-2 text-white text-[12px] font-medium transition-colors ${formData.itemName && formData.model && formData.type && formData.brand
+            className={`w-[328px] h-[32px] rounded flex items-center justify-center gap-[8px] text-white text-[12px] font-medium transition-colors ${formData.itemName && formData.model && formData.type && formData.brand
               ? 'bg-black hover:bg-gray-800'
               : 'bg-[#757575] cursor-not-allowed'
               }`}
@@ -1550,17 +1550,17 @@ const AddInput = () => {
       </div>
       {/* otherPOEntityList Table - Show when itemName is selected */}
       {formData.itemName && otherPOEntityList.length > 0 && (
-        <div className=" pt-3">
+        <div className=" pt-[12px]">
           <p className="text-[12px] font-semibold text-black leading-normal mb-2">
             Available Combinations for {formData.itemName}
           </p>
           <div className="border border-[#E0E0E0] rounded-[8px] overflow-hidden">
             {/* Table Header */}
-            <div className="bg-[#F5F5F5] flex items-center px-3 py-2 border-b border-[#E0E0E0]">
+            <div className="bg-[#F5F5F5] flex items-center px-[12px] py-[8px] border-b border-[#E0E0E0]">
               <div className="w-[24px] text-[11px] font-semibold text-black">#</div>
-              <div className="w-[120px] text-[11px] font-semibold text-black px-1">Model</div>
-              <div className="w-[60px] text-[11px] font-semibold text-black px-1">Brand</div>
-              <div className="flex-1 text-[11px] font-semibold text-black px-1">Type</div>
+              <div className="w-[120px] text-[11px] font-semibold text-black px-[4px]">Model</div>
+              <div className="w-[60px] text-[11px] font-semibold text-black px-[4px]">Brand</div>
+              <div className="flex-1 text-[11px] font-semibold text-black px-[4px]">Type</div>
             </div>
             {/* Table Rows - Scrollable */}
             <div
@@ -1582,7 +1582,7 @@ const AddInput = () => {
                   <div key={index} className="relative overflow-hidden">
                     {/* Row Content */}
                     <div
-                      className="flex items-center px-3 py-2 bg-white transition-all duration-300 ease-out"
+                      className="flex items-center px-[12px] py-[8px] bg-white transition-all duration-300 ease-out"
                       style={{
                         transform: `translateX(${swipeOffset}px)`,
                         touchAction: 'pan-y'
@@ -1602,7 +1602,7 @@ const AddInput = () => {
                       <div className="w-[120px] text-[12px] font-medium text-black truncate">
                         {entity.modelName || ''}
                       </div>
-                      <div className="w-[60px] text-[12px] font-medium text-black px-1 truncate">
+                      <div className="w-[60px] text-[12px] font-medium text-black px-[4px] truncate">
                         {entity.brandName || ''}
                       </div>
                       <div className="flex-1 text-[12px] font-medium text-black truncate">
@@ -1611,7 +1611,7 @@ const AddInput = () => {
                     </div>
                     {/* Action Buttons - Behind the row on the right, revealed on swipe */}
                     <div
-                      className="absolute right-0 top-0 bottom-0 flex gap-2 z-0"
+                      className="absolute right-0 top-[0px] bottom-0 flex gap-[8px] z-0"
                       style={{
                         opacity: isExpanded || (swipeState && swipeState.isSwiping && swipeOffset < -20) ? 1 : 0,
                         transform: swipeOffset < 0
@@ -1626,7 +1626,7 @@ const AddInput = () => {
                           e.stopPropagation();
                           handleEditRow(index);
                         }}
-                        className="action-button w-[44px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+                        className="action-button w-[44px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-[6px] hover:bg-[#22a882] transition-colors shadow-sm"
                         title="Edit"
                       >
                         <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
@@ -1636,7 +1636,7 @@ const AddInput = () => {
                           e.stopPropagation();
                           handleDeleteRow(index);
                         }}
-                        className="action-button w-[44px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+                        className="action-button w-[44px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-[6px] hover:bg-[#cc4d26] transition-colors shadow-sm"
                         title="Delete"
                       >
                         <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />

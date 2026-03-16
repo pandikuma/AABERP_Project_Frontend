@@ -3,8 +3,8 @@ import React from 'react';
 const Tabs = ({ activeTab = 'create', onTabChange }) => {
   return (
     <div className="fixed top-[50px] left-1/2 transform -translate-x-1/2 w-full max-w-[360px] h-[40px] bg-white z-40" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      <div className="flex items-center justify-between px-4 h-full relative">
-        <div className="flex gap-6">
+      <div className="flex items-center justify-between px-[16px] h-full relative">
+        <div className="flex gap-[24px]">
           <button
             onClick={() => onTabChange('create')}
             className={`font-semibold text-[12px] leading-normal whitespace-nowrap ${

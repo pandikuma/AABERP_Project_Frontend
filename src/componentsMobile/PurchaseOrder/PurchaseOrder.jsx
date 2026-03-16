@@ -362,7 +362,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 const cacheKey = String(inchargeId);
                 let empObj = cache.get(cacheKey);
                 if (empObj === undefined) {
-                  const res = await fetch(`http://localhost:8082/api/employee_details/get/${inchargeId}`);
+                  const res = await fetch(`https://backendaab.in/aabuildersDash/api/employee_details/get/${inchargeId}`);
                   empObj = res.ok ? await res.json() : null;
                   cache.set(cacheKey, empObj);
                 }
@@ -731,7 +731,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 const cacheKey = String(inchargeId);
                 let empObj = cache.get(cacheKey);
                 if (empObj === undefined) {
-                  const res = await fetch(`http://localhost:8082/api/employee_details/get/${inchargeId}`);
+                  const res = await fetch(`https://backendaab.in/aabuildersDash/api/employee_details/get/${inchargeId}`);
                   empObj = res.ok ? await res.json() : null;
                   cache.set(cacheKey, empObj);
                 }
@@ -1025,7 +1025,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   }, []);
   const fetchVendorNames = async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/vendor_Names/getAll');
+      const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll');
       if (response.ok) {
         const data = await response.json();
         const formattedData = data.map(item => ({
@@ -1051,7 +1051,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   useEffect(() => {
     const fetchSites = async () => {
       try {
-        const response = await fetch("http://localhost:8081/api/project_Names/getAll", {
+        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -1087,14 +1087,14 @@ const PurchaseOrder = ({ user, onLogout }) => {
       try {
         // Fetch both APIs in parallel - no waiting, fire immediately
         const [employeeResponse, supportStaffResponse] = await Promise.all([
-          fetch('http://localhost:8082/api/employee_details/site_engineers', {
+          fetch('https://backendaab.in/aabuildersDash/api/employee_details/site_engineers', {
             method: 'GET',
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json'
             }
           }),
-          fetch('http://localhost:8082/api/support_staff/getAll', {
+          fetch('https://backendaab.in/aabuildersDash/api/support_staff/getAll', {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -1157,7 +1157,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   // Fetch PO item names from API - extracted as reusable function
   const fetchPoItemName = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoItemName(data);
@@ -1169,7 +1169,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   // Fetch PO model from API - extracted as reusable function
   const fetchPoModel = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_model/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoModel(data);
@@ -1181,7 +1181,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   // Fetch PO brand from API - extracted as reusable function
   const fetchPoBrand = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_brand/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoBrand(data);
@@ -1193,7 +1193,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   // Fetch PO type from API - extracted as reusable function
   const fetchPoType = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/po_type/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoType(data);
@@ -1219,7 +1219,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   useEffect(() => {
     const fetchPoCategory = async () => {
       try {
-        const response = await fetch('http://localhost:8082/api/po_category/getAll');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
         if (response.ok) {
           const data = await response.json();
           const options = (data || []).map(item => ({
@@ -1242,7 +1242,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   // Fetch tiles data (for TILE category)
   const fetchTiles = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/tiles/all/data');
+      const response = await fetch('https://backendaab.in/aabuilderDash/api/tiles/all/data');
       if (response.ok) {
         const data = await response.json();
         setTileData(data || []);
@@ -1255,7 +1255,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   // Fetch tile sizes data (for TILE category)
   const fetchTileSizes = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8081/api/tile/quantity/size');
+      const response = await fetch('https://backendaab.in/aabuilderDash/api/tile/quantity/size');
       if (response.ok) {
         const data = await response.json();
         setTileSizeData(data || []);
@@ -1287,7 +1287,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
       return 1;
     }
     try {
-      const response = await fetch('http://localhost:8082/api/purchase_orders/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
       if (!response.ok) {
         throw new Error('Failed to fetch purchase orders');
       }
@@ -1332,7 +1332,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
       const vendorBlob = new Blob([JSON.stringify(vendorData)], { type: 'application/json' });
       formData.append("vendor", vendorBlob);
       // No file appended since we're only saving vendor name
-      const response = await fetch("http://localhost:8081/api/vendor_Names/save", {
+      const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/save", {
         method: "POST",
         body: formData
       });
@@ -1841,7 +1841,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
       return null;
     }
     try {
-      const response = await fetch('http://localhost:8082/api/purchase_orders/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
       if (!response.ok) {
         throw new Error('Failed to fetch purchase orders');
       }
@@ -1994,7 +1994,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
         })
       };
       const isEditingExistingPo = isEditMode && poData.originalId;
-      const baseUrl = "http://localhost:8082/api/purchase_orders";
+      const baseUrl = "https://backendaab.in/aabuildersDash/api/purchase_orders";
       const url = isEditingExistingPo
         ? `${baseUrl}/edit_with_history/${poData.originalId}?changedBy=${encodeURIComponent(username)}`
         : `${baseUrl}/save`;
@@ -2616,12 +2616,12 @@ const PurchaseOrder = ({ user, onLogout }) => {
         {activeTab === 'summary' && <Summary />}
         {/* Create PO Tab Content */}
         {activeTab === 'create' && (
-          <div className="flex px-4 flex-col h-[calc(100vh-85px-80px)] overflow-hidden">
+          <div className="flex px-[16px] flex-col h-[calc(100vh-85px-80px)] overflow-hidden">
             {/* PO Number and Date Row - Only show date when not in empty state */}
             {!isEmptyState && (
-              <div className="flex-shrink-0 pt-3 pb-1.5 border-b border-gray-200">
+              <div className="flex-shrink-0 pt-[12px] pb-[6px] border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-[8px]">
                     {poData.poNumber && (
                       <p className="text-[12px] font-semibold text-black leading-normal">{poData.poNumber}</p>
                     )}
@@ -2631,7 +2631,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                       {poData.date}
                     </button>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-[16px]">
                     {isPdfGenerated ? (
                       <>
                         <button type="button" onClick={downloadPDF} className="text-[13px] font-semibold text-black leading-normal" >
@@ -2690,7 +2690,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
             {/* For edit/clone mode: show dropdowns before clicking + */}
             {/* For regular flow: show dropdowns before clicking + (when selecting fields) */}
             {(!hasOpenedAdd && isEditMode) || ((!showAddItems && !hasOpenedAdd) && !isEditMode) || (items.length > 0 && hasOpenedAdd && (!poData.vendorName || !poData.projectName || !poData.projectIncharge)) ? (
-              <div className="flex-shrink-0 pt-4 space-y-[6px]">
+              <div className="flex-shrink-0 pt-[16px] space-y-[6px]">
                 {/* Vendor Name Field */}
                 <div className=" relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
@@ -2704,7 +2704,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                           setShowVendorModal(true);
                         }
                       }}
-                      className={`w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium flex items-center ${isEditFromHistory ? 'bg-gray-100 cursor-not-allowed' : 'bg-white cursor-pointer'
+                      className={`w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium flex items-center ${isEditFromHistory ? 'bg-gray-100 cursor-not-allowed' : 'bg-white cursor-pointer'
                         }`}
                       style={{
                         boxSizing: 'border-box',
@@ -2745,7 +2745,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowProjectModal(true)}
-                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         boxSizing: 'border-box',
                         color: poData.projectName ? '#000' : '#9E9E9E'
@@ -2781,7 +2781,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowInchargeModal(true)}
-                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-8 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         boxSizing: 'border-box',
                         color: poData.projectIncharge ? '#000' : '#9E9E9E'
@@ -2817,8 +2817,8 @@ const PurchaseOrder = ({ user, onLogout }) => {
             {/* These two views are mutually exclusive - never show both at the same time */}
             {((hasOpenedAdd && isEditMode && (poData.vendorName || poData.projectName || poData.projectIncharge)) ||
               (hasOpenedAdd && !isEmptyState && (poData.vendorName || poData.projectName || poData.projectIncharge) && !isEditMode)) && (
-                <div className="flex-shrink-0 mx-2 mb-1 p-2 bg-white border border-[#aaaaaa] rounded-[8px]">
-                  <div className="flex flex-col gap-2 px-2">
+                <div className="flex-shrink-0 mx-2 mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+                  <div className="flex flex-col gap-[8px] px-[8px]">
                     {poData.vendorName && (
                       <div className="flex items-start">
                         <p className="text-[12px] font-medium text-[#3f3f3f] leading-normal w-[111px]">Vendor Name</p>
@@ -2860,13 +2860,13 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 {((items.length > 0 && (hasOpenedAdd || isEditMode)) || ((!isEmptyState || isEditMode) && poData.vendorName && poData.projectName && poData.projectIncharge)) && (
                   <div className="flex flex-col flex-1 min-h-0 mb-4 mt-2">
                     {/* Items Header - Fixed */}
-                    <div className="flex-shrink-0 flex items-center gap-2 mb-2 border-b border-[#E0E0E0] pb-2">
+                    <div className="flex-shrink-0 flex items-center gap-[8px] mb-2 border-b border-[#E0E0E0] pb-[8px]">
                       <p className="text-[14px] font-medium text-black leading-normal">Items</p>
                       <input
                         type="text"
                         value={items.length}
                         readOnly
-                        className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-2 text-[12px] font-medium text-black bg-gray-200 text-center"
+                        className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-[8px] text-[12px] font-medium text-black bg-gray-200 text-center"
                       />
                       <div className="ml-auto cursor-pointer" onClick={() => setShowSearchItemsModal(true)}>
                         <img src={SearchBlack} alt='search' className=' w-[16px] h-[16px]' />

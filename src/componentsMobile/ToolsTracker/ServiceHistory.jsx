@@ -6,15 +6,15 @@ import SelectOptionModal from '../PurchaseOrder/SelectOptionModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import Close from '../Images/close.png';
 
-const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'http://localhost:8082/api/tools_tracker_management';
-const PROJECT_NAMES_BASE_URL = 'http://localhost:8081/api/project_Names';
-const VENDOR_NAMES_BASE_URL = 'http://localhost:8081/api/vendor_Names';
-const EMPLOYEE_DETAILS_BASE_URL = 'http://localhost:8082/api/employee_details';
-const TOOLS_ITEM_NAME_BASE_URL = 'http://localhost:8082/api/tools_item_name';
-const TOOLS_BRAND_BASE_URL = 'http://localhost:8082/api/tools_brand';
-const TOOLS_ITEM_ID_BASE_URL = 'http://localhost:8082/api/tools_item_id';
-const TOOLS_MACHINE_STATUS_BASE_URL = 'http://localhost:8082/api/tools-machine-status';
-const TOOLS_MACHINE_NUMBER_BASE_URL = 'http://localhost:8082/api/tools_machine_number';
+const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
+const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
+const VENDOR_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/vendor_Names';
+const EMPLOYEE_DETAILS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/employee_details';
+const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
+const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
+const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
+const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
+const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
 
 const ServiceHistory = ({ user, onTabChange }) => {
   const [viewMode, setViewMode] = useState('live'); // 'live' or 'history'
@@ -68,6 +68,19 @@ const ServiceHistory = ({ user, onTabChange }) => {
     { value: 'Machine Dead', label: 'Machine Dead' }
   ];
   const [statusSearchQuery, setStatusSearchQuery] = useState('');
+  // Shop Name popup state
+  const [showShopNameDropdown, setShowShopNameDropdown] = useState(false);
+  const [selectedShopName, setSelectedShopName] = useState(null);
+  const [shopNameSearchQuery, setShopNameSearchQuery] = useState('');
+  const [serviceStoreOptions, setServiceStoreOptions] = useState([]);
+  const [shopNameFavorites, setShopNameFavorites] = useState(() => {
+    try {
+      const stored = localStorage.getItem('favoriteServiceStores');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   // Swipe detection state - track per card
   const [swipeStates, setSwipeStates] = useState({});
   const [expandedEntryId, setExpandedEntryId] = useState(null);
@@ -256,6 +269,33 @@ const ServiceHistory = ({ user, onTabChange }) => {
       }
     };
     fetchMachineNumbers();
+  }, []);
+
+  // Fetch service store vendors (for Shop Name popup)
+  useEffect(() => {
+    const fetchServiceStoreVendors = async () => {
+      try {
+        const response = await fetch(`${VENDOR_NAMES_BASE_URL}/getAll`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const serviceStoreVendors = (Array.isArray(data) ? data : [])
+            .filter(vendor => vendor.makeAsServiceShop === true)
+            .map(vendor => ({
+              value: vendor.vendorName || vendor.vendor_name || '',
+              label: vendor.vendorName || vendor.vendor_name || '',
+              id: vendor.id,
+            }));
+          setServiceStoreOptions(serviceStoreVendors);
+        }
+      } catch (error) {
+        console.error('Error fetching service store vendors:', error);
+      }
+    };
+    fetchServiceStoreVendors();
   }, []);
 
   // Fetch history data from tools tracker management API
@@ -781,6 +821,36 @@ const ServiceHistory = ({ user, onTabChange }) => {
   const filterItemIdOptions = Object.values(itemIdsMap).filter(Boolean);
   const filterProjectInchargeOptions = Object.values(employeesMap).filter(Boolean);
 
+  // Helper functions for Shop Name popup
+  const normalizeSearchText = (text) => {
+    if (!text) return '';
+    return String(text).toLowerCase().trim();
+  };
+
+  const getFilteredServiceStoreOptions = () => {
+    const normalizedQuery = normalizeSearchText(shopNameSearchQuery);
+    const filtered = serviceStoreOptions.filter(option => {
+      const normalizedLabel = normalizeSearchText(option.label);
+      return normalizedLabel.includes(normalizedQuery);
+    });
+    return filtered.sort((a, b) => {
+      const aIsFavorite = shopNameFavorites.includes(a.id);
+      const bIsFavorite = shopNameFavorites.includes(b.id);
+      if (aIsFavorite && !bIsFavorite) return -1;
+      if (!aIsFavorite && bIsFavorite) return 1;
+      return a.label.localeCompare(b.label);
+    });
+  };
+
+  const handleToggleShopNameFavorite = (e, optionId) => {
+    e.stopPropagation();
+    const newFavorites = shopNameFavorites.includes(optionId)
+      ? shopNameFavorites.filter(id => id !== optionId)
+      : [...shopNameFavorites, optionId];
+    setShopNameFavorites(newFavorites);
+    localStorage.setItem('favoriteServiceStores', JSON.stringify(newFavorites));
+  };
+
   // Pre-compute returned item keys (items that have been returned to any project)
   const returnedItemKeys = new Set(
     serviceReturnData
@@ -807,27 +877,33 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
   return (
     <div className="flex flex-col bg-white min-h-[calc(100vh-90px-80px)]" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      {/* Top Header Section */}
-      <div className="flex-shrink-0 px-4 pt-1.5">
-        <div className="flex justify-between  items-start border-b border-gray-200 pb-2">
-          <div>
-            <p className="text-[12px] font-semibold text-black leading-normal">Shop Name</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-[#848484] leading-normal flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#848484]" />
-              Purchase Cost: 0
-            </span>
-            <span className="text-[10px] font-semibold text-[#BF9853] leading-normal flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#BF9853]" />
-              Service Cost: 0
-            </span>
+      <div className="sticky top-0 bg-white z-10 flex-shrink-0">
+        {/* Top Header Section */}
+        <div className="flex-shrink-0 px-[16px] pt-[6px]">
+          <div className="flex justify-between  items-start border-b border-gray-200 pb-[8px]">
+            <div>
+              <p 
+                className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline"
+                onClick={() => setShowShopNameDropdown(true)}
+              >
+                {selectedShopName ? selectedShopName.label : 'Shop Name'}
+              </p>
+            </div>
+            <div className="flex items-center gap-[12px]">
+              <span className="text-[10px] text-[#848484] leading-normal flex items-center gap-[4px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#848484]" />
+                Purchase Cost: 0
+              </span>
+              <span className="text-[10px] font-semibold text-[#BF9853] leading-normal flex items-center gap-[4px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#BF9853]" />
+                Service Cost: 0
+              </span>
+            </div>
           </div>
         </div>
-      </div>
-      {/* Live/History Toggle */}
-      <div className="flex-shrink-0 px-4 pt-3 pb-2">
-        <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md">
+        {/* Live/History Toggle */}
+        <div className="flex-shrink-0 px-[16px] pt-[12px] pb-[8px]">
+          <div className="flex bg-[#F2F4F7] items-center h-9 rounded-md">
           <button
             onClick={() => setViewMode('live')}
             className={`flex-1 ml-0.5 h-8 rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${
@@ -849,61 +925,105 @@ const ServiceHistory = ({ user, onTabChange }) => {
             History
           </button>
         </div>
+        </div>
       </div>
       {/* Filter and Download Row */}
-      <div className="flex justify-between items-center gap-2 px-4 pb-1 mt-2 min-h-[32px]">
-        <div className="flex items-center gap-2 cursor-pointer flex-shrink-0" onClick={() => setShowFilterBottomSheet(true)}>
+      <div className="flex justify-between items-center gap-[8px] px-[16px] pb-[4px] mt-2 min-h-[32px]">
+        <div className="flex items-center gap-[8px] cursor-pointer flex-shrink-0" onClick={() => setShowFilterBottomSheet(true)}>
           <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
           <span className="text-[12px] font-medium text-gray-500">Filter</span>
         </div>
-        <div className="flex-1 flex flex-wrap items-center gap-1.5 min-w-0 overflow-hidden">
-          {filterItemName && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
-              <span className="truncate max-w-[80px]">{filterItemName}</span>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterItemName(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Item Name">
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <div className="flex-1 flex flex-wrap items-center gap-[6px] min-w-0 overflow-hidden">
+          {selectedShopName && (
+            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <span className="text-[11px] font-medium text-black">Shop Name</span>
+              <button
+                onClick={() => setSelectedShopName(null)}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
-            </span>
+            </div>
+          )}
+          {filterItemName && (
+            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <span className="text-[11px] font-medium text-black">Item Name</span>
+              <button
+                onClick={() => setFilterItemName('')}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
           )}
           {filterMachineNumber && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
-              <span className="truncate max-w-[80px]">{filterMachineNumber}</span>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterMachineNumber(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Machine Number">
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <span className="text-[11px] font-medium text-black">Machine</span>
+              <button
+                onClick={() => setFilterMachineNumber('')}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
-            </span>
+            </div>
           )}
           {filterItemId && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
-              <span className="truncate max-w-[80px]">{filterItemId}</span>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterItemId(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Item ID">
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <span className="text-[11px] font-medium text-black">Item ID</span>
+              <button
+                onClick={() => setFilterItemId('')}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
-            </span>
+            </div>
           )}
           {filterProjectIncharge && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
-              <span className="truncate max-w-[80px]">{filterProjectIncharge}</span>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterProjectIncharge(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Project Incharge">
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <span className="text-[11px] font-medium text-black">Incharge</span>
+              <button
+                onClick={() => setFilterProjectIncharge('')}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
-            </span>
+            </div>
           )}
           {filterDate && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
-              <span className="truncate max-w-[80px]">{filterDate}</span>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterDate(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Date">
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <span className="text-[11px] font-medium text-black">Date</span>
+              <button
+                onClick={() => setFilterDate('')}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
-            </span>
+            </div>
           )}
           {filterStatus && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-200 text-[11px] font-medium text-black">
-              <span className="truncate max-w-[80px]">{(statusOptions.find(o => o.value === filterStatus)?.label) || filterStatus}</span>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setFilterStatus(''); }} className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-300" aria-label="Clear Status">
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <span className="text-[11px] font-medium text-black">Status</span>
+              <button
+                onClick={() => setFilterStatus('')}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
-            </span>
+            </div>
           )}
         </div>
         <button className="text-[12px] font-semibold text-gray-500 cursor-pointer hover:opacity-80 flex-shrink-0">
@@ -912,13 +1032,13 @@ const ServiceHistory = ({ user, onTabChange }) => {
       </div>
 
       {/* Service Records List */}
-      <div className="flex-1 px-4 overflow-y-auto pb-4">
+      <div className="flex-1 px-[16px] overflow-y-auto pb-[16px]">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-[32px]">
             <p className="text-[12px] text-gray-500">Loading...</p>
           </div>
         ) : historyData.length === 0 ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-[32px]">
             <p className="text-[12px] text-gray-500">No service history entries found.</p>
           </div>
         ) : (
@@ -986,7 +1106,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   {/* Card */}
                   <div
                     data-entry-id={entryId}
-                    className="bg-white rounded-[8px] h-full px-3 py-2.5 cursor-pointer transition-all duration-300 ease-out select-none"
+                    className="bg-white rounded-[8px] h-full px-[12px] py-[10px] cursor-pointer transition-all duration-300 ease-out select-none"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',
@@ -1052,7 +1172,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
-                    className="absolute right-0 top-0 bottom-0 flex gap-2 flex-shrink-0 z-0"
+                    className="absolute right-0 top-[0px] bottom-0 flex gap-[8px] flex-shrink-0 z-0"
                     style={{
                       opacity:
                         isExpanded ||
@@ -1074,7 +1194,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                           onTabChange('transfer');
                         }
                       }}
-                      className="action-button w-[40px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+                      className="action-button w-[40px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center gap-[6px] hover:bg-[#22a882] transition-colors shadow-sm"
                     >
                       <img src={EditIcon} alt="Edit" className="w-[18px] h-[18px]" />
                     </button>
@@ -1083,7 +1203,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                         e.stopPropagation();
                         setExpandedEntryId(null);
                       }}
-                      className="action-button w-[40px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+                      className="action-button w-[40px] h-full bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-[6px] hover:bg-[#cc4d26] transition-colors shadow-sm"
                     >
                       <img src={DeleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
                     </button>
@@ -1130,7 +1250,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
               {/* Close Button - Inside image at top right */}
               <button
                 onClick={handleCloseImageViewer}
-                className="absolute -top-7 -right-1 w-8 h-8 rounded-full flex items-center justify-center z-20 "
+                className="absolute -top-[28px] -right-1 w-8 h-8 rounded-full flex items-center justify-center z-20 "
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M18 6L6 18M6 6L18 18" stroke="#E4572E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -1162,7 +1282,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
               {/* Image Counter */}
               {imageViewerData.images.length > 1 && (
-                <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full">
+                <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-black/50 px-[12px] py-[4px] rounded-full">
                   <span className="text-[12px] text-white">
                     {imageViewerData.currentIndex + 1} / {imageViewerData.images.length}
                   </span>
@@ -1171,7 +1291,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
             </div>
 
             {/* Status indicator below image */}
-            <div className="flex items-center justify-center gap-2 mt-3">
+            <div className="flex items-center justify-center gap-[8px] mt-3">
               <span
                 className={`w-2 h-2 rounded-full ${imageViewerData.machineStatus === 'Working' ? 'bg-[#4CAF50]' :
                   imageViewerData.machineStatus === 'Not Working' || imageViewerData.machineStatus === 'Machine Dead' ? 'bg-[#F44336]' :
@@ -1196,7 +1316,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
       {/* Bottom Sheet Modal */}
       {showBottomSheet && (
         <div
-          className="fixed inset-0 z-50 flex items-end"
+          className="fixed inset-0 z-[100] flex items-end"
           onClick={handleCloseBottomSheet}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
@@ -1209,7 +1329,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-gray-200">
+            <div className="flex items-center justify-between px-[16px] pt-[16px] pb-[12px] border-b border-gray-200">
               <p className="text-[16px] font-semibold text-black">Select Filters</p>
               <button
                 onClick={handleCloseBottomSheet}
@@ -1222,7 +1342,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
             </div>
 
             {/* Content */}
-            <div className="px-4 py-4">
+            <div className="px-[16px] py-[16px]">
               {/* Machine Status Filter */}
               <div className="mb-4">
                 <label className="block text-[14px] font-medium text-black mb-2">
@@ -1230,7 +1350,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                 </label>
                 <button
                   onClick={() => setShowStatusDropdown(true)}
-                  className="w-full px-3 py-2.5 text-left bg-white border border-gray-300 rounded-[8px] flex items-center justify-between"
+                  className="w-full px-[12px] py-[10px] text-left bg-white border border-gray-300 rounded-[8px] flex items-center justify-between"
                 >
                   <span className={`text-[14px] ${selectedStatus ? 'text-black' : 'text-gray-400'}`}>
                     {(statusOptions.find(o => o.value === selectedStatus)?.label) || 'Select Status'}
@@ -1249,16 +1369,16 @@ const ServiceHistory = ({ user, onTabChange }) => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 px-4 pb-2">
+            <div className="flex gap-[12px] px-[16px] pb-[8px]">
               <button
                 onClick={handleCloseBottomSheet}
-                className="flex-1 px-4 py-3 text-[14px] font-medium text-black bg-white border border-gray-300 rounded-[8px] hover:bg-gray-50"
+                className="flex-1 px-[16px] py-[12px] text-[14px] font-medium text-black bg-white border border-gray-300 rounded-[8px] hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveFilter}
-                className="flex-1 px-4 py-3 text-[14px] font-medium text-white bg-black rounded-[8px] hover:bg-gray-800"
+                className="flex-1 px-[16px] py-[12px] text-[14px] font-medium text-white bg-black rounded-[8px] hover:bg-gray-800"
               >
                 Save
               </button>
@@ -1268,14 +1388,14 @@ const ServiceHistory = ({ user, onTabChange }) => {
           {/* Select Status Modal - centered overlay when Machine Status dropdown is clicked */}
           {showStatusDropdown && (
             <div
-              className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+              className="fixed inset-0 z-[60] flex items-center justify-center px-[16px]"
               onClick={() => setShowStatusDropdown(false)}
             >
               <div
                 className="absolute inset-0 bg-black bg-opacity-40"
               />
               <div
-                className="relative z-10 w-full max-w-[340px] bg-white rounded-[12px] shadow-xl p-4"
+                className="relative z-10 w-full max-w-[340px] bg-white rounded-[12px] shadow-xl p-[16px]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
@@ -1300,7 +1420,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                     placeholder="Search"
                     value={statusSearchQuery}
                     onChange={(e) => setStatusSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 text-[14px] border border-gray-300 rounded-[8px] focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    className="w-full pl-[36px] pr-[12px] py-[10px] text-[14px] border border-gray-300 rounded-[8px] focus:outline-none focus:ring-1 focus:ring-gray-400"
                   />
                 </div>
                 {/* Radio Options */}
@@ -1317,7 +1437,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                           setShowStatusDropdown(false);
                           setStatusSearchQuery('');
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[8px] text-left ${selectedStatus === option.value
+                        className={`w-full flex items-center justify-between px-[12px] py-[10px] rounded-[8px] text-left ${selectedStatus === option.value
                           ? 'bg-[#FFF3E0]'
                           : 'hover:bg-gray-50'
                           }`}
@@ -1347,7 +1467,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
       {/* Filter Bottom Sheet Modal */}
       {showFilterBottomSheet && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
+          className="fixed inset-0 z-[100] flex items-end justify-center"
           onClick={handleCloseFilterBottomSheet}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
@@ -1360,7 +1480,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-6 pt-5 pb-1">
+            <div className="flex-shrink-0 flex items-center justify-between px-[24px] pt-[20px] pb-[4px]">
               <p className="text-[16px] font-bold text-black">Select Filters</p>
               <button
                 onClick={handleCloseFilterBottomSheet}
@@ -1371,14 +1491,14 @@ const ServiceHistory = ({ user, onTabChange }) => {
             </div>
 
             {/* Content - scrollable */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-[6px]">
+            <div className="flex-1 overflow-y-auto px-[24px] py-[16px] space-y-[6px]">
               {/* Item Name */}
               <div>
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Item Name</p>
                 <div className="relative">
                   <div
                     onClick={() => setShowFilterItemNameModal(true)}
-                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                     style={{ color: filterItemName ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
                   >
                     {filterItemName || 'Select'}
@@ -1406,7 +1526,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                 <div className="relative">
                   <div
                     onClick={() => setShowFilterMachineNumberModal(true)}
-                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                     style={{ color: filterMachineNumber ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
                   >
                     {filterMachineNumber || 'Select'}
@@ -1426,13 +1546,13 @@ const ServiceHistory = ({ user, onTabChange }) => {
                 </div>
               </div>
               {/* Item ID */}
-              <div className='flex gap-2'>
+              <div className='flex gap-[8px]'>
                 <div className='flex-1'>
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Item ID</p>
                   <div className="relative">
                     <div
                       onClick={() => setShowFilterItemIdModal(true)}
-                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{ color: filterItemId ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
                     >
                       {filterItemId || 'Select'}
@@ -1459,7 +1579,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   <div className="relative">
                     <div
                       onClick={() => setShowFilterProjectInchargeModal(true)}
-                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{ color: filterProjectIncharge ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
                     >
                       {filterProjectIncharge || 'Select'}
@@ -1482,7 +1602,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                 </div>
               </div>
               {/* Date */}
-              <div className='flex gap-2'>
+              <div className='flex gap-[8px]'>
                 <div className='flex-1'>
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Date</p>
                   <div className="relative">
@@ -1493,7 +1613,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                       onClick={() => setShowFilterDatePicker(true)}
                       onFocus={() => setShowFilterDatePicker(true)}
                       placeholder="dd-mm-yyyy"
-                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] pl-3 pr-10 text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500 cursor-pointer"
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] pl-[12px] pr-[40px] text-[12px] font-medium focus:outline-none text-gray-700 placeholder-gray-500 cursor-pointer"
                       style={{ color: filterDate ? '#000' : '#9E9E9E' }}
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -1510,7 +1630,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   <div className="relative">
                     <button
                       onClick={() => setShowFilterStatusDropdown(true)}
-                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer text-left"
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer text-left"
                       style={{ color: filterStatus ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: '40px' }}
                     >
                       {(statusOptions.find(o => o.value === filterStatus)?.label) || 'Select'}
@@ -1535,7 +1655,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex-shrink-0 flex gap-4 px-6 pb-6 pt-2">
+            <div className="flex-shrink-0 flex gap-[16px] px-[24px] pb-[24px] pt-[8px]">
               <button
                 onClick={handleCloseFilterBottomSheet}
                 className="flex-1 h-[40px] border border-black rounded-[8px] text-[14px] font-bold text-black bg-white"
@@ -1611,12 +1731,12 @@ const ServiceHistory = ({ user, onTabChange }) => {
       {/* Filter Status Dropdown Modal */}
       {showFilterBottomSheet && showFilterStatusDropdown && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center px-[16px]"
           onClick={() => setShowFilterStatusDropdown(false)}
         >
           <div className="absolute inset-0 bg-black bg-opacity-40" />
           <div
-            className="relative z-10 w-full max-w-[340px] bg-white rounded-[12px] shadow-xl p-4"
+            className="relative z-10 w-full max-w-[340px] bg-white rounded-[12px] shadow-xl p-[16px]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -1639,7 +1759,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                 placeholder="Search"
                 value={filterStatusSearchQuery}
                 onChange={(e) => setFilterStatusSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 text-[14px] border border-gray-300 rounded-[8px] focus:outline-none focus:ring-1 focus:ring-gray-400"
+                className="w-full pl-[36px] pr-[12px] py-[10px] text-[14px] border border-gray-300 rounded-[8px] focus:outline-none focus:ring-1 focus:ring-gray-400"
               />
             </div>
             <div className="space-y-0">
@@ -1655,7 +1775,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                       setShowFilterStatusDropdown(false);
                       setFilterStatusSearchQuery('');
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[8px] text-left ${filterStatus === option.value
+                    className={`w-full flex items-center justify-between px-[12px] py-[10px] rounded-[8px] text-left ${filterStatus === option.value
                       ? 'bg-[#FFF3E0]'
                       : 'hover:bg-gray-50'
                       }`}
@@ -1675,6 +1795,108 @@ const ServiceHistory = ({ user, onTabChange }) => {
                     </span>
                   </button>
                 ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shop Name Dropdown Modal */}
+      {showShopNameDropdown && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 -top-[16px] z-50 flex items-center justify-center p-[16px]"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowShopNameDropdown(false);
+              setShopNameSearchQuery('');
+            }
+          }}
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-[24px] pt-[20px]">
+              <p className="text-[16px] font-semibold text-black">Select Service Store</p>
+              <button onClick={() => { setShowShopNameDropdown(false); setShopNameSearchQuery(''); }} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
+                <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+              </button>
+            </div>
+            <div className="px-[24px] pt-[16px] pb-[16px]">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={shopNameSearchQuery}
+                  onChange={(e) => setShopNameSearchQuery(e.target.value)}
+                  placeholder="Search"
+                  className="w-full h-[32px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+                  autoFocus
+                />
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
+                    <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
+              <div className="shadow-md rounded-lg overflow-hidden">
+                {getFilteredServiceStoreOptions().length > 0 ? (
+                  <div className="space-y-0">
+                    {getFilteredServiceStoreOptions().map((option) => {
+                      const isFavorite = shopNameFavorites.includes(option.id);
+                      const isSelected = selectedShopName?.id === option.id;
+                      // Helper function to split option text at first hyphen
+                      const splitOptionText = (text) => {
+                        if (!text) return { firstLine: '', secondLine: '' };
+                        const firstHyphenIndex = text.indexOf(' - ');
+                        if (firstHyphenIndex === -1) {
+                          return { firstLine: text, secondLine: '' };
+                        }
+                        return {
+                          firstLine: text.substring(0, firstHyphenIndex),
+                          secondLine: text.substring(firstHyphenIndex + 3) // +3 to skip ' - '
+                        };
+                      };
+                      const { firstLine, secondLine } = splitOptionText(option.label);
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => {
+                            setSelectedShopName(option);
+                            setShowShopNameDropdown(false);
+                            setShopNameSearchQuery('');
+                          }}
+                          className={`w-full px-[24px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`}
+                          style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
+                        >
+                          <button onClick={(e) => handleToggleShopNameFavorite(e, option.id)} className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                            {isFavorite ? (
+                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" fill="#e4572e" stroke="#e4572e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            ) : (
+                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </button>
+                          <div className="flex flex-col flex-1 min-w-0 text-left">
+                            <p className="text-[12px] font-medium text-black truncate whitespace-nowrap text-left">{firstLine}</p>
+                            {secondLine && (
+                              <p className="text-[11px] font-medium text-[#777777] truncate whitespace-nowrap text-left">{secondLine}</p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-[16px]">
+                    <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
+                      {shopNameSearchQuery ? 'No options found' : 'No options available'}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

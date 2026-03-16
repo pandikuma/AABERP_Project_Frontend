@@ -140,10 +140,10 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
         }
       `}</style>
       <div ref={fixedContainerRef} className="fixed top-[50px] transform w-full max-w-[357px] h-[40px] overflow-x-auto bg-white inventory-tabs-container" style={{ fontFamily: "'Manrope', sans-serif", zIndex: 30 }}>
-        <div className="relative h-full px-4 pr-6 overflow-x-auto scrollbar-hide inventory-tabs-scroll" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div className="relative h-full px-[16px] pr-[24px] overflow-x-auto scrollbar-hide inventory-tabs-scroll" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <div 
             ref={tabsContainerRef}
-            className="flex items-center gap-4 h-full overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing inventory-tabs-scroll"
+            className="flex items-center gap-[16px] h-full overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing inventory-tabs-scroll"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', paddingRight: '5px' }}
           onMouseDown={(e) => {
             setIsDragging(true);
@@ -211,7 +211,7 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
       {isDropdownOpen && (
         <div 
           ref={dropdownMenuRef}
-          className="fixed bg-white rounded-lg shadow-lg py-2" 
+          className="fixed bg-white rounded-lg shadow-lg py-[8px]" 
           style={{ 
             zIndex: 9999,
             top: `${dropdownPosition.top}px`,
@@ -224,7 +224,7 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
             <button
               key={item.id}
               onClick={() => handleMenuItemClick(item.id)}
-              className={`w-full text-left px-4 py-2 text-[12px] font-semibold transition-colors ${
+              className={`w-full text-left px-[16px] py-[8px] text-[12px] font-semibold transition-colors ${
                 activeTab === item.id 
                   ? 'text-black bg-[#E8E8E8]' 
                   : 'text-[#333333] hover:bg-[#E8E8E8]'

@@ -73,7 +73,10 @@ const ToolsTracker = ({ user, onLogout }) => {
     }
   };
   return (
-    <div className="relative w-full bg-white max-w-[360px] mx-auto" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div
+      className="relative w-full bg-white max-w-[360px] mx-auto overflow-hidden"
+      style={{ fontFamily: "'Manrope', sans-serif" }}
+    >
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -82,17 +85,17 @@ const ToolsTracker = ({ user, onLogout }) => {
         currentPage={currentPage}
         userRoles={user?.userRoles || []}
       />
-      {/* Header - Fixed */}
+      {/* Header with Tabs */}
       <Header
         title="Tools Tracker"
         user={user}
         onLogout={onLogout}
         onMenuClick={handleMenuClick}
-      />
-      {/* Tabs - Fixed */}
-      <ToolsTrackerTabs activeTab={activeTab} onTabChange={handleTabChange} />
-      {/* Content Area */}
-      <div className="mt-[90px]">
+      >
+        <ToolsTrackerTabs activeTab={activeTab} onTabChange={handleTabChange} embedded />
+      </Header>
+      {/* Content Area - height ends before BottomNav */}
+      <div className="mt-[96px] h-[calc(100vh-96px-80px)] overflow-hidden">
         {renderTabContent()}
       </div>
       {/* Bottom Navigation */}
