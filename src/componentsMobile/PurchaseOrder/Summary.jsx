@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import SelectVendorModal from './SelectVendorModal';
 import DatePickerModal from './DatePickerModal';
+import CloseIcon from '../Images/Close F.svg'
 
 const Summary = () => {
   const [viewMode, setViewMode] = useState('vendor'); // 'vendor' or 'project'
@@ -235,7 +236,7 @@ const Summary = () => {
         </div>
         {/* Vendor/Project Selection */}
         {viewMode === 'vendor' ? (
-          <div className="">
+          <div className="pb-[8px]">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
               Vendor Name<span className="text-[#eb2f8e]">*</span>
             </p>
@@ -251,16 +252,13 @@ const Summary = () => {
                 >
                   {selectedVendor || 'Select ...'}
                 </div>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none"
-                >
-                  <path d="M3 4.5L6 7.5L9 4.5" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                {!selectedVendor && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
               </div>
               {selectedVendor && (
                 <button
@@ -269,17 +267,15 @@ const Summary = () => {
                     e.stopPropagation();
                     setSelectedVendor('');
                   }}
-                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                 </button>
               )}
             </div>
           </div>
         ) : (
-          <div className="">
+          <div className="pb-[8px]">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
               Project Name<span className="text-[#eb2f8e]">*</span>
             </p>
@@ -295,16 +291,13 @@ const Summary = () => {
                 >
                   {selectedProject || 'Select ...'}
                 </div>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none"
-                >
-                  <path d="M3 4.5L6 7.5L9 4.5" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                {!selectedProject && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
               </div>
               {selectedProject && (
                 <button
@@ -313,11 +306,9 @@ const Summary = () => {
                     e.stopPropagation();
                     setSelectedProject('');
                   }}
-                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                 </button>
               )}
             </div>
@@ -326,7 +317,7 @@ const Summary = () => {
       </div>
       {/* Project/Vendor List Summary Card */}
       {summaryData.length > 0 && (
-        <div className="bg-white shadow-lg w-[328px]">
+        <div className="bg-white shadow-lg w-[360px]">
           {/* Header */}
           <div className="flex items-center justify-between">
             <p className="text-[12px] font-semibold text-[#9E9E9E]">
@@ -355,7 +346,7 @@ const Summary = () => {
       )}
       {/* Empty State */}
       {((viewMode === 'vendor' && selectedVendor) || (viewMode === 'project' && selectedProject)) && summaryData.length === 0 && (
-        <div className="bg-white rounded- border border-[rgba(0,0,0,0.16)] w-[328px] p-[32px] text-center">
+        <div className="bg-white rounded- border border-[rgba(0,0,0,0.16)] w-[360px] p-[32px] text-center">
           <p className="text-[12px] font-medium text-[#9E9E9E]">
             No {viewMode === 'vendor' ? 'projects' : 'vendors'} found
           </p>

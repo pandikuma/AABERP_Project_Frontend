@@ -8,13 +8,13 @@ import Delete from '../Images/delete.png'
 import Filter from '../Images/Filter.png'
 import Search from '../Images/Search.png'
 const History = () => {
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [rfqs, setRfqs] = useState([]);
   // Cache for fast "get by id" lookups during clone (prevents repeated network calls)
   const quickFetchCacheRef = useRef(new Map());
   // Initialize searchQuery from localStorage if available
   const [searchQuery, setSearchQuery] = useState(() => {
     try {
-      const saved = localStorage.getItem('purchaseOrderHistorySearchQuery');
+      const saved = localStorage.getItem('rfqHistorySearchQuery');
       return saved || '';
     } catch (error) {
       return '';
@@ -31,7 +31,7 @@ const History = () => {
   // Initialize filters from localStorage if available
   const [filters, setFilters] = useState(() => {
     try {
-      const saved = localStorage.getItem('purchaseOrderHistoryFilters');
+      const saved = localStorage.getItem('rfqHistoryFilters');
       if (saved) {
         return JSON.parse(saved);
       }
@@ -44,7 +44,7 @@ const History = () => {
       siteIncharge: '',
       startDate: '',
       endDate: '',
-      poNumber: '',
+      rfqNumber: '',
       branch: ''
     };
   });
@@ -89,7 +89,7 @@ const History = () => {
   useEffect(() => {
     if (isInitialMount.current) return;
     try {
-      localStorage.setItem('purchaseOrderHistoryFilters', JSON.stringify(filters));
+      localStorage.setItem('rfqHistoryFilters', JSON.stringify(filters));
     } catch (error) {
       console.error('Error saving filters to localStorage:', error);
     }
@@ -99,7 +99,7 @@ const History = () => {
   useEffect(() => {
     if (isInitialMount.current) return;
     try {
-      localStorage.setItem('purchaseOrderHistorySearchQuery', searchQuery);
+      localStorage.setItem('rfqHistorySearchQuery', searchQuery);
     } catch (error) {
       console.error('Error saving searchQuery to localStorage:', error);
     }
@@ -192,7 +192,7 @@ const History = () => {
     // If filters are active and we have cached data, load from cache first for instant display
     if (!skipCache && hasActiveFilters) {
       try {
-        const cachedData = localStorage.getItem('purchaseOrdersHistoryCache');
+        const cachedData = localStorage.getItem('rfqsHistoryCache');
         if (cachedData) {
           const cachedPOs = JSON.parse(cachedData);
           if (cachedPOs.length > 0) {
@@ -201,7 +201,7 @@ const History = () => {
               const idB = parseInt(b.id) || 0;
               return idB - idA;
             });
-            setPurchaseOrders(sorted);
+            setRfqs(sorted);
           }
         }
       } catch (error) {
@@ -210,8 +210,8 @@ const History = () => {
     }
     try {
       const apiUrl = hasActiveFilters
-        ? 'https://backendaab.in/aabuildersDash/api/purchase_orders/getAll'
-        : 'https://backendaab.in/aabuildersDash/api/purchase_orders/get/latest';
+        ? 'https://backendaab.in/aabuildersDash/api/rfq/getAll'
+        : 'https://backendaab.in/aabuildersDash/api/rfq/get/latest';
 
       const response = await fetch(apiUrl);
       if (!response.ok) {
@@ -251,8 +251,8 @@ const History = () => {
             }
           }
 
-          // Transform purchaseTable to items format
-          const items = (po.purchaseTable || []).map(item => ({
+          // Transform rfqTable to items format
+          const items = (po.rfqTable || []).map(item => ({
             name: item.itemName || `${item.item_id || ''}`,
             brand: item.brandName || '',
             model: item.modelName || '',
@@ -323,11 +323,11 @@ const History = () => {
         const idB = parseInt(b.id) || 0;
         return idB - idA; // Descending order (highest ID first)
       });
-      setPurchaseOrders(sorted);
+      setRfqs(sorted);
 
       // Cache the transformed data for fast loading next time
       try {
-        localStorage.setItem('purchaseOrdersHistoryCache', JSON.stringify(sorted));
+        localStorage.setItem('rfqsHistoryCache', JSON.stringify(sorted));
       } catch (error) {
         console.error('Error caching purchase orders:', error);
       }
@@ -336,7 +336,7 @@ const History = () => {
       // Fallback to localStorage cache if API fails
       if (!hasActiveFilters) {
         try {
-          const cachedData = localStorage.getItem('purchaseOrdersHistoryCache');
+          const cachedData = localStorage.getItem('rfqsHistoryCache');
           if (cachedData) {
             const cachedPOs = JSON.parse(cachedData);
             const sorted = cachedPOs.sort((a, b) => {
@@ -344,7 +344,7 @@ const History = () => {
               const idB = parseInt(b.id) || 0;
               return idB - idA;
             });
-            setPurchaseOrders(sorted);
+            setRfqs(sorted);
           }
         } catch (localError) {
           console.error('Error loading from cache:', localError);
@@ -375,20 +375,20 @@ const History = () => {
       }
     };
   }, [allVendors, allProjects, allEmployees, allSupportStaff, searchQuery, filters, loadPurchaseOrders]);
-  const handleEdit = async (po) => {
-    // Fetch the specific PO quickly (ensures purchaseTable/items are present immediately)
-    let payload = po;
+  const handleEdit = async (rfq) => {
+    // Fetch the specific RFQ quickly (ensures rfqTable/items are present immediately)
+    let payload = rfq;
     try {
-      const apiPo = await fetchPurchaseOrderById(po?.id);
+      const apiPo = await fetchPurchaseOrderById(rfq?.id);
       if (apiPo) {
         payload = {
-          ...po,
-          vendor_id: apiPo.vendor_id ?? po.vendor_id,
-          client_id: apiPo.client_id ?? po.client_id,
-          site_incharge_id: apiPo.site_incharge_id ?? po.site_incharge_id,
-          site_incharge_type: apiPo.site_incharge_type ?? po.site_incharge_type,
-          site_incharge_mobile_number: apiPo.site_incharge_mobile_number ?? po.site_incharge_mobile_number,
-          items: (apiPo.purchaseTable || []).map((row) => ({
+          ...rfq,
+          vendor_id: apiPo.vendor_id ?? rfq.vendor_id,
+          client_id: apiPo.client_id ?? rfq.client_id,
+          site_incharge_id: apiPo.site_incharge_id ?? rfq.site_incharge_id,
+          site_incharge_type: apiPo.site_incharge_type ?? rfq.site_incharge_type,
+          site_incharge_mobile_number: apiPo.site_incharge_mobile_number ?? rfq.site_incharge_mobile_number,
+          items: (apiPo.rfqTable || []).map((row) => ({
             name: row.itemName || `${row.item_id || ''}`,
             itemName: row.itemName || '',
             item_id: row.item_id,
@@ -536,27 +536,27 @@ const History = () => {
     } catch (e) {
       // best-effort
     }
-    // Store PO data in localStorage to load in create tab
-    localStorage.setItem('editingPO', JSON.stringify(payload));
+    // Store RFQ data in localStorage to load in create tab
+    localStorage.setItem('editingRFQ', JSON.stringify(payload));
     // Switch to create tab immediately
     localStorage.setItem('activeTab', 'create');
-    window.dispatchEvent(new CustomEvent('editPO', { detail: payload }));
+    window.dispatchEvent(new CustomEvent('editRFQ', { detail: payload }));
   };
 
-  const handleView = async (po) => {
-    // View-only mode (Download button) with fast PO-by-id fetch
-    let payload = po;
+  const handleView = async (rfq) => {
+    // View-only mode (Download button) with fast RFQ-by-id fetch
+    let payload = rfq;
     try {
-      const apiPo = await fetchPurchaseOrderById(po?.id);
+      const apiPo = await fetchPurchaseOrderById(rfq?.id);
       if (apiPo) {
         payload = {
-          ...po,
-          vendor_id: apiPo.vendor_id ?? po.vendor_id,
-          client_id: apiPo.client_id ?? po.client_id,
-          site_incharge_id: apiPo.site_incharge_id ?? po.site_incharge_id,
-          site_incharge_type: apiPo.site_incharge_type ?? po.site_incharge_type,
-          site_incharge_mobile_number: apiPo.site_incharge_mobile_number ?? po.site_incharge_mobile_number,
-          items: (apiPo.purchaseTable || []).map((row) => ({
+          ...rfq,
+          vendor_id: apiPo.vendor_id ?? rfq.vendor_id,
+          client_id: apiPo.client_id ?? rfq.client_id,
+          site_incharge_id: apiPo.site_incharge_id ?? rfq.site_incharge_id,
+          site_incharge_type: apiPo.site_incharge_type ?? rfq.site_incharge_type,
+          site_incharge_mobile_number: apiPo.site_incharge_mobile_number ?? rfq.site_incharge_mobile_number,
+          items: (apiPo.rfqTable || []).map((row) => ({
             name: row.itemName || `${row.item_id || ''}`,
             itemName: row.itemName || '',
             item_id: row.item_id,
@@ -706,7 +706,7 @@ const History = () => {
     }
     // Switch to create tab so details are visible
     localStorage.setItem('activeTab', 'create');
-    window.dispatchEvent(new CustomEvent('viewPO', { detail: payload }));
+    window.dispatchEvent(new CustomEvent('viewRFQ', { detail: payload }));
   };
 
   const quickFetchJson = useCallback(async (url) => {
@@ -731,16 +731,16 @@ const History = () => {
   const fetchPurchaseOrderById = useCallback(
     async (poId) => {
       if (!poId) return null;
-      return await quickFetchJson(`https://backendaab.in/aabuildersDash/api/purchase_orders/get/${poId}`);
+      return await quickFetchJson(`https://backendaab.in/aabuildersDash/api/rfq/get/${poId}`);
     },
     [quickFetchJson]
   );
 
-  const handleClone = async (po) => {
-    // Fetch the specific PO quickly (ensures purchaseTable/items are present immediately)
-    let sourcePO = { ...po };
+  const handleClone = async (rfq) => {
+    // Fetch the specific RFQ quickly (ensures rfqTable/items are present immediately)
+    let sourcePO = { ...rfq };
     try {
-      const apiPo = await fetchPurchaseOrderById(po?.id);
+      const apiPo = await fetchPurchaseOrderById(rfq?.id);
       if (apiPo) {
         sourcePO = {
           ...sourcePO,
@@ -750,8 +750,8 @@ const History = () => {
           site_incharge_type: apiPo.site_incharge_type ?? sourcePO.site_incharge_type,
           site_incharge_mobile_number:
             apiPo.site_incharge_mobile_number ?? sourcePO.site_incharge_mobile_number,
-          // Rebuild items from purchaseTable so Create tab always receives item rows
-          items: (apiPo.purchaseTable || []).map((row) => ({
+          // Rebuild items from rfqTable so Create tab always receives item rows
+          items: (apiPo.rfqTable || []).map((row) => ({
             name: row.itemName || `${row.item_id || ''}`,
             itemName: row.itemName || '',
             item_id: row.item_id,
@@ -814,7 +814,7 @@ const History = () => {
 
         // Prefetch next PO number for this vendor in background (non-blocking)
         // Don't await - let it fetch in background while page opens
-        fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll')
+        fetch('https://backendaab.in/aabuildersDash/api/rfq/getAll')
           .then(response => {
             if (response.ok) {
               return response.json();
@@ -965,12 +965,12 @@ const History = () => {
       console.error('Clone quick-prefetch failed:', e);
     }
 
-    // Store cloned PO data in localStorage to load in create tab
-    localStorage.setItem('editingPO', JSON.stringify(clonedPO));
+    // Store cloned RFQ data in localStorage to load in create tab
+    localStorage.setItem('editingRFQ', JSON.stringify(clonedPO));
     // Switch to create tab immediately
     localStorage.setItem('activeTab', 'create');
     // Dispatch custom event for create tab to listen
-    window.dispatchEvent(new CustomEvent('editPO', { detail: clonedPO }));
+    window.dispatchEvent(new CustomEvent('editRFQ', { detail: clonedPO }));
     setCloneExpandedPoId(null);
   };
   const handleDelete = (poId) => {
@@ -981,10 +981,10 @@ const History = () => {
     if (poToDelete) {
       try {
         // Find the PO to get its order ID
-        const order = purchaseOrders.find(po => po.id === poToDelete);
+        const order = rfqs.find(r => r.id === poToDelete);
         if (order) {
           // Call API to mark PO as deleted - matching working example format
-          const apiUrl = `https://backendaab.in/aabuildersDash/api/purchase_orders/markDeleted/${order.id}?deleteStatus=true`;
+          const apiUrl = `https://backendaab.in/aabuildersDash/api/rfq/markDeleted/${order.id}?deleteStatus=true`;
           const response = await fetch(apiUrl, {
             method: 'PUT',
           });
@@ -1032,13 +1032,13 @@ const History = () => {
     });
     // Clear localStorage
     try {
-      localStorage.removeItem('purchaseOrderHistoryFilters');
-      localStorage.removeItem('purchaseOrderHistorySearchQuery');
+      localStorage.removeItem('rfqHistoryFilters');
+      localStorage.removeItem('rfqHistorySearchQuery');
     } catch (error) {
       console.error('Error clearing filters from localStorage:', error);
     }
   };
-  const filteredPOs = purchaseOrders.filter(po => {
+  const filteredPOs = rfqs.filter(po => {
     // Search query filter
     if (searchQuery && searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
@@ -1675,7 +1675,7 @@ const History = () => {
   return (
     <div className="relative w-full h-screen bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Header Section - Fixed */}
-      <div className="flex-shrink-0 bg-white px-[16px] pt-[16px] z-30">
+      <div className="flex-shrink-0 bg-white pt-[16px] z-30">
         {/* Search Bar */}
         <div className="relative mb-2">
           <input
@@ -1683,7 +1683,7 @@ const History = () => {
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-[328px] h-[40px] pl-[40px] pr-[16px] border border-[#E0E0E0] rounded-3xl text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
+            className="w-full h-[40px] pl-[40px] pr-[16px] border border-[#E0E0E0] rounded-3xl text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
           />
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -1786,7 +1786,7 @@ const History = () => {
         </div>
       </div>
       {/* Purchase Orders List - Scrollable */}
-      <div className="overflow-y-auto no-scrollbar mx-auto scrollbar-none scrollbar-hide px-[16px] mt-1 " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
+      <div className="overflow-y-auto no-scrollbar mx-auto scrollbar-none scrollbar-hide mt-1" style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
         onClick={() => {
           setExpandedPoId(null);
           setCloneExpandedPoId(null);
@@ -1847,7 +1847,7 @@ const History = () => {
               return (
                 <div
                   key={po.id}
-                  className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] min-w-[330px]"
+                  className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] w-full min-w-[360px]"
                   style={{
                     userSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto',
                     WebkitUserSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto',
@@ -1908,7 +1908,7 @@ const History = () => {
                   >
                     <div className="flex items-start justify-between gap-[8px]">
                       {/* Left: PO Details */}
-                      <div className=" min-w-0">
+                      <div className=" min-w-0 text-left">
                         <div className="flex items-center gap-[8px] mb-0.5">
                           <button
                             onClick={(e) => {
@@ -2037,7 +2037,7 @@ const History = () => {
               <div className="space-y-[6px]">
                 {/* Vendor Name Filter */}
                 <div>
-                  <label className="text-[12px] font-semibold text-black mb-0.5 block">
+                  <label className="text-[12px] font-semibold text-black mb-0.5 block text-left">
                     Vendor Name
                   </label>
                   <SearchableDropdown
@@ -2052,7 +2052,7 @@ const History = () => {
                 </div>
                 {/* Client Name Filter */}
                 <div>
-                  <label className="text-[12px] font-semibold text-black mb-0.5 block">
+                  <label className="text-[12px] font-semibold text-black mb-0.5 block text-left">
                     Project Name
                   </label>
                   <SearchableDropdown
@@ -2067,7 +2067,7 @@ const History = () => {
                 </div>
                 {/* Site Incharge Filter */}
                 <div>
-                  <label className="text-[12px] font-semibold text-black mb-0.5 block">
+                  <label className="text-[12px] font-semibold text-black mb-0.5 block text-left">
                     Site Incharge
                   </label>
                   <SearchableDropdown
@@ -2083,12 +2083,12 @@ const History = () => {
                 <div className="flex gap-[8px]">
                   {/* Date Filter */}
                   <div className="flex-1">
-                    <label className="text-[12px] font-semibold text-black mb-0.5 block">Date</label>
+                    <label className="text-[12px] font-semibold text-black mb-0.5 block text-left">Date</label>
                     <div className="relative">
                       <button
                         type="button"
                         onClick={() => setShowDatePicker(true)}
-                        className="w-full h-[32px] px-[16px] border border-[#E0E0E0] rounded text-[10px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
+                        className="w-full h-[32px] border border-[#E0E0E0] rounded text-[10px] font-medium text-black bg-white flex items-center justify-between focus:outline-none"
                       >
                         <span className={`${(filters.startDate || filters.endDate) ? 'text-black' : 'text-[#9E9E9E]'} whitespace-nowrap overflow-hidden text-ellipsis`}>
                           {filters.startDate && filters.endDate
@@ -2107,14 +2107,14 @@ const History = () => {
                   </div>
                   {/* PO.No Filter */}
                   <div className="flex-1">
-                    <label className="text-[12px] font-semibold text-black mb-0.5 block">PO.No</label>
+                    <label className="text-[12px] font-semibold text-black mb-0.5 block text-left">PO.No</label>
                     <div className="relative">
                       <input
                         type="text"
                         value={filters.poNumber}
                         onChange={(e) => setFilters({ ...filters, poNumber: e.target.value })}
                         placeholder="Enter"
-                        className="w-full h-[32px] px-[16px] border border-[#E0E0E0] rounded text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
+                        className="w-full h-[32px] border border-[#E0E0E0] rounded text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
                       />
                     </div>
                   </div>

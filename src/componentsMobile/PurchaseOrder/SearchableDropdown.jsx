@@ -312,7 +312,7 @@ const SearchableDropdown = ({
           <button
             type="button"
             onClick={handleClear}
-            className="clear-button absolute top-1/2 transform -translate-y-1/2 w-[20px] h-[24px] flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors z-10"
+            className="clear-button absolute top-1/2 transform -translate-y-1/2 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors z-10"
             style={{ right: '12px' }}
           >
             <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />

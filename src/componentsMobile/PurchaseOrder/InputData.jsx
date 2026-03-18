@@ -5,6 +5,7 @@ import AddOptionModal from './AddOptionModal';
 import SelectVendorModal from './SelectVendorModal';
 import Edit from '../Images/edit1.png';
 import Delete from '../Images/delete.png';
+import CloseIcon from '../Images/Close F.svg'
 
 const InputData = () => {
     const [category, setCategory] = useState('');
@@ -1146,9 +1147,9 @@ const InputData = () => {
                                     {formData.itemName || 'Select ...'}
                                 </span>
                                 {!formData.itemName && (
-                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M3 4.5L6 7.5L9 4.5" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
+                                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
                                 )}
                             </button>
                             {formData.itemName && (
@@ -1161,21 +1162,7 @@ const InputData = () => {
                                     className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors z-10"
                                     style={{ right: '8px' }}
                                 >
-                                    <svg
-                                        width="12"
-                                        height="12"
-                                        viewBox="0 0 12 12"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                    >
-                                        <path
-                                            d="M9 3L3 9M3 3L9 9"
-                                            stroke="#000"
-                                            strokeWidth="1.5"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
+                                    <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                                 </button>
                             )}
                         </div>
@@ -1200,9 +1187,9 @@ const InputData = () => {
                                     {formData.model || 'Select ...'}
                                 </span>
                                 {!formData.model && (
-                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M3 4.5L6 7.5L9 4.5" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
+                                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
                                 )}
                             </button>
                             {formData.model && (
@@ -1215,21 +1202,7 @@ const InputData = () => {
                                     className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors z-10"
                                     style={{ right: '8px' }}
                                 >
-                                    <svg
-                                        width="12"
-                                        height="12"
-                                        viewBox="0 0 12 12"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                    >
-                                        <path
-                                            d="M9 3L3 9M3 3L9 9"
-                                            stroke="#000"
-                                            strokeWidth="1.5"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
+                                    <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                                 </button>
                             )}
                         </div>
@@ -1254,9 +1227,9 @@ const InputData = () => {
                                     {formData.type || 'Select ...'}
                                 </span>
                                 {!formData.type && (
-                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M3 4.5L6 7.5L9 4.5" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
+                                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
                                 )}
                             </button>
                             {formData.type && (
@@ -1269,21 +1242,7 @@ const InputData = () => {
                                     className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors z-10"
                                     style={{ right: '8px' }}
                                 >
-                                    <svg
-                                        width="12"
-                                        height="12"
-                                        viewBox="0 0 12 12"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                    >
-                                        <path
-                                            d="M9 3L3 9M3 3L9 9"
-                                            stroke="#000"
-                                            strokeWidth="1.5"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
+                                    <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                                 </button>
                             )}
                         </div>
@@ -1309,9 +1268,9 @@ const InputData = () => {
                                         {formData.brand || 'Select ...'}
                                     </span>
                                     {!formData.brand && (
-                                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M3 4.5L6 7.5L9 4.5" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
+                                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
                                     )}
                                 </button>
                                 {formData.brand && (
@@ -1324,21 +1283,7 @@ const InputData = () => {
                                         className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors z-10"
                                         style={{ right: '8px' }}
                                     >
-                                        <svg
-                                            width="12"
-                                            height="12"
-                                            viewBox="0 0 12 12"
-                                            fill="none"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                        >
-                                            <path
-                                                d="M9 3L3 9M3 3L9 9"
-                                                stroke="#000"
-                                                strokeWidth="1.5"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                            />
-                                        </svg>
+                                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                                     </button>
                                 )}
                             </div>

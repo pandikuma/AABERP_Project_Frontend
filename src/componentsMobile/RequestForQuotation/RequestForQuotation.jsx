@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useNavigate } from 'react-router-dom';
-import Header from './Header';
+import Header from '../PurchaseOrder/Header';
 import Sidebar from '../Bars/Sidebar';
 import Tabs from './Tabs';
 import BottomNav from './BottomNav';
@@ -213,9 +213,9 @@ const RequestForQuotation = ({ user, onLogout }) => {
     });
     return found ? (found.id || found._id || null) : null;
   };
-  // Ref to track if we're currently loading from editPO event (prevents clearing items when effect re-runs)
+  // Ref to track if we're currently loading from editRFQ event (prevents clearing items when effect re-runs)
   const isLoadingFromEventRef = useRef(false);
-  // Listen for editPO event from History component
+  // Listen for editRFQ event from History component
   useEffect(() => {
     const handleEditPO = (event) => {
       const po = event.detail;
@@ -624,12 +624,12 @@ const RequestForQuotation = ({ user, onLogout }) => {
         }, 100);
       }
     };
-    window.addEventListener('editPO', handleEditPO);
+    window.addEventListener('editRFQ', handleEditPO);
     return () => {
-      window.removeEventListener('editPO', handleEditPO);
+      window.removeEventListener('editRFQ', handleEditPO);
     };
   }, [user, vendorNameOptions, siteOptions, employeeList, supportStaffList, poItemName, poBrand, poModel, poType, categoryOptions, tileData, tileSizeData]);
-  // Listen for viewPO event from History component (view mode with PDF generation)
+  // Listen for viewRFQ event from History component (view mode with PDF generation)
   useEffect(() => {
     const handleViewPO = (event) => {
       const po = event.detail;
@@ -891,9 +891,9 @@ const RequestForQuotation = ({ user, onLogout }) => {
         }, 100);
       }
     };
-    window.addEventListener('viewPO', handleViewPO);
+    window.addEventListener('viewRFQ', handleViewPO);
     return () => {
-      window.removeEventListener('viewPO', handleViewPO);
+      window.removeEventListener('viewRFQ', handleViewPO);
     };
   }, [user, vendorNameOptions, siteOptions, employeeList, supportStaffList, poItemName, poBrand, poModel, poType, categoryOptions, tileData, tileSizeData]);
   // Auto-generate PDF when in view-only mode and all required data is available
@@ -930,7 +930,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
           site_incharge_type: siteInchargeTypeForPayload,
           eno: currentPoNo,
           created_by: username,
-          purchaseTable: items.map(item => {
+          rfqTable: items.map(item => {
             const nameParts = item.name ? item.name.split(',') : [];
             const itemNameOnly = nameParts[0] ? nameParts[0].trim() : '';
             const categoryName = item.category || (nameParts[1] ? nameParts[1].trim() : '');
@@ -957,10 +957,10 @@ const RequestForQuotation = ({ user, onLogout }) => {
       localStorage.setItem('activeTab', activeTab);
     }
   }, [activeTab]);
-  // Clear editingPO from localStorage on mount to ensure fresh start on page reload
+  // Clear editingRFQ from localStorage on mount to ensure fresh start on page reload
   useEffect(() => {
-    // Clear any editingPO from localStorage on page reload to start fresh
-    localStorage.removeItem('editingPO');
+    // Clear any editingRFQ from localStorage on page reload to start fresh
+    localStorage.removeItem('editingRFQ');
     // Reset all state to ensure clean start on page reload
     setPoData({
       poNumber: '',
@@ -1285,7 +1285,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
       return 1;
     }
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/rfq/getAll');
       if (!response.ok) {
         throw new Error('Failed to fetch purchase orders');
       }
@@ -1606,18 +1606,9 @@ const RequestForQuotation = ({ user, onLogout }) => {
     fetchPoNumber();
   }, [selectedVendor, isEditMode, isEditFromHistory, isViewOnlyFromHistory]);
   useEffect(() => {
-    // When loading from History (edit/clone), vendorName may be set in multiple steps (selectedVendor + poData),
-    // so this effect can accidentally clear items right after we set them. Skip clearing while handling an event load.
-    if (isLoadingFromEventRef.current) {
-      previousVendorName.current = poData.vendorName;
-      return;
-    }
-    if (isEditMode && previousVendorName.current !== '' &&
-      previousVendorName.current !== poData.vendorName) {
-      setItems([]);
-    }
+    // For RFQ we don't auto-clear items when vendor name changes.
     previousVendorName.current = poData.vendorName;
-  }, [poData.vendorName, isEditMode]);
+  }, [poData.vendorName]);
   // Load selected items from NetStock page
   useEffect(() => {
     if (hasLoadedNetStockItems.current) return; // Only run once
@@ -1839,7 +1830,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
       return null;
     }
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/rfq/getAll');
       if (!response.ok) {
         throw new Error('Failed to fetch purchase orders');
       }
@@ -1943,7 +1934,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
         site_incharge_type: siteInchargeTypeForPayload,
         eno: currentPoNo,
         created_by: username,
-        purchaseTable: items.map(item => {
+        rfqTable: items.map(item => {
           const nameParts = item.name ? item.name.split(',') : [];
           const itemNameOnly = nameParts[0] ? nameParts[0].trim() : '';
           const categoryName = item.category || (nameParts[1] ? nameParts[1].trim() : '');
@@ -1992,7 +1983,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
         })
       };
       const isEditingExistingPo = isEditMode && poData.originalId;
-      const baseUrl = "https://backendaab.in/aabuildersDash/api/purchase_orders";
+      const baseUrl = "https://backendaab.in/aabuildersDash/api/rfq";
       const url = isEditingExistingPo
         ? `${baseUrl}/edit_with_history/${poData.originalId}?changedBy=${encodeURIComponent(username)}`
         : `${baseUrl}/save`;
@@ -2013,11 +2004,11 @@ const RequestForQuotation = ({ user, onLogout }) => {
         ]);
         generatePDF(payload);
         setSelectedCategory('');
-        alert(isEditingExistingPo ? "Purchase Order Updated!" : "Purchase Order Generated!");
+        alert(isEditingExistingPo ? "RFQ Updated!" : "RFQ Generated!");
       } else {
         const error = await response.text();
         console.error("Error:", error);
-        alert("Failed to save Purchase Order");
+        alert("Failed to save RFQ");
       }
     } catch (error) {
       console.error("Network error:", error);
@@ -2047,8 +2038,9 @@ const RequestForQuotation = ({ user, onLogout }) => {
           // Fetch previous PO for same vendor and project
           const previousPO = await fetchPreviousPO(selectedVendor.id, clientIdForCheck);
 
-          if (previousPO && previousPO.purchaseTable && previousPO.purchaseTable.length > 0) {
-            // Prepare current items for comparison (same structure as payload.purchaseTable)
+          const previousTable = (previousPO && (previousPO.rfqTable || previousPO.purchaseTable)) || [];
+          if (previousTable.length > 0) {
+            // Prepare current items for comparison (same structure as payload.rfqTable)
             const currentItemsForComparison = items.map(item => {
               const nameParts = item.name ? item.name.split(',') : [];
               const itemNameOnly = nameParts[0] ? nameParts[0].trim() : '';
@@ -2097,7 +2089,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
             });
 
             // Compare items (ignoring quantity)
-            if (areItemsSame(currentItemsForComparison, previousPO.purchaseTable)) {
+            if (areItemsSame(currentItemsForComparison, previousTable)) {
               // Items are the same - show custom confirmation modal
               const previousPONumber = previousPO.eno || previousPO.poNumber || 'N/A';
               setDuplicatePONumber(previousPONumber);
@@ -2164,7 +2156,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
     doc.rect(10, 10, 190, 41.8);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("PURCHASE ORDER", 12, 22);
+    doc.text("REQUEST FOR QUOTATION", 12, 22);
     doc.text(`PO No :`, 12, 28);
     doc.setFontSize(16);
     doc.text("AA BUILDERS", 105, 17, { align: "center" });
@@ -2202,8 +2194,8 @@ const RequestForQuotation = ({ user, onLogout }) => {
       doc.setFont("helvetica", "normal");
       doc.text(mobileNumber, 130, 50);
     }
-    const purchaseTableData = (payload.purchaseTable && payload.purchaseTable.length > 0 && payload.purchaseTable.some(item => item.item_id))
-      ? payload.purchaseTable
+    const purchaseTableData = (payload.rfqTable && payload.rfqTable.length > 0 && payload.rfqTable.some(item => item.item_id))
+      ? payload.rfqTable
       : items.map(item => {
         const nameParts = item.name ? item.name.split(',') : [];
         return {
@@ -2527,7 +2519,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
   };
   const shareViaWhatsApp = () => {
     if (pdfBlob) {
-      const message = `Purchase Order ${poData.poNumber}\nDate: ${poData.date}\nVendor: ${poData.vendorName}\nProject: ${poData.projectName}\n\nPlease find the attached PDF.`;
+      const message = `RFQ ${poData.poNumber}\nDate: ${poData.date}\nVendor: ${poData.vendorName}\nProject: ${poData.projectName}\n\nPlease find the attached PDF.`;
       const dateForFilename = formatDateOnly(poData.date).replace(/\//g, '-');
       const poNumber = poData.poNumber.replace('#', '').trim();
       const filename = `#${poNumber} - ${dateForFilename} - ${poData.projectName}.pdf`;
@@ -2535,7 +2527,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
       if (navigator.share && navigator.canShare) {
         const shareData = {
           files: [file],
-          title: `Purchase Order ${poData.poNumber}`,
+          title: `RFQ ${poData.poNumber}`,
           text: message
         };
         if (navigator.canShare(shareData)) {
@@ -2575,7 +2567,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
   const handleNavigate = (page) => {
     if (page === 'request-for-quotation') {
       setCurrentPage('request-for-quotation');
-      navigate('/requestforquotation');
+      navigate('/rfq');
     } else if (page === 'purchase-order') {
       setCurrentPage('purchase-order');
       navigate('/purchaseorder');
@@ -2604,7 +2596,12 @@ const RequestForQuotation = ({ user, onLogout }) => {
         userRoles={user?.userRoles || []}
       />
       {/* Header - Fixed */}
-      <Header user={user} onLogout={onLogout} onMenuClick={handleMenuClick} />
+      <Header
+        title="Request For Quotation"
+        user={user}
+        onLogout={onLogout}
+        onMenuClick={handleMenuClick}
+      />
       {/* Tabs - Fixed */}
       <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
       {/* Content Area - Add padding to account for fixed Header and Tabs */}
@@ -2615,86 +2612,86 @@ const RequestForQuotation = ({ user, onLogout }) => {
         {activeTab === 'input' && <InputData />}
         {/* Summary Tab Content */}
         {activeTab === 'summary' && <Summary />}
-        {/* Create PO Tab Content */}
+        {/* Create RFQ Tab Content */}
         {activeTab === 'create' && (
-          <div className="flex px-[16px] flex-col h-[calc(100vh-85px-80px)] overflow-hidden">
-            {/* PO Number and Date Row - Only show date when not in empty state */}
-            {!isEmptyState && (
-              <div className="flex-shrink-0 pt-[12px] pb-[6px] border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-[8px]">
-                    {poData.poNumber && (
-                      <p className="text-[12px] font-semibold text-black leading-normal">{poData.poNumber}</p>
-                    )}
-                    <button type="button" onClick={() => setShowDatePicker(true)}
-                      className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
-                    >
-                      {poData.date}
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-[16px]">
-                    {isPdfGenerated ? (
-                      <>
-                        <button type="button" onClick={downloadPDF} className="text-[13px] font-semibold text-black leading-normal" >
-                          Download
-                        </button>
+          <div className="flex flex-col h-[calc(100vh-85px-80px)] overflow-hidden">
+            {/* RFQ Number and Date Row - always visible */}
+            <div className="flex-shrink-0 pt-[12px] pb-[6px] border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-[8px]">
+                  {poData.poNumber && (
+                    <p className="text-[12px] font-semibold text-black leading-normal">{poData.poNumber}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowDatePicker(true)}
+                    className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
+                  >
+                    {poData.date}
+                  </button>
+                </div>
+                <div className="flex items-center gap-[16px]">
+                  {isPdfGenerated ? (
+                    <>
+                      <button type="button" onClick={downloadPDF} className="text-[13px] font-semibold text-black leading-normal" >
+                        Download
+                      </button>
 
-                      </>
-                    ) : !isViewOnlyFromHistory && areFieldsFilled ? (
-                      <button
-                        type="button"
-                        onClick={generatePO}
-                        disabled={isGenerating || isGeneratePrecheckRunning}
-                        className={`text-[13px] font-medium leading-normal ${(isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
-                      >
-                        {(isGenerating || isGeneratePrecheckRunning) ? (isEditFromHistory ? 'Updating...' : 'Generating...') : (isEditFromHistory ? 'Update PO' : 'Generate PO')}
-                      </button>
-                    ) : null}
-                    {!isViewOnlyFromHistory && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // Update UI state immediately for instant response
-                          setIsEditMode(true);
-                          setIsViewOnlyFromHistory(false); // Clear view-only mode when editing
-                          setHasOpenedAdd(false);
-                          setIsPdfGenerated(false);
-                          setPdfBlob(null);
-                          // Preserve isEditFromHistory flag - don't clear it if already editing from History
-                          // Only clear if we're not already editing from History (editing from Create PO page)
-                          if (!isEditFromHistory) {
-                            setIsEditFromHistory(false);
-                            // Update PO number automatically when clicking edit after generating PO
-                            // Do this asynchronously without blocking UI update
-                            if (selectedVendor?.id) {
-                              fetchNextPoNumberForVendor(selectedVendor.id)
-                                .then(nextPoNo => {
-                                  setPoData(prev => ({ ...prev, poNumber: `#${nextPoNo}` }));
-                                  previousVendorId.current = selectedVendor.id; // Update tracked vendor ID
-                                })
-                                .catch(error => {
-                                  console.error('Error fetching PO number:', error);
-                                });
-                            }
+                    </>
+                  ) : !isViewOnlyFromHistory && areFieldsFilled ? (
+                    <button
+                      type="button"
+                      onClick={generatePO}
+                      disabled={isGenerating || isGeneratePrecheckRunning}
+                      className={`text-[13px] font-medium leading-normal ${(isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
+                    >
+                      {(isGenerating || isGeneratePrecheckRunning) ? (isEditFromHistory ? 'Updating...' : 'Generating...') : (isEditFromHistory ? 'Update RFQ' : 'Generate RFQ')}
+                    </button>
+                  ) : null}
+                  {!isViewOnlyFromHistory && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Update UI state immediately for instant response
+                        setIsEditMode(true);
+                        setIsViewOnlyFromHistory(false); // Clear view-only mode when editing
+                        setHasOpenedAdd(false);
+                        setIsPdfGenerated(false);
+                        setPdfBlob(null);
+                        // Preserve isEditFromHistory flag - don't clear it if already editing from History
+                        // Only clear if we're not already editing from History (editing from Create PO page)
+                        if (!isEditFromHistory) {
+                          setIsEditFromHistory(false);
+                          // Update PO number automatically when clicking edit after generating PO
+                          // Do this asynchronously without blocking UI update
+                          if (selectedVendor?.id) {
+                            fetchNextPoNumberForVendor(selectedVendor.id)
+                              .then(nextPoNo => {
+                                setPoData(prev => ({ ...prev, poNumber: `#${nextPoNo}` }));
+                                previousVendorId.current = selectedVendor.id; // Update tracked vendor ID
+                              })
+                              .catch(error => {
+                                console.error('Error fetching PO number:', error);
+                              });
                           }
-                        }}
-                        className="flex items-center font-semibold justify-center"
-                      >
-                        <img src={editIcon} alt="Edit" className="w-[15px] h-[15px]" />
-                      </button>
-                    )}
-                  </div>
+                        }
+                      }}
+                      className="flex items-center font-semibold justify-center"
+                    >
+                      <img src={editIcon} alt="Edit" className="w-[15px] h-[15px]" />
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
             {/* Input Fields - Show dropdowns BEFORE clicking + button (when !hasOpenedAdd) for edit/clone mode */}
             {/* For edit/clone mode: show dropdowns before clicking + */}
             {/* For regular flow: show dropdowns before clicking + (when selecting fields) */}
             {(!hasOpenedAdd && isEditMode) || ((!showAddItems && !hasOpenedAdd) && !isEditMode) || (items.length > 0 && hasOpenedAdd && (!poData.vendorName || !poData.projectName || !poData.projectIncharge)) ? (
-              <div className="flex-shrink-0 pt-[16px] space-y-[6px]">
+              <div className="flex-shrink-0 pt-[8px] space-y-[6px] ">
                 {/* Vendor Name Field */}
-                <div className=" relative">
-                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                <div className="">
+                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
                     Vendor Name<span className="text-[#eb2f8e]">*</span>
                   </p>
                   <div className="relative">
@@ -2705,7 +2702,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                           setShowVendorModal(true);
                         }
                       }}
-                      className={`w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium flex items-center ${isEditFromHistory ? 'bg-gray-100 cursor-not-allowed' : 'bg-white cursor-pointer'
+                      className={`w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium flex items-center ${isEditFromHistory ? 'bg-gray-100 cursor-not-allowed' : 'bg-white cursor-pointer'
                         }`}
                       style={{
                         boxSizing: 'border-box',
@@ -2741,12 +2738,12 @@ const RequestForQuotation = ({ user, onLogout }) => {
                 </div>
                 {/* Project Name Field */}
                 <div className=" relative">
-                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
                     Project Name<span className="text-[#eb2f8e]">*</span>
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowProjectModal(true)}
-                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         boxSizing: 'border-box',
                         color: poData.projectName ? '#000' : '#9E9E9E'
@@ -2777,12 +2774,12 @@ const RequestForQuotation = ({ user, onLogout }) => {
                 </div>
                 {/* Project Incharge Field */}
                 <div className=" relative">
-                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
                     Project Incharge<span className="text-[#eb2f8e]">*</span>
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowInchargeModal(true)}
-                      className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                      className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                       style={{
                         boxSizing: 'border-box',
                         color: poData.projectIncharge ? '#000' : '#9E9E9E'
@@ -2818,8 +2815,8 @@ const RequestForQuotation = ({ user, onLogout }) => {
             {/* These two views are mutually exclusive - never show both at the same time */}
             {((hasOpenedAdd && isEditMode && (poData.vendorName || poData.projectName || poData.projectIncharge)) ||
               (hasOpenedAdd && !isEmptyState && (poData.vendorName || poData.projectName || poData.projectIncharge) && !isEditMode)) && (
-                <div className="flex-shrink-0 mx-2 mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
-                  <div className="flex flex-col gap-[8px] px-[8px]">
+                <div className="flex-shrink-0 mt-[8px] mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+                  <div className="flex flex-col gap-[8px] px-[8px] text-left">
                     {poData.vendorName && (
                       <div className="flex items-start">
                         <p className="text-[12px] font-medium text-[#3f3f3f] leading-normal w-[111px]">Vendor Name</p>

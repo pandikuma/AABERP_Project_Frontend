@@ -221,8 +221,8 @@ const DateRangePickerModal = ({ isOpen, onClose, onConfirm, initialStartDate, in
   }
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center"
       onClick={onClose}
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >

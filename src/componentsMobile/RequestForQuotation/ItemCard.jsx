@@ -213,7 +213,7 @@ const ItemCard = ({
       >
         <div className="flex items-start justify-between gap-[8px]">
           {/* Left: Item details */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 text-left">
             <p className="text-[12px] font-semibold text-black leading-snug truncate">
               {item.name && item.name.includes(',') ? item.name.split(',')[0].trim() : item.name}
             </p>
@@ -234,9 +234,9 @@ const ItemCard = ({
           </div>
           {/* Right: Category, Qty / Price (only when collapsed) */}
           {!expanded && (
-            <div className="flex flex-col items-end space-y-1 flex-shrink-0">
+            <div className="flex flex-col items-end flex-shrink-0 text-right">
               {category && (
-                <span className={`text-[10px] font-medium px-[8px] rounded-full whitespace-nowrap ${getCategoryColor(category)}`}>
+                <span className={`text-[10px] font-medium px-[6px] rounded-full whitespace-nowrap ${getCategoryColor(category)}`}>
                   {category}
                 </span>
               )}

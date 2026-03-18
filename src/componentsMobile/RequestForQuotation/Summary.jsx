@@ -9,7 +9,7 @@ const Summary = () => {
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [rfqs, setRfqs] = useState([]);
   const [vendorOptions, setVendorOptions] = useState([]);
   const [projectOptions, setProjectOptions] = useState([]);
   const [summaryData, setSummaryData] = useState([]);
@@ -66,61 +66,62 @@ const Summary = () => {
     fetchProjects();
   }, []);
   // Load purchase orders from API
-  const loadPurchaseOrders = useCallback(async () => {
+  const loadRfqs = useCallback(async () => {
     // Don't load if vendors/projects aren't ready yet
     if (allVendors.length === 0 && allProjects.length === 0) {
       return;
     }
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/rfq/getAll');
       if (!response.ok) {
-        throw new Error('Failed to fetch purchase orders');
+        throw new Error('Failed to fetch RFQs');
       }
       const data = await response.json();
       // Transform API data to match expected format
-      const transformedPOs = data.map((po) => {
+      const transformed = data.map((rfq) => {
         // Fetch vendor name if we have vendor_id
         let vendorName = '';
-        if (po.vendor_id && allVendors.length > 0) {
-          const vendorMatch = allVendors.find(v => v.id === po.vendor_id);
+        if (rfq.vendor_id && allVendors.length > 0) {
+          const vendorMatch = allVendors.find(v => v.id === rfq.vendor_id);
           vendorName = vendorMatch?.vendorName || '';
         }
         // Fetch project/site name if we have client_id
         let projectName = '';
-        if (po.client_id && allProjects.length > 0) {
-          const projectMatch = allProjects.find(p => p.id === po.client_id);
+        if (rfq.client_id && allProjects.length > 0) {
+          const projectMatch = allProjects.find(p => p.id === rfq.client_id);
           projectName = projectMatch?.siteName || '';
         }
         return {
-          id: po.id || po._id,
-          date: po.date || '',
-          vendorName: vendorName || po.vendorName || '',
-          projectName: projectName || po.projectName || '',
-          vendor_id: po.vendor_id,
-          client_id: po.client_id,
+          id: rfq.id || rfq._id,
+          date: rfq.date || '',
+          vendorName: vendorName || rfq.vendorName || '',
+          projectName: projectName || rfq.projectName || '',
+          vendor_id: rfq.vendor_id,
+          client_id: rfq.client_id,
+          eno: rfq.eno || rfq.ENO || rfq.eNo || '',
         };
       });
-      setPurchaseOrders(transformedPOs);
+      setRfqs(transformed);
     } catch (error) {
-      console.error('Error loading purchase orders:', error);
+      console.error('Error loading RFQs:', error);
     }
   }, [allVendors, allProjects]);
   // Load purchase orders when vendors and projects are ready
   useEffect(() => {
     if (allVendors.length > 0 || allProjects.length > 0) {
-      loadPurchaseOrders();
+      loadRfqs();
     }
-  }, [allVendors, allProjects, loadPurchaseOrders]);
+  }, [allVendors, allProjects, loadRfqs]);
   // Listen for storage changes
   useEffect(() => {
     const handleStorageChange = () => {
-      loadPurchaseOrders();
+      loadRfqs();
     };
     window.addEventListener('poUpdated', handleStorageChange);
     return () => {
       window.removeEventListener('poUpdated', handleStorageChange);
     };
-  }, [loadPurchaseOrders]);
+  }, [loadRfqs]);
   // Helper function to normalize date format for comparison
   const normalizeDate = (dateStr) => {
     if (!dateStr) return '';
@@ -145,7 +146,7 @@ const Summary = () => {
       // Group by project for selected vendor and selected date
       const projectMap = new Map();
       const normalizedSelectedDate = normalizeDate(selectedDate);
-      purchaseOrders
+      rfqs
         .filter(po => {
           const poVendorName = po.vendorName || '';
           const poDate = normalizeDate(po.date);
@@ -165,7 +166,7 @@ const Summary = () => {
     } else if (viewMode === 'project' && selectedProject) {
       // Group by vendor for selected project
       const vendorMap = new Map();
-      purchaseOrders
+      rfqs
         .filter(po => po.projectName === selectedProject)
         .forEach(po => {
           if (po.vendorName) {
@@ -181,7 +182,7 @@ const Summary = () => {
     } else {
       setSummaryData([]);
     }
-  }, [viewMode, selectedVendor, selectedProject, selectedDate, purchaseOrders]);
+  }, [viewMode, selectedVendor, selectedProject, selectedDate, rfqs]);
   const handleAddNewVendor = (newVendor) => {
     if (!vendorOptions.includes(newVendor)) {
       setVendorOptions([...vendorOptions, newVendor]);
@@ -197,11 +198,11 @@ const Summary = () => {
     setShowDatePicker(false);
   };
   return (
-    <div className="w-full px-[16px]" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="w-full " style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Header Section - Sticky */}
       <div className="sticky top-[100px] z-30 bg-white">
         {/* Date Display - Clickable */}
-        <div className="mb-2 mt-2">
+        <div className="mb-2 mt-2 text-left">
           <button
             type="button"
             onClick={() => setShowDatePicker(true)}
@@ -211,7 +212,7 @@ const Summary = () => {
           </button>
         </div>
         {/* Segmented Control (Vendor/Project) */}
-        <div className="mb-2 flex items-center bg-[#F5F5F5] rounded-[8px] p-[4px] w-[328px]">
+        <div className="mb-2 flex items-center bg-[#F5F5F5] rounded-[8px] p-[4px] w-full">
           <button
             onClick={() => setViewMode('vendor')}
             className={`flex-1 h-[32px] rounded-[6px] text-[12px] font-medium transition-colors ${viewMode === 'vendor'
@@ -233,15 +234,15 @@ const Summary = () => {
         </div>
         {/* Vendor/Project Selection */}
         {viewMode === 'vendor' ? (
-          <div className="">
-            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+          <div className="pb-[8px]">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
               Vendor Name<span className="text-[#eb2f8e]">*</span>
             </p>
             <div className="relative">
               <div className="relative">
                 <div
                   onClick={() => setShowVendorModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: selectedVendor ? '#000' : '#9E9E9E'
@@ -277,15 +278,15 @@ const Summary = () => {
             </div>
           </div>
         ) : (
-          <div className="">
-            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+          <div className="pb-[8px]">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
               Project Name<span className="text-[#eb2f8e]">*</span>
             </p>
             <div className="relative">
               <div className="relative">
                 <div
                   onClick={() => setShowProjectModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: selectedProject ? '#000' : '#9E9E9E'
@@ -324,9 +325,9 @@ const Summary = () => {
       </div>
       {/* Project/Vendor List Summary Card */}
       {summaryData.length > 0 && (
-        <div className="bg-white shadow-lg w-[328px]">
+        <div className="bg-white shadow-lg w-[360px] mt-[8px]">
           {/* Header */}
-          <div className="flex items-center justify-between px-[16px]">
+          <div className="flex items-center justify-between ">
             <p className="text-[12px] font-semibold text-[#9E9E9E]">
               {viewMode === 'vendor' ? 'Project List' : 'Vendor List'}
             </p>
@@ -353,7 +354,7 @@ const Summary = () => {
       )}
       {/* Empty State */}
       {((viewMode === 'vendor' && selectedVendor) || (viewMode === 'project' && selectedProject)) && summaryData.length === 0 && (
-        <div className="bg-white rounded- border border-[rgba(0,0,0,0.16)] w-[328px] p-[32px] text-center">
+        <div className="bg-white rounded- border border-[rgba(0,0,0,0.16)] w-[360px] mt-[8px] p-[32px] text-center">
           <p className="text-[12px] font-medium text-[#9E9E9E]">
             No {viewMode === 'vendor' ? 'projects' : 'vendors'} found
           </p>

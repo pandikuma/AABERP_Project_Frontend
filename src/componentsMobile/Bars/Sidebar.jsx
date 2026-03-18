@@ -4,7 +4,11 @@ import logo from '../Images/AABBlack.png'
 
 const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) => {
   const [expandedItems, setExpandedItems] = useState({
-    procurement: currentPage === 'purchase-order' || currentPage === 'inventory' || currentPage === 'tools-tracker',
+    procurement:
+      currentPage === 'request-for-quotation' ||
+      currentPage === 'purchase-order' ||
+      currentPage === 'inventory' ||
+      currentPage === 'tools-tracker',
     account: currentPage === 'project-advance' || currentPage === 'loan-portal'
   });
   const [roleModels, setRoleModels] = useState([]);
@@ -13,7 +17,11 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
   // Update expandedItems when currentPage changes
   useEffect(() => {
     setExpandedItems({
-      procurement: currentPage === 'purchase-order' || currentPage === 'inventory' || currentPage === 'tools-tracker',
+      procurement:
+        currentPage === 'request-for-quotation' ||
+        currentPage === 'purchase-order' ||
+        currentPage === 'inventory' ||
+        currentPage === 'tools-tracker',
       account: currentPage === 'project-advance' || currentPage === 'loan-portal'
     });
   }, [currentPage]);
@@ -88,6 +96,7 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
       label: 'Procurement', 
       icon: 'cart',
       subItems: [
+        { id: 'request-for-quotation', label: 'RFQ', modelName: 'RFQ' },
         { id: 'purchase-order', label: 'Purchase Order', modelName: 'Purchase Order' },
         { id: 'inventory', label: 'Inventory', modelName: 'Inventory' },
         { id: 'tools-tracker', label: 'Tools Tracker', modelName: 'Tools Tracker' }
@@ -173,7 +182,7 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
       {/* Overlay */}
       <div className="fixed inset-0 bg-black bg-opacity-50 z-[55]" onClick={onClose} />
       {/* Sidebar */}
-      <div className="fixed h-full w-[280px] bg-white z-[60] shadow-lg overflow-y-auto left-0 top-[0px]"
+      <div className="fixed h-full w-[280px] bg-white z-[60] shadow-lg overflow-y-auto left-0 top-[0px] text-left"
         style={{ fontFamily: "'Manrope', sans-serif" }} onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col h-full">

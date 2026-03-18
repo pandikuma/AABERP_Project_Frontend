@@ -703,13 +703,17 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
     if (isEditingMode && itemNameChanged && !resolvedItemId && formData.itemName) {
       console.warn('Could not resolve itemId for changed item:', formData.itemName, 'Initial itemName:', initialData.itemName);
     }
-    // Only use initialData IDs if the corresponding field hasn't changed
-    const modelChanged = isEditingMode && initialData.model && formData.model &&
-      initialData.model.toLowerCase().trim() !== formData.model.toLowerCase().trim();
-    const brandChanged = isEditingMode && initialData.brand && formData.brand &&
-      initialData.brand.toLowerCase().trim() !== formData.brand.toLowerCase().trim();
-    const typeChanged = isEditingMode && initialData.type && formData.type &&
-      initialData.type.toLowerCase().trim() !== formData.type.toLowerCase().trim();
+    // Only use initialData IDs if the corresponding field hasn't changed.
+    // IMPORTANT: If user clears the text field, we must NOT keep the old ID (otherwise backend/PDF still shows old value).
+    const modelChanged = isEditingMode && (
+      (initialData.model || '').toString().toLowerCase().trim() !== (formData.model || '').toString().toLowerCase().trim()
+    );
+    const brandChanged = isEditingMode && (
+      (initialData.brand || '').toString().toLowerCase().trim() !== (formData.brand || '').toString().toLowerCase().trim()
+    );
+    const typeChanged = isEditingMode && (
+      (initialData.type || '').toString().toLowerCase().trim() !== (formData.type || '').toString().toLowerCase().trim()
+    );
     // Always try to resolve from current formData first
     let resolvedModelId = null;
     if (formData.model) {
@@ -720,21 +724,24 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         resolvedModelId = findIdByLabel(poModel, formData.model, ['model', 'poModel', 'modelName', 'name']);
       }
     }
-    if (!resolvedModelId && !modelChanged && initialData.modelId) {
+    // Only fall back to old ID when user still has a value in the field.
+    if (!resolvedModelId && !modelChanged && initialData.modelId && formData.model) {
       resolvedModelId = initialData.modelId;
     }
     let resolvedBrandId = null;
     if (formData.brand) {
       resolvedBrandId = findIdByLabel(poBrand, formData.brand, ['brand', 'poBrand', 'brandName', 'name']);
     }
-    if (!resolvedBrandId && !brandChanged && initialData.brandId) {
+    // Only fall back to old ID when user still has a value in the field.
+    if (!resolvedBrandId && !brandChanged && initialData.brandId && formData.brand) {
       resolvedBrandId = initialData.brandId;
     }
     let resolvedTypeId = null;
     if (formData.type) {
       resolvedTypeId = findIdByLabel(poType, formData.type, ['type', 'poType', 'typeName', 'name', 'typeColor']);
     }
-    if (!resolvedTypeId && !typeChanged && initialData.typeId) {
+    // Only fall back to old ID when user still has a value in the field.
+    if (!resolvedTypeId && !typeChanged && initialData.typeId && formData.type) {
       resolvedTypeId = initialData.typeId;
     }
     // If any ID is missing, refresh the arrays and try again
@@ -905,7 +912,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
         style={{ fontFamily: "'Manrope', sans-serif" }}
         onClick={handleBackdropClick}
       >
-        <div className="bg-white w-full max-w-[360px] h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white w-full h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
           {/* Header with Title and Category */}
           <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[12px]">
             {/* Title on the left */}
@@ -926,7 +933,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
             {/* Item Name - Can be selected without category */}
             <div className="space-y-[6px]">
               <div className=" relative">
-                <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
+                <p className="text-[13px] font-medium text-black mb-0.5 leading-normal text-left">
                   Item Name<span className="text-[#eb2f8e]">*</span>
                 </p>
                 <SearchableDropdown
@@ -941,7 +948,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
               </div>
               {/* Model - Can be selected without category */}
               <div className="relative">
-                <p className="text-[13px] font-medium text-black mb-1 leading-normal">
+                <p className="text-[13px] font-medium text-black mb-1 leading-normal text-left">
                   Model<span className="text-[#eb2f8e]">*</span>
                 </p>
                 <SearchableDropdown
@@ -956,7 +963,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
               </div>
               {/* Brand - Can be selected without category */}
               <div className="w-full relative">
-                <p className="text-[13px] font-medium text-black mb-1 leading-normal">
+                <p className="text-[13px] font-medium text-black mb-1 leading-normal text-left">
                   Type<span className="text-[#eb2f8e]">*</span>
                 </p>
                 <SearchableDropdown
@@ -974,7 +981,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
               <div className="flex gap-[12px]">
                 {/* Type - Can be selected without category */}
                 <div className="w-full relative">
-                  <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
+                  <p className="text-[13px] font-medium text-black mb-0.5 leading-normal text-left">
                     Brand<span className="text-[#eb2f8e]">*</span>
                   </p>
                   <SearchableDropdown
@@ -989,7 +996,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
                 </div>
                 {/* Quantity */}
                 <div className="w-[100px] relative">
-                  <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
+                  <p className="text-[13px] font-medium text-black mb-0.5 leading-normal text-left">
                     Quantity<span className="text-[#eb2f8e]">*</span>
                   </p>
                   <div className="relative">

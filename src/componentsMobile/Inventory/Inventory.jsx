@@ -40,7 +40,10 @@ const Inventory = ({ user, onLogout }) => {
   };
 
   const handleNavigate = (page) => {
-    if (page === 'purchase-order') {
+    if (page === 'request-for-quotation') {
+      setCurrentPage('request-for-quotation');
+      navigate('/rfq');
+    } else if (page === 'purchase-order') {
       setCurrentPage('purchase-order');
       navigate('/purchaseorder');
     } else if (page === 'inventory') {

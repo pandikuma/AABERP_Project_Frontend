@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import SearchableDropdown from '../PurchaseOrder/SearchableDropdown';
+import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import EditIcon from '../Images/edit1.png';
 import DeleteIcon from '../Images/delete.png';
@@ -85,6 +85,9 @@ const Transfer = ({ user }) => {
   const [isSwapIconToggled, setIsSwapIconToggled] = useState(false);
   const [isServiceSwapIconToggled, setIsServiceSwapIconToggled] = useState(false);
   const [showAddItemsModal, setShowAddItemsModal] = useState(false);
+  const [showAddModalItemNameModal, setShowAddModalItemNameModal] = useState(false);
+  const [showAddModalBrandModal, setShowAddModalBrandModal] = useState(false);
+  const [showAddModalItemIdModal, setShowAddModalItemIdModal] = useState(false);
   const [itemNameOptions, setItemNameOptions] = useState([]);
   const [brandOptions, setBrandOptions] = useState([]);
   const [itemIdOptions, setItemIdOptions] = useState([]);
@@ -3949,8 +3952,8 @@ const Transfer = ({ user }) => {
   return (
     <div className="flex flex-col min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       <div className="sticky top-0 bg-white z-10 flex-shrink-0">
-        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between">
-          <div className="flex items-center pb-[8px] gap-[8px] ">
+        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
+          <div className="flex items-center  gap-[8px] ">
             <p className="text-[12px] font-semibold text-black leading-normal">
               #{entryNo || 'NO'}
             </p>
@@ -3972,7 +3975,7 @@ const Transfer = ({ user }) => {
                   onClick={() => setIsEditingTransferDetails(!isEditingTransferDetails)}
                   className={items.length > 0 ? '' : 'invisible'}
                 >
-                  <img src={Edit} alt="Edit" className="w-[14px] h-[14px]" />
+                  <img src={Edit} alt="Edit" className="w-[12px] h-[12px]" />
                 </button>
               </>
             ) : (
@@ -3980,7 +3983,7 @@ const Transfer = ({ user }) => {
                 <button
                   onClick={() => setShowConfirmModal(true)}
                   disabled={isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0)}
-                  className={`flex items-center gap-[4px] text-[14px] font-medium ${isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0) ? 'text-gray-400' : 'text-black'} ${(cloneModeActive || ((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled))) ? '' : 'invisible'}`}
+                  className={`flex items-center gap-[4px] text-[12px] font-medium ${isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0) ? 'text-gray-400' : 'text-black'} ${(cloneModeActive || ((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled))) ? '' : 'invisible'}`}
                 >
                   {isSaving ? (
                     <span className="text-gray-500">...</span>
@@ -5355,8 +5358,8 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {items.length > 0 && (
-        <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pt-[8px] pb-[120px]">
-          <div className="shadow-md rounded-lg">
+        <div className="flex-1 overflow-y-auto no-scrollbar  scrollbar-none pt-[8px] pb-[120px]">
+          <div className="shadow-md rounded-lg space-y-2">
             {items.map((item, index) => {
               const itemId = item.id;
               const minSwipeDistance = 50;
@@ -5552,8 +5555,8 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {showAddItemsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={handleCloseAddItemsModal} >
-          <div className="bg-white w-full  rounded-tl-[16px] rounded-tr-[16px] relative z-[101]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif", overflow: 'hidden', overscrollBehavior: 'contain' }} onClick={handleCloseAddItemsModal} >
+          <div className="bg-white w-full rounded-tl-[16px] rounded-tr-[16px] relative z-[101]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[16px]">
               <p className="text-[16px] font-medium text-black leading-normal">
                 {editingItem ? 'Edit Item' : 'Add Items'}
@@ -5570,16 +5573,30 @@ const Transfer = ({ user }) => {
                       <span className="text-[13px] font-semibold text-[#e06256]">{selectedItemNameQuantity}</span>
                     )}
                   </div>
-                  <SearchableDropdown
-                    value={addItemFormData.itemName}
-                    onChange={(value) => handleFieldChange('itemName', value)}
-                    onAddNew={handleAddNewItemName}
-                    options={itemNameOptions}
-                    placeholder="Select ..."
-                    fieldName="Item Name"
-                    showAllOptions={true}
-                    disabled={!!addItemFormData.itemId}
-                  />
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => !addItemFormData.itemId && setShowAddModalItemNameModal(true)}
+                      disabled={!!addItemFormData.itemId}
+                      className={`w-full h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium flex items-center justify-between focus:outline-none ${addItemFormData.itemId ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'bg-white text-black'}`}
+                      style={{ paddingRight: addItemFormData.itemName ? '32px' : '12px', boxSizing: 'border-box' }}
+                    >
+                      <span className={addItemFormData.itemName ? 'text-black' : 'text-[#9E9E9E]'}>{addItemFormData.itemName || 'Select ...'}</span>
+                      {!addItemFormData.itemName && !addItemFormData.itemId && (
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      )}
+                    </button>
+                    {addItemFormData.itemName && !addItemFormData.itemId && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleFieldChange('itemName', ''); }}
+                        className="absolute top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full z-10"
+                        style={{ right: '8px' }}
+                      >
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="w-[80px] relative">
                   <p className="text-[13px] font-medium text-black mb-1 leading-normal">
@@ -5602,15 +5619,29 @@ const Transfer = ({ user }) => {
                 <p className="text-[13px] font-medium text-black mb-1 leading-normal">
                   Brand
                 </p>
-                <SearchableDropdown
-                  value={addItemFormData.brand}
-                  onChange={(value) => handleFieldChange('brand', value)}
-                  onAddNew={handleAddNewBrand}
-                  options={filteredAddModalBrandOptions}
-                  placeholder="Select ..."
-                  fieldName="Brand"
-                  showAllOptions={true}
-                />
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModalBrandModal(true)}
+                    className="w-full h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium bg-white flex items-center justify-between focus:outline-none"
+                    style={{ paddingRight: addItemFormData.brand ? '32px' : '12px', boxSizing: 'border-box' }}
+                  >
+                    <span className={addItemFormData.brand ? 'text-black' : 'text-[#9E9E9E]'}>{addItemFormData.brand || 'Select ...'}</span>
+                    {!addItemFormData.brand && (
+                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    )}
+                  </button>
+                  {addItemFormData.brand && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleFieldChange('brand', ''); }}
+                      className="absolute top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full z-10"
+                      style={{ right: '8px' }}
+                    >
+                      <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="mb-6 relative">
                 <div className="flex items-center justify-between mb-1">
@@ -5622,15 +5653,29 @@ const Transfer = ({ user }) => {
                   )}
                 </div>
                 <div className={addItemFormData.quantity && addItemFormData.quantity.trim() !== '' ? 'opacity-50 pointer-events-none' : ''}>
-                  <SearchableDropdown
-                    value={addItemFormData.itemId}
-                    onChange={(value) => handleFieldChange('itemId', value)}
-                    onAddNew={handleAddNewItemId}
-                    options={filteredAddModalItemIdOptions}
-                    placeholder="Select ..."
-                    fieldName="Item ID"
-                    showAllOptions={true}
-                  />
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddModalItemIdModal(true)}
+                      className="w-full h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded text-[12px] font-medium bg-white flex items-center justify-between focus:outline-none"
+                      style={{ paddingRight: addItemFormData.itemId ? '32px' : '12px', boxSizing: 'border-box' }}
+                    >
+                      <span className={addItemFormData.itemId ? 'text-black' : 'text-[#9E9E9E]'}>{addItemFormData.itemId || 'Select ...'}</span>
+                      {!addItemFormData.itemId && (
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      )}
+                    </button>
+                    {addItemFormData.itemId && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleFieldChange('itemId', ''); }}
+                        className="absolute top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full z-10"
+                        style={{ right: '8px' }}
+                      >
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-[16px]">
@@ -5652,6 +5697,33 @@ const Transfer = ({ user }) => {
           </div>
         </div>
       )}
+      <SelectVendorModal
+        isOpen={showAddModalItemNameModal}
+        onClose={() => setShowAddModalItemNameModal(false)}
+        onSelect={(value) => { handleFieldChange('itemName', value); setShowAddModalItemNameModal(false); }}
+        selectedValue={addItemFormData.itemName}
+        options={itemNameOptions}
+        fieldName="Item Name"
+        onAddNew={handleAddNewItemName}
+      />
+      <SelectVendorModal
+        isOpen={showAddModalBrandModal}
+        onClose={() => setShowAddModalBrandModal(false)}
+        onSelect={(value) => { handleFieldChange('brand', value); setShowAddModalBrandModal(false); }}
+        selectedValue={addItemFormData.brand}
+        options={filteredAddModalBrandOptions}
+        fieldName="Brand"
+        onAddNew={handleAddNewBrand}
+      />
+      <SelectVendorModal
+        isOpen={showAddModalItemIdModal}
+        onClose={() => setShowAddModalItemIdModal(false)}
+        onSelect={(value) => { handleFieldChange('itemId', value); setShowAddModalItemIdModal(false); }}
+        selectedValue={addItemFormData.itemId}
+        options={filteredAddModalItemIdOptions}
+        fieldName="Item ID"
+        onAddNew={handleAddNewItemId}
+      />
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[110] flex items-center justify-center p-[16px]" onClick={handleCloseUploadModal} style={{ fontFamily: "'Manrope', sans-serif" }}>
           <div className="bg-white w-full max-w-[360px] rounded-[16px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>

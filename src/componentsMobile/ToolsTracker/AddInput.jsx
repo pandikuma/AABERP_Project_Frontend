@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SearchableDropdown from '../PurchaseOrder/SearchableDropdown';
+import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import SelectLocatorsModal from '../Inventory/SelectLocatorsModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import Close from '../Images/close.png';
@@ -994,6 +995,11 @@ const AddInput = ({ user }) => {
     }
   };
   const [sheetOpenPicker, setSheetOpenPicker] = useState(null);
+  const [showAddSheetItemNameModal, setShowAddSheetItemNameModal] = useState(false);
+  const [showAddSheetItemIdModal, setShowAddSheetItemIdModal] = useState(false);
+  const [showAddSheetBrandModal, setShowAddSheetBrandModal] = useState(false);
+  const [showAddSheetHomeLocationModal, setShowAddSheetHomeLocationModal] = useState(false);
+  const [showAddSheetPurchaseStoreModal, setShowAddSheetPurchaseStoreModal] = useState(false);
   const [sheetPickerSearch, setSheetPickerSearch] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerField, setDatePickerField] = useState(null); // 'purchaseDate' or 'warrantyDate'
@@ -1368,14 +1374,11 @@ const AddInput = ({ user }) => {
         return;
       }
     }
-    setSheetOpenPicker(field);
-    setSheetPickerSearch('');
-    setShowNewItemIdInput(false);
-    setNewItemIdValue('');
-    setShowNewItemNameInput(false);
-    setNewItemNameValue('');
-    setShowNewBrandInput(false);
-    setNewBrandValue('');
+    if (field === 'itemName') setShowAddSheetItemNameModal(true);
+    else if (field === 'itemId') setShowAddSheetItemIdModal(true);
+    else if (field === 'brand') setShowAddSheetBrandModal(true);
+    else if (field === 'homeLocation') setShowAddSheetHomeLocationModal(true);
+    else if (field === 'purchaseStore') setShowAddSheetPurchaseStoreModal(true);
   };
   const closeSheetPicker = () => {
     setSheetOpenPicker(null);
@@ -1465,13 +1468,15 @@ const AddInput = ({ user }) => {
 
   const renderSheetDropdown = (field, value, placeholder) => (
     <div className="relative w-full">
-      <div onClick={() => openSheetPicker(field)}
-        className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+      <button
+        type="button"
+        onClick={() => openSheetPicker(field)}
+        className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer text-left"
         style={{ color: value ? '#000' : '#9E9E9E', boxSizing: 'border-box', paddingRight: value ? '40px' : '40px' }}
       >
         {value || placeholder}
-      </div>
-      {value && !(showAddNewSheet && sheetOpenPicker === field) && (
+      </button>
+      {value && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); handleAddSheetFieldChange(field, ''); }}
@@ -1480,230 +1485,9 @@ const AddInput = ({ user }) => {
           <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
         </button>
       )}
-      {!value && !(showAddNewSheet && sheetOpenPicker === field) && (
+      {!value && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
           <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </div>
-      )}
-      {/* Dropdown options - Popup Modal */}
-      {showAddNewSheet && sheetOpenPicker === field && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] -top-[16px] flex items-center justify-center p-[16px]" onClick={(e) => { if (e.target === e.currentTarget) { closeSheetPicker(); } }} style={{ fontFamily: "'Manrope', sans-serif" }}>
-          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center px-[24px] pt-[24px]">
-              <p className="text-[16px] font-semibold text-black">Select {field === 'itemName' ? 'Item Name' : field === 'itemId' ? 'Item ID' : field === 'brand' ? 'Brand' : field === 'homeLocation' ? 'Home Location' : field === 'purchaseStore' ? 'Purchase Store' : field}</p>
-              <button onClick={() => closeSheetPicker()} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
-                <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
-              </button>
-            </div>
-            <div className="px-[24px] pt-[4px] pb-[6px]">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={sheetPickerSearch}
-                  onChange={(e) => setSheetPickerSearch(e.target.value)}
-                  placeholder="Search"
-                  className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
-                  autoFocus
-                />
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
-              <div className="shadow-md rounded-lg overflow-hidden">
-                {/* Show input form for creating new Item ID */}
-                {showNewItemIdInput && field === 'itemId' ? (
-                  <div className="p-[12px]">
-                    <p className="text-[12px] font-medium text-gray-600 mb-2">Enter a new Item ID:</p>
-                    <input
-                      type="text"
-                      value={newItemIdValue}
-                      onChange={(e) => setNewItemIdValue(e.target.value)}
-                      placeholder="e.g., AA DM 07"
-                      className="w-full h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none mb-2"
-                      autoFocus
-                    />
-                    <div className="flex gap-[8px]">
-                      <button type="button" onClick={handleCreateNewItemId} className="flex-1 h-[32px] rounded-[8px] text-[12px] font-bold text-white bg-black">
-                        Add
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowNewItemIdInput(false);
-                          setNewItemIdValue('');
-                        }}
-                        className="flex-1 h-[32px] border border-black rounded-[8px] text-[12px] font-bold text-black bg-white"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : showNewItemNameInput && field === 'itemName' ? (
-                  <div className="p-[12px]">
-                    <p className="text-[12px] font-medium text-gray-600 mb-2">Enter new item name:</p>
-                    <input
-                      type="text"
-                      value={newItemNameValue}
-                      onChange={(e) => setNewItemNameValue(e.target.value)}
-                      placeholder="Enter new item name"
-                      className="w-full h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none mb-2"
-                      autoFocus
-                    />
-                    <div className="flex gap-[8px]">
-                      <button type="button" onClick={handleCreateNewItemName} className="flex-1 h-[32px] rounded-[8px] text-[12px] font-bold text-white bg-black">
-                        Add
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowNewItemNameInput(false);
-                          setNewItemNameValue('');
-                        }}
-                        className="flex-1 h-[32px] border border-black rounded-[8px] text-[12px] font-bold text-black bg-white"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : showNewBrandInput && field === 'brand' ? (
-                  <div className="p-[12px]">
-                    <p className="text-[12px] font-medium text-gray-600 mb-2">Enter new brand:</p>
-                    <input
-                      type="text"
-                      value={newBrandValue}
-                      onChange={(e) => setNewBrandValue(e.target.value)}
-                      placeholder="Enter new brand"
-                      className="w-full h-[32px] px-[12px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none mb-2"
-                      autoFocus
-                    />
-                    <div className="flex gap-[8px]">
-                      <button type="button" onClick={handleCreateNewBrand} className="flex-1 h-[32px] rounded-[8px] text-[12px] font-bold text-white bg-black">
-                        Add
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowNewBrandInput(false);
-                          setNewBrandValue('');
-                        }}
-                        className="flex-1 h-[32px] border border-black rounded-[8px] text-[12px] font-bold text-black bg-white"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {(() => {
-                      const searchTerm = (sheetPickerSearch || '').trim();
-                      const isCreatable = ['itemName', 'itemId', 'brand'].includes(field);
-                      const hasMatches = getPickerOptions().length > 0;
-                      const showCreateFromSearch = isCreatable && searchTerm && !hasMatches;
-                      const fieldLabels = {
-                        itemName: 'Item Name',
-                        itemId: 'Item ID',
-                        brand: 'Brand'
-                      };
-                      // Helper function to split option text at first hyphen
-                      const splitOptionText = (text) => {
-                        if (!text) return { firstLine: '', secondLine: '' };
-                        const firstHyphenIndex = text.indexOf(' - ');
-                        if (firstHyphenIndex === -1) {
-                          return { firstLine: text, secondLine: '' };
-                        }
-                        return {
-                          firstLine: text.substring(0, firstHyphenIndex),
-                          secondLine: text.substring(firstHyphenIndex + 3)
-                        };
-                      };
-                      return (
-                        <>
-                          {/* "+ Add New [Field]" option for creatable fields when search is empty */}
-                          {isCreatable && !searchTerm && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (field === 'itemId') {
-                                  setNewItemIdValue(suggestedNextItemIdForSheet || '');
-                                  setShowNewItemIdInput(true);
-                                } else if (field === 'itemName') {
-                                  setShowNewItemNameInput(true);
-                                } else if (field === 'brand') {
-                                  setShowNewBrandInput(true);
-                                }
-                              }}
-                              className="w-full px-[16px] flex items-center gap-[12px] transition-colors hover:bg-[#F5F5F5]"
-                              style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mr-2">
-                                <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                              </svg>
-                              <span className="text-[12px] font-medium text-black">
-                                {field === 'itemId' && suggestedNextItemIdForSheet
-                                  ? `${suggestedNextItemIdForSheet}`
-                                  : `Add New ${fieldLabels[field]}`}
-                              </span>
-                            </button>
-                          )}
-                          {/* "+ 'search term'" option for creatable fields when no matches */}
-                          {showCreateFromSearch && (
-                            <button
-                              type="button"
-                              onClick={() => handleSheetPickerSelect(field, '__CREATE_FROM_SEARCH__')}
-                              className="w-full px-[24px] flex items-center gap-[12px] transition-colors hover:bg-[#F5F5F5]"
-                              style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mr-2">
-                                <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                              </svg>
-                              <span className="text-[12px] font-medium text-black">'{searchTerm}'</span>
-                            </button>
-                          )}
-                          {hasMatches ? (
-                            <div className="space-y-0">
-                              {getPickerOptions().map((opt) => {
-                                const isSelected = value === opt;
-                                const { firstLine, secondLine } = splitOptionText(String(opt));
-                                return (
-                                  <button key={opt} type="button" onClick={(e) => { e.stopPropagation(); handleSheetPickerSelect(field, opt); }}
-                                    className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
-                                      }`}
-                                    style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
-                                  >
-                                    <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                      </svg>
-                                    </div>
-                                    <div className="flex flex-col flex-1 min-w-0 text-left">
-                                      <p className="text-[12px] font-medium text-black truncate whitespace-nowrap text-left">{firstLine}</p>
-                                      {secondLine && (
-                                        <p className="text-[11px] font-medium text-[#777777] truncate whitespace-nowrap text-left">{secondLine}</p>
-                                      )}
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            !showCreateFromSearch && !isCreatable && (
-                              <div className="flex flex-col items-center justify-center py-[16px]">
-                                <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
-                                  {searchTerm ? 'No options found' : 'No options available'}
-                                </p>
-                              </div>
-                            )
-                          )}
-                        </>
-                      );
-                    })()}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       )}
     </div>
@@ -1814,7 +1598,7 @@ const AddInput = ({ user }) => {
       </div>
       {/* Select Filters Bottom Sheet Modal */}
       {showAddNewSheet && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={handleCloseAddNewSheet}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif", overflow: 'hidden', overscrollBehavior: 'contain' }} onClick={handleCloseAddNewSheet}>
           <div className="bg-white w-full max-h-[70vh] rounded-tl-[16px] rounded-tr-[16px] relative z-[101] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex-shrink-0 flex items-center justify-between px-[24px] pt-[20px] pb-[4px]">
@@ -1823,13 +1607,6 @@ const AddInput = ({ user }) => {
                 <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
               </button>
             </div>
-            {/* Backdrop for dropdown */}
-            {sheetOpenPicker && (
-              <div
-                className="fixed inset-0 z-[45]"
-                onClick={closeSheetPicker}
-              />
-            )}
             {/* Form - scrollable */}
             <div className="flex-1 overflow-hidden px-[24px] py-[4px]">
               {/* Row 1: Item Name* + Quantity (half) */}
@@ -2100,6 +1877,49 @@ const AddInput = ({ user }) => {
         }}
         onConfirm={handleDatePickerConfirm}
         initialDate={datePickerField === 'purchaseDate' ? addSheetForm.purchaseDate : datePickerField === 'warrantyDate' ? addSheetForm.warrantyDate : ''}
+      />
+      <SelectVendorModal
+        isOpen={showAddSheetItemNameModal}
+        onClose={() => setShowAddSheetItemNameModal(false)}
+        onSelect={(value) => { handleAddSheetFieldChange('itemName', value); setShowAddSheetItemNameModal(false); }}
+        selectedValue={addSheetForm.itemName}
+        options={itemNameOptions}
+        fieldName="Item Name"
+        onAddNew={(v) => { setShowAddSheetItemNameModal(false); requestCreateItemNameConfirmation(v, 'sheet'); }}
+      />
+      <SelectVendorModal
+        isOpen={showAddSheetItemIdModal}
+        onClose={() => setShowAddSheetItemIdModal(false)}
+        onSelect={(value) => { handleAddSheetFieldChange('itemId', value); setShowAddSheetItemIdModal(false); }}
+        selectedValue={addSheetForm.itemId}
+        options={sheetItemIdOptions}
+        fieldName="Item ID"
+        onAddNew={(v) => { setShowAddSheetItemIdModal(false); requestCreateItemIdConfirmation(v, 'sheet'); }}
+      />
+      <SelectVendorModal
+        isOpen={showAddSheetBrandModal}
+        onClose={() => setShowAddSheetBrandModal(false)}
+        onSelect={(value) => { handleAddSheetFieldChange('brand', value); setShowAddSheetBrandModal(false); }}
+        selectedValue={addSheetForm.brand}
+        options={brandOptions}
+        fieldName="Brand"
+        onAddNew={(v) => { setShowAddSheetBrandModal(false); requestCreateBrandConfirmation(v, 'sheet'); }}
+      />
+      <SelectVendorModal
+        isOpen={showAddSheetHomeLocationModal}
+        onClose={() => setShowAddSheetHomeLocationModal(false)}
+        onSelect={(value) => { handleAddSheetFieldChange('homeLocation', value); setShowAddSheetHomeLocationModal(false); }}
+        selectedValue={addSheetForm.homeLocation}
+        options={homeLocationOptions}
+        fieldName="Home Location"
+      />
+      <SelectVendorModal
+        isOpen={showAddSheetPurchaseStoreModal}
+        onClose={() => setShowAddSheetPurchaseStoreModal(false)}
+        onSelect={(value) => { handleAddSheetFieldChange('purchaseStore', value); setShowAddSheetPurchaseStoreModal(false); }}
+        selectedValue={addSheetForm.purchaseStore}
+        options={purchaseStoreOptions}
+        fieldName="Purchase Store"
       />
     </div>
   );

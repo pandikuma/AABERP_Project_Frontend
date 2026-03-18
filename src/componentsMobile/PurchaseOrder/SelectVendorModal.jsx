@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Close from '../Images/close.png'
+import Search from '../Images/Search.png'
 
 const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options = [], fieldName = 'Vendor', onAddNew, showStarIcon = true }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,6 +21,26 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
       setSearchQuery('');
       setShowConfirmModal(false);
       setPendingNewValue('');
+    }
+  }, [isOpen]);
+
+  // Lock body scroll when modal is open - prevents background/bottom sheet from scrolling when keyboard opens on mobile
+  useEffect(() => {
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      return () => {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        window.scrollTo(0, scrollY);
+      };
     }
   }, [isOpen]);
 
@@ -149,13 +170,17 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
       className="fixed inset-0 bg-black bg-opacity-50 z-[10000] flex items-center justify-center p-[16px]"
       onClick={handleBackdropClick}
       onMouseDown={handleBackdropMouseDown}
-      style={{ fontFamily: "'Manrope', sans-serif" }}
+      style={{ 
+        fontFamily: "'Manrope', sans-serif",
+        overflow: 'hidden',
+        overscrollBehavior: 'contain'
+      }}
     >
       <div 
         className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg flex flex-col transform -translate-y-24"
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        style={{ height: '60vh', maxHeight: '60vh', minHeight: '60vh' }}
+        style={{ height: '60vh', maxHeight: '60vh', minHeight: '60vh', overflow: 'hidden', touchAction: 'pan-y' }}
       >
         {/* Header */}
         <div className="flex justify-between items-center px-[24px] pt-[20px] ">
@@ -197,20 +222,17 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
                 e.stopPropagation();
               }}
               placeholder="Search"
-              className="w-full h-[32px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+              className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
               autoFocus
             />
             <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="6.5" cy="6.5" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                <path d="M9.5 9.5L12 12" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+              <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
             </div>
           </div>
         </div>
 
         {/* Options List */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto mb-4 px-[24px] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto mb-4 px-[24px] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
           <div className="shadow-md rounded-lg overflow-hidden">
             {/* Create New Option - Show when typing something that doesn't exist */}
             {canCreateNew && (
@@ -224,7 +246,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
                   e.stopPropagation();
                   handleCreateNew();
                 }}
-                className="w-full h-[36px] px-[24px] flex items-center bg-gray-100 gap-[8px] hover:bg-[#F5F5F5] transition-colors flex-shrink-0"
+                className="w-full h-[36px] px-[10px] flex items-center bg-gray-100 gap-[8px] hover:bg-[#F5F5F5] transition-colors flex-shrink-0"
                 style={{ minHeight: '36px', maxHeight: '36px', height: '36px' }}
               >
                 <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
@@ -254,7 +276,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
                         e.stopPropagation();
                         handleSelect(option);
                       }}
-                      className={`w-full px-[16px] flex items-center justify-between transition-colors flex-shrink-0 ${
+                      className={`w-full px-[10px] flex items-center justify-between transition-colors flex-shrink-0 ${
                         isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                       }`}
                       style={{ minHeight: '48px', maxHeight: '48px', height: '48px' }}

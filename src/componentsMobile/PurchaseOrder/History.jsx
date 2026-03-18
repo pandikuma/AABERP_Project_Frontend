@@ -1676,6 +1676,17 @@ const History = () => {
     <div className="flex flex-col min-h-[calc(100vh-96px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Header Section - Sticky */}
       <div className="sticky top-0 bg-white z-10 flex-shrink-0">
+        {/* Branch Button Row (always top-right) */}
+        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
+          <div />
+          <button
+            type="button"
+            onClick={() => setShowBranchModal(true)}
+            className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            {filters.branch || 'Branch'}
+          </button>
+        </div>
         {/* Search Bar */}
         <div className="relative mb-2">
           <input
@@ -1683,7 +1694,7 @@ const History = () => {
             placeholder="Search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-[328px] h-[40px] pl-[40px] pr-[16px] border border-[#E0E0E0] rounded-3xl text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
+            className="w-[360px] h-[40px] pl-[30px] pr-[16px] border border-[#E0E0E0] rounded-3xl text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none"
           />
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -2022,16 +2033,6 @@ const History = () => {
             {/* Title */}
             <div className="px-[24px] pt-[20px] pb-[16px] flex items-center justify-between">
               <p className="text-[14px] font-semibold text-black">Select Filters</p>
-              {/* Branch Filter Button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowBranchModal(true);
-                }}
-                className="text-[14px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
-              >
-                {filters.branch || 'Branch'}
-              </button>
             </div>
             <div className="px-[24px]">
               <div className="space-y-[6px]">

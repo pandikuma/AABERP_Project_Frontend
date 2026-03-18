@@ -14,12 +14,12 @@ const DuplicatePOConfirmModal = ({ isOpen, onCancel, onConfirm, previousPONumber
             <path d="M24 14V24M24 32H24.02" stroke="#e4572e" strokeWidth="2" strokeLinecap="round"/>
           </svg>
         </div>        
-        <p className="text-[18px] font-semibold text-black mb-2 text-center">Duplicate PO Detected</p>
+        <p className="text-[18px] font-semibold text-black mb-2 text-center">Duplicate RFQ Detected</p>
         <p className="text-[12px] font-medium text-[#848484] text-center mb-6 px-[16px]">
-          This PO contains the same items as the previous PO (PO #{previousPONumber || 'N/A'}) for this vendor and project.
+          This RFQ contains the same items as the previous RFQ (RFQ #{previousPONumber || 'N/A'}) for this vendor and project.
         </p>
         <p className="text-[12px] font-medium text-[#848484] text-center mb-6 px-[16px]">
-          Do you want to create this duplicate PO?
+          Do you want to create this duplicate RFQ?
         </p>
         <div className="flex gap-[16px]">
           <button onClick={onCancel} 
