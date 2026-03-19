@@ -2874,24 +2874,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                     {poData.date}
                   </button>
                 </div>
-                <div className="flex items-center gap-[16px]">
-                  {isPdfGenerated ? (
-                    <>
-                      <button type="button" onClick={downloadPDF} className="text-[12px] font-semibold text-black leading-normal" >
-                        Download
-                      </button>
-
-                    </>
-                  ) : !isViewOnlyFromHistory && areFieldsFilled ? (
-                    <button
-                      type="button"
-                      onClick={generatePO}
-                      disabled={isGenerating || isGeneratePrecheckRunning}
-                      className={`text-[12px] font-medium leading-normal ${(isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
-                    >
-                      {(isGenerating || isGeneratePrecheckRunning) ? (isEditFromHistory ? 'Updating...' : 'Generating...') : (isEditFromHistory ? 'Update PO' : 'Generate PO')}
-                    </button>
-                  ) : null}
+                <div className="flex items-center gap-[8px]">
                   {!isViewOnlyFromHistory && (
                     <button
                       type="button"
@@ -2909,6 +2892,24 @@ const PurchaseOrder = ({ user, onLogout }) => {
                       RFQ
                     </button>
                   )}
+                  {isPdfGenerated ? (
+                    <>
+                      <button type="button" onClick={downloadPDF} className="text-[12px] font-semibold text-black leading-normal" >
+                        Download
+                      </button>
+
+                    </>
+                  ) : !isViewOnlyFromHistory && areFieldsFilled ? (
+                    <button
+                      type="button"
+                      onClick={generatePO}
+                      disabled={isGenerating || isGeneratePrecheckRunning}
+                      className={`text-[12px] font-medium leading-normal ${(isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
+                    >
+                      {(isGenerating || isGeneratePrecheckRunning) ? (isEditFromHistory ? 'Updating...' : 'Generating...') : (isEditFromHistory ? 'Update PO' : 'Generate PO')}
+                    </button>
+                  ) : null}
+
                   {!isViewOnlyFromHistory && (
                     <button
                       type="button"
@@ -2953,7 +2954,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 {/* Vendor Name Field */}
                 <div className=" relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                    Vendor Name<span className="text-[#eb2f8e]">*</span>
+                    Vendor Name<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className="relative">
                     <div
@@ -2998,7 +2999,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 {/* Project Name Field */}
                 <div className=" relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                    Project Name<span className="text-[#eb2f8e]">*</span>
+                    Project Name<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowProjectModal(true)}
@@ -3032,7 +3033,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 {/* Project Incharge Field */}
                 <div className=" relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                    Project Incharge<span className="text-[#eb2f8e]">*</span>
+                    Project Incharge<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowInchargeModal(true)}
@@ -3070,7 +3071,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
             {/* These two views are mutually exclusive - never show both at the same time */}
             {((hasOpenedAdd && isEditMode && (poData.vendorName || poData.projectName || poData.projectIncharge)) ||
               (hasOpenedAdd && !isEmptyState && (poData.vendorName || poData.projectName || poData.projectIncharge) && !isEditMode)) && (
-                <div className="flex-shrink-0 mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+                <div className="flex-shrink-0 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
                   <div className="flex flex-col gap-[8px] px-[8px]">
                     {poData.vendorName && (
                       <div className="flex items-start">
@@ -3111,7 +3112,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 {/* Items Section - Show when items exist (from NetStock) or when all three fields are filled */}
                 {/* For edit/clone mode, always show items if they exist, regardless of hasOpenedAdd */}
                 {((items.length > 0 && (hasOpenedAdd || isEditMode)) || ((!isEmptyState || isEditMode) && poData.vendorName && poData.projectName && poData.projectIncharge)) && (
-                  <div className="flex flex-col flex-1 min-h-0 mb-[8px] mt-[4px]">
+                  <div className="flex flex-col flex-1 min-h-0 mb-[8px] mt-[10px]">
                     {/* Items Header - Fixed */}
                     <div className="flex-shrink-0 flex items-center gap-[8px] mb-[8px] border-b border-[#E0E0E0] pb-[8px]">
                       <p className="text-[14px] font-medium text-black leading-normal">Items</p>
@@ -3244,7 +3245,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
         {/* Floating WhatsApp Button - Show after PDF generation (only on create tab) */}
         {activeTab === 'create' && isPdfGenerated && (
           <button type="button" onClick={shareViaWhatsApp}
-            className="fixed bottom-[180px] right-[24px] lg:right-[calc(50%-164px)] w-[48px] h-[48px] rounded-full bg-[#25D366] flex items-center justify-center shadow-lg z-40 hover:bg-[#20BA5A] transition-colors"
+            className="fixed bottom-[180px] right-[20px] lg:right-[calc(50%-164px)] w-[48px] h-[48px] rounded-full bg-[#25D366] flex items-center justify-center shadow-lg z-40 hover:bg-[#20BA5A] transition-colors"
             style={{ fontFamily: "'Manrope', sans-serif" }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

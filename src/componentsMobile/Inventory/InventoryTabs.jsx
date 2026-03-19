@@ -8,7 +8,7 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
     { id: 'incoming-tracker', label: 'Incoming Tracker' },
     { id: 'net-stock', label: 'Net Stock' },
     { id: 'project-usage-report', label: 'Project Usage' },
-    { id: 'add-input', label: 'Add Input' },
+    { id: 'add-input', label: 'Input Data' },
     { id: 'non-po-history', label: 'Non PO History' },
     { id: 'edit-stock', label: 'Edit Stock ' }
   ];
@@ -18,7 +18,7 @@ const InventoryTabs = ({ activeTab = 'net-stock', onTabChange }) => {
     { id: 'project-usage-report', label: 'Project Usage Report' },
     { id: 'net-stock', label: 'Net Stock' },
     { id: 'history', label: 'History' },
-    { id: 'add-input', label: 'Add input' },
+    { id: 'add-input', label: 'Input Data' },
     { id: 'incoming-tracker', label: 'Incoming Tracker' },
     { id: 'project-usage-history', label: 'Project Usage History' },
     { id: 'non-po-history', label: 'Non PO History' },

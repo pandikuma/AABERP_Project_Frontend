@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import DeleteConfirmModal from './DeleteConfirmModal';
-import SearchableDropdown from './SearchableDropdown';
 import DateRangePickerModal from './DateRangePickerModal';
 import SelectVendorModal from './SelectVendorModal';
 import Edit from '../Images/edit1.png'
@@ -28,6 +27,9 @@ const History = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showBranchModal, setShowBranchModal] = useState(false);
+  const [showVendorFilterModal, setShowVendorFilterModal] = useState(false);
+  const [showProjectFilterModal, setShowProjectFilterModal] = useState(false);
+  const [showInchargeFilterModal, setShowInchargeFilterModal] = useState(false);
   // Initialize filters from localStorage if available
   const [filters, setFilters] = useState(() => {
     try {
@@ -1633,6 +1635,48 @@ const History = () => {
       return '';
     }
   };
+
+  // ToolsTracker-style formatting: show a relative date label + a "DD/MM/YYYY • HH:MM AM/PM" timestamp
+  const formatRelativeDateLabel = (input) => {
+    if (!input) return '';
+    try {
+      const d = new Date(input);
+      if (isNaN(d.getTime())) return '';
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      if (dateOnly.getTime() === today.getTime()) return 'Today';
+      if (dateOnly.getTime() === yesterday.getTime()) return 'Yesterday';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    } catch {
+      return '';
+    }
+  };
+
+  const formatDateTimeParts = (timestamp) => {
+    if (!timestamp) return { date: '', time: '', dateTime: '' };
+    try {
+      const d = new Date(timestamp);
+      if (isNaN(d.getTime())) return { date: '', time: '', dateTime: '' };
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const formattedDate = `${day}/${month}/${year}`;
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      const formattedTime = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+      return { date: formattedDate, time: formattedTime, dateTime: `${formattedDate} • ${formattedTime}` };
+    } catch {
+      return { date: '', time: '', dateTime: '' };
+    }
+  };
   const formatDate = (dateString) => {
     if (!dateString) return '';
     if (dateString.includes('/')) return dateString;
@@ -1688,7 +1732,7 @@ const History = () => {
           </button>
         </div>
         {/* Search Bar */}
-        <div className="relative mb-2">
+        <div className="relative">
           <input
             type="text"
             placeholder="Search"
@@ -1704,24 +1748,24 @@ const History = () => {
           </div>
         </div>
         {/* Filter and Clear Buttons with Filter Tags */}
-        <div className="flex items-center justify-between gap-[20px]">
-          <div className="flex items-center gap-[8px]  min-w-0">
-            <button onClick={() => setShowFilterModal(true)} className="flex items-center gap-[8px] px-[0px] flex-shrink-0" >
-              <img src={Filter} alt='filter' className=' w-[11px] h-[11px]' />
+        <div className="flex justify-between items-center gap-[4px] px-0 mt-[6px] flex-shrink-0">
+          <div className="flex items-center gap-[4px] min-w-0">
+            <button onClick={() => setShowFilterModal(true)} className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0" >
+            <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
               {!hasActiveFilters && (
-                <span className="text-[14px] font-medium flex-shrink-0 text-[#9E9E9E]">
+                <span className="text-[12px] font-medium text-black flex-shrink-0">
                   Filter
                 </span>
               )}
             </button>
             {/* Active Filter Tags - Next to Filter button */}
-            <div className="flex items-center gap-[8px] overflow-x-auto no-scrollbar scrollbar-none  min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none  min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {/* Show "Filter" text only when no filters are active */}
               {/* Show filter tags when filters are active */}
               {(filters.vendorName || filters.clientName || filters.siteIncharge || filters.startDate || filters.endDate || filters.branch) && (
-                <div className="flex items-center gap-[8px] flex-nowrap">
+                <div className="flex items-center gap-[4px] flex-nowrap">
                   {filters.branch && (
-                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Branch</span>
                       <button
                         onClick={() => {
@@ -1736,7 +1780,7 @@ const History = () => {
                     </div>
                   )}
                   {filters.vendorName && (
-                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Vendor</span>
                       <button onClick={() => setFilters({ ...filters, vendorName: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
@@ -1748,7 +1792,7 @@ const History = () => {
                     </div>
                   )}
                   {filters.clientName && (
-                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Project</span>
                       <button onClick={() => setFilters({ ...filters, clientName: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
@@ -1760,7 +1804,7 @@ const History = () => {
                     </div>
                   )}
                   {filters.siteIncharge && (
-                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Incharge</span>
                       <button onClick={() => setFilters({ ...filters, siteIncharge: '' })}
                         className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
@@ -1772,7 +1816,7 @@ const History = () => {
                     </div>
                   )}
                   {(filters.startDate || filters.endDate) && (
-                    <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                    <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black whitespace-nowrap">
                         Date
                       </span>
@@ -1797,7 +1841,7 @@ const History = () => {
         </div>
       </div>
       {/* Purchase Orders List - Scrollable */}
-      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide mt-1 " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
+      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide mt-[6px] " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
         onClick={() => {
           setExpandedPoId(null);
           setCloneExpandedPoId(null);
@@ -1899,7 +1943,7 @@ const History = () => {
                         delete cardRefs.current[po.id];
                       }
                     }}
-                    className="flex-1 bg-white rounded-[8px] h-full px-[12px] py-[12px] transition-all duration-300 ease-out"
+                    className="flex-1 bg-white rounded-[8px] h-full px-[12px] py-[12px] transition-all duration-300 ease-out flex flex-col"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',
@@ -1917,10 +1961,10 @@ const History = () => {
                       }
                     }}
                   >
-                    <div className="flex items-start justify-between gap-[8px]">
+                    <div className="flex items-start justify-between gap-[8px] mb-[2px]">
                       {/* Left: PO Details */}
                       <div className=" min-w-0">
-                        <div className="flex items-center gap-[8px] mb-0.5">
+                        <div className="flex items-center gap-[8px] mb-[2px]">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1941,47 +1985,58 @@ const History = () => {
                         <p className="text-[11px] font-medium text-[#777777] leading-snug break-words" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                           {po.projectName || 'N/A'}
                         </p>
-                        {!isExpanded && (
-                          <span className="text-[11px] font-medium text-[#777777] leading-snug mb-0">
-                            {formatDateTime(po.created_date_time || po.createdAt)}
-                          </span>
-                        )}
                       </div>
                       {/* Right: Payment Status Badge and Amount - Always visible */}
                       <div className="flex-shrink-0 flex flex-col items-end gap-[4px]">
                         {po.paymentStatus && (
                           <span
                             className={`px-[8px] py-[2px] rounded-full text-[10px] font-medium flex items-center gap-[4px] ${po.paymentStatus === 'Paid'
-                              ? 'bg-[#E8F5E9] text-[#2E7D32]'
+                              ? 'bg-[#E8F5E9] text-[#4CAF50]'
                               : po.paymentStatus === 'Unpaid'
-                                ? 'bg-[#FFEBEE] text-[#C62828]'
+                                ? 'bg-[#FFEBEE] text-[#F44336]'
                                 : po.paymentStatus === 'Partially paid'
-                                  ? 'bg-[#E8F5E9] text-[#388E3C]'
+                                  ? 'bg-[#E8F5E9] text-[#4CAF50]'
                                   : 'bg-gray-100 text-gray-600'
                               }`}
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${po.paymentStatus === 'Paid'
-                                ? 'bg-[#2E7D32]'
+                                ? 'bg-[#4CAF50]'
                                 : po.paymentStatus === 'Unpaid'
-                                  ? 'bg-[#C62828]'
+                                  ? 'bg-[#F44336]'
                                   : po.paymentStatus === 'Partially paid'
-                                    ? 'bg-[#388E3C]'
+                                    ? 'bg-[#4CAF50]'
                                     : 'bg-gray-600'
                                 }`}
                             ></span>
                             {po.paymentStatus}
                           </span>
                         )}
-                        {totalAmount > 0 && (
-                          <>
-                            <p className="text-[12px] font-semibold text-black block leading-snug mt-5">
-                              ₹{totalAmount.toLocaleString('en-IN')}
-                            </p>
-                            <p className="text-[10px] font-medium text-[#9E9E9E]"> Incl Tax</p>
-                          </>
-                        )}
                       </div>
+                    </div>
+                    {/* Bottom row: Date/Time on the left, Amount on the right - similar to ToolsTracker layout */}
+                    <div className="flex items-center justify-between ">
+                      {!isExpanded && (
+                        <span className="text-[11px] leading-normal min-w-0 flex-1">
+                          <span className="font-bold text-black">
+                            {formatRelativeDateLabel(po.created_date_time || po.createdAt)}
+                          </span>
+                          {(() => {
+                            const { dateTime } = formatDateTimeParts(po.created_date_time || po.createdAt);
+                            return dateTime ? (
+                              <span className="font-semibold text-[#9E9E9E]"> • {dateTime}</span>
+                            ) : null;
+                          })()}
+                        </span>
+                      )}
+                      {totalAmount > 0 && (
+                        <div className="flex flex-col items-end">
+                          <p className="text-[12px] font-semibold text-black leading-snug">
+                            ₹{totalAmount.toLocaleString('en-IN')}
+                          </p>
+                          <p className="text-[10px] font-medium text-[#9E9E9E] leading-snug">Incl Tax</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
@@ -2028,7 +2083,7 @@ const History = () => {
       </div>
       {/* Filter Modal */}
       {showFilterModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={() => setShowFilterModal(false)}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={() => { setShowFilterModal(false); setShowVendorFilterModal(false); setShowProjectFilterModal(false); setShowInchargeFilterModal(false); }}>
           <div className="bg-white w-full h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }} onClick={(e) => e.stopPropagation()}>
             {/* Title */}
             <div className="px-[24px] pt-[20px] pb-[16px] flex items-center justify-between">
@@ -2041,45 +2096,54 @@ const History = () => {
                   <label className="text-[12px] font-semibold text-black mb-0.5 block">
                     Vendor Name
                   </label>
-                  <SearchableDropdown
-                    value={filters.vendorName}
-                    onChange={(value) => setFilters({ ...filters, vendorName: value })}
-                    options={uniqueVendors}
-                    placeholder="Select"
-                    fieldName="Vendor Filter"
-                    showAddNew={false}
-                    showAllOptions={true}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowVendorFilterModal(true)}
+                    className="w-full h-[32px] px-[12px] border border-[#E0E0E0] rounded text-[12px] font-medium bg-white flex items-center justify-between focus:outline-none"
+                  >
+                    <span className={`${filters.vendorName ? 'text-black' : 'text-[#9E9E9E]'} whitespace-nowrap overflow-hidden text-ellipsis`}>
+                      {filters.vendorName || 'Select'}
+                    </span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0 ml-2">
+                      <path d="M4 6L8 10L12 6" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                 </div>
                 {/* Client Name Filter */}
                 <div>
                   <label className="text-[12px] font-semibold text-black mb-0.5 block">
                     Project Name
                   </label>
-                  <SearchableDropdown
-                    value={filters.clientName}
-                    onChange={(value) => setFilters({ ...filters, clientName: value })}
-                    options={uniqueClients}
-                    placeholder="Select"
-                    fieldName="Client Filter"
-                    showAddNew={false}
-                    showAllOptions={true}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowProjectFilterModal(true)}
+                    className="w-full h-[32px] px-[12px] border border-[#E0E0E0] rounded text-[12px] font-medium bg-white flex items-center justify-between focus:outline-none"
+                  >
+                    <span className={`${filters.clientName ? 'text-black' : 'text-[#9E9E9E]'} whitespace-nowrap overflow-hidden text-ellipsis`}>
+                      {filters.clientName || 'Select'}
+                    </span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0 ml-2">
+                      <path d="M4 6L8 10L12 6" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                 </div>
                 {/* Site Incharge Filter */}
                 <div>
                   <label className="text-[12px] font-semibold text-black mb-0.5 block">
                     Site Incharge
                   </label>
-                  <SearchableDropdown
-                    value={filters.siteIncharge}
-                    onChange={(value) => setFilters({ ...filters, siteIncharge: value })}
-                    options={uniqueSiteIncharges}
-                    placeholder="Select"
-                    fieldName="Site Incharge Filter"
-                    showAddNew={false}
-                    showAllOptions={true}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowInchargeFilterModal(true)}
+                    className="w-full h-[32px] px-[12px] border border-[#E0E0E0] rounded text-[12px] font-medium bg-white flex items-center justify-between focus:outline-none"
+                  >
+                    <span className={`${filters.siteIncharge ? 'text-black' : 'text-[#9E9E9E]'} whitespace-nowrap overflow-hidden text-ellipsis`}>
+                      {filters.siteIncharge || 'Select'}
+                    </span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0 ml-2">
+                      <path d="M4 6L8 10L12 6" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                 </div>
                 <div className="flex gap-[8px]">
                   {/* Date Filter */}
@@ -2168,6 +2232,46 @@ const History = () => {
         fieldName="Branch"
         onAddNew={null}
         showStarIcon={false}
+      />
+      {/* Filter Popups */}
+      <SelectVendorModal
+        isOpen={showVendorFilterModal}
+        onClose={() => setShowVendorFilterModal(false)}
+        onSelect={(value) => {
+          setFilters({ ...filters, vendorName: value });
+          setShowVendorFilterModal(false);
+        }}
+        selectedValue={filters.vendorName}
+        options={uniqueVendors}
+        fieldName="Vendor Filter"
+        onAddNew={null}
+        showStarIcon={true}
+      />
+      <SelectVendorModal
+        isOpen={showProjectFilterModal}
+        onClose={() => setShowProjectFilterModal(false)}
+        onSelect={(value) => {
+          setFilters({ ...filters, clientName: value });
+          setShowProjectFilterModal(false);
+        }}
+        selectedValue={filters.clientName}
+        options={uniqueClients}
+        fieldName="Project Filter"
+        onAddNew={null}
+        showStarIcon={true}
+      />
+      <SelectVendorModal
+        isOpen={showInchargeFilterModal}
+        onClose={() => setShowInchargeFilterModal(false)}
+        onSelect={(value) => {
+          setFilters({ ...filters, siteIncharge: value });
+          setShowInchargeFilterModal(false);
+        }}
+        selectedValue={filters.siteIncharge}
+        options={uniqueSiteIncharges}
+        fieldName="Site Incharge"
+        onAddNew={null}
+        showStarIcon={true}
       />
     </div>
   );

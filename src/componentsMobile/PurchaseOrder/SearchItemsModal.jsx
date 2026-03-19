@@ -97,14 +97,23 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
     const grandTotal = breakdownArray.reduce((sum, entry) => sum + entry.quantity, 0);
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end" onClick={onClose} style={{ fontFamily: "'Manrope', sans-serif" }}>
+        <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end"
+            onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+            }}
+            style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
             <div
-                className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] flex flex-col max-h-[80vh]"
+                className="bg-white w-full mx-auto rounded-t-[20px] flex flex-col max-h-[80vh]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex justify-between items-center px-[24px] pt-[20px] pb-[16px] border-b border-[#E0E0E0]">
-                    <p className="text-[16px] font-semibold text-black">{itemName} - Stock Summary</p>
+                <div className="flex justify-between items-center px-[24px] pt-[20px]">
+                    <p className="text-[16px] font-semibold text-black">
+                        <span className="text-[#BF9853]">{itemName}</span> - Stock Summary
+                    </p>
                     <button
                         onClick={onClose}
                         className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
@@ -125,8 +134,8 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
                         <div className="space-y-3">
                             {breakdownArray.map((entry, index) => (
                                 <div key={entry.locationId} className="flex items-center justify-between py-[8px] border-b border-[#E0E0E0]">
-                                    <p className="text-[14px] font-medium text-black">{entry.locationName}</p>
-                                    <p className="text-[14px] font-medium text-black">{entry.quantity}</p>
+                                    <p className="text-[14px] font-semibold text-[#8E8E8E]">{entry.locationName}</p>
+                                    <p className="text-[14px] font-semibold text-black">{entry.quantity}</p>
                                 </div>
                             ))}
                         </div>
@@ -135,7 +144,13 @@ const StockSummaryModal = ({ isOpen, onClose, item, stockBreakdown, locationName
 
                 {/* Grand Total */}
                 {breakdownArray.length > 0 && (
-                    <div className="px-[24px] py-[16px] border-t border-[#E0E0E0] bg-gray-50">
+                    <div className="px-[24px] py-[16px]">
+                        <div
+                            className="w-full h-[2px] mb-[16px]"
+                            style={{
+                                backgroundImage: 'repeating-linear-gradient(90deg, #E0E0E0 0 14px, transparent 14px 28px)'
+                            }}
+                        />
                         <div className="flex items-center justify-between">
                             <p className="text-[16px] font-semibold text-black">Grand Total</p>
                             <p className="text-[16px] font-semibold text-black">{grandTotal} Qty</p>
@@ -1455,7 +1470,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     </div>
                 )}
                 {/* Search Input */}
-                <div className="px-[16px] pt-[4px]">
+                <div className="px-[16px] pt-[4px] pb-[8px] bg-white sticky top-0 z-10">
                     <div className="relative items-center">
                         <input
                             type="text"
@@ -1471,7 +1486,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                 }, 300);
                             }}
                             placeholder="Search by Item Name, Model, Brand, or Type"
-                            className="w-full h-[40px] pl-[40px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-full text-[14px] font-medium text-black placeholder:text-[#bdbbbb] placeholder:text-[12px]  placeholder:font-extralight bg-white focus:outline-none"
+                            className="w-full h-[40px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-full text-[14px] font-medium text-black placeholder:text-[#bdbbbb] placeholder:text-[12px]  placeholder:font-extralight bg-white focus:outline-none"
                             autoFocus={false}
                         />
                         <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -1480,7 +1495,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     </div>
                 </div>
                 {/* Results List */}
-                <div className="flex-1 overflow-y-auto px-[24px] py-[8px] no-scrollbar scrollbar-none" style={{ maxHeight: 'calc(100vh - 250px)' }}>
+                <div className="flex-1 overflow-y-auto px-[24px] no-scrollbar scrollbar-none" style={{ maxHeight: 'calc(100vh - 250px)' }}>
                     {(() => {
                         // For isFromUpdate, merge search results with selected items that aren't in search results
                         let itemsToDisplay = [...searchResults];

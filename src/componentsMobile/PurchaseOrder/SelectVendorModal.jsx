@@ -194,7 +194,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
         </div>
 
         {/* Search Bar */}
-        <div className="px-[24px] pt-[16px] pb-[16px]">
+        <div className="px-[24px] pt-[4px] pb-[6px]">
           <div className="relative">
             <input
               type="text"
@@ -232,7 +232,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
         </div>
 
         {/* Options List */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto mb-4 px-[24px] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto mb-[8px] px-[24px] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
           <div className="shadow-md rounded-lg overflow-hidden">
             {/* Create New Option - Show when typing something that doesn't exist */}
             {canCreateNew && (
@@ -279,7 +279,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
                       className={`w-full px-[10px] flex items-center justify-between transition-colors flex-shrink-0 ${
                         isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                       }`}
-                      style={{ minHeight: '48px', maxHeight: '48px', height: '48px' }}
+                      style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                     >
                       {/* Left: Star Icon and Option Text */}
                       <div className="flex items-center gap-[12px] flex-1 min-w-0">
@@ -302,7 +302,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
                             const { firstLine, secondLine } = splitOptionText(option);
                             return (
                               <>
-                                <p className="text-[14px] font-medium text-black text-left truncate whitespace-nowrap">{firstLine}</p>
+                                <p className="text-[12px] font-medium text-black text-left truncate whitespace-nowrap">{firstLine}</p>
                                 {secondLine && (
                                   <p className="text-[12px] font-medium text-[#777777] text-left truncate whitespace-nowrap">{secondLine}</p>
                                 )}

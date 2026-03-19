@@ -1350,17 +1350,17 @@ const InputData = () => {
 
             {/* otherPOEntityList Table - Show when itemName is selected */}
             {formData.itemName && otherPOEntityList.length > 0 && (
-                <div className="px-[16px] pt-[24px] pb-[16px]">
+                <div className="px-[16px] pt-[10px] pb-[16px]">
                     <p className="text-[12px] font-semibold text-black leading-normal mb-2">
                         Available Combinations for {formData.itemName}
                     </p>
                     <div className="border border-[#E0E0E0] rounded-[8px] overflow-hidden">
                         {/* Table Header */}
                         <div className="bg-[#F5F5F5] flex items-center px-[12px] py-[8px] border-b border-[#E0E0E0]">
-                            <div className="w-[24px] text-[11px] font-semibold text-black">#</div>
-                            <div className="w-[120px] text-[11px] font-semibold text-black px-[8px]">Model</div>
-                            <div className="w-[60px] text-[11px] font-semibold text-black px-[8px]">Brand</div>
-                            <div className="flex-1 text-[11px] font-semibold text-black px-[8px]">Type</div>
+                            <div className="w-[24px] text-[12px] font-semibold text-black">#</div>
+                            <div className="w-[120px] text-[12px] font-semibold text-black px-[8px]">Model</div>
+                            <div className="w-[60px] text-[12px] font-semibold text-black px-[8px]">Brand</div>
+                            <div className="flex-1 text-[12px] font-semibold text-black px-[8px]">Type</div>
                         </div>
                         {/* Table Rows */}
                         <div className="divide-y divide-[#E0E0E0] overflow-y-auto no-scrollbar scrollbar-none" style={{ maxHeight: 'calc(79vh - 420px)' }}>
@@ -1397,14 +1397,14 @@ const InputData = () => {
                                                 }
                                             }}
                                         >
-                                            <div className="w-[24px] text-[12px] font-medium text-black">{index + 1}</div>
-                                            <div className="w-[120px] text-[12px] font-medium text-black px-[8px] truncate">
+                                            <div className="w-[24px] text-[11px] font-medium text-black">{index + 1}</div>
+                                            <div className="w-[120px] text-[11px] font-medium text-black px-[8px] truncate">
                                                 {entity.modelName || ''}
                                             </div>
-                                            <div className="w-[60px] text-[12px] font-medium text-black px-[8px] truncate">
+                                            <div className="w-[60px] text-[11px] font-medium text-black px-[8px] truncate">
                                                 {entity.brandName || ''}
                                             </div>
-                                            <div className="flex-1 text-[12px] font-medium text-black px-[8px] truncate">
+                                            <div className="flex-1 text-[11px] font-medium text-black px-[8px] truncate">
                                                 {entity.typeColor || ''}
                                             </div>
                                         </div>

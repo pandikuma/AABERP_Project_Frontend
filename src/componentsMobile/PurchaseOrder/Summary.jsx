@@ -238,7 +238,7 @@ const Summary = () => {
         {viewMode === 'vendor' ? (
           <div className="pb-[8px]">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-              Vendor Name<span className="text-[#eb2f8e]">*</span>
+              Vendor Name<span className="text-[#E4572E]">*</span>
             </p>
             <div className="relative">
               <div className="relative">
@@ -277,7 +277,7 @@ const Summary = () => {
         ) : (
           <div className="pb-[8px]">
             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-              Project Name<span className="text-[#eb2f8e]">*</span>
+              Project Name<span className="text-[#E4572E]">*</span>
             </p>
             <div className="relative">
               <div className="relative">

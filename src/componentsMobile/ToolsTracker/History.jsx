@@ -588,6 +588,43 @@ const History = ({ user, onTabChange }) => {
       return { date: '', time: '', dateTime: '' };
     }
   };
+
+  const formatRelativeDateLabel = (input) => {
+    if (!input) return '';
+    try {
+      const asString = String(input).trim();
+      let d = new Date(asString);
+
+      // Handle common DD-MM-YYYY / DD/MM/YYYY formats (which `new Date()` often fails to parse)
+      if (isNaN(d.getTime())) {
+        const m = asString.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (m) {
+          const day = parseInt(m[1], 10);
+          const month = parseInt(m[2], 10) - 1;
+          const year = parseInt(m[3], 10);
+          d = new Date(year, month, day);
+        }
+      }
+
+      if (isNaN(d.getTime())) return asString;
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+      if (dateOnly.getTime() === today.getTime()) return 'Today';
+      if (dateOnly.getTime() === yesterday.getTime()) return 'Yesterday';
+
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return String(input);
+    }
+  };
   const resolveMachineNumberText = (entry) => {
     if (entry.machineNumber && String(entry.machineNumber).trim()) {
       return String(entry.machineNumber).trim();
@@ -1442,12 +1479,7 @@ const History = ({ user, onTabChange }) => {
               // Get entry date from original entry
               const originalEntry = fullEntriesData.find(e => String(e.id) === String(entry.entryId));
               const entryDate = originalEntry?.date || '';
-              const formattedDate = entryDate ? (() => {
-                try {
-                  const d = new Date(entryDate);
-                  return isNaN(d.getTime()) ? entryDate : d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                } catch { return entryDate; }
-              })() : '';
+              const formattedDate = entryDate ? formatRelativeDateLabel(entryDate) : '';
               const formattedCreatedDateTime = createdDateTime ? dateTime : '';
               let dateTimeDisplay = dateTime || `${date} • ${time}`;
               if (historyType === 'log') {
@@ -1525,7 +1557,7 @@ const History = ({ user, onTabChange }) => {
                     </div>
                   )}
                   <div
-                    className="rounded-[8px] h-full px-3 py-[10px] cursor-pointer transition-all duration-300 ease-out select-none bg-white"
+                    className="rounded-[8px] h-full px-[12px] py-[10px] cursor-pointer transition-all duration-300 ease-out select-none bg-white"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',
@@ -1538,7 +1570,7 @@ const History = ({ user, onTabChange }) => {
                     onMouseDown={(e) => handleMouseDown(e, entryId)}
                     onClick={handleCardClick}
                   >
-                    <div className="flex items-start justify-between mb-0.5">
+                    <div className="flex items-start justify-between mb-[2px]">
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <p
                           className={`text-[12px] font-semibold leading-snug truncate ${editedFields.has('itemName') ? 'text-[#2563eb] font-bold' : 'text-black'}`}
@@ -1547,7 +1579,7 @@ const History = ({ user, onTabChange }) => {
                           #{entry.eno}, {itemName}
                         </p>
                         {isLogCard && editedFields.size > 0 && (
-                          <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#2563eb] text-white">
+                          <span className="flex-shrink-0 px-1.5 rounded text-[10px] font-semibold text-[#2563eb]">
                             Edited
                           </span>
                         )}
@@ -1570,7 +1602,7 @@ const History = ({ user, onTabChange }) => {
                         ) : null}
                       </div>
                     </div>
-                    <div className="flex items-start justify-between mb-0.5">
+                    <div className="flex items-start justify-between mb-[2px]">
                       <p
                         className={`text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 ${editedFields.has('fromLocation') ? 'text-[#2563eb] font-semibold' : 'text-black'}`}
                         title={editedFields.has('fromLocation') ? tooltip('fromLocation') : undefined}
@@ -1586,7 +1618,7 @@ const History = ({ user, onTabChange }) => {
                         </p>
                       ) : null}
                     </div>
-                    <div className="flex items-start justify-between mb-0.5">
+                    <div className="flex items-start justify-between mb-[2px]">
                       <p
                         className={`text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 ${editedFields.has('toLocation') ? 'text-[#2563eb] font-semibold' : 'text-[#BF9853]'}`}
                         title={editedFields.has('toLocation') ? tooltip('toLocation') : undefined}
