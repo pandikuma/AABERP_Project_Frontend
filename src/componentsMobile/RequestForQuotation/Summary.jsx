@@ -198,24 +198,26 @@ const Summary = () => {
     setShowDatePicker(false);
   };
   return (
-    <div className="w-full " style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="flex flex-col min-h-[calc(100vh-96px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Header Section - Sticky */}
-      <div className="sticky top-[100px] z-30 bg-white">
-        {/* Date Display - Clickable */}
-        <div className="mb-2 mt-2 text-left">
-          <button
-            type="button"
-            onClick={() => setShowDatePicker(true)}
-            className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
-          >
-            {selectedDate}
-          </button>
+      <div className="sticky top-0 bg-white z-10 flex-shrink-0">
+        {/* Date Display and border */}
+        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between">
+          <div className="flex items-center pb-[8px] gap-[8px]">
+            <button
+              type="button"
+              onClick={() => setShowDatePicker(true)}
+              className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
+            >
+              {selectedDate}
+            </button>
+          </div>
         </div>
         {/* Segmented Control (Vendor/Project) */}
-        <div className="mb-2 flex items-center bg-[#F5F5F5] rounded-[8px] p-[4px] w-full">
+        <div className="mb-2 flex items-center bg-[#F5F5F5] rounded-[8px] w-full h-[32px]">
           <button
             onClick={() => setViewMode('vendor')}
-            className={`flex-1 h-[32px] rounded-[6px] text-[12px] font-medium transition-colors ${viewMode === 'vendor'
+            className={`flex-1 ml-0.5 h-[28px] rounded text-[12px] font-medium transition-colors ${viewMode === 'vendor'
                 ? 'bg-white text-black shadow-sm'
                 : 'text-[#9E9E9E]'
               }`}
@@ -224,7 +226,7 @@ const Summary = () => {
           </button>
           <button
             onClick={() => setViewMode('project')}
-            className={`flex-1 h-[32px] rounded-[6px] text-[12px] font-medium transition-colors ${viewMode === 'project'
+            className={`flex-1 mr-0.5 h-[28px] rounded text-[12px] font-medium transition-colors ${viewMode === 'project'
                 ? 'bg-white text-black shadow-sm'
                 : 'text-[#9E9E9E]'
               }`}
@@ -234,15 +236,15 @@ const Summary = () => {
         </div>
         {/* Vendor/Project Selection */}
         {viewMode === 'vendor' ? (
-          <div className="pb-[8px]">
-            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
-              Vendor Name<span className="text-[#eb2f8e]">*</span>
+          <div className="pb-[8px] text-left">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+              Vendor Name<span className="text-[#E4572E]">*</span>
             </p>
             <div className="relative">
               <div className="relative">
                 <div
                   onClick={() => setShowVendorModal(true)}
-                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: selectedVendor ? '#000' : '#9E9E9E'
@@ -250,16 +252,13 @@ const Summary = () => {
                 >
                   {selectedVendor || 'Select ...'}
                 </div>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none"
-                >
-                  <path d="M3 4.5L6 7.5L9 4.5" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                {!selectedVendor && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
               </div>
               {selectedVendor && (
                 <button
@@ -268,7 +267,7 @@ const Summary = () => {
                     e.stopPropagation();
                     setSelectedVendor('');
                   }}
-                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -278,15 +277,15 @@ const Summary = () => {
             </div>
           </div>
         ) : (
-          <div className="pb-[8px]">
-            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
-              Project Name<span className="text-[#eb2f8e]">*</span>
+          <div className="pb-[8px] text-left">
+            <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+              Project Name<span className="text-[#E4572E]">*</span>
             </p>
             <div className="relative">
               <div className="relative">
                 <div
                   onClick={() => setShowProjectModal(true)}
-                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: selectedProject ? '#000' : '#9E9E9E'
@@ -294,16 +293,13 @@ const Summary = () => {
                 >
                   {selectedProject || 'Select ...'}
                 </div>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none"
-                >
-                  <path d="M3 4.5L6 7.5L9 4.5" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                {!selectedProject && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
               </div>
               {selectedProject && (
                 <button
@@ -312,7 +308,7 @@ const Summary = () => {
                     e.stopPropagation();
                     setSelectedProject('');
                   }}
-                  className="absolute right-8 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

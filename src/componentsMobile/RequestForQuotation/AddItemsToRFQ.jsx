@@ -914,15 +914,15 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       >
         <div className="bg-white w-full h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
           {/* Header with Title and Category */}
-          <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[12px]">
+          <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[16px]">
             {/* Title on the left */}
-            <p className="text-[16px] font-medium text-black leading-normal">
+            <p className="text-[16px] font-bold text-black leading-normal">
               Add Items
             </p>
             {/* Category label on the right */}
             <button
               onClick={() => setShowCategoryModal(true)}
-              className="text-[16px] font-medium text-black decoration-solid"
+              className="text-[16px] font-semibold text-black decoration-solid"
               style={{ textUnderlinePosition: 'from-font' }}
             >
               {(formData.category || selectedCategory) || 'Category'}
@@ -934,7 +934,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
             <div className="space-y-[6px]">
               <div className=" relative">
                 <p className="text-[13px] font-medium text-black mb-0.5 leading-normal text-left">
-                  Item Name<span className="text-[#eb2f8e]">*</span>
+                  Item Name<span className="text-[#E4572E]">*</span>
                 </p>
                 <SearchableDropdown
                   value={formData.itemName}
@@ -949,7 +949,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
               {/* Model - Can be selected without category */}
               <div className="relative">
                 <p className="text-[13px] font-medium text-black mb-1 leading-normal text-left">
-                  Model<span className="text-[#eb2f8e]">*</span>
+                  Model<span className="text-[#E4572E]">*</span>
                 </p>
                 <SearchableDropdown
                   value={formData.model}
@@ -964,7 +964,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
               {/* Brand - Can be selected without category */}
               <div className="w-full relative">
                 <p className="text-[13px] font-medium text-black mb-1 leading-normal text-left">
-                  Type<span className="text-[#eb2f8e]">*</span>
+                  Type<span className="text-[#E4572E]">*</span>
                 </p>
                 <SearchableDropdown
                   value={formData.type}
@@ -982,7 +982,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
                 {/* Type - Can be selected without category */}
                 <div className="w-full relative">
                   <p className="text-[13px] font-medium text-black mb-0.5 leading-normal text-left">
-                    Brand<span className="text-[#eb2f8e]">*</span>
+                    Brand<span className="text-[#E4572E]">*</span>
                   </p>
                   <SearchableDropdown
                     value={formData.brand}
@@ -997,7 +997,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
                 {/* Quantity */}
                 <div className="w-[100px] relative">
                   <p className="text-[13px] font-medium text-black mb-0.5 leading-normal text-left">
-                    Quantity<span className="text-[#eb2f8e]">*</span>
+                    Quantity<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className="relative">
                     <input
@@ -1021,13 +1021,13 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
             <div className="mt-5 mb-3 flex gap-[16px]">
               <button
                 onClick={onClose}
-                className="w-[175px] h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
+                className="w-full h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAdd}
-                className="w-[175px] h-[40px] bg-black border border-[#f4ede2] rounded-[8px] text-[14px] font-bold text-white leading-normal"
+                className="w-full h-[40px] bg-black border border-[#f4ede2] rounded-[8px] text-[14px] font-bold text-white leading-normal"
               >
                 Add
               </button>

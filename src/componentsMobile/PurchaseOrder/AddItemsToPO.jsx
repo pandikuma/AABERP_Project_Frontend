@@ -952,15 +952,15 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
       >
         <div className="bg-white w-full h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50" onClick={(e) => e.stopPropagation()}>
           {/* Header with Title and Category */}
-          <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[12px]">
+          <div className="flex items-center justify-between px-[24px] pt-[20px] pb-[16px]">
             {/* Title on the left */}
-            <p className="text-[16px] font-medium text-black leading-normal">
+            <p className="text-[16px] font-bold text-black leading-normal">
               Add Items
             </p>
             {/* Category label on the right */}
             <button
               onClick={() => setShowCategoryModal(true)}
-              className="text-[16px] font-medium text-black decoration-solid"
+              className="text-[16px] font-semibold text-black decoration-solid"
               style={{ textUnderlinePosition: 'from-font' }}
             >
               {(formData.category || selectedCategory) || 'Category'}
@@ -972,7 +972,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
             <div className="space-y-[6px]">
               <div className="relative">
                 <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
-                  Item Name<span className="text-[#eb2f8e]">*</span>
+                  Item Name<span className="text-[#E4572E]">*</span>
                 </p>
                 <div className="relative">
                   <button
@@ -1011,7 +1011,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
               {/* Model - Can be selected without category */}
               <div className="relative">
                 <p className="text-[13px] font-medium text-black mb-1 leading-normal">
-                  Model<span className="text-[#eb2f8e]">*</span>
+                  Model<span className="text-[#E4572E]">*</span>
                 </p>
                 <div className="relative">
                   <button
@@ -1050,7 +1050,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
               {/* Brand - Can be selected without category */}
               <div className="w-full relative">
                 <p className="text-[13px] font-medium text-black mb-1 leading-normal">
-                  Type<span className="text-[#eb2f8e]">*</span>
+                  Type<span className="text-[#E4572E]">*</span>
                 </p>
                 <div className="relative">
                   <button
@@ -1091,7 +1091,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
                 {/* Type - Can be selected without category */}
                 <div className="w-full relative">
                   <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
-                    Brand<span className="text-[#eb2f8e]">*</span>
+                    Brand<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className="relative">
                     <button
@@ -1130,7 +1130,7 @@ const AddItemsToPO = ({ isOpen, onClose, onAdd, initialData = {}, selectedCatego
                 {/* Quantity */}
                 <div className="w-[100px] relative">
                   <p className="text-[13px] font-medium text-black mb-0.5 leading-normal">
-                    Quantity<span className="text-[#eb2f8e]">*</span>
+                    Quantity<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className="relative">
                     <input

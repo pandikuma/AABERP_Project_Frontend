@@ -1557,7 +1557,7 @@ const History = ({ user, onTabChange }) => {
                     </div>
                   )}
                   <div
-                    className="rounded-[8px] h-full px-[12px] py-[10px] cursor-pointer transition-all duration-300 ease-out select-none bg-white"
+                    className="rounded-[8px] h-full px-3 py-[10px] cursor-pointer transition-all duration-300 ease-out select-none bg-white"
                     style={{
                       transform: `translateX(${swipeOffset}px)`,
                       touchAction: 'pan-y',

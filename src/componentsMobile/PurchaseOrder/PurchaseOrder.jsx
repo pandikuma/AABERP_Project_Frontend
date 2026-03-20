@@ -2887,7 +2887,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                         await fetchRfqsForSelectedVendor();
                       }}
                       disabled={!selectedVendor?.id || isRfqLoading}
-                      className={`text-[12px] font-medium leading-normal ${(!selectedVendor?.id || isRfqLoading) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
+                      className={`text-[12px] font-semibold leading-normal ${(!selectedVendor?.id || isRfqLoading) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
                     >
                       RFQ
                     </button>
@@ -2904,7 +2904,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                       type="button"
                       onClick={generatePO}
                       disabled={isGenerating || isGeneratePrecheckRunning}
-                      className={`text-[12px] font-medium leading-normal ${(isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
+                      className={`text-[12px] font-semibold leading-normal ${(isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
                     >
                       {(isGenerating || isGeneratePrecheckRunning) ? (isEditFromHistory ? 'Updating...' : 'Generating...') : (isEditFromHistory ? 'Update PO' : 'Generate PO')}
                     </button>
@@ -2940,7 +2940,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                       }}
                       className="flex items-center font-semibold justify-center"
                     >
-                      <img src={editIcon} alt="Edit" className="w-[12px] h-[12px]" />
+                      <img src={editIcon} alt="Edit" className="w-[14px] h-[14px]" />
                     </button>
                   )}
                 </div>
@@ -3325,7 +3325,6 @@ const PurchaseOrder = ({ user, onLogout }) => {
           selectedValue={poData.vendorName}
           options={vendorOptions}
           fieldName="Vendor"
-          onAddNew={handleAddNewVendor}
         />
         <SelectVendorModal
           isOpen={showProjectModal}

@@ -1029,8 +1029,7 @@ const History = () => {
       siteIncharge: '',
       startDate: '',
       endDate: '',
-      poNumber: '',
-      branch: ''
+      poNumber: ''
     });
     // Clear localStorage
     try {
@@ -1698,7 +1697,7 @@ const History = () => {
     });
     setShowDatePicker(false);
   };
-  const hasActiveFilters = searchQuery || filters.vendorName || filters.clientName || filters.siteIncharge || filters.startDate || filters.endDate || filters.poNumber || filters.branch;
+  const hasActiveFilters = searchQuery || filters.vendorName || filters.clientName || filters.siteIncharge || filters.startDate || filters.endDate || filters.poNumber;
   // Use all available options from APIs for filter dropdowns
   const uniqueVendors = [...new Set(allVendors.map(v => v.vendorName).filter(Boolean))].sort();
   // Extract unique branches from projects
@@ -1723,13 +1722,28 @@ const History = () => {
         {/* Branch Button Row (always top-right) */}
         <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
           <div />
-          <button
-            type="button"
-            onClick={() => setShowBranchModal(true)}
-            className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            {filters.branch || 'Branch'}
-          </button>
+          <div className="flex items-center gap-[4px]">
+            <button
+              type="button"
+              onClick={() => setShowBranchModal(true)}
+              className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              {filters.branch || 'Branch'}
+            </button>
+            {filters.branch && (
+              <button
+                type="button"
+                aria-label="Clear branch"
+                title="Clear"
+                onClick={() => setFilters(prev => ({ ...prev, branch: '', clientName: '' }))}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 3L3 9M3 3L9 9" stroke="#848484" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
         {/* Search Bar */}
         <div className="relative">
@@ -1762,23 +1776,9 @@ const History = () => {
             <div className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none  min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {/* Show "Filter" text only when no filters are active */}
               {/* Show filter tags when filters are active */}
-              {(filters.vendorName || filters.clientName || filters.siteIncharge || filters.startDate || filters.endDate || filters.branch) && (
+              {(filters.vendorName || filters.clientName || filters.siteIncharge || filters.startDate || filters.endDate) && (
                 <div className="flex items-center gap-[4px] flex-nowrap">
-                  {filters.branch && (
-                    <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
-                      <span className="text-[11px] font-medium text-black">Branch</span>
-                      <button
-                        onClick={() => {
-                          setFilters({ ...filters, branch: '', clientName: '' }); // Clear clientName when branch is cleared
-                        }}
-                        className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-                      >
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
+                 
                   {filters.vendorName && (
                     <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                       <span className="text-[11px] font-medium text-black">Vendor</span>
@@ -1841,14 +1841,14 @@ const History = () => {
         </div>
       </div>
       {/* Purchase Orders List - Scrollable */}
-      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide mt-[6px] " style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
+      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide mt-[6px] pb-8" style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
         onClick={() => {
           setExpandedPoId(null);
           setCloneExpandedPoId(null);
         }}
       >
         {filteredPOs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center ">
+          <div className="flex flex-col items-center justify-center py-8">
             <div className="w-[64px] h-[64px] rounded-full bg-[#F5F5F5] flex items-center justify-center">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M8 12H24M8 20H24M8 28H24" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" />
@@ -1859,7 +1859,7 @@ const History = () => {
             </p>
           </div>
         ) : (
-          <div className="">
+          <div className="mt-[6px]">
             {filteredPOs.map((po, index) => {
               const isFirstCard = index === 0;
               // First card starts expanded, but can be closed by swiping right
@@ -2084,7 +2084,7 @@ const History = () => {
       {/* Filter Modal */}
       {showFilterModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center" style={{ fontFamily: "'Manrope', sans-serif" }} onClick={() => { setShowFilterModal(false); setShowVendorFilterModal(false); setShowProjectFilterModal(false); setShowInchargeFilterModal(false); }}>
-          <div className="bg-white w-full h-[370px] rounded-tl-[16px] rounded-tr-[16px] relative z-50 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full h-[340px] rounded-tl-[16px] rounded-tr-[16px] relative z-50 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }} onClick={(e) => e.stopPropagation()}>
             {/* Title */}
             <div className="px-[24px] pt-[20px] pb-[16px] flex items-center justify-between">
               <p className="text-[14px] font-semibold text-black">Select Filters</p>
@@ -2186,21 +2186,6 @@ const History = () => {
                 </div>
               </div>
             </div>
-            {/* Action Buttons - Fixed at bottom */}
-            <div className="absolute mt-5 left-0 right-0 px-[24px] flex gap-[16px]">
-              <button
-                onClick={() => setShowFilterModal(false)}
-                className="w-full h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => setShowFilterModal(false)}
-                className="w-full h-[40px] bg-black border border-[#f4ede2] rounded-[8px] text-[14px] font-bold text-white leading-normal"
-              >
-                Save
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -2243,7 +2228,7 @@ const History = () => {
         }}
         selectedValue={filters.vendorName}
         options={uniqueVendors}
-        fieldName="Vendor Filter"
+        fieldName="Vendor Name"
         onAddNew={null}
         showStarIcon={true}
       />
@@ -2256,7 +2241,7 @@ const History = () => {
         }}
         selectedValue={filters.clientName}
         options={uniqueClients}
-        fieldName="Project Filter"
+        fieldName="Project Name"
         onAddNew={null}
         showStarIcon={true}
       />

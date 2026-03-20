@@ -317,9 +317,9 @@ const Summary = () => {
       </div>
       {/* Project/Vendor List Summary Card */}
       {summaryData.length > 0 && (
-        <div className="bg-white shadow-lg w-[360px]">
+        <div className="bg-white shadow-lg rounded-[8px] shadow-top-lg w-[360px] mt-[8px]">
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center px-[16px] py-[10px] justify-between bg-white rounded-t-[8px] border-b border-[rgba(0,0,0,0.10)]">
             <p className="text-[12px] font-semibold text-[#9E9E9E]">
               {viewMode === 'vendor' ? 'Project List' : 'Vendor List'}
             </p>
@@ -363,7 +363,6 @@ const Summary = () => {
         selectedValue={selectedVendor}
         options={vendorOptions}
         fieldName="Vendor"
-        onAddNew={handleAddNewVendor}
       />
       {/* Project Select Modal */}
       <SelectVendorModal
@@ -376,7 +375,6 @@ const Summary = () => {
         selectedValue={selectedProject}
         options={projectOptions}
         fieldName="Project"
-        onAddNew={handleAddNewProject}
       />
       {/* Date Picker Modal */}
       <DatePickerModal

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import SearchableDropdown from './SearchableDropdown';
 import SelectOptionModal from './SelectOptionModal';
 import AddOptionModal from './AddOptionModal';
@@ -1103,6 +1103,31 @@ const InputData = () => {
     };
 
 
+    // Filter Item Name options by selected category when a category is chosen; otherwise, show all options
+    const itemNameOptionsForCategory = useMemo(() => {
+        if (!category) {
+            return itemNameOptions;
+        }
+        if (!Array.isArray(poItemNameData) || poItemNameData.length === 0) {
+            return itemNameOptions;
+        }
+        const filtered = poItemNameData.filter((item) => {
+            const itemCategory =
+                item.category ||
+                item.categoryName ||
+                item.Category ||
+                '';
+            return String(itemCategory).trim() === String(category).trim();
+        });
+        const names = filtered
+            .map((item) => item.itemName || item.poItemName || item.name || item.item_name || '')
+            .filter((n) => n && typeof n === 'string');
+        if (names.length === 0) {
+            return itemNameOptions;
+        }
+        return [...new Set(names)];
+    }, [category, poItemNameData, itemNameOptions]);
+
     return (
         <div className="flex flex-col min-h-[calc(100vh-96px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
             {/* New Input Section */}
@@ -1110,20 +1135,50 @@ const InputData = () => {
             <div className="sticky top-0 bg-white z-10 flex-shrink-0">
                 <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
                     {/* Group Dropdown - Left Side */}
-                    <button
-                        onClick={() => setShowGroupModal(true)}
-                        className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
-                    >
-                        {selectedGroupName || 'Group'}
-                    </button>
+                    <div className="flex items-center gap-[4px]">
+                        <button
+                            onClick={() => setShowGroupModal(true)}
+                            className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
+                        >
+                            {selectedGroupName || 'Group'}
+                        </button>
+                        {selectedGroupName && (
+                            <button
+                                type="button"
+                                aria-label="Clear group"
+                                title="Clear"
+                                onClick={() => setSelectedGroupName('')}
+                                className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M9 3L3 9M3 3L9 9" stroke="#848484" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
 
                     {/* Category Dropdown - Right Side */}
-                    <button
-                        onClick={() => setShowCategoryModal(true)}
-                        className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
-                    >
-                        {category || 'Category'}
-                    </button>
+                    <div className="flex items-center gap-[4px]">
+                        <button
+                            onClick={() => setShowCategoryModal(true)}
+                            className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
+                        >
+                            {category || 'Category'}
+                        </button>
+                        {category && (
+                            <button
+                                type="button"
+                                aria-label="Clear category"
+                                title="Clear"
+                                onClick={() => setCategory('')}
+                                className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M9 3L3 9M3 3L9 9" stroke="#848484" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Form Fields */}
@@ -1131,7 +1186,7 @@ const InputData = () => {
                     {/* Item Name */}
                     <div>
                         <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                            Item Name<span className="text-[#eb2f8e]">*</span>
+                            Item Name<span className="text-[#E4572E]">*</span>
                         </p>
                         <div className="relative">
                             <button
@@ -1148,8 +1203,8 @@ const InputData = () => {
                                 </span>
                                 {!formData.itemName && (
                                     <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
+                                        <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
                                 )}
                             </button>
                             {formData.itemName && (
@@ -1171,7 +1226,7 @@ const InputData = () => {
                     {/* Model */}
                     <div>
                         <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                            Model<span className="text-[#eb2f8e]">*</span>
+                            Model<span className="text-[#E4572E]">*</span>
                         </p>
                         <div className="relative">
                             <button
@@ -1188,8 +1243,8 @@ const InputData = () => {
                                 </span>
                                 {!formData.model && (
                                     <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
+                                        <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
                                 )}
                             </button>
                             {formData.model && (
@@ -1211,7 +1266,7 @@ const InputData = () => {
                     {/* Type */}
                     <div>
                         <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                            Type<span className="text-[#eb2f8e]">*</span>
+                            Type<span className="text-[#E4572E]">*</span>
                         </p>
                         <div className="relative">
                             <button
@@ -1228,8 +1283,8 @@ const InputData = () => {
                                 </span>
                                 {!formData.type && (
                                     <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
+                                        <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
                                 )}
                             </button>
                             {formData.type && (
@@ -1252,7 +1307,7 @@ const InputData = () => {
                         {/* Brand */}
                         <div>
                             <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                                Brand<span className="text-[#eb2f8e]">*</span>
+                                Brand<span className="text-[#E4572E]">*</span>
                             </p>
                             <div className="relative">
                                 <button
@@ -1269,8 +1324,8 @@ const InputData = () => {
                                     </span>
                                     {!formData.brand && (
                                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                      </svg>
+                                            <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
                                     )}
                                 </button>
                                 {formData.brand && (
@@ -1325,8 +1380,8 @@ const InputData = () => {
                         onClick={handleAddToList}
                         disabled={!formData.itemName || !formData.model || !formData.type || !formData.brand}
                         className={`w-[356px] h-[32px] rounded flex items-center justify-center gap-[8px] text-white text-[12px] font-medium transition-colors ${formData.itemName && formData.model && formData.type && formData.brand
-                                ? 'bg-black hover:bg-gray-800'
-                                : 'bg-[#757575] cursor-not-allowed'
+                            ? 'bg-black hover:bg-gray-800'
+                            : 'bg-[#757575] cursor-not-allowed'
                             }`}
                     >
                         {editingRowIndex !== null ? (
@@ -1350,16 +1405,16 @@ const InputData = () => {
 
             {/* otherPOEntityList Table - Show when itemName is selected */}
             {formData.itemName && otherPOEntityList.length > 0 && (
-                <div className="px-[16px] pt-[10px] pb-[16px]">
+                <div className=" pt-[10px] pb-[16px]">
                     <p className="text-[12px] font-semibold text-black leading-normal mb-2">
                         Available Combinations for {formData.itemName}
                     </p>
-                    <div className="border border-[#E0E0E0] rounded-[8px] overflow-hidden">
+                    <div className="shadow-lg rounded-[8px] overflow-hidden">
                         {/* Table Header */}
                         <div className="bg-[#F5F5F5] flex items-center px-[12px] py-[8px] border-b border-[#E0E0E0]">
-                            <div className="w-[24px] text-[12px] font-semibold text-black">#</div>
+                            <div className="w-[24px] text-[12px] font-semibold text-black"></div>
                             <div className="w-[120px] text-[12px] font-semibold text-black px-[8px]">Model</div>
-                            <div className="w-[60px] text-[12px] font-semibold text-black px-[8px]">Brand</div>
+                            <div className="w-[120px] text-[12px] font-semibold text-black px-[8px]">Brand</div>
                             <div className="flex-1 text-[12px] font-semibold text-black px-[8px]">Type</div>
                         </div>
                         {/* Table Rows */}
@@ -1397,14 +1452,14 @@ const InputData = () => {
                                                 }
                                             }}
                                         >
-                                            <div className="w-[24px] text-[11px] font-medium text-black">{index + 1}</div>
-                                            <div className="w-[120px] text-[11px] font-medium text-black px-[8px] truncate">
+                                            <div className="w-[24px] text-[10px] font-medium text-black">{index + 1}</div>
+                                            <div className="w-[120px] text-[10px] font-medium text-black px-[8px] truncate">
                                                 {entity.modelName || ''}
                                             </div>
-                                            <div className="w-[60px] text-[11px] font-medium text-black px-[8px] truncate">
+                                            <div className="w-[120px] text-[10px] font-medium text-black px-[8px] truncate">
                                                 {entity.brandName || ''}
                                             </div>
-                                            <div className="flex-1 text-[11px] font-medium text-black px-[8px] truncate">
+                                            <div className="flex-1 text-[10px] font-medium text-black px-[8px] truncate">
                                                 {entity.typeColor || ''}
                                             </div>
                                         </div>
@@ -1484,7 +1539,7 @@ const InputData = () => {
                     setShowItemNameModal(false);
                 }}
                 selectedValue={formData.itemName}
-                options={itemNameOptions}
+                options={itemNameOptionsForCategory}
                 fieldName="Item Name"
                 onAddNew={handleAddNewItemName}
                 showStarIcon={false}

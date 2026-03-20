@@ -8,11 +8,24 @@ const Tabs = ({ activeTab = 'create', onTabChange }) => {
     { id: 'input', label: 'Input Data' },
     { id: 'summary', label: 'Summary' }
   ];
+  const tabsContainerRef = useRef(null);
+  const activeTabRef = useRef(null);
+  const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
   const dropdownRef = useRef(null);
   const kebabButtonRef = useRef(null);
   const dropdownMenuRef = useRef(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+
+  const updateUnderlinePosition = () => {
+    if (activeTabRef.current && tabsContainerRef.current) {
+      const containerRect = tabsContainerRef.current.getBoundingClientRect();
+      const tabRect = activeTabRef.current.getBoundingClientRect();
+      const left = tabRect.left - containerRect.left;
+      const width = tabRect.width;
+      setUnderlineStyle({ left, width });
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -49,6 +62,14 @@ const Tabs = ({ activeTab = 'create', onTabChange }) => {
     };
   }, [isDropdownOpen]);
 
+  useEffect(() => {
+    updateUnderlinePosition();
+    window.addEventListener('resize', updateUnderlinePosition);
+    return () => {
+      window.removeEventListener('resize', updateUnderlinePosition);
+    };
+  }, [activeTab]);
+
   const handleDropdownToggle = (e) => {
     e.stopPropagation();
     if (!isDropdownOpen && kebabButtonRef.current) {
@@ -67,36 +88,40 @@ const Tabs = ({ activeTab = 'create', onTabChange }) => {
   };
   return (
     <>
-    <div className="fixed top-[50px] left-1/2 transform -translate-x-1/2 w-full max-w-[360px] h-[38px] bg-white z-40 purchase-order-tabs-container" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      <div className="flex items-center justify-between px-[16px] h-full relative">
-        <div className="flex gap-[24px]">
+    <div ref={tabsContainerRef} className="fixed top-[50px] left-1/2 transform -translate-x-1/2 w-full max-w-[360px] h-[38px] bg-white z-40 purchase-order-tabs-container" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      <div className="flex items-center justify-between px-[14px] pr-[14px] h-full relative">
+        <div className="flex gap-[16px]">
           <button
+            ref={activeTab === 'create' ? activeTabRef : null}
             onClick={() => onTabChange('create')}
-            className={`font-semibold text-[12px] leading-normal mt-[8px] whitespace-nowrap ${
+            className={`font-semibold text-[12px] leading-normal mt-[8px] whitespace-nowrap flex-shrink-0 ${
               activeTab === 'create' ? 'text-black' : 'text-[#848484]'
             }`}
           >
             Create PO
           </button>
           <button
+            ref={activeTab === 'history' ? activeTabRef : null}
             onClick={() => onTabChange('history')}
-            className={`font-semibold text-[12px] leading-normal mt-[8px] whitespace-nowrap ${
+            className={`font-semibold text-[12px] leading-normal mt-[8px] whitespace-nowrap flex-shrink-0 ${
               activeTab === 'history' ? 'text-black' : 'text-[#848484]'
             }`}
           >
             History
           </button>
           <button
+            ref={activeTab === 'input' ? activeTabRef : null}
             onClick={() => onTabChange('input')}
-            className={`font-semibold text-[12px] leading-normal mt-[8px] whitespace-nowrap ${
+            className={`font-semibold text-[12px] leading-normal mt-[8px] whitespace-nowrap flex-shrink-0 ${
               activeTab === 'input' ? 'text-black' : 'text-[#848484]'
             }`}
           >
             Input Data
           </button>
           <button
+            ref={activeTab === 'summary' ? activeTabRef : null}
             onClick={() => onTabChange('summary')}
-            className={`font-semibold text-[12px] leading-normal mt-[8px] whitespace-nowrap ${
+            className={`font-semibold text-[12px] leading-normal mt-[8px] whitespace-nowrap flex-shrink-0 ${
               activeTab === 'summary' ? 'text-black' : 'text-[#848484]'
             }`}
           >
@@ -116,21 +141,16 @@ const Tabs = ({ activeTab = 'create', onTabChange }) => {
       
       {/* Base border line in gray */}
       <div className="absolute bottom-0 left-0 w-full h-[1px]" style={{ backgroundColor: '#D9D9D9' }}>
-      
-      {/* Active tab underline in golden-brown, centered on the active tab */}
-      {activeTab === 'create' && (
-        <div className="absolute bottom-0 left-[4%] w-[16%] h-[1.70px]" style={{ backgroundColor: '#BF9853' }}></div>
-      )}
-      {activeTab === 'history' && (
-        <div className="absolute bottom-0 left-[26%] w-[16%] h-[1.70px]" style={{ backgroundColor: '#BF9853' }}></div>
-      )}
-      {activeTab === 'input' && (
-        <div className="absolute bottom-0 left-[45%] w-[16%] h-[1.70px]" style={{ backgroundColor: '#BF9853' }}></div>
-      )}
-      {activeTab === 'summary' && (
-        <div className="absolute bottom-0 left-[68%] w-[16%] h-[1.70px]" style={{ backgroundColor: '#BF9853' }}></div>
-      )}
       </div>
+      {/* Active tab underline in golden-brown (matches ToolsTracker extension: +8px on both sides). */}
+      <div
+        className="absolute bottom-0 h-[1.70px] transition-all duration-300"
+        style={{
+          backgroundColor: '#BF9853',
+          left: `${Math.max(0, underlineStyle.left - 8)}px`,
+          width: `${underlineStyle.width + 16}px`
+        }}
+      />
     </div>
     {isDropdownOpen && (
       <div 

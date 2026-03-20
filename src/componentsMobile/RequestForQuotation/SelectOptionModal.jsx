@@ -106,7 +106,7 @@ const SelectOptionModal = ({ isOpen, onClose, onSelect, selectedValue, options =
     >
       <div
         ref={scrollContainerRef}
-        className="bg-white w-full max-w-[360px] rounded-[16px] p-[16px] max-h-[70vh] overflow-y-auto transform -translate-y-24"
+        className="bg-white w-full max-w-[360px] rounded-[16px] p-[16px] max-h-[80vh] overflow-y-auto transform -translate-y-24"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-2">

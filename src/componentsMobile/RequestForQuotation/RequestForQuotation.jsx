@@ -2586,7 +2586,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
     }
   };
   return (
-    <div className="relative w-full min-h-screen bg-white max-w-[360px] mx-auto pb-[80px]" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="relative w-full h-[100vh] bg-white max-w-[360px] mx-auto overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -2604,8 +2604,8 @@ const RequestForQuotation = ({ user, onLogout }) => {
       />
       {/* Tabs - Fixed */}
       <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
-      {/* Content Area - Add padding to account for fixed Header and Tabs */}
-      <div className="pt-[85px]">
+      {/* Content Area */}
+      <div className="mt-[96px] h-[calc(100vh-96px-80px)] overflow-hidden">
         {/* History Tab Content */}
         {activeTab === 'history' && <History />}
         {/* Input Data Tab Content */}
@@ -2614,10 +2614,10 @@ const RequestForQuotation = ({ user, onLogout }) => {
         {activeTab === 'summary' && <Summary />}
         {/* Create RFQ Tab Content */}
         {activeTab === 'create' && (
-          <div className="flex flex-col h-[calc(100vh-85px-80px)] overflow-hidden">
+          <div className="flex flex-col h-full bg-white overflow-hidden">
             {/* RFQ Number and Date Row - always visible */}
-            <div className="flex-shrink-0 pt-[12px] pb-[6px] border-b border-gray-200">
-              <div className="flex items-center justify-between">
+            <div className="sticky top-0 bg-white z-10 flex-shrink-0">
+              <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
                 <div className="flex items-center gap-[8px]">
                   {poData.poNumber && (
                     <p className="text-[12px] font-semibold text-black leading-normal">{poData.poNumber}</p>
@@ -2630,7 +2630,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                     {poData.date}
                   </button>
                 </div>
-                <div className="flex items-center gap-[16px]">
+                <div className="flex items-center gap-[8px]">
                   {isPdfGenerated ? (
                     <>
                       <button type="button" onClick={downloadPDF} className="text-[13px] font-semibold text-black leading-normal" >
@@ -2643,7 +2643,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                       type="button"
                       onClick={generatePO}
                       disabled={isGenerating || isGeneratePrecheckRunning}
-                      className={`text-[13px] font-medium leading-normal ${(isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
+                      className={`text-[12px] font-semibold leading-normal ${(isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
                     >
                       {(isGenerating || isGeneratePrecheckRunning) ? (isEditFromHistory ? 'Updating...' : 'Generating...') : (isEditFromHistory ? 'Update RFQ' : 'Generate RFQ')}
                     </button>
@@ -2678,7 +2678,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                       }}
                       className="flex items-center font-semibold justify-center"
                     >
-                      <img src={editIcon} alt="Edit" className="w-[15px] h-[15px]" />
+                      <img src={editIcon} alt="Edit" className="w-[14px] h-[14px]" />
                     </button>
                   )}
                 </div>
@@ -2688,11 +2688,11 @@ const RequestForQuotation = ({ user, onLogout }) => {
             {/* For edit/clone mode: show dropdowns before clicking + */}
             {/* For regular flow: show dropdowns before clicking + (when selecting fields) */}
             {(!hasOpenedAdd && isEditMode) || ((!showAddItems && !hasOpenedAdd) && !isEditMode) || (items.length > 0 && hasOpenedAdd && (!poData.vendorName || !poData.projectName || !poData.projectIncharge)) ? (
-              <div className="flex-shrink-0 pt-[8px] space-y-[6px] ">
+              <div className="flex-shrink-0 space-y-[6px]">
                 {/* Vendor Name Field */}
                 <div className="">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
-                    Vendor Name<span className="text-[#eb2f8e]">*</span>
+                    Vendor Name<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className="relative">
                     <div
@@ -2739,7 +2739,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                 {/* Project Name Field */}
                 <div className=" relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
-                    Project Name<span className="text-[#eb2f8e]">*</span>
+                    Project Name<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowProjectModal(true)}
@@ -2775,7 +2775,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
                 {/* Project Incharge Field */}
                 <div className=" relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5 text-left">
-                    Project Incharge<span className="text-[#eb2f8e]">*</span>
+                    Project Incharge<span className="text-[#E4572E]">*</span>
                   </p>
                   <div className="relative">
                     <div onClick={() => setShowInchargeModal(true)}
@@ -2815,8 +2815,8 @@ const RequestForQuotation = ({ user, onLogout }) => {
             {/* These two views are mutually exclusive - never show both at the same time */}
             {((hasOpenedAdd && isEditMode && (poData.vendorName || poData.projectName || poData.projectIncharge)) ||
               (hasOpenedAdd && !isEmptyState && (poData.vendorName || poData.projectName || poData.projectIncharge) && !isEditMode)) && (
-                <div className="flex-shrink-0 mt-[8px] mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
-                  <div className="flex flex-col gap-[8px] px-[8px] text-left">
+                <div className="flex-shrink-0 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+                  <div className="flex flex-col gap-[8px] px-[8px]">
                     {poData.vendorName && (
                       <div className="flex items-start">
                         <p className="text-[12px] font-medium text-[#3f3f3f] leading-normal w-[111px]">Vendor Name</p>
@@ -2856,15 +2856,15 @@ const RequestForQuotation = ({ user, onLogout }) => {
                 {/* Items Section - Show when items exist (from NetStock) or when all three fields are filled */}
                 {/* For edit/clone mode, always show items if they exist, regardless of hasOpenedAdd */}
                 {((items.length > 0 && (hasOpenedAdd || isEditMode)) || ((!isEmptyState || isEditMode) && poData.vendorName && poData.projectName && poData.projectIncharge)) && (
-                  <div className="flex flex-col flex-1 min-h-0 mb-4 mt-2">
+                  <div className="flex flex-col flex-1 min-h-0 mb-[8px] mt-[10px]">
                     {/* Items Header - Fixed */}
-                    <div className="flex-shrink-0 flex items-center gap-[8px] mb-2 border-b border-[#E0E0E0] pb-[8px]">
+                    <div className="flex-shrink-0 flex items-center gap-[8px] mb-[8px] border-b border-[#E0E0E0] pb-[8px]">
                       <p className="text-[14px] font-medium text-black leading-normal">Items</p>
                       <input
                         type="text"
                         value={items.length}
                         readOnly
-                        className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-[8px] text-[12px] font-medium text-black bg-gray-200 text-center"
+                        className="w-[20px] h-[20px] border border-[rgba(0,0,0,0.16)] rounded-full text-[12px] font-medium text-black bg-gray-200 text-center"
                       />
                       <div className="ml-auto cursor-pointer" onClick={() => setShowSearchItemsModal(true)}>
                         <img src={SearchBlack} alt='search' className=' w-[16px] h-[16px]' />
@@ -3070,6 +3070,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
           options={vendorOptions}
           fieldName="Vendor"
           onAddNew={handleAddNewVendor}
+          containerTranslateClassName="-translate-y-1"
         />
         <SelectVendorModal
           isOpen={showProjectModal}
@@ -3083,6 +3084,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
           selectedValue={poData.projectName}
           options={projectOptions}
           fieldName="Project"
+          containerTranslateClassName="-translate-y-1"
         />
         <SelectVendorModal
           isOpen={showInchargeModal}
@@ -3130,6 +3132,7 @@ const RequestForQuotation = ({ user, onLogout }) => {
           selectedValue={poData.projectIncharge}
           options={inchargeOptions}
           fieldName="Project Incharge"
+          containerTranslateClassName="-translate-y-12"
         />
         <SearchItemsModal
           isOpen={showSearchItemsModal}
