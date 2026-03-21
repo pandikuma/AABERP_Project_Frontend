@@ -1210,7 +1210,7 @@ const EditStock = () => {
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden bg-white">
       {/* Category Text */}
       {activeSubTab === 'update' && activeSubTab !== 'history' && (
-        <div className="flex-shrink-0 px-[16px] pt-[8px] pb-[4px]">
+        <div className="flex-shrink-0 pt-[8px] pb-[8px] border-b border-[#E0E0E0]">
           <div className="flex items-center justify-between flex-1">
             <p className="text-[12px] font-semibold text-black leading-normal">
               #
@@ -1225,7 +1225,7 @@ const EditStock = () => {
         </div>
       )}
       {activeSubTab === 'history' && (
-        <div className="flex-shrink-0 px-[16px] pt-[8px] pb-[4px]">
+        <div className="flex-shrink-0 pt-[8px] pb-[8px] border-b border-[#E0E0E0]">
           <div className="flex items-center justify-between flex-1">
             <div
               onClick={() => setShowEnoModal(true)}
@@ -1245,7 +1245,7 @@ const EditStock = () => {
         </div>
       )}
       {activeSubTab === 'transfer' && (
-        <div className="flex-shrink-0 px-[16px] pt-[8px] pb-[4px] flex items-center justify-between">
+        <div className="flex-shrink-0 pt-[8px] pb-[8px] flex items-center justify-between border-b border-[#E0E0E0]">
           <div className="flex items-center justify-between flex-1">
             <p className="text-[12px] font-semibold text-black leading-normal">
               #
@@ -1279,12 +1279,12 @@ const EditStock = () => {
         </div>
       )}
       {/* Sub-navigation Tabs: Transfer, Update, History */}
-      <div className="flex-shrink-0 px-[16px]">
-        <div className="flex bg-gray-100 items-center h-9 shadow-sm rounded-md flex-1">
+      <div className="flex-shrink-0 pt-[8px]">
+        <div className="flex bg-gray-100 items-center h-[32px] shadow-sm rounded-md flex-1">
           <button
             type="button"
             onClick={() => setActiveSubTab('transfer')}
-            className={`flex-1 h-[32px] rounded-md text-[12px] font-medium leading-normal ml-0.5 transition-colors duration-1000 ease-out ${activeSubTab === 'transfer'
+            className={`flex-1 h-[28px] rounded-md text-[12px] font-medium leading-normal ml-[2px] transition-colors duration-1000 ease-out ${activeSubTab === 'transfer'
               ? 'bg-white text-black'
               : 'bg-gray-100 text-gray-600'
               }`}
@@ -1294,7 +1294,7 @@ const EditStock = () => {
           <button
             type="button"
             onClick={() => setActiveSubTab('update')}
-            className={`flex-1 h-[32px] rounded-md text-[12px] font-medium leading-normal transition-colors duration-1000 ease-out ${activeSubTab === 'update'
+            className={`flex-1 h-[28px] rounded-md text-[12px] font-medium leading-normal transition-colors duration-1000 ease-out ${activeSubTab === 'update'
               ? 'bg-white text-black'
               : 'bg-gray-100 text-gray-600'
               }`}
@@ -1304,7 +1304,7 @@ const EditStock = () => {
           <button
             type="button"
             onClick={() => setActiveSubTab('history')}
-            className={`flex-1 h-[32px] rounded-md text-[12px] font-medium leading-normal mr-0.5 transition-colors duration-1000 ease-out ${activeSubTab === 'history'
+            className={`flex-1 h-[28px] rounded-md text-[12px] font-medium leading-normal mr-[2px] transition-colors duration-1000 ease-out ${activeSubTab === 'history'
               ? 'bg-white text-black'
               : 'bg-gray-100 text-gray-600'
               }`}
@@ -1316,7 +1316,7 @@ const EditStock = () => {
       {activeSubTab === 'history' && (
         <div
           ref={filterTagsContainerRef}
-          className="flex items-center justify-start mt-3 mb-0 px-[20px] gap-[8px] overflow-x-auto scrollbar-hide no-scrollbar scrollbar-none"
+          className="flex items-center justify-start mt-[8px] mb-0 gap-[4px] overflow-x-auto scrollbar-hide no-scrollbar scrollbar-none"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch', cursor: isDragging ? 'grabbing' : 'grab' }}
           onMouseDown={(e) => {
             if (e.target.closest('button')) return;
@@ -1340,7 +1340,7 @@ const EditStock = () => {
         >
           <button
             onClick={() => setShowFilterSheet(true)}
-            className="flex items-center gap-[8px] text-[12px] font-medium text-gray-700"
+            className="flex items-center gap-[4px] text-[12px] font-medium text-gray-700"
           >
             <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
             {!(filterData.stockingLocation || filterData.itemName || filterData.transfer || filterData.update) && (
@@ -1348,8 +1348,8 @@ const EditStock = () => {
             )}
           </button>
           {filterData.stockingLocation && (
-            <div className="flex items-center gap-[4px] px-[24px] py-[4px] bg-gray-100 rounded-full flex-shrink-0">
-              <span className="text-[13px] font-medium text-black">Stocking Location</span>
+            <div className="flex items-center gap-[4px] px-[6px] py-[2px] bg-gray-100 rounded-full flex-shrink-0">
+              <span className="text-[12px] font-medium text-black">Stocking Location</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -1365,8 +1365,8 @@ const EditStock = () => {
             </div>
           )}
           {filterData.itemName && (
-            <div className="flex items-center gap-[4px] px-[24px] py-[4px] bg-gray-100 rounded-full flex-shrink-0">
-              <span className="text-[13px] font-medium text-black">Item Name</span>
+            <div className="flex items-center gap-[4px] px-[6px] py-[2px] bg-gray-100 rounded-full flex-shrink-0">
+              <span className="text-[12px] font-medium text-black">Item Name</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -1382,8 +1382,8 @@ const EditStock = () => {
             </div>
           )}
           {filterData.transfer && (
-            <div className="flex items-center gap-[4px] px-[24px] py-[4px] bg-gray-100 rounded-full flex-shrink-0">
-              <span className="text-[13px] font-medium text-black">Transfer</span>
+            <div className="flex items-center gap-[4px] px-[6px] py-[2px] bg-gray-100 rounded-full flex-shrink-0">
+              <span className="text-[12px] font-medium text-black">Transfer</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -1399,8 +1399,8 @@ const EditStock = () => {
             </div>
           )}
           {filterData.update && (
-            <div className="flex items-center gap-[4px] px-[24px] py-[4px] bg-gray-100 rounded-full flex-shrink-0">
-              <span className="text-[13px] font-medium text-black">Update</span>
+            <div className="flex items-center gap-[4px] px-[6px] py-[2px] bg-gray-100 rounded-full flex-shrink-0">
+              <span className="text-[12px] font-medium text-black">Update</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -1419,7 +1419,7 @@ const EditStock = () => {
       )}
       {/* Transfer Form Fields (shown when Transfer tab is active) */}
       {activeSubTab === 'transfer' && (
-        <div className="flex-1 px-[16px] pb-[16px]">
+        <div className="flex-1 pb-[16px]">
           {/* From Field */}
           <div className="space-y-[6px]">
             <div className="mt-2">
@@ -1588,7 +1588,7 @@ const EditStock = () => {
       {activeSubTab === 'update' && (
         <div className="flex flex-col h-full overflow-hidden">
           {/* Category Text and Filters */}
-          <div className="flex-shrink-0 px-[16px]">
+          <div className="flex-shrink-0">
             {/* Stocking Location Filter */}
             <div className="mb-2">
               <p className="text-[12px] font-semibold text-black leading-normal mb-1 mt-2">

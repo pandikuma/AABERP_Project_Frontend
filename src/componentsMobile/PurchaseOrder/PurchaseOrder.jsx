@@ -48,6 +48,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   const [showSearchItemsModal, setShowSearchItemsModal] = useState(false);
   const [showRfqModal, setShowRfqModal] = useState(false);
   const [rfqOptionLabels, setRfqOptionLabels] = useState([]);
+  const [selectedRfqIdentifier, setSelectedRfqIdentifier] = useState(''); // send as rfq_id in PO payload
   const rfqLabelToRfqRef = useRef(new Map()); // label -> rfq row (at least {id, eno, vendor_id, ...})
   const rfqLoadedForVendorRef = useRef(null); // vendorId we last loaded rfqs for
   const [isRfqLoading, setIsRfqLoading] = useState(false);
@@ -205,6 +206,9 @@ const PurchaseOrder = ({ user, onLogout }) => {
       // best-effort
     }
     const source = apiRfq || rfqRow;
+    const rfqEno = source?.eno ?? source?.rfq_eno ?? source?.rfqEno ?? null;
+    // Backend expects rfq_id (String). Prefer RFQ number; fallback to RFQ row id.
+    setSelectedRfqIdentifier(String(rfqEno ?? rfqId ?? ''));
 
     // Project (client) hydrate
     const clientId = source?.client_id ?? source?.clientId ?? null;
@@ -1226,6 +1230,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
     setEditingItem(null);
     setExpandedItemId(null);
     setSwipeStates({});
+    setSelectedRfqIdentifier('');
     previousVendorId.current = null; // Reset previous vendor ID tracking
     hasLoadedNetStockItems.current = false; // Reset to allow loading NetStock items
   }, []);
@@ -2183,6 +2188,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
         site_incharge_id: siteInchargeIdForPayload,
         site_incharge_mobile_number: mobileForPayload,
         site_incharge_type: siteInchargeTypeForPayload,
+        rfq_id: selectedRfqIdentifier || null,
         eno: currentPoNo,
         created_by: username,
         purchaseTable: items.map(item => {
@@ -2763,6 +2769,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
     setEditingItem(null);
     setExpandedItemId(null);
     setSwipeStates({});
+    setSelectedRfqIdentifier('');
     setSelectedCategory('');
     previousVendorId.current = null;
     hasLoadedNetStockItems.current = false; // Reset to allow loading NetStock items again
@@ -2981,6 +2988,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                           e.stopPropagation();
                           setSelectedVendor(null);
                           setPoData({ ...poData, vendorName: '', poNumber: '' });
+                          setSelectedRfqIdentifier('');
                           previousVendorId.current = null; // Reset previous vendor ID tracking
                         }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
@@ -3320,6 +3328,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
             const selectedOption = vendorNameOptions.find(opt => opt.value === value);
             setSelectedVendor(selectedOption ? { id: selectedOption.id, name: value } : null);
             setPoData({ ...poData, vendorName: value });
+            setSelectedRfqIdentifier('');
             setShowVendorModal(false);
           }}
           selectedValue={poData.vendorName}

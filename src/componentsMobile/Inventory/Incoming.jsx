@@ -10,6 +10,19 @@ import SelectPOModal from './SelectPOModal';
 import editIcon from '../Images/edit.png';
 import jsPDF from 'jspdf';
 const Incoming = ({ user }) => {
+  // Prevent whole-page scroll; keep only inner lists scrollable
+  useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, []);
   // Helper functions for date
   const getTodayDate = () => {
     const today = new Date();
@@ -83,7 +96,6 @@ const Incoming = ({ user }) => {
     };
     fetchVendorNames();
   }, []);
-
   // Fetch project names (sites) from API for Stocking Location
   useEffect(() => {
     const fetchSites = async () => {
@@ -1463,12 +1475,15 @@ const Incoming = ({ user }) => {
     }
   };
   return (
-    <div className="flex flex-col px-[16px] h-[calc(100vh-90px-80px)] overflow-hidden">
+    <div
+      className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden"
+      style={{ '--incoming-dropdown-max-height': 'calc(100vh - 90px - 80px)' }}
+    >
       {/* PO Number and Date Row - Only show when not in empty state */}
       {!isEmptyState && (
         <div className="">
-          <div className="sticky top-[100px] z-30 bg-white flex items-center justify-between mt-2 border-b border-[#E0E0E0]">
-            <div className="flex items-center gap-[8px] mb-1">
+          <div className="sticky z-30 bg-white flex items-center justify-between border-b border-[#E0E0E0]">
+            <div className="flex items-center gap-[8px] pb-[8px] pt-[8px]">
               <button
                 type="button"
                 onClick={() => {
@@ -1494,12 +1509,12 @@ const Incoming = ({ user }) => {
                 {incomingData.date}
               </button>
             </div>
-            <div className="flex items-center mb-1">
+            <div className="flex items-center">
               {hasOpenedAdd && items.length > 0 && (
                 <button
                   type="button"
                   onClick={handleSaveIncoming}
-                  className="text-[13px] font-medium text-black leading-normal rounded-[8px] px-[12px] py-[6px] hover:bg-gray-100"
+                  className="text-[12px] font-medium text-black leading-normal rounded-[8px] px-[12px] py-[6px] hover:bg-gray-100"
                 >
                   {isEditMode ? 'Update' : 'Add to Stock'}
                 </button>
@@ -1525,8 +1540,8 @@ const Incoming = ({ user }) => {
         <div className="">
           {/* Date in empty state */}
           {isEmptyState && (
-            <div className="sticky z-30 bg-white flex items-center justify-between mt-2 border-b border-[#E0E0E0]">
-              <div className="flex items-center gap-[8px] mb-1">
+            <div className="sticky z-30 bg-white flex items-center justify-between border-b border-[#E0E0E0]">
+              <div className="flex items-center gap-[8px] pb-[8px] pt-[8px]">
                 <button
                   type="button"
                   onClick={() => {
@@ -1556,14 +1571,14 @@ const Incoming = ({ user }) => {
           )}
           {/* Vendor Name Field */}
           <div className="space-y-[6px]">
-            <div className="mt-2 relative">
+            <div className="mt-[8px] relative">
               <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
                 Vendor Name<span className="text-[#eb2f8e]">*</span>
               </p>
               <div className="relative">
                 <div
                   onClick={() => setShowVendorModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: incomingData.vendorName ? '#000' : '#9E9E9E'
@@ -1603,7 +1618,7 @@ const Incoming = ({ user }) => {
               <div className="relative">
                 <div
                   onClick={() => setShowStockingLocationModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: incomingData.stockingLocation ? '#000' : '#9E9E9E'
@@ -1638,7 +1653,7 @@ const Incoming = ({ user }) => {
       )}
       {/* Summary details card - show after first + click */}
       {hasOpenedAdd && !isEmptyState && (incomingData.vendorName || incomingData.stockingLocation) && (
-        <div className="flex-shrink-0 mx-2 mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+        <div className="flex-shrink-0 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px] mt-[8px]">
           <div className="flex flex-col gap-[8px] px-[8px]">
             {incomingData.vendorName && (
               <div className="flex items-start">
@@ -1662,7 +1677,7 @@ const Incoming = ({ user }) => {
         <>
           {/* Items Section - Show only when all fields are filled */}
           {(!isEmptyState || isEditMode) && incomingData.vendorName && incomingData.stockingLocation && (
-            <div className="flex flex-col flex-1 min-h-0 mb-4 mt-2">
+            <div className="flex flex-col flex-1 min-h-0 mb-4 mt-[8px]">
               {/* Items Header - Fixed */}
               <div className="flex-shrink-0 flex items-center gap-[8px] mb-2 border-b border-[#E0E0E0] pb-[8px]">
                 <p className="text-[14px] font-medium text-black leading-normal">Items</p>
@@ -1670,7 +1685,7 @@ const Incoming = ({ user }) => {
                   type="text"
                   value={items.length}
                   readOnly
-                  className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-[8px] text-[12px] font-medium text-black bg-gray-200 text-center"
+                  className="w-[20px] h-[20px] border border-[rgba(0,0,0,0.16)] rounded-full text-[10px] font-medium text-black bg-gray-200 text-center"
                 />
                 <div className="ml-auto cursor-pointer" onClick={() => setShowSearchItemsModal(true)}>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

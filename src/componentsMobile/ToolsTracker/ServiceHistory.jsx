@@ -1043,7 +1043,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
       </div>
 
       {/* Service Records List */}
-      <div className="flex-1 px-[16px] overflow-y-auto pb-[16px]">
+      <div className="flex-1 overflow-y-auto pb-[16px]">
         {loading ? (
           <div className="flex items-center justify-center py-[32px]">
             <p className="text-[12px] text-gray-500">Loading...</p>
@@ -1169,14 +1169,14 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   >
                     {/* Row 1: Entry number + Item Name | Date (if separate) */}
                     <div className="flex items-start justify-between mb-1">
-                      <p className="text-[13px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
+                      <p className="text-[12px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
                         #{entry.eno}, {itemName}
                       </p>
                     </div>
 
                     {/* Row 2: Machine Number | Person Name */}
                     <div className="flex items-start justify-between mb-1">
-                      <p className="text-[14px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
+                      <p className="text-[12px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
                         {machineNumberText}
                       </p>
                       <p className="text-[12px] text-black leading-snug flex-shrink-0 ml-2">
@@ -1186,7 +1186,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
 
                     {/* Row 3: Shop Name | Status + Cost */}
                     <div className="flex items-start justify-between mb-1">
-                      <p className="text-[12px] font-medium leading-snug truncate flex-1 min-w-0 text-[#BF9853]">
+                      <p className="text-[11px] font-semibold leading-snug truncate flex-1 min-w-0 text-[#BF9853]">
                         {shopName}
                       </p>
                       <p className="text-[11px] leading-snug flex-shrink-0 ml-2">
@@ -1204,7 +1204,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
                       </p>
                       {itemIdName && (
                         <p
-                          className={`item-id-clickable text-[13px] font-semibold leading-snug flex-shrink-0 ml-2 ${canViewImages ? 'text-[#E4572E] cursor-pointer underline' : 'text-[#4CAF50]'}`}
+                          className={`item-id-clickable text-[12px] font-semibold leading-snug flex-shrink-0 ml-2 ${canViewImages ? 'text-black cursor-pointer underline' : 'text-[#4CAF50]'}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (canViewImages) {

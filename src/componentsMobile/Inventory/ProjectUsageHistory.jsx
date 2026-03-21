@@ -523,7 +523,7 @@ const ProjectUsageHistory = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date Row */}
-      <div className="flex-shrink-0 px-[16px] pt-[8px] pb-[4px] border-b border-gray-100">
+      <div className="flex-shrink-0 pt-[8px] pb-[4px] border-b border-gray-100">
         <button
           type="button"
           onClick={() => setShowDatePicker(true)}
@@ -532,9 +532,8 @@ const ProjectUsageHistory = () => {
           {selectedDate}
         </button>
       </div>
-
       {/* Filters Section */}
-      <div className="flex-shrink-0 px-[16px] pt-[16px] pb-[8px] space-y-3">
+      <div className="flex-shrink-0 pt-[16px] pb-[8px] space-y-3">
         {/* Project Name Filter */}
         <div>
           <p className="text-[12px] font-semibold text-black leading-normal mb-1">
@@ -629,9 +628,8 @@ const ProjectUsageHistory = () => {
           />
         </div>
       </div>
-
       {/* Usage List */}
-      <div className="flex-1 overflow-y-auto px-[16px] pb-[16px]">
+      <div className="flex-1 overflow-y-auto pb-[16px]">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-[14px] text-gray-500">Loading...</p>

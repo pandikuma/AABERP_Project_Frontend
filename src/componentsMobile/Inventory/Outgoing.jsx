@@ -7,12 +7,26 @@ import DeleteConfirmModal from '../PurchaseOrder/DeleteConfirmModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import SearchItemsModal from '../PurchaseOrder/SearchItemsModal';
 import editIcon from '../Images/edit.png';
+import SearchBlack from '../Images/search black.png';
 import SR from '../Images/SR.png';
 import DP from '../Images/DP.png';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 const Outgoing = ({ user }) => {
+  // Prevent whole-page scroll; keep only inner lists scrollable
+  useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, []);
   // Helper functions for date
   const getTodayDate = () => {
     const today = new Date();
@@ -1216,46 +1230,45 @@ const Outgoing = ({ user }) => {
     }
   };
   return (
-    <div className="flex flex-col px-[16px] h-[calc(100vh-90px-80px)] overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date and Actions Row - Only show when not in empty state */}
-      {!isEmptyState && (
-        <div className="items-center border-b border-[#E0E0E0] mb-2">
-          <div className="sticky top-[100px] z-30 bg-white flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setShowDatePicker(true)}
-              className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
-            >
-              {outgoingData.date}
-            </button>
-            <div className="flex items-center">
+      <div className="items-center border-b border-[#E0E0E0] pb-[8px] pt-[8px]">
+        <div className="sticky top-[100px] z-30 bg-white flex items-center justify-between">
+          <button
+            type="button" onClick={() => setShowDatePicker(true)}
+            className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
+          >
+            {outgoingData.date}
+          </button>
+          {!isEmptyState && (
+            <div className="flex items-center gap-[4px]">
               {isEditMode && fromHistory ? (
                 <button type="button" onClick={() => handleSaveOutgoing(outgoingData.outgoingType || 'stock return')}
-                  className="flex items-center text-[13px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
+                  className="flex items-center text-[12px] font-semibold text-black leading-normal "
                 >
                   Update
                 </button>
               ) : fromHistory && !isEditMode && ((outgoingData.outgoingType || '').toLowerCase() === 'stock return' || (outgoingData.outgoingType || '').toLowerCase() === 'stockreturn') ? (
                 <button type="button" onClick={() => handleDownloadPDF()}
-                  className="flex items-center text-[13px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
+                  className="flex items-center text-[12px] font-semibold text-black leading-normal "
                 >
                   Download
                 </button>
               ) : fromHistory && !isEditMode && (outgoingData.outgoingType || '').toLowerCase() === 'dispatch' ? (
                 <button type="button" onClick={() => handleDownloadPDF()}
-                  className="flex items-center text-[13px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
+                  className="flex items-center text-[12px] font-semibold text-black leading-normal "
                 >
                   Download
                 </button>
               ) : (
                 <>
                   <button type="button" onClick={() => handleSaveOutgoing('stock return')}
-                    className="flex items-center text-[12px] gap-[4px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
+                    className="flex items-center text-[12px] gap-[4px] font-semibold text-black leading-normal "
                   >
                     Stock Return <img src={SR} alt="SR" className="w-[11px] h-[11px]" />
                   </button>
                   <button type="button" onClick={() => handleSaveOutgoing('dispatch')}
-                    className="flex items-center text-[12px] gap-[4px] font-semibold text-black leading-normal hover:bg-gray-100 rounded-[8px] px-[8px] py-[6px]"
+                    className="flex items-center text-[12px] gap-[4px] font-semibold text-black leading-normal "
                   >
                     Dispatch <img src={DP} alt="DP" className="w-[11px] h-[11px]" />
                   </button>
@@ -1287,34 +1300,22 @@ const Outgoing = ({ user }) => {
                 </button>
               )}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
       {/* Form Fields - visible while you are selecting the three fields (before first + click) or when hideSummaryCard is true */}
       {(!hasOpenedAdd || hideSummaryCard) && (
-        <div className=" ">
-          {/* Date in empty state */}
-          {isEmptyState && (
-            <div className="mb-2 items-center border-b border-gray-200 pb-[4px] mt-0.5">
-              <button
-                type="button"
-                onClick={() => setShowDatePicker(true)}
-                className="text-[12px] font-medium text-black leading-normal underline-offset-2 hover:underline"
-              >
-                {outgoingData.date}
-              </button>
-            </div>
-          )}
+        <div className="pb-[8px]">
           {/* Project Name Field */}
-          <div className="space-y-[6px]">
+          <div className="space-y-[6px] mt-[8px]">
             <div className=" relative">
               <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                Project Name<span className="text-[#eb2f8e]">*</span>
+                Project Name<span className="text-[#E4572E]">*</span>
               </p>
               <div className="relative">
                 <div
                   onClick={() => setShowProjectModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: outgoingData.projectName ? '#000' : '#9E9E9E'
@@ -1347,12 +1348,12 @@ const Outgoing = ({ user }) => {
             {/* Project Incharge Field */}
             <div className=" relative">
               <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                Project Incharge<span className="text-[#eb2f8e]">*</span>
+                Project Incharge<span className="text-[#E4572E]">*</span>
               </p>
               <div className="relative">
                 <div
                   onClick={() => setShowInchargeModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: outgoingData.projectIncharge ? '#000' : '#9E9E9E'
@@ -1386,12 +1387,12 @@ const Outgoing = ({ user }) => {
             {/* Stocking Location Field */}
             <div className="relative">
               <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                Stocking Location<span className="text-[#eb2f8e]">*</span>
+                Stocking Location<span className="text-[#E4572E]">*</span>
               </p>
               <div className="relative">
                 <div
                   onClick={() => setShowStockingLocationModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: outgoingData.stockingLocation ? '#000' : '#9E9E9E'
@@ -1426,7 +1427,7 @@ const Outgoing = ({ user }) => {
       )}
       {/* Summary details card - show after first + click or in edit mode */}
       {(hasOpenedAdd || isEditMode) && !hideSummaryCard && !isEmptyState && (outgoingData.projectName || outgoingData.projectIncharge || outgoingData.stockingLocation) && (
-        <div className="flex-shrink-0 mx-2 mb-1 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px]">
+        <div className="flex-shrink-0 p-[8px] bg-white border border-[#aaaaaa] rounded-[8px] mt-[8px]">
           <div className="flex flex-col gap-[8px] px-[8px]">
             {outgoingData.projectName && (
               <div className="flex items-start">
@@ -1466,7 +1467,7 @@ const Outgoing = ({ user }) => {
         <>
           {/* Items Section - Show only when all three fields are filled */}
           {(!isEmptyState || isEditMode) && outgoingData.projectName && outgoingData.projectIncharge && outgoingData.stockingLocation && (
-            <div className="flex flex-col flex-1 min-h-0 mx-4 mb-4 mt-2">
+            <div className="flex flex-col flex-1 min-h-0 mb-4 mt-[10px]">
               {/* Items Header - Fixed */}
               <div className="flex-shrink-0 flex items-center gap-[8px] mb-2 border-b border-[#E0E0E0] pb-[8px]">
                 <p className="text-[14px] font-medium text-black leading-normal">Items</p>
@@ -1474,13 +1475,10 @@ const Outgoing = ({ user }) => {
                   type="text"
                   value={items.length}
                   readOnly
-                  className="w-[30px] h-[30px] border border-[rgba(0,0,0,0.16)] rounded-full px-[8px] text-[12px] font-medium text-black bg-gray-200 text-center"
+                  className="w-[20px] h-[20px] border border-[rgba(0,0,0,0.16)] rounded-full text-[10px] font-medium text-black bg-gray-200 text-center"
                 />
                 <div className="ml-auto cursor-pointer" onClick={() => setShowSearchItemsModal(true)}>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="7" cy="7" r="5.5" stroke="#747474" strokeWidth="1.5" />
-                    <path d="M11 11L14 14" stroke="#747474" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
+                  <img src={SearchBlack} alt='search' className=' w-[16px] h-[16px]' />
                 </div>
               </div>
               {/* Items List - Scrollable */}

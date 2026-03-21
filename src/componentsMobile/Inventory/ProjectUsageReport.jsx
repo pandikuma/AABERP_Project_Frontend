@@ -633,7 +633,7 @@ const ProjectUsageReport = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date Row */}
-      <div className="px-[16px]">
+      <div className="pb-[8px] border-b border-[#E0E0E0]">
         <div className="sticky z-30 bg-white flex items-center justify-between mt-2">
           <button
             type="button"
@@ -652,12 +652,12 @@ const ProjectUsageReport = () => {
         </div>
       </div>
       {/* Report/History Tabs */}
-      <div className="flex-shrink-0 px-[16px] pt-[4px]">
-        <div className="flex bg-gray-100 items-center h-9 shadow-sm flex-1 rounded-md">
+      <div className="flex-shrink-0 pt-[8px]">
+        <div className="flex bg-gray-100 items-center h-[32px] shadow-sm flex-1 rounded-md">
           <button
             type="button"
             onClick={() => setActiveTab('history')}
-            className={`flex-1 py-[4px] px-[16px] ml-1 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${activeTab === 'history'
+            className={`flex-1 ml-[2px] h-[28px] rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${activeTab === 'history'
               ? 'bg-white text-black'
               : 'bg-gray-100 text-gray-600'
               }`}
@@ -667,7 +667,7 @@ const ProjectUsageReport = () => {
           <button
             type="button"
             onClick={() => setActiveTab('report')}
-            className={`flex-1 py-[4px] px-[16px] mr-1 h-8 rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${activeTab === 'report'
+            className={`flex-1 mr-[2px] h-[28px] rounded text-[12px] font-semibold leading-normal duration-1000 ease-out transition-colors ${activeTab === 'report'
               ? 'bg-white text-black'
               : 'bg-gray-100 text-gray-600'
               }`}
@@ -677,7 +677,7 @@ const ProjectUsageReport = () => {
         </div>
       </div>
       {/* Filters Section */}
-      <div className="flex-shrink-0 px-[16px] pt-[8px] mb-2">
+      <div className="flex-shrink-0 pt-[8px] mb-2">
         {/* Project Name Filter */}
         <div className="mb-2">
           <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
@@ -734,7 +734,7 @@ const ProjectUsageReport = () => {
         </div>
       </div>
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto px-[16px] pb-[16px] scrollbar-hide no-scrollbar scrollbar-none">
+      <div className="flex-1 overflow-y-auto pb-[16px] scrollbar-hide no-scrollbar scrollbar-none">
         {activeTab === 'report' ? (
           // Report Tab Content
           !selectedProject ? (

@@ -215,11 +215,48 @@ const History = () => {
         ? 'https://backendaab.in/aabuildersDash/api/purchase_orders/getAll'
         : 'https://backendaab.in/aabuildersDash/api/purchase_orders/get/latest';
 
-      const response = await fetch(apiUrl);
+      const [response, inventoryResponse] = await Promise.all([
+        fetch(apiUrl),
+        fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll').catch(() => null)
+      ]);
       if (!response.ok) {
         throw new Error('Failed to fetch purchase orders');
       }
       const data = await response.json();
+      const inventoryData = inventoryResponse && inventoryResponse.ok ? await inventoryResponse.json() : [];
+
+      // Build lookup map: purchase_no -> (composite item key -> total incoming qty)
+      const incomingQtyByPurchaseNo = {};
+      (Array.isArray(inventoryData) ? inventoryData : []).forEach((record) => {
+        const isDeleted = record?.delete_status === true || record?.deleteStatus === true;
+        if (isDeleted) return;
+        const inventoryType = (record?.inventory_type || record?.inventoryType || '').toString().toLowerCase();
+        if (inventoryType && inventoryType !== 'incoming') return;
+
+        const purchaseNo = String(record?.purchase_no || record?.purchaseNo || record?.purchase_number || '')
+          .replace('#', '')
+          .trim();
+        if (!purchaseNo || purchaseNo === 'NO_PO') return;
+
+        if (!incomingQtyByPurchaseNo[purchaseNo]) {
+          incomingQtyByPurchaseNo[purchaseNo] = {};
+        }
+        const bucket = incomingQtyByPurchaseNo[purchaseNo];
+        const inventoryItems = record?.inventoryItems || record?.inventory_items || [];
+        if (!Array.isArray(inventoryItems)) return;
+
+        inventoryItems.forEach((invItem) => {
+          const itemId = invItem?.item_id ?? invItem?.itemId ?? null;
+          const categoryId = invItem?.category_id ?? invItem?.categoryId ?? null;
+          const modelId = invItem?.model_id ?? invItem?.modelId ?? null;
+          const brandId = invItem?.brand_id ?? invItem?.brandId ?? null;
+          const typeId = invItem?.type_id ?? invItem?.typeId ?? null;
+          if (itemId === null || itemId === undefined) return;
+          const key = `${itemId || 'null'}-${categoryId || 'null'}-${modelId || 'null'}-${brandId || 'null'}-${typeId || 'null'}`;
+          bucket[key] = (bucket[key] || 0) + Math.abs(Number(invItem?.quantity || 0));
+        });
+      });
+
       const transformedPOs = data
         .filter((po) => {
           return !(po.delete_status === true || po.deleteStatus === true);
@@ -296,6 +333,44 @@ const History = () => {
             paymentStatus = po.paymentStatus;
           }
 
+          // Determine stock status for this PO using incoming inventory records.
+          // Full match => green (like Paid), partial match => red (like Unpaid), none => hidden.
+          const poNoForStock = String(po.eno || po.ENO || po.poNumber || po.po_number || '')
+            .replace('#', '')
+            .trim();
+          const poIncomingQtyMap = incomingQtyByPurchaseNo[poNoForStock] || {};
+          const poRows = po.purchaseTable || [];
+          let totalOrderedQty = 0;
+          let totalAddedQty = 0;
+          let hasAnyRowWithStock = false;
+
+          poRows.forEach((row) => {
+            const rowItemId = row?.item_id ?? row?.itemId ?? null;
+            const rowCategoryId = row?.category_id ?? row?.categoryId ?? null;
+            const rowModelId = row?.model_id ?? row?.modelId ?? null;
+            const rowBrandId = row?.brand_id ?? row?.brandId ?? null;
+            const rowTypeId = row?.type_id ?? row?.typeId ?? null;
+            if (rowItemId === null || rowItemId === undefined) return;
+
+            const orderedQty = Math.max(0, Number(row?.quantity || 0));
+            const rowKey = `${rowItemId || 'null'}-${rowCategoryId || 'null'}-${rowModelId || 'null'}-${rowBrandId || 'null'}-${rowTypeId || 'null'}`;
+            const addedQty = Math.max(0, Number(poIncomingQtyMap[rowKey] || 0));
+            const cappedAddedQty = Math.min(orderedQty, addedQty);
+
+            totalOrderedQty += orderedQty;
+            totalAddedQty += cappedAddedQty;
+            if (cappedAddedQty > 0) {
+              hasAnyRowWithStock = true;
+            }
+          });
+
+          let stockStatus = '';
+          let stockStatusType = '';
+          if (hasAnyRowWithStock) {
+            stockStatus = 'To Stock';
+            stockStatusType = totalOrderedQty > 0 && totalAddedQty >= totalOrderedQty ? 'full' : 'partial';
+          }
+
           return {
             id: po.id || po._id,
             poNumber: po.eno ? `PO - ${year} - ${po.eno}` : po.poNumber || '',
@@ -309,6 +384,8 @@ const History = () => {
             created_by: po.created_by || '',
             items: items,
             paymentStatus: paymentStatus,
+            stockStatus: stockStatus,
+            stockStatusType: stockStatusType,
             createdAt: po.createdAt || po.created_at || po.created_date_time || po.date || new Date().toISOString(),
             created_date_time: po.created_date_time || po.createdAt || po.created_at || null,
             // Preserve raw IDs so edit screen can send them back when unchanged
@@ -2017,7 +2094,7 @@ const History = () => {
                     {/* Bottom row: Date/Time on the left, Amount on the right - similar to ToolsTracker layout */}
                     <div className="flex items-center justify-between ">
                       {!isExpanded && (
-                        <span className="text-[11px] leading-normal min-w-0 flex-1">
+                        <span className="text-[11px] leading-normal min-w-0 flex-1 flex items-center flex-wrap gap-x-[4px]">
                           <span className="font-bold text-black">
                             {formatRelativeDateLabel(po.created_date_time || po.createdAt)}
                           </span>
@@ -2029,14 +2106,26 @@ const History = () => {
                           })()}
                         </span>
                       )}
-                      {totalAmount > 0 && (
-                        <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-[6px] flex-shrink-0">
+                        {po.stockStatus && (
+                          <span
+                            className={`px-[8px] py-[1px] rounded-full text-[10px] font-medium inline-flex items-center gap-[4px] ${po.stockStatusType === 'full'
+                              ? 'bg-[#E8F5E9] text-[#4CAF50]'
+                              : 'bg-[#FFEBEE] text-[#F44336]'
+                              }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${po.stockStatusType === 'full' ? 'bg-[#4CAF50]' : 'bg-[#F44336]'}`}></span>
+                            {po.stockStatus}
+                          </span>
+                        )}
+                        {totalAmount > 0 && (
+                          <div className="flex flex-col items-end">
                           <p className="text-[12px] font-semibold text-black leading-snug">
                             ₹{totalAmount.toLocaleString('en-IN')}
                           </p>
-                          <p className="text-[10px] font-medium text-[#9E9E9E] leading-snug">Incl Tax</p>
-                        </div>
-                      )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}

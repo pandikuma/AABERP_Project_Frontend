@@ -114,7 +114,7 @@ const Inventory = ({ user, onLogout }) => {
       {/* Tabs - Fixed */}
       <InventoryTabs activeTab={activeTab} onTabChange={handleTabChange} />
       {/* Content Area */}
-      <div className="mt-[90px] h-[calc(100vh-90px-80px)] overflow-hidden">
+      <div className="mt-[88px] h-[calc(100vh-90px-80px)] overflow-hidden">
         {renderTabContent()}
       </div>
       {/* Bottom Navigation */}

@@ -115,6 +115,7 @@ const SelectPOModal = ({ isOpen, onClose, onSelect, selectedValue, vendorName, v
       <div
         className="bg-white w-full max-w-[360px] rounded-[16px] p-[16px] max-h-[70vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        style={{ maxHeight: 'var(--incoming-dropdown-max-height, 70vh)', overflow: 'hidden' }}
       >
         {/* Header */}
         <div className="flex justify-between items-center mb-4">

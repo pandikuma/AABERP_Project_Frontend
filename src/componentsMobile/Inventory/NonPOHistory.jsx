@@ -570,7 +570,7 @@ const NonPOHistory = ({ onTabChange }) => {
   return (
     <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden bg-white">
       {/* Search Bar */}
-      <div className="flex-shrink-0 px-[16px] pt-[12px] pb-[8px]">
+      <div className="flex-shrink-0 pt-[8px] pb-[6px]">
         <div className="relative">
           <input
             type="text"
@@ -589,9 +589,8 @@ const NonPOHistory = ({ onTabChange }) => {
           </svg>
         </div>
       </div>
-
       {/* Filter Button */}
-      <div className="flex-shrink-0 px-[16px] pb-[12px]">
+      <div className="flex-shrink-0 pb-[6px]">
         <div className="flex items-center gap-[8px]">
           <button
             onClick={() => setShowFilterSheet(true)}
@@ -604,11 +603,11 @@ const NonPOHistory = ({ onTabChange }) => {
             )}
           </button>
           {/* Active Filter Tags - Next to Filter button */}
-          <div className="flex items-center gap-[8px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {(filterData.projectName || filterData.stockingLocation || filterData.date || filterData.entryNo || filterData.category) && (
-              <div className="flex items-center gap-[8px] flex-nowrap">
+              <div className="flex items-center gap-[4px] flex-nowrap">
                 {filterData.projectName && (
-                  <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                  <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                     <span className="text-[11px] font-medium text-black">Project</span>
                     <button
                       onClick={() => setFilterData({ ...filterData, projectName: '' })}
@@ -621,7 +620,7 @@ const NonPOHistory = ({ onTabChange }) => {
                   </div>
                 )}
                 {filterData.stockingLocation && (
-                  <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                  <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                     <span className="text-[11px] font-medium text-black">Location</span>
                     <button
                       onClick={() => setFilterData({ ...filterData, stockingLocation: '' })}
@@ -634,7 +633,7 @@ const NonPOHistory = ({ onTabChange }) => {
                   </div>
                 )}
                 {filterData.date && (
-                  <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                  <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                     <span className="text-[11px] font-medium text-black">Date</span>
                     <button
                       onClick={() => setFilterData({ ...filterData, date: '' })}
@@ -647,7 +646,7 @@ const NonPOHistory = ({ onTabChange }) => {
                   </div>
                 )}
                 {filterData.entryNo && (
-                  <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                  <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                     <span className="text-[11px] font-medium text-black">Entry.No</span>
                     <button
                       onClick={() => setFilterData({ ...filterData, entryNo: '' })}
@@ -660,7 +659,7 @@ const NonPOHistory = ({ onTabChange }) => {
                   </div>
                 )}
                 {filterData.category && (
-                  <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                  <div className="flex items-center gap-[4px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
                     <span className="text-[11px] font-medium text-black">Category</span>
                     <button
                       onClick={() => setFilterData({ ...filterData, category: '' })}
@@ -677,9 +676,8 @@ const NonPOHistory = ({ onTabChange }) => {
           </div>
         </div>
       </div>
-
       {/* Records List */}
-      <div className="flex-1 overflow-y-auto px-[16px] scrollbar-hide no-scrollbar scrollbar-none">
+      <div className="flex-1 overflow-y-auto scrollbar-hide no-scrollbar scrollbar-none">
         {loading ? (
           <div className="flex items-center justify-center py-">
             <p className="text-gray-500">Loading...</p>

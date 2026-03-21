@@ -180,7 +180,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
         className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg flex flex-col transform max-h-[80vh]"
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
-        style={{ maxHeight: '80vh', overflow: 'hidden', touchAction: 'pan-y' }}
+        style={{ height: 'var(--incoming-dropdown-max-height, 80vh)', maxHeight: 'var(--incoming-dropdown-max-height, 80vh)', overflow: 'hidden', touchAction: 'pan-y' }}
       >
         {/* Header */}
         <div className="flex justify-between items-center px-[24px] pt-[20px] ">
@@ -232,7 +232,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
         </div>
 
         {/* Options List */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto mb-[8px] px-[24px] min-h-[65vh] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto mb-[8px] px-[24px] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
           <div className="shadow-md rounded-lg overflow-hidden">
             {/* Create New Option - Show when typing something that doesn't exist */}
             {canCreateNew && (

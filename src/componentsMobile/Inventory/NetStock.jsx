@@ -558,7 +558,7 @@ const NetStock = () => {
     doc.save(`NetStock_${selectedDate.replace(/\//g, '-')}.pdf`);
   };
   return (
-    <div className="flex flex-col px-[16px] h-[calc(100vh-90px-80px)] overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden">
       {/* Date Row */}
       <div className="">
         <div className=" pt-[8px] border-b border-gray-200">
