@@ -1152,6 +1152,63 @@ const RequestForQuotation = ({ user, onLogout }) => {
       type: 'support staff'
     }))
   ];
+
+  // Auto-fill project incharge for new RFQs using logged-in username match with user_name from site_engineers API
+  useEffect(() => {
+    const username = (user && user.username) ? String(user.username).trim().toLowerCase() : '';
+    if (!username) return;
+
+    // Avoid overwriting History/edit/view data
+    if (isEditMode || isEditFromHistory || isViewOnlyFromHistory) return;
+    if (poData.projectIncharge || poData.contact) return;
+
+    if (!Array.isArray(employeeList) || employeeList.length === 0) return;
+
+    // Backend returns `user_name` field for employees; match to `user.username`
+    const matchedEmployee = employeeList.find(emp => {
+      const empUserName = emp.user_name || emp.userName || emp.username || '';
+      return String(empUserName).trim().toLowerCase() === username;
+    });
+
+    if (!matchedEmployee) return;
+
+    const resolvedName =
+      matchedEmployee.employeeName ||
+      matchedEmployee.name ||
+      matchedEmployee.fullName ||
+      matchedEmployee.employee_name ||
+      '';
+
+    const resolvedMobile =
+      matchedEmployee.employee_mobile_number ||
+      matchedEmployee.mobileNumber ||
+      matchedEmployee.mobile_number ||
+      matchedEmployee.contact ||
+      '';
+
+    if (!resolvedName) return;
+
+    setSelectedIncharge({
+      id: matchedEmployee.id,
+      name: resolvedName,
+      mobileNumber: resolvedMobile,
+      type: 'employee'
+    });
+    setPoData(prev => ({
+      ...prev,
+      projectIncharge: prev.projectIncharge || resolvedName,
+      contact: prev.contact || resolvedMobile
+    }));
+  }, [
+    user,
+    isEditMode,
+    isEditFromHistory,
+    isViewOnlyFromHistory,
+    poData.projectIncharge,
+    poData.contact,
+    employeeList
+  ]);
+
   // Fetch PO item names from API - extracted as reusable function
   const fetchPoItemName = useCallback(async () => {
     try {

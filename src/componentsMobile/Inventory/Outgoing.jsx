@@ -10,6 +10,7 @@ import editIcon from '../Images/edit.png';
 import SearchBlack from '../Images/search black.png';
 import SR from '../Images/SR.png';
 import DP from '../Images/DP.png';
+import CloseIcon from '../Images/Close F.svg'
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -137,6 +138,63 @@ const Outgoing = ({ user }) => {
     }).filter(name => name !== '');
     setOutgoingInchargeOptions(extracted);
   }, [outgoingEmployeeList]);
+
+  // Auto-fill project incharge for new outgoing entries using logged-in username match with user_name from site_engineers API
+  useEffect(() => {
+    const username = (user && user.username) ? String(user.username).trim().toLowerCase() : '';
+    if (!username) return;
+
+    // Avoid overwriting edit/view from history data
+    if (isEditMode || fromHistory) return;
+    if (outgoingData.projectIncharge || outgoingData.contact) return;
+
+    const employeeList = Array.isArray(outgoingEmployeeList) ? outgoingEmployeeList : [];
+    if (employeeList.length === 0) return;
+
+    // Backend returns `user_name` field for employees; match to `user.username`
+    const matchedEmployee = employeeList.find(emp => {
+      const empUserName = emp.user_name || emp.userName || emp.username || '';
+      return String(empUserName).trim().toLowerCase() === username;
+    });
+
+    if (!matchedEmployee) return;
+
+    const resolvedName =
+      matchedEmployee.employeeName ||
+      matchedEmployee.name ||
+      matchedEmployee.fullName ||
+      matchedEmployee.employee_name ||
+      '';
+
+    const resolvedMobile =
+      matchedEmployee.employee_mobile_number ||
+      matchedEmployee.mobileNumber ||
+      matchedEmployee.mobile_number ||
+      matchedEmployee.contact ||
+      '';
+
+    if (!resolvedName) return;
+
+    setSelectedIncharge({
+      id: matchedEmployee.id,
+      name: resolvedName,
+      mobileNumber: resolvedMobile,
+      type: 'employee'
+    });
+    setOutgoingData(prev => ({
+      ...prev,
+      projectIncharge: prev.projectIncharge || resolvedName,
+      contact: prev.contact || resolvedMobile
+    }));
+  }, [
+    user,
+    isEditMode,
+    fromHistory,
+    outgoingData.projectIncharge,
+    outgoingData.contact,
+    outgoingEmployeeList
+  ]);
+
   // Fetch stocking locations with markedAsStockingLocation=true for all sites
   const fetchStockingLocations = async () => {
     try {
@@ -1332,14 +1390,12 @@ const Outgoing = ({ user }) => {
                     }}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                   >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                   </button>
                 ) : (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M2.5 4.5L6 8L9.5 4.5" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
                 )}
@@ -1371,15 +1427,13 @@ const Outgoing = ({ user }) => {
                     }}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                   >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                   </button>
                 ) : (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M2.5 4.5L6 8L9.5 4.5" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                   </div>
                 )}
               </div>
@@ -1409,14 +1463,12 @@ const Outgoing = ({ user }) => {
                     }}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                   >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                   </button>
                 ) : (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M2.5 4.5L6 8L9.5 4.5" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
                 )}

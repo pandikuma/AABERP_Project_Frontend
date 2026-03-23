@@ -350,12 +350,7 @@ const SearchableDropdown = ({
           }}
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
-          <div
-            className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg flex flex-col transform searchable-dropdown-content"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            style={{ height: 'var(--incoming-dropdown-max-height, 60vh)', maxHeight: 'var(--incoming-dropdown-max-height, 60vh)', minHeight: 'var(--incoming-dropdown-max-height, 60vh)' }}
-          >
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg flex flex-col transform -translate-y-24 searchable-dropdown-content" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} style={{ height: '60vh', maxHeight: '60vh', minHeight: '60vh' }}>
             <div className="flex justify-between items-center px-[24px] pt-[20px]">
               <p className="text-[16px] font-semibold text-black">Select {fieldName}</p>
               <button onClick={() => {

@@ -250,9 +250,10 @@ const Transfer = ({ user }) => {
           const data = await response.json();
           const formatted = data.map((item) => ({
             value: item.id,
-            label: item.employee_name,
-            mobileNumber: item.employee_mobile_number,
+            label: item.employee_name || item.employeeName,
+            mobileNumber: item.employee_mobile_number || item.employeeMobileNumber,
             id: item.id,
+            user_name: item.user_name || item.userName,
           }));
           setInchargeOptions(formatted);
         } else {
@@ -264,6 +265,24 @@ const Transfer = ({ user }) => {
     };
     fetchSiteIncharge();
   }, []);
+  // Auto-fill project incharge when logged-in username matches employee user_name
+  useEffect(() => {
+    const username = (user?.username || user?.name) ? String(user?.username || user?.name).trim().toLowerCase() : '';
+    if (!username) return;
+    if (selectedIncharge) return;
+    if (localStorage.getItem('editingToolsTrackerEntryId') || cloneModeActive) return;
+
+    if (!Array.isArray(inchargeOptions) || inchargeOptions.length === 0) return;
+
+    const matchedOption = inchargeOptions.find((opt) => {
+      const optUserName = opt.user_name || opt.userName || '';
+      return String(optUserName).trim().toLowerCase() === username;
+    });
+
+    if (matchedOption) {
+      setSelectedIncharge(matchedOption);
+    }
+  }, [user, selectedIncharge, inchargeOptions, cloneModeActive]);
   useEffect(() => {
     const fetchEntryNo = async () => {
       try {
