@@ -1034,7 +1034,7 @@ const History = ({ onTabChange }) => {
       </div>
 
       {/* History List */}
-      <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pt-[8px]">
+      <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pt-[6px]">
         {loading ? (
           <div className="flex items-center justify-center py-[32px]">
             <p className="text-[12px] text-gray-500">Loading...</p>
@@ -1310,7 +1310,7 @@ const History = ({ onTabChange }) => {
                     <button
                       type="button"
                       onClick={() => setShowDatePicker(true)}
-                      className="w-full h-[32px] px-[12px] border border-gray-300 rounded text-[14px] bg-white focus:outline-none focus:border-gray-400 flex items-center justify-between"
+                      className="w-full h-[32px] px-[12px] border border-gray-300 rounded font-semibold text-[12px] bg-white focus:outline-none focus:border-gray-400 flex items-center justify-between"
                       style={{ fontFamily: "'Manrope', sans-serif" }}
                     >
                       <span className={`${filterDate ? 'text-black' : 'text-[#9E9E9E]'} truncate`}>

@@ -1418,8 +1418,8 @@ const IncomingTracker = ({ user, onTabChange }) => {
                       setShowDetailView(true);
                     }}
                   >
-                    <div className="flex items-center gap-[4px]">
-                      <span className="text-[12px] font-semibold text-[#BF9853]">
+                    <div className="flex items-center gap-[8px]">
+                      <span className="text-[12px] font-semibold text-[#BF9853] -ml-[3px]">
                         #{record.purchaseNo || record.entryNumber}
                       </span>
                       <span className="text-[12px] font-semibold text-black">
@@ -1762,7 +1762,7 @@ const IncomingTracker = ({ user, onTabChange }) => {
           }}
         >
           <div
-            className="bg-white w-full rounded-t-3xl shadow-lg"
+            className="bg-white w-full h-[240px] rounded-t-3xl shadow-lg"
             style={{ maxHeight: '60vh' }}
             onClick={(e) => e.stopPropagation()}
           >
