@@ -1168,24 +1168,24 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
 
   return (
     <div
-      className="px-[16px] flex flex-col flex-1 min-h-0 overflow-hidden"
+      className=" flex flex-col flex-1 min-h-0 overflow-hidden"
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
       {/* Form section - no scroll */}
       <div className="flex-shrink-0">
       {/* Advance Number and Date */}
-      <div className="mb-2 items-center border-b border-gray-200 pb-[4px] mt-1.5 flex justify-between">
-        <div className="flex items-center gap-[8px] mt-0.5">
+      <div className="mb-[8px] items-center border-b border-gray-200 pb-[7px] mt-1.5 flex justify-between">
+        <div className="flex items-center gap-[8px] mt-[4px]">
           <button
             type="button"
-            className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
+            className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent"
           >
             # {entryNo}
           </button>
           <button
             type="button"
             onClick={() => setShowDatePicker(true)}
-            className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
+            className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent"
           >
             {formattedDate}
           </button>
@@ -1194,7 +1194,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
           <button
             type="button"
             onClick={() => setShowTypeModal(true)}
-            className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline"
+            className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent"
           >
             {selectedType || 'Select Type'}
           </button>
@@ -1210,7 +1210,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
           <div className="relative">
             <div
               onClick={() => setShowContractorVendorModal(true)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
               style={{
                 boxSizing: 'border-box',
                 color: selectedOption ? '#000' : '#9E9E9E'
@@ -1250,7 +1250,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
           <div className="relative">
             <div
               onClick={() => setShowProjectModal(true)}
-              className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
               style={{
                 boxSizing: 'border-box',
                 color: selectedSite ? '#000' : '#9E9E9E'
@@ -1297,7 +1297,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                     setBillAmount(rawValue);
                   }
                 }}
-                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
+                className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
                 style={{
                   boxSizing: 'border-box',
                   color: billAmount ? '#000' : '#9E9E9E'
@@ -1316,7 +1316,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             <div className="relative">
               <div
                 onClick={() => setShowCategoryModal(true)}
-                className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                 style={{
                   boxSizing: 'border-box',
                   color: selectedCategory ? '#000' : '#9E9E9E'
@@ -1358,7 +1358,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
               <div className="relative">
                 <div
                   onClick={() => setShowTransferSiteModal(true)}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: transferSiteId ? '#000' : '#9E9E9E'
@@ -1398,7 +1398,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                   type="text"
                   value={formatWithCommas(advanceAmount)}
                   onChange={handleAmountChange}
-                  className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
                   style={{
                     boxSizing: 'border-box',
                     color: advanceAmount ? '#000' : '#9E9E9E'
@@ -1409,7 +1409,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             </div>
           </>
         ) : (
-          <div className="flex justify-between items-center w-[328px]">
+          <div className="flex gap-[10px] items-center">
             <div className="">
               <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
                 {selectedType === 'Refund' ? 'Refund Amount' : 'Amount Given'}<span className="text-[#eb2f8e]">*</span>
@@ -1419,7 +1419,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                   type="text"
                   value={formatWithCommas(advanceAmount)}
                   onChange={handleAmountChange}
-                  className="w-[160px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
                   style={{
                     boxSizing: 'border-box',
                     color: advanceAmount ? '#000' : '#9E9E9E'
@@ -1429,14 +1429,14 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
               </div>
             </div>
             {/* Payment Mode Field */}
-            <div className="">
+            <div className="flex-1">
               <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
                 Payment Mode<span className="text-[#eb2f8e]">*</span>
               </p>
               <div className="relative">
                 <div
                   onClick={() => setShowPaymentModeModal(true)}
-                  className="w-[160px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
                   style={{
                     boxSizing: 'border-box',
                     color: paymentMode ? '#000' : '#9E9E9E'
@@ -1474,7 +1474,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
             Description
           </p>
           <textarea
-            className="w-[328px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] pt-[4px] items-center text-[12px] font-medium bg-white focus:outline-none"
+            className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] pt-[4px] items-center text-[12px] font-medium bg-white focus:outline-none"
             placeholder="Type Here"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -1512,7 +1512,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
       <button
         onClick={handlePayAdvance}
         disabled={isSubmitting || checkingDuplicate || !areAllRequiredFieldsFilled()}
-        className={`w-[328px] h-[40px] font-semibold rounded text-[14px] leading-normal ${
+        className={`w-full h-[40px] font-semibold rounded text-[14px] leading-normal ${
           areAllRequiredFieldsFilled() && !isSubmitting && !checkingDuplicate
             ? 'bg-black text-white'
             : 'bg-[#D9D9D9] text-black'
@@ -1523,7 +1523,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
       </div>
 
       {/* Advance Records - only this section scrolls */}
-      <div className="mt-3 w-full max-w-[328px] flex-1 min-h-0 flex flex-col">
+      <div className="mt-3 w-full flex-1 min-h-0 flex flex-col">
         {!selectedOption || !selectedSite ? (
           <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
             <p className="text-[12px] font-medium text-[#9E9E9E]">
@@ -1915,7 +1915,7 @@ const AdvanceForm = ({ username = '', userRoles = [], paymentModeOptions = [], i
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold text-black mb-1">Payment Mode</p>
-                  <div className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
+                  <div className="h-[36px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
                     {paymentModalData.paymentMode || '-'}
                   </div>
                 </div>
