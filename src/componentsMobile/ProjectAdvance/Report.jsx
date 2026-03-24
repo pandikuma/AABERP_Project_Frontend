@@ -832,10 +832,10 @@ const Report = () => {
 
   return (
     <div
-      className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden"
+      className="relative w-full bg-white max-w-[360px] flex flex-col scrollbar-none overflow-hidden"
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
-      <div className="px-[16px] pt-[8px] mb-2">
+      <div className="pt-[10px] mb-[8px]">
         <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-[8px]">
           <button
             type="button"
@@ -861,8 +861,7 @@ const Report = () => {
           </div>
         </div>
       </div>
-
-      <div className="px-[16px] flex gap-[8px] items-center">
+      <div className=" flex gap-[8px] items-center">
         <div className="flex-1">
           <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Date Range</p>
           <div
@@ -915,9 +914,8 @@ const Report = () => {
           </div>
         </div>
       </div>
-
       {/* Search Bar */}
-      <div className="px-[16px] mb-1 mt-2">
+      <div className="mb-1 mt-2">
         <div className="relative">
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -934,22 +932,21 @@ const Report = () => {
           />
         </div>
       </div>
-
-      <div className="px-[16px] pt-[12px] pb-[8px] flex items-center justify-between">
-        <div className="flex items-center gap-[8px] min-w-0">
-          <button type="button" onClick={() => setShowFilterModal(true)} className="flex items-center gap-[8px] px-[0px] flex-shrink-0">
-            <img src={Filter} alt="Filter" className="w-[12px] h-[11px]" />
+      <div className=" pt-[8px] pb-[8px] flex items-center justify-between">
+        <div className="flex items-center gap-[4px] min-w-0">
+          <button type="button" onClick={() => setShowFilterModal(true)} className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0">
+            <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
             {!(typeFilter || vendorContractorFilter || projectNameFilter || paymentModeFilter) && (
-              <span className="text-[13px] font-semibold flex-shrink-0 text-[#9E9E9E]">
+              <span className="text-[12px] font-medium text-black flex-shrink-0">
                 Filter
               </span>
             )}
           </button>
           {/* Active Filter Tags - Next to Filter button */}
-          <div className="flex items-center gap-[8px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {/* Type Filter Tag */}
             {typeFilter && (
-              <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                 <span className="text-[11px] font-medium text-black">{typeFilter}</span>
                 <button
                   onClick={() => setTypeFilter('')}
@@ -963,7 +960,7 @@ const Report = () => {
             )}
             {/* Contractor/Vendor Filter Tag */}
             {vendorContractorFilter && (
-              <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                 <span className="text-[11px] font-medium text-black">Vendor/Contractor</span>
                 <button
                   onClick={() => setVendorContractorFilter('')}
@@ -977,7 +974,7 @@ const Report = () => {
             )}
             {/* Project Name Filter Tag */}
             {projectNameFilter && (
-              <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                 <span className="text-[11px] font-medium text-black">Project</span>
                 <button
                   onClick={() => setProjectNameFilter('')}
@@ -991,7 +988,7 @@ const Report = () => {
             )}
             {/* Mode Filter Tag */}
             {paymentModeFilter && (
-              <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+              <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                 <span className="text-[11px] font-medium text-black">Mode</span>
                 <button
                   onClick={() => setPaymentModeFilter('')}
@@ -1024,8 +1021,7 @@ const Report = () => {
           </div>
         </div>
       </div>
-
-      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-[16px] flex-1 max-h-[430px] pb-[44px]">
+      <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide flex-1 max-h-[calc(100vh-160px-80px)] pb-[24px]">
         {transformed.length === 0 ? (
           <div className="flex flex-col items-center justify-center">
             <div className="w-[64px] h-[64px] rounded-full bg-[#F5F5F5] flex items-center justify-center">
@@ -1039,7 +1035,7 @@ const Report = () => {
           transformed.map((item) => (
             <div
               key={item.id}
-              className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] min-w-[330px]"
+              className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] min-w-[330px] h-[95px]"
             >
               <div className="flex-1 bg-white rounded-[8px] h-full px-[12px] py-[12px] transition-all duration-300 ease-out">
                 <div className="flex flex-col gap-[2px]">
@@ -1142,7 +1138,6 @@ const Report = () => {
           ))
         )}
       </div>
-
       {/* Select Week & Year modal - same style as DatePickerModal.jsx, week shown as "Week 1", "Week 2", etc. */}
       {showWeekYearModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center" onClick={() => setShowWeekYearModal(false)}>
@@ -1199,7 +1194,6 @@ const Report = () => {
           </div>
         </div>
       )}
-
       {/* Date Range calendar modal (like 5th image) */}
       {showDateRangeModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setShowDateRangeModal(false)}>
@@ -1284,11 +1278,10 @@ const Report = () => {
           </div>
         </div>
       )}
-
       {/* Filter Modal */}
       {showFilterModal && (
         <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/40" onClick={() => setShowFilterModal(false)}>
-          <div className="bg-white rounded-t-2xl w-full max-w-[360px] p-[16px] relative" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-t-2xl w-full p-[16px] relative" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[16px] font-semibold text-black">Select Filters</p>
               <button

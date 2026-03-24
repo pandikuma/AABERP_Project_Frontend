@@ -642,29 +642,32 @@ const History = ({ onVendorClick }) => {
 
   return (
     <div
-      className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden"
+      className="relative w-full bg-white max-w-[360px] flex flex-col scrollbar-none overflow-hidden"
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
       {/* Date and Category Section */}
-      <div className="px-[16px] pt-[8px]">
-        <div className="flex items-center justify-end border-b border-[#E0E0E0] pb-[8px]">
-
-          <button
-            onClick={() => setShowTypeModal(true)}
-            className="text-[12px] font-semibold text-black leading-normal cursor-pointer"
-          >
-            {typeFilter || 'Type'}
-          </button>
+      <div className="pt-[10px]">
+        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
+          <div />
+          <div className="flex items-center gap-[4px]">
+            <button
+              type="button"
+              onClick={() => setShowTypeModal(true)}
+              className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              {typeFilter || 'Type'}
+            </button>
+          </div>
         </div>
       </div>
       {/* Filter */}
-      <div className="flex-shrink-0 px-[16px] pt-[8px]">
+      <div className="flex-shrink-0">
         <div className="flex items-center justify-between gap-[20px]">
-          <div className="flex items-center gap-[8px] min-w-0">
+          <div className="flex items-center gap-[4px] min-w-0">
             <button
               type="button"
               onClick={() => setShowFilterModal(true)}
-              className="flex items-center gap-[8px] px-[0px] flex-shrink-0"
+              className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0"
             >
               <img src={Filter} alt="Filter" className="w-[11px] h-[11px]" />
               {!(typeFilter || vendorContractorFilter || entryNoFilter || projectNameFilter || paymentModeFilter) && (
@@ -674,10 +677,10 @@ const History = ({ onVendorClick }) => {
               )}
             </button>
             {/* Active Filter Tags - Next to Filter button */}
-            <div className="flex items-center gap-[8px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {/* Type Filter Tag */}
               {typeFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">{typeFilter}</span>
                   <button
                     onClick={() => setTypeFilter('')}
@@ -691,7 +694,7 @@ const History = ({ onVendorClick }) => {
               )}
               {/* Contractor/Vendor Filter Tag */}
               {vendorContractorFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Contractor/Vendor</span>
                   <button
                     onClick={() => setVendorContractorFilter('')}
@@ -705,7 +708,7 @@ const History = ({ onVendorClick }) => {
               )}
               {/* Entry No Filter Tag */}
               {entryNoFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Entry. No</span>
                   <button
                     onClick={() => setEntryNoFilter('')}
@@ -719,7 +722,7 @@ const History = ({ onVendorClick }) => {
               )}
               {/* Project Name Filter Tag */}
               {projectNameFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Project</span>
                   <button
                     onClick={() => setProjectNameFilter('')}
@@ -733,7 +736,7 @@ const History = ({ onVendorClick }) => {
               )}
               {/* Mode Filter Tag */}
               {paymentModeFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Mode</span>
                   <button
                     onClick={() => setPaymentModeFilter('')}
@@ -765,7 +768,7 @@ const History = ({ onVendorClick }) => {
       </div>
       {/* Cards List - Scrollable */}
       <div
-        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-[16px] mt-1 max-h-[calc(100vh-160px-80px)]"
+        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide mt-1 max-h-[calc(100vh-160px-80px)]"
         onClick={() => setUploadExpandedId(null)}
       >
         {filtered.length === 0 ? (
@@ -1249,7 +1252,7 @@ const History = ({ onVendorClick }) => {
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div
-            className="bg-white rounded-t-2xl w-full max-w-[360px] p-[16px] relative"
+            className="bg-white rounded-t-2xl w-full p-[16px] relative"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">

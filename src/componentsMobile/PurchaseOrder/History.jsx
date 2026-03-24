@@ -297,7 +297,7 @@ const History = () => {
             });
           });
         })
-        .catch(() => {});
+        .catch(() => { });
       incomingQtyByPurchaseNo = buildIncomingQtyMap([]);
       const transformedPOs = data
         .filter((po) => {
@@ -1832,7 +1832,6 @@ const History = () => {
       <div className="sticky top-0 bg-white z-10 flex-shrink-0">
         {/* Branch Button Row (always top-right) */}
         <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
-          <div />
           <div className="flex items-center gap-[4px]">
             <button
               type="button"
@@ -1876,7 +1875,7 @@ const History = () => {
         <div className="flex justify-between items-center gap-[4px] px-0 mt-[6px] flex-shrink-0">
           <div className="flex items-center gap-[4px] min-w-0">
             <button onClick={() => setShowFilterModal(true)} className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0" >
-            <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
+              <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
               {!hasActiveFilters && (
                 <span className="text-[12px] font-medium text-black flex-shrink-0">
                   Filter
@@ -1952,7 +1951,7 @@ const History = () => {
       </div>
       {/* Purchase Orders List - Scrollable */}
       <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide pb-8" style={{ height: 'calc(100vh - 180px - 80px)', maxHeight: 'calc(100vh - 180px - 80px)' }}
-        onClick={() => {setExpandedPoId(null); setCloneExpandedPoId(null);}}
+        onClick={() => { setExpandedPoId(null); setCloneExpandedPoId(null); }}
       >
         {filteredPOs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8">
@@ -2145,9 +2144,9 @@ const History = () => {
                         )}
                         {totalAmount > 0 && (
                           <div className="flex flex-col items-end">
-                          <p className="text-[12px] font-semibold text-black leading-snug">
-                            ₹{totalAmount.toLocaleString('en-IN')}
-                          </p>
+                            <p className="text-[12px] font-semibold text-black leading-snug">
+                              ₹{totalAmount.toLocaleString('en-IN')}
+                            </p>
                           </div>
                         )}
                       </div>
