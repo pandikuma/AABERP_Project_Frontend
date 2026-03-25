@@ -852,6 +852,15 @@ const Report = () => {
             >
               {typeFilter || 'Type'}
             </button>
+            {typeFilter && (
+              <button
+                type="button"
+                onClick={() => setTypeFilter('')}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+              </button>
+            )}
             <button
               onClick={handleExportPDF}
               className="w-4 h-4 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-full"
@@ -943,20 +952,6 @@ const Report = () => {
           </button>
           {/* Active Filter Tags - Next to Filter button */}
           <div className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {/* Type Filter Tag */}
-            {typeFilter && (
-              <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
-                <span className="text-[11px] font-medium text-black">{typeFilter}</span>
-                <button
-                  onClick={() => setTypeFilter('')}
-                  className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              </div>
-            )}
             {/* Contractor/Vendor Filter Tag */}
             {vendorContractorFilter && (
               <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
@@ -1002,10 +997,9 @@ const Report = () => {
           </div>
         </div>
         <div className="flex items-center gap-[8px]">
-          {(typeFilter || vendorContractorFilter || projectNameFilter || paymentModeFilter) && (
+          {(vendorContractorFilter || projectNameFilter || paymentModeFilter) && (
             <button 
               onClick={() => {
-                setTypeFilter('');
                 setVendorContractorFilter('');
                 setProjectNameFilter('');
                 setPaymentModeFilter('');
@@ -1280,7 +1274,7 @@ const Report = () => {
       {/* Filter Modal */}
       {showFilterModal && (
         <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/40" onClick={() => setShowFilterModal(false)}>
-          <div className="bg-white rounded-t-2xl w-full p-[16px] relative" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-t-2xl w-full h-[220px] p-[16px] relative" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[16px] font-semibold text-black">Select Filters</p>
               <button
@@ -1359,27 +1353,6 @@ const Report = () => {
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-end gap-[16px]">
-              <button
-                type="button"
-                onClick={() => {
-                  setVendorContractorFilter('');
-                  setProjectNameFilter('');
-                  setShowFilterModal(false);
-                }}
-                className="px-[24px] py-[8px] text-[14px] font-semibold text-black border border-[rgba(0,0,0,0.16)] rounded"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowFilterModal(false)}
-                className="px-[24px] py-[8px] text-[14px] font-semibold text-white bg-black rounded"
-              >
-                Save
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -1438,7 +1411,7 @@ const Report = () => {
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div
-            className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
+            className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] -translate-y-[22px] rounded-b-[20px] shadow-lg flex flex-col transform max-h-[80vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1458,7 +1431,7 @@ const Report = () => {
             </div>
 
             {/* Search Bar */}
-            <div className="px-[24px] pt-[16px] pb-[16px]">
+            <div className="px-[24px] pt-[4px] pb-[6px]">
               <div className="relative">
                 <input
                   type="text"
@@ -1478,7 +1451,7 @@ const Report = () => {
             </div>
 
             {/* Options List */}
-            <div className="flex-1 overflow-y-auto mb-4 px-[24px] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex-1 overflow-y-auto mb-[8px] px-[24px] min-h-[65vh] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <div className="shadow-md rounded-lg overflow-hidden">
                 {(['Advance', 'Bill Settlement', 'Transfer', 'Refund']
                   .filter(type => type.toLowerCase().includes(typeSearchQuery.toLowerCase()))
@@ -1489,31 +1462,15 @@ const Report = () => {
                       <button
                         key={index}
                         onClick={() => {
-                          setTypeFilter(typeFilter === type ? '' : type);
+                          setTypeFilter(type);
                           setShowTypeModal(false);
                           setTypeSearchQuery('');
                         }}
-                        className={`w-full h-[40px] px-[24px] flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                        className={`w-full px-[16px] flex items-center gap-3 transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                           }`}
+                        style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                       >
-                        {/* Left: Option Text */}
-                        <div className="flex items-center gap-[12px] flex-1 min-w-0">
-                          <p className="text-[14px] font-medium text-black text-left truncate">{type}</p>
-                        </div>
-
-                        {/* Right: Radio Button */}
-                        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-3">
-                          {isSelected ? (
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="10" cy="10" r="9" stroke="#e4572e" strokeWidth="2" fill="none" />
-                              <circle cx="10" cy="10" r="4" fill="#e4572e" />
-                            </svg>
-                          ) : (
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="10" cy="10" r="9" stroke="#9E9E9E" strokeWidth="1.5" fill="none" />
-                            </svg>
-                          )}
-                        </div>
+                        <p className="text-[12px] font-medium text-black text-left">{type}</p>
                       </button>
                     );
                   }))}
