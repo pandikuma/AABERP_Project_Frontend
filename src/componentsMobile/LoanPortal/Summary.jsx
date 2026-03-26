@@ -196,6 +196,23 @@ const Summary = () => {
     };
   }, [transformedEntries, associateFilter]);
 
+  const purposeTotals = useMemo(() => {
+    const purposeLower = purposeFilter ? purposeFilter.toLowerCase() : '';
+    const rows = purposeLower
+      ? transformedEntries.filter((e) => (e.purposeName || '').toLowerCase() === purposeLower)
+      : transformedEntries;
+
+    const loanAmt = rows.reduce((sum, r) => sum + (r.loanAmount || 0), 0);
+    const refundAmt = rows.reduce((sum, r) => sum + (r.refundAmount || 0), 0);
+    const transferAmt = rows.reduce((sum, r) => sum + (r.transferAmount || 0), 0);
+    const pendingRaw = loanAmt - refundAmt - transferAmt;
+
+    return {
+      loanAmount: loanAmt,
+      pendingAmount: pendingRaw > 0 ? pendingRaw : 0
+    };
+  }, [transformedEntries, purposeFilter]);
+
   const purposeOptionsList = useMemo(() => {
     const purposes = transformedEntries.map((e) => e.purposeName).filter(Boolean);
     return Array.from(new Set(purposes)).sort((a, b) => a.localeCompare(b, 'en-IN'));
@@ -264,14 +281,7 @@ const Summary = () => {
     return cards;
   }, [transformedEntries, associateFilter, purposeFilter, searchQuery]);
 
-  const loadingState = loading || optionsLoading;
-  if (loadingState) {
-    return (
-      <div className="flex-1 overflow-y-auto px-[16px] flex items-center justify-center bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
-  }
+  
 
   const DownChevron = ({ color = '#777777' }) => (
     <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -280,26 +290,28 @@ const Summary = () => {
   );
 
   return (
-    <div className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="relative w-full bg-white max-w-[360px] flex flex-col scrollbar-none overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Header */}
       <div className="flex-shrink-0">
-        <div className="px-[16px] pt-[10px]">
-          <div className="flex items-center justify-between border-b border-gray-200 pb-[8px]">
+        <div className="pt-[10px] mb-[8px]">
+          <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-[8px]">
             <span className="text-[12px] font-semibold text-black leading-normal">#Week</span>
-            <button type="button" className="w-6 h-6 flex items-center justify-center hover:bg-gray-100 rounded-full">
+            <button type="button" className=" flex items-center justify-center hover:bg-gray-100 rounded-full">
               <img src={Download} alt="Download" className="w-[16px] h-[16px]" />
             </button>
           </div>
         </div>
 
         {/* Top toggle */}
-        <div className="px-[16px] pt-[8px]">
-          <div className="flex bg-white border border-[#E0E0E0] rounded-[10px] p-[4px]">
+        <div className="mb-[8px]">
+          <div className="flex bg-[#F2F4F7] items-center h-[32px] rounded-md">
             <button
               type="button"
               onClick={() => setActiveFilter('Associate')}
-              className={`flex-1 h-[32px] rounded-[8px] text-[13px] font-semibold leading-normal transition-colors ${
-                activeFilter === 'Associate' ? 'bg-white text-black shadow-[0_0_0_1px_#D9D9D9]' : 'bg-transparent text-[#848484]'
+              className={`flex-1 px-[16px] ml-0.5 h-[28px] rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${
+                activeFilter === 'Associate'
+                  ? 'bg-white text-black'
+                  : 'text-[#9E9E9E]'
               }`}
             >
               Associate
@@ -307,8 +319,10 @@ const Summary = () => {
             <button
               type="button"
               onClick={() => setActiveFilter('Purpose')}
-              className={`flex-1 h-[32px] rounded-[8px] text-[13px] font-semibold leading-normal transition-colors ${
-                activeFilter === 'Purpose' ? 'bg-white text-black shadow-[0_0_0_1px_#D9D9D9]' : 'bg-transparent text-[#848484]'
+              className={`flex-1 px-[16px] mr-0.5 h-[28px] rounded text-[14px] font-medium transition-colors duration-1000 ease-out ${
+                activeFilter === 'Purpose'
+                  ? 'bg-white text-black'
+                  : 'text-[#9E9E9E]'
               }`}
             >
               Purpose
@@ -318,7 +332,7 @@ const Summary = () => {
 
         {/* Dropdown + totals */}
         {activeFilter === 'Associate' ? (
-          <div className="px-[16px] pt-[8px]">
+          <div className="mb-[8px]">
             <div
               role="button"
               tabIndex={0}
@@ -351,7 +365,7 @@ const Summary = () => {
             </div>
           </div>
         ) : (
-          <div className="px-[16px] pt-[8px]">
+          <div className="mb-[8px]">
             <div
               role="button"
               tabIndex={0}
@@ -367,19 +381,33 @@ const Summary = () => {
                 </p>
                 <DownChevron />
               </div>
+              <div className="mt-[12px] space-y-[6px]">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-medium text-[#9E9E9E] leading-normal">Loan Amount</p>
+                  <p className="text-[12px] font-semibold text-[#E4572E] leading-normal">
+                    ₹{purposeTotals.loanAmount.toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-medium text-[#9E9E9E] leading-normal">Pending Amount</p>
+                  <p className="text-[12px] font-semibold text-[#007233] leading-normal">
+                    ₹{purposeTotals.pendingAmount.toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {/* Search */}
-        <div className="px-[16px] pt-[12px] pb-[6px]">
+        <div className="mb-[8px]">
           <div className="relative">
             <input
               type="text"
               placeholder="Search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-[40px] pl-[40px] pr-[16px] border border-[#E0E0E0] rounded-3xl text-[14px] font-medium text-black placeholder:text-[#9E9E9E] focus:outline-none bg-white"
+              className="w-full h-[36px] pl-[40px] pr-[12px] text-[12px] rounded-full font-medium bg-white focus:outline-none border border-[rgba(0,0,0,0.12)] text-black placeholder:text-[#9E9E9E]"
             />
             <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -392,7 +420,7 @@ const Summary = () => {
       </div>
 
       {/* Cards list */}
-      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-[16px] pb-[105px]">
+      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide pb-[105px]">
         {groupedPurposeCards.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-[32px]">
             <p className="text-[14px] font-medium text-[#9E9E9E]">No loan records found</p>
