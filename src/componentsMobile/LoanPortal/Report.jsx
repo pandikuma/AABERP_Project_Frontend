@@ -391,7 +391,6 @@ const Report = () => {
           </div>
         </div>
       </div>
-
       {/* Date Range and Payment Mode Section */}
       <div className="px-0 pt-0">
         <div className="flex gap-[8px] items-center">
@@ -453,7 +452,6 @@ const Report = () => {
           </div>
         </div>
       </div>
-
       {/* Search Bar */}
       <div className="mt-2">
         <div className="relative">
@@ -472,7 +470,6 @@ const Report = () => {
           </div>
         </div>
       </div>
-
       {/* Filter Section */}
       <div className="pt-[8px] pb-[8px] flex items-center justify-between w-full">
         <div className="flex items-center justify-between w-full">
@@ -581,7 +578,6 @@ const Report = () => {
           </div>
         </div>
       </div>
-
       {/* Transaction List - Scrollable */}
       <div
         className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide pb-[96px]"
@@ -660,7 +656,6 @@ const Report = () => {
           </div>
         )}
       </div>
-
       {/* Type Modal */}
       {showTypeModal && (
         <div
@@ -750,7 +745,6 @@ const Report = () => {
           </div>
         </div>
       )}
-
       {/* Date Range Picker Modal */}
       <DateRangePickerModal
         isOpen={showDatePicker}
@@ -773,7 +767,6 @@ const Report = () => {
         fieldName="Payment Mode"
         showStarIcon={false}
       />
-
       {/* Filter Modal */}
       {showFilterModal && (
         <div
@@ -884,7 +877,6 @@ const Report = () => {
           </div>
         </div>
       )}
-
       {/* Associate Modal */}
       <SelectVendorModal
         isOpen={showAssociateModal}
@@ -898,7 +890,6 @@ const Report = () => {
         fieldName="Associate"
         showStarIcon={false}
       />
-
       {/* Purpose Modal */}
       <SelectVendorModal
         isOpen={showPurposeModal}
