@@ -837,7 +837,7 @@ const Report = () => {
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
       <div className="pt-[10px] mb-[8px]">
-        <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-[8px]">
+        <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-[10px]">
           <button
             type="button"
             onClick={openWeekYearModal}

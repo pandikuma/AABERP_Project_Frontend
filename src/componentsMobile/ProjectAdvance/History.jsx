@@ -648,7 +648,7 @@ const History = ({ onVendorClick }) => {
     >
       {/* Date and Category Section */}
       <div className="pt-[10px]">
-        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
+        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[10px]">
           <div />
           <div className="flex items-center gap-[4px]">
             <button
