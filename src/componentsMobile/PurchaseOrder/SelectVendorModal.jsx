@@ -178,7 +178,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
       }}
     >
       <div 
-        className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px]  -translate-y-[22px] rounded-b-[20px] shadow-lg flex flex-col transform max-h-[80vh]"
+        className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg flex flex-col transform max-h-[80vh]"
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         style={{ maxHeight: '80vh', overflow: 'hidden', touchAction: 'pan-y' }}

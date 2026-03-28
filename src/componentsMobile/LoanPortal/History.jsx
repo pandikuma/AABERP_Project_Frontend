@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Filter from '../Images/Filter.png';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import Pen from '../Images/Pen.svg';
-import CloseIcon from '../Images/Close F.svg'
 
 const History = () => {
   const resolveActiveBranchId = () => {
@@ -238,7 +237,7 @@ const History = () => {
         const associateName = getAssociateName(entry);
         const purposeName = getPurposeName(entry.from_purpose_id);
         const entryType = entry.type || 'Loan';
-
+        
         let amount = 0;
         if (entryType === 'Loan' || entryType === 'Transfer') {
           amount = parseFloat(entry.amount) || 0;
@@ -249,7 +248,7 @@ const History = () => {
         const dateStr = entry.timestamp || entry.createdAt || entry.created_at || entry.date || '';
         const entryNo = entry.entry_no || 0;
         const formattedDate = dateStr ? formatDateOnly(dateStr) : '';
-
+        
         let prefix = 'LN';
         if (entryType === 'Refund') {
           prefix = 'RF';
@@ -330,6 +329,13 @@ const History = () => {
     }
   };
 
+  const getPaymentModeBadgeClass = (mode) => {
+    const m = (mode || '').toLowerCase();
+    if (!m) return 'bg-gray-100 text-gray-600';
+    if (m === 'cash') return 'bg-[#E7F4FD] text-[#336EA8]';
+    return 'bg-[#FFEFFF] text-[#815182]';
+  };
+
   const combinedAssociateOptions = [
     ...vendorOptions.map(opt => opt.label),
     ...contractorOptions.map(opt => opt.label),
@@ -337,45 +343,38 @@ const History = () => {
     ...labourOptions.map(opt => opt.label)
   ];
 
+  if (loading) {
+    return (
+      <div className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden flex-1 items-center justify-center" style={{ fontFamily: "'Manrope', sans-serif" }}>
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden"
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
       {/* Date and Category Section */}
-      <div className="">
-        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pt-[8px] pb-[8px]">
-          <div />
-          <div className="flex items-center gap-[8px]">
-            <button
-              type="button"
-              onClick={() => setShowTypeModal(true)}
-              className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent"
-            >
-              {typeFilter || 'Type'}
-            </button>
-            {typeFilter && (
-              <button
-                type="button"
-                onClick={() => setTypeFilter('')}
-                className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            )}
-          </div>
+      <div className="px-[16px] pt-[8px]">
+        <div className="flex items-center justify-end border-b border-[#E0E0E0] pb-[8px]">
+          <button
+            onClick={() => setShowTypeModal(true)}
+            className="text-[12px] font-semibold text-black leading-normal cursor-pointer"
+          >
+            {typeFilter || 'Type'}
+          </button>
         </div>
       </div>
       {/* Filter */}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 px-[16px] pt-[8px]">
         <div className="flex items-center justify-between gap-[20px]">
-          <div className="flex items-center gap-[4px] min-w-0">
+          <div className="flex items-center gap-[8px] min-w-0">
             <button
               type="button"
               onClick={() => setShowFilterModal(true)}
-              className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0"
+              className="flex items-center gap-[8px] px-[0px] flex-shrink-0"
             >
               <img src={Filter} alt="Filter" className="w-[11px] h-[11px]" />
               {!(typeFilter || associateFilter || entryNoFilter || purposeFilter || paymentModeFilter) && (
@@ -385,9 +384,9 @@ const History = () => {
               )}
             </button>
             {/* Active Filter Tags */}
-            <div className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex items-center gap-[8px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {typeFilter && (
-                <div className="flex items-center gap-[6px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">{typeFilter}</span>
                   <button
                     onClick={() => setTypeFilter('')}
@@ -400,7 +399,7 @@ const History = () => {
                 </div>
               )}
               {associateFilter && (
-                <div className="flex items-center gap-[6px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Associate</span>
                   <button
                     onClick={() => setAssociateFilter('')}
@@ -413,7 +412,7 @@ const History = () => {
                 </div>
               )}
               {entryNoFilter && (
-                <div className="flex items-center gap-[6px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Entry. No</span>
                   <button
                     onClick={() => setEntryNoFilter('')}
@@ -426,7 +425,7 @@ const History = () => {
                 </div>
               )}
               {purposeFilter && (
-                <div className="flex items-center gap-[6px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Purpose</span>
                   <button
                     onClick={() => setPurposeFilter('')}
@@ -439,7 +438,7 @@ const History = () => {
                 </div>
               )}
               {paymentModeFilter && (
-                <div className="flex items-center gap-[6px] border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Mode</span>
                   <button
                     onClick={() => setPaymentModeFilter('')}
@@ -471,10 +470,10 @@ const History = () => {
       </div>
       {/* Cards List - Scrollable */}
       <div
-        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide mt-1 max-h-[calc(100vh-160px-80px)]"
+        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-[16px] mt-1 max-h-[calc(100vh-160px-80px)]"
       >
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-[48px]">
+          <div className="flex flex-col items-center justify-center">
             <div className="w-[64px] h-[64px] rounded-full bg-[#F5F5F5] flex items-center justify-center">
               <svg
                 width="32"
@@ -535,13 +534,18 @@ const History = () => {
                         >
                           {item.ref}
                         </span>
-                        <span
-                          className={`px-[8px] py-[2px] rounded-full text-[10px] font-medium flex items-center gap-[4px] ${getTypeBadgeClass(
-                            item.type
-                          )}`}
-                        >
-                          {item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '')}
-                        </span>
+                        {(() => {
+                          const paymentModeDisplay = item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '');
+                          return (
+                            <span
+                              className={`px-[8px] py-[2px] rounded-full text-[10px] font-medium flex items-center gap-[4px] ${getPaymentModeBadgeClass(
+                                paymentModeDisplay
+                              )}`}
+                            >
+                              {paymentModeDisplay}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {/* Row 2: associateName */}
                       <div className="flex items-center justify-between">
@@ -611,7 +615,7 @@ const History = () => {
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div
-            className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] -translate-y-[22px] rounded-b-[20px] shadow-lg flex flex-col transform max-h-[80vh]"
+            className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center px-[24px] pt-[20px]">
@@ -628,7 +632,7 @@ const History = () => {
                 </svg>
               </button>
             </div>
-            <div className="px-[24px] pt-[4px] pb-[6px]">
+            <div className="px-[24px] pt-[16px] pb-[16px]">
               <div className="relative">
                 <input
                   type="text"
@@ -646,10 +650,7 @@ const History = () => {
                 </div>
               </div>
             </div>
-            <div
-              className="flex-1 overflow-y-auto mb-[8px] px-[24px] min-h-[65vh] [&::-webkit-scrollbar]:hidden"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
-            >
+            <div className="flex-1 overflow-y-auto mb-4 px-[24px] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <div className="shadow-md rounded-lg overflow-hidden">
                 {(['Loan', 'Refund', 'Transfer']
                   .filter(type => type.toLowerCase().includes(typeSearchQuery.toLowerCase()))
@@ -698,7 +699,7 @@ const History = () => {
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div
-            className="bg-white rounded-t-2xl w-full h-[220px] p-[16px] relative"
+            className="bg-white rounded-t-2xl w-full max-w-[360px] p-[16px] relative"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
@@ -733,12 +734,14 @@ const History = () => {
                         }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                       </button>
                     ) : (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
                     )}
@@ -764,12 +767,14 @@ const History = () => {
                         }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                       </button>
                     ) : (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
                     )}
@@ -795,12 +800,14 @@ const History = () => {
                         }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                       </button>
                     ) : (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
                     )}
@@ -826,18 +833,42 @@ const History = () => {
                         }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                       </button>
                     ) : (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
+            </div>
+            <div className="flex gap-[16px]">
+              <button
+                type="button"
+                onClick={() => {
+                  setAssociateFilter('');
+                  setEntryNoFilter('');
+                  setPurposeFilter('');
+                  setPaymentModeFilter('');
+                  setShowFilterModal(false);
+                }}
+                className="px-[24px] w-full py-[8px] text-[14px] font-semibold text-black border border-[rgba(0,0,0,0.16)] rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFilterModal(false)}
+                className="px-[24px] py-[8px] w-full text-[14px] font-semibold text-white bg-black rounded-lg"
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>
