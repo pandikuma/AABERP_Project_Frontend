@@ -6,6 +6,9 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Search from '../Images/Search.png';
 import CloseIcon from '../Images/Close F.svg';
+import Filter from '../Images/Filter.png';
+import { getToolsNetStockPrefetchCache } from './netStockPrefetch';
+import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_stock_management';
 const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
 const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
@@ -15,6 +18,11 @@ const VENDOR_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/vendor_Na
 const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
 const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
 const EMPLOYEE_DETAILS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/employee_details';
+
+const isQuantityTransferEntryType = (entry) => {
+  const t = (entry.tools_entry_type || entry.toolsEntryType || '').toLowerCase().trim();
+  return t === 'entry' || t === 'relocation' || t === 'relocate';
+};
 
 const NetStock = ({ user }) => {
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'list'
@@ -36,6 +44,28 @@ const NetStock = ({ user }) => {
   const [vendorsMap, setVendorsMap] = useState({});
   const [employeesMap, setEmployeesMap] = useState({});
   const [loading, setLoading] = useState(true);
+
+  // Resolve module permissions for mobile create actions.
+  const [modulePermissions, setModulePermissions] = useState([]);
+  useEffect(() => {
+    const moduleName = 'Tools Tracker';
+    const resolvedUserRoles =
+      user?.userRoles ||
+      (() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          return stored?.userRoles || [];
+        } catch {
+          return [];
+        }
+      })();
+
+    fetchUserModulePermissions(resolvedUserRoles, moduleName)
+      .then(setModulePermissions)
+      .catch(() => setModulePermissions([]));
+  }, [user?.userRoles]);
+
+  const canCreate = modulePermissions.includes('Create');
   const [itemNameOptions, setItemNameOptions] = useState([]);
   const [itemIdOptions, setItemIdOptions] = useState([]);
   const [brandOptions, setBrandOptions] = useState([]);
@@ -43,6 +73,16 @@ const NetStock = ({ user }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [itemNameSearchQuery, setItemNameSearchQuery] = useState('');
   const [itemIdSearchQuery, setItemIdSearchQuery] = useState('');
+  const [showFilterBottomSheet, setShowFilterBottomSheet] = useState(false);
+  const [selectedHomeLocation, setSelectedHomeLocation] = useState('');
+  const [selectedCurrentLocation, setSelectedCurrentLocation] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [showHomeLocationDropdown, setShowHomeLocationDropdown] = useState(false);
+  const [showCurrentLocationDropdown, setShowCurrentLocationDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [homeLocationSearchQuery, setHomeLocationSearchQuery] = useState('');
+  const [currentLocationSearchQuery, setCurrentLocationSearchQuery] = useState('');
+  const [statusSearchQuery, setStatusSearchQuery] = useState('');
 
   // Edit stock bottom sheet state
   const [showEditStockModal, setShowEditStockModal] = useState(false);
@@ -63,6 +103,119 @@ const NetStock = ({ user }) => {
     }
     return [];
   }, []);
+
+  // Hydrate from prefetched in-memory cache (if available) to avoid waiting on network.
+  useEffect(() => {
+    const cached = getToolsNetStockPrefetchCache();
+    if (!cached) return;
+
+    const stock = extractArrayFromResponse(cached.stockManagement);
+    const tracker = extractArrayFromResponse(cached.trackerManagement);
+    if (stockManagementData.length === 0 && Array.isArray(stock) && stock.length > 0) setStockManagementData(stock);
+    if (toolsTrackerManagementData.length === 0 && Array.isArray(tracker) && tracker.length > 0) setToolsTrackerManagementData(tracker);
+
+    const itemNames = extractArrayFromResponse(cached.itemNames);
+    if (toolsItemNameFullData.length === 0 && Array.isArray(itemNames) && itemNames.length > 0) {
+      setToolsItemNameFullData(itemNames);
+      const map = {};
+      const names = [];
+      itemNames.forEach((i) => {
+        const pk = i.id ?? i._id;
+        const itemName = (i.item_name ?? i.itemName ?? '').toString().trim();
+        if (pk != null) {
+          map[pk] = itemName;
+          map[String(pk)] = itemName;
+        }
+        if (itemName) names.push(itemName);
+      });
+      setItemNamesMap(map);
+      setItemNameOptions([...new Set(names)].sort());
+    }
+
+    const itemIds = extractArrayFromResponse(cached.itemIds);
+    if (toolsItemIdFullData.length === 0 && Array.isArray(itemIds) && itemIds.length > 0) {
+      setToolsItemIdFullData(itemIds);
+      const map = {};
+      const ids = [];
+      itemIds.forEach((i) => {
+        const pk = i.id ?? i._id;
+        const itemId = (i.item_id ?? i.itemId ?? i.item_ids_id ?? i.itemIdsId ?? '').toString().trim();
+        if (pk != null) {
+          map[pk] = itemId;
+          map[String(pk)] = itemId;
+        }
+        if (itemId) ids.push(itemId);
+      });
+      setItemIdsMap(map);
+      setItemIdOptions([...new Set(ids)].sort());
+    }
+
+    const brands = extractArrayFromResponse(cached.brands);
+    if (toolsBrandFullData.length === 0 && Array.isArray(brands) && brands.length > 0) {
+      setToolsBrandFullData(brands);
+      const map = {};
+      const brandNames = [];
+      brands.forEach((b) => {
+        const pk = b.id ?? b._id;
+        const brandName = (b.tools_brand ?? b.toolsBrand ?? '').toString().trim();
+        if (pk != null) {
+          map[pk] = brandName;
+          map[String(pk)] = brandName;
+        }
+        if (brandName) brandNames.push(brandName);
+      });
+      setBrandsMap(map);
+      setBrandOptions([...new Set(brandNames)].sort());
+    }
+
+    const projects = extractArrayFromResponse(cached.projects);
+    if (Object.keys(projectsMap).length === 0 && Array.isArray(projects) && projects.length > 0) {
+      const map = {};
+      projects.forEach((p) => {
+        const pk = p.id ?? p._id;
+        const projectName = (p.siteName ?? p.site_name ?? p.projectName ?? p.project_name ?? '').toString().trim();
+        if (pk != null) {
+          map[pk] = projectName;
+          map[String(pk)] = projectName;
+        }
+      });
+      setProjectsMap(map);
+    }
+
+    const vendors = extractArrayFromResponse(cached.vendors);
+    if (Object.keys(vendorsMap).length === 0 && Array.isArray(vendors) && vendors.length > 0) {
+      const map = {};
+      vendors.forEach((v) => {
+        const pk = v.id ?? v._id;
+        const vendorName = (v.vendorName ?? v.vendor_name ?? '').toString().trim();
+        if (pk != null) {
+          map[pk] = vendorName;
+          map[String(pk)] = vendorName;
+        }
+      });
+      setVendorsMap(map);
+    }
+
+    const machineNumbers = extractArrayFromResponse(cached.machineNumbers);
+    if (machineNumbersList.length === 0 && Array.isArray(machineNumbers) && machineNumbers.length > 0) {
+      setMachineNumbersList(machineNumbers);
+    }
+
+    const employees = extractArrayFromResponse(cached.employees);
+    if (Object.keys(employeesMap).length === 0 && Array.isArray(employees) && employees.length > 0) {
+      const map = {};
+      employees.forEach((e) => {
+        map[e.id] = e.employee_name || e.employeeName || '';
+        map[String(e.id)] = e.employee_name || e.employeeName || '';
+      });
+      setEmployeesMap(map);
+    }
+
+    // If we already have core datasets, avoid showing loader.
+    if ((Array.isArray(stock) && stock.length > 0) || (Array.isArray(tracker) && tracker.length > 0)) {
+      setLoading(false);
+    }
+  }, [extractArrayFromResponse]);
 
   // Resolve item_id from tools_item_id API using item_ids_id - never show raw item_ids_id
   const resolveItemIdDisplay = useCallback((itemIdsId) => {
@@ -118,6 +271,14 @@ const NetStock = ({ user }) => {
   useEffect(() => {
     const fetchLookupData = async () => {
       try {
+        // If prefetched data already hydrated, skip network calls.
+        const hasLookups =
+          toolsItemNameFullData.length > 0 &&
+          toolsItemIdFullData.length > 0 &&
+          toolsBrandFullData.length > 0 &&
+          machineNumbersList.length > 0;
+        if (hasLookups) return;
+
         // Fetch item names
         const itemNamesRes = await fetch(`${TOOLS_ITEM_NAME_BASE_URL}/getAll`, {
           method: 'GET',
@@ -266,7 +427,7 @@ const NetStock = ({ user }) => {
       }
     };
     fetchLookupData();
-  }, [extractArrayFromResponse]);
+  }, [extractArrayFromResponse, toolsItemNameFullData, toolsItemIdFullData, toolsBrandFullData, machineNumbersList]);
 
   // Resolve machine number id/text to display text (same idea as ToolsHistory Log tab)
   const resolveMachineNumberText = useCallback((machineNumberOrId) => {
@@ -288,6 +449,9 @@ const NetStock = ({ user }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        if (stockManagementData.length > 0 && toolsTrackerManagementData.length > 0) {
+          return;
+        }
         setLoading(true);
 
         const stockRes = await fetch(`${TOOLS_STOCK_MANAGEMENT_BASE_URL}/getAll`, {
@@ -327,7 +491,7 @@ const NetStock = ({ user }) => {
   }, [extractArrayFromResponse]);
 
   // Helper to get location name
-  const getLocationName = (id) => {
+  const getLocationName = useCallback((id) => {
     if (!id) return '-';
     const idStr = String(id);
     if (projectsMap[idStr]) return projectsMap[idStr];
@@ -335,7 +499,7 @@ const NetStock = ({ user }) => {
     if (vendorsMap[idStr]) return vendorsMap[idStr];
     if (vendorsMap[id]) return vendorsMap[id];
     return '-';
-  };
+  }, [projectsMap, vendorsMap]);
 
   // Helper function to get home location ID - get the LAST (most recent) home_location_id from tools_tracker_management, fallback to stock_management
   // Matches the logic from PendingItems.jsx
@@ -475,10 +639,134 @@ const NetStock = ({ user }) => {
     return homeLocationId;
   };
 
+  // Quantity-only (no item_ids_id): overall total from stock rows; per-location qty from stock ± tracker transfers
+  // (same model as Transfer.jsx getAvailableQuantityAtLocation).
+  const buildQuantityOnlyLocationSummary = useCallback(
+    (itemNameId, brandId, homeStockRows) => {
+      const getAvailableQuantityAtLocationForQuantityOnly = (locItemNameId, locBrandId, locationId) => {
+        if (!locItemNameId || !locationId) return 0;
+        const itemNameIdStr = String(locItemNameId);
+        const brandIdStr = locBrandId != null && locBrandId !== '' ? String(locBrandId) : null;
+        const locationIdStr = String(locationId);
+        let availableQuantity = 0;
+
+        const stockItems = stockManagementData.filter((stock) => {
+          const stockItemNameId = stock.item_name_id || stock.itemNameId;
+          const stockBrandId = stock.brand_name_id || stock.brandNameId;
+          const stockHomeLocationId = stock.home_location_id || stock.homeLocationId;
+          const noItemIdsId = !stock.item_ids_id && !stock.itemIdsId;
+          const itemNameMatch = stockItemNameId && String(stockItemNameId) === itemNameIdStr;
+          const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+          const locationMatch = stockHomeLocationId && String(stockHomeLocationId) === locationIdStr;
+          return itemNameMatch && brandMatch && locationMatch && noItemIdsId;
+        });
+        stockItems.forEach((stock) => {
+          availableQuantity += parseInt(stock.quantity || 0, 10);
+        });
+
+        for (const entry of toolsTrackerManagementData) {
+          if (!isQuantityTransferEntryType(entry)) continue;
+          const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
+          const entryToProjectId = entry.to_project_id || entry.toProjectId;
+          const entryFromProjectId = entry.from_project_id || entry.fromProjectId;
+
+          for (const entryItem of entryItems) {
+            const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
+            if (entryItemIdsId) continue;
+
+            const entryItemNameId = entryItem.item_name_id || entryItem.itemNameId;
+            const entryBrandId = entryItem.brand_id || entryItem.brandId;
+            const itemNameMatch = entryItemNameId && String(entryItemNameId) === itemNameIdStr;
+            const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
+
+            if (itemNameMatch && brandMatch) {
+              const itemQuantity = parseInt(entryItem.quantity || 0, 10);
+              if (entryToProjectId && String(entryToProjectId) === locationIdStr) {
+                availableQuantity += itemQuantity;
+              }
+              if (entryFromProjectId && String(entryFromProjectId) === locationIdStr) {
+                availableQuantity -= itemQuantity;
+              }
+            }
+          }
+        }
+
+        return Math.max(0, availableQuantity);
+      };
+
+      const collectLocationIdsForQuantityOnlyItem = (locItemNameId, locBrandId) => {
+        const ids = new Set();
+        const itemNameIdStr = String(locItemNameId);
+        const brandIdStr = locBrandId != null && locBrandId !== '' ? String(locBrandId) : null;
+
+        stockManagementData.forEach((stock) => {
+          const stockItemNameId = stock.item_name_id || stock.itemNameId;
+          const stockBrandId = stock.brand_name_id || stock.brandNameId;
+          const stockHomeLocationId = stock.home_location_id || stock.homeLocationId;
+          const noItemIdsId = !stock.item_ids_id && !stock.itemIdsId;
+          const itemNameMatch = stockItemNameId && String(stockItemNameId) === itemNameIdStr;
+          const brandMatch = !brandIdStr || (stockBrandId && String(stockBrandId) === brandIdStr);
+          if (itemNameMatch && brandMatch && noItemIdsId && stockHomeLocationId) {
+            ids.add(String(stockHomeLocationId));
+          }
+        });
+
+        toolsTrackerManagementData.forEach((entry) => {
+          if (!isQuantityTransferEntryType(entry)) return;
+          const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
+          const toId = entry.to_project_id || entry.toProjectId;
+          const fromId = entry.from_project_id || entry.fromProjectId;
+          entryItems.forEach((entryItem) => {
+            const entryItemIdsId = entryItem.item_ids_id || entryItem.itemIdsId;
+            if (entryItemIdsId) return;
+            const entryItemNameId = entryItem.item_name_id || entryItem.itemNameId;
+            const entryBrandId = entryItem.brand_id || entryItem.brandId;
+            const itemNameMatch = entryItemNameId && String(entryItemNameId) === itemNameIdStr;
+            const brandMatch = !brandIdStr || (entryBrandId && String(entryBrandId) === brandIdStr);
+            if (itemNameMatch && brandMatch) {
+              if (toId) ids.add(String(toId));
+              if (fromId) ids.add(String(fromId));
+            }
+          });
+        });
+
+        return Array.from(ids);
+      };
+
+      const totalStock = homeStockRows.reduce(
+        (acc, s) => acc + parseInt(s.quantity || 0, 10),
+        0
+      );
+      const homeLabel = [
+        ...new Set(
+          homeStockRows
+            .map((s) => getLocationName(s.home_location_id || s.homeLocationId))
+            .filter((n) => n && n !== '-')
+        )
+      ].join(', ') || '-';
+
+      const locIds = collectLocationIdsForQuantityOnlyItem(itemNameId, brandId);
+      const parts = [];
+      locIds.forEach((locId) => {
+        const q = getAvailableQuantityAtLocationForQuantityOnly(itemNameId, brandId, locId);
+        if (q > 0) {
+          parts.push({ locationId: String(locId), name: getLocationName(locId), q });
+        }
+      });
+      parts.sort((a, b) => b.q - a.q);
+      const currentLocationStr =
+        parts.map((p) => `${p.name} (${p.q})`).join(', ') || '-';
+
+      return { totalStock, homeLabel, currentLocationStr, parts };
+    },
+    [stockManagementData, toolsTrackerManagementData, getLocationName]
+  );
+
   // Process data for table view (individual items) - merge items with same location, itemName, brand
   const tableData = useMemo(() => {
     const itemsMap = new Map(); // Use Map to merge items
     const processedItemIds = new Set();
+    const quantityOnlyGroups = new Map();
 
     // Process items from stock management
     stockManagementData.forEach((stock) => {
@@ -486,7 +774,6 @@ const NetStock = ({ user }) => {
       const itemIdsId = stock.item_ids_id ?? stock.itemIdsId;
       const brandId = stock.brand_name_id ?? stock.brandNameId ?? stock.brand_id ?? stock.brandId;
       const homeLocationId = stock.home_location_id || stock.homeLocationId;
-      const quantity = parseInt(stock.quantity || 0, 10);
       // Resolve machine number: check machine_number_id first, then machine_number
       const machineNumberId = stock.machine_number_id || stock.machineNumberId;
       const machineNumberRaw = stock.machine_number || stock.machineNumber || '';
@@ -530,53 +817,79 @@ const NetStock = ({ user }) => {
           });
         }
       } else if (!hasItemIdsId) {
-        // Item with quantity only (can be positive or negative) - use home location
-        const homeLocation = getLocationName(homeLocationId);
-
-        // Create merge key: location + itemName + brand
-        const mergeKey = `${homeLocation}_${itemName}_${brand}_qty`;
-
-        if (itemsMap.has(mergeKey)) {
-          // Merge: add quantities (including negative values)
-          const existing = itemsMap.get(mergeKey);
-          existing.quantity += quantity;
-          // Store stock record IDs for API calls
-          if (!existing.stockRecordIds) {
-            existing.stockRecordIds = [];
-          }
-          existing.stockRecordIds.push({
-            stockId: stock.id,
+        // Quantity-only: group by item_name_id + brand (overall qty from stock; splits from tracker)
+        const mergeKey = `qty_${itemNameId}_${brandId || ''}`;
+        if (!quantityOnlyGroups.has(mergeKey)) {
+          quantityOnlyGroups.set(mergeKey, {
             itemNameId,
             brandId,
-            homeLocationId,
-            quantity: parseInt(stock.quantity || 0, 10)
-          });
-        } else {
-          itemsMap.set(mergeKey, {
-            id: `qty_${itemNameId}_${brandId || ''}_${homeLocationId}`,
             itemName,
-            itemId: '-',
-            location: homeLocation,
-            currentLocation: '-',
             brand,
-            model: (stock.model || '').trim() || '-',
-            machineNumber: '-',
-            status: '-',
-            quantity,
-            hasItemId: false,
-            // Store IDs needed for API calls
-            itemNameId,
-            brandId,
-            homeLocationId,
-            stockRecordIds: [{
-              stockId: stock.id,
-              itemNameId,
-              brandId,
-              homeLocationId,
-              quantity: parseInt(stock.quantity || 0, 10)
-            }]
+            stocks: []
           });
         }
+        quantityOnlyGroups.get(mergeKey).stocks.push(stock);
+      }
+    });
+
+    quantityOnlyGroups.forEach((group, mergeKey) => {
+      const { itemNameId, brandId, itemName, brand, stocks } = group;
+      const stockRecordIds = stocks.map((s) => ({
+        stockId: s.id,
+        itemNameId,
+        brandId,
+        homeLocationId: s.home_location_id || s.homeLocationId,
+        quantity: parseInt(s.quantity || 0, 10)
+      }));
+      const firstStock = stocks[0];
+      const summary = buildQuantityOnlyLocationSummary(itemNameId, brandId, stocks);
+
+      // Create one card per location with available quantity at that location
+      const parts = Array.isArray(summary.parts) ? summary.parts : [];
+      if (parts.length === 0) {
+        // Fallback: keep a single card with total when we cannot resolve locations
+        itemsMap.set(mergeKey, {
+          id: mergeKey,
+          itemName,
+          itemId: '-',
+          location: summary.homeLabel,
+          currentLocation: '-',
+          brand,
+          model: (firstStock.model || '').trim() || '-',
+          machineNumber: '-',
+          status: '-',
+          quantity: summary.totalStock,
+          hasItemId: false,
+          itemNameId,
+          brandId,
+          homeLocationId: firstStock.home_location_id || firstStock.homeLocationId,
+          stockRecordIds,
+          isQuantityLocationCard: true,
+          isEditableQuantityCard: false
+        });
+      } else {
+        parts.forEach((p) => {
+          const perLocKey = `${mergeKey}_${p.locationId}`;
+          itemsMap.set(perLocKey, {
+            id: perLocKey,
+            itemName,
+            itemId: '-',
+            location: summary.homeLabel,
+            currentLocation: p.name,
+            brand,
+            model: (firstStock.model || '').trim() || '-',
+            machineNumber: '-',
+            status: '-',
+            quantity: p.q,
+            hasItemId: false,
+            itemNameId,
+            brandId,
+            homeLocationId: firstStock.home_location_id || firstStock.homeLocationId,
+            stockRecordIds,
+            isQuantityLocationCard: true,
+            isEditableQuantityCard: false
+          });
+        });
       }
     });
     // Convert Map to array
@@ -608,8 +921,29 @@ const NetStock = ({ user }) => {
     if (selectedBrand) {
       filtered = filtered.filter(item => item.brand === selectedBrand);
     }
+    if (selectedHomeLocation) {
+      filtered = filtered.filter((item) => {
+        const loc = item.location;
+        if (!loc || loc === '-') return false;
+        if (loc === selectedHomeLocation) return true;
+        return loc.split(',').map((s) => s.trim()).includes(selectedHomeLocation);
+      });
+    }
+    if (selectedCurrentLocation) {
+      filtered = filtered.filter((item) => {
+        const cur = item.currentLocation;
+        if (!cur || cur === '-') return false;
+        return (
+          cur === selectedCurrentLocation ||
+          cur.toLowerCase().includes(selectedCurrentLocation.toLowerCase())
+        );
+      });
+    }
+    if (selectedStatus) {
+      filtered = filtered.filter(item => item.status === selectedStatus);
+    }
     return filtered;
-  }, [stockManagementData, toolsTrackerManagementData, itemNamesMap, itemIdsMap, brandsMap, projectsMap, vendorsMap, selectedItemName, selectedItemId, selectedBrand, machineNumbersList, getHomeLocationId, getCurrentLocationForItem, getCurrentToLocation, getLocationName, resolveMachineNumberText, resolveItemIdDisplay, resolveBrandDisplay, resolveItemNameDisplay]);
+  }, [stockManagementData, toolsTrackerManagementData, itemNamesMap, itemIdsMap, brandsMap, projectsMap, vendorsMap, selectedItemName, selectedItemId, selectedBrand, selectedHomeLocation, selectedCurrentLocation, selectedStatus, machineNumbersList, getHomeLocationId, getCurrentLocationForItem, getCurrentToLocation, buildQuantityOnlyLocationSummary, getLocationName, resolveMachineNumberText, resolveItemIdDisplay, resolveBrandDisplay, resolveItemNameDisplay]);
 
   // Apply universal search filter to tableData
   const filteredTableData = useMemo(() => {
@@ -754,6 +1088,42 @@ const NetStock = ({ user }) => {
     );
   };
 
+  const homeLocationOptions = useMemo(() => {
+    return [...new Set(tableData.map((item) => item.location).filter((location) => location && location !== '-'))].sort();
+  }, [tableData]);
+
+  const currentLocationOptions = useMemo(() => {
+    return [...new Set(tableData.map((item) => item.currentLocation).filter((location) => location && location !== '-'))].sort();
+  }, [tableData]);
+
+  const statusOptions = useMemo(() => {
+    return [...new Set(tableData.map((item) => item.status).filter((status) => status && status !== '-'))].sort();
+  }, [tableData]);
+
+  const getFilteredHomeLocationOptions = () => {
+    const query = (homeLocationSearchQuery || '').trim().toLowerCase();
+    if (!query) return homeLocationOptions;
+    return homeLocationOptions.filter((option) =>
+      String(option).toLowerCase().includes(query)
+    );
+  };
+
+  const getFilteredCurrentLocationOptions = () => {
+    const query = (currentLocationSearchQuery || '').trim().toLowerCase();
+    if (!query) return currentLocationOptions;
+    return currentLocationOptions.filter((option) =>
+      String(option).toLowerCase().includes(query)
+    );
+  };
+
+  const getFilteredStatusOptions = () => {
+    const query = (statusSearchQuery || '').trim().toLowerCase();
+    if (!query) return statusOptions;
+    return statusOptions.filter((option) =>
+      String(option).toLowerCase().includes(query)
+    );
+  };
+
   // Reset search queries when dropdowns close
   useEffect(() => {
     if (!showItemNameDropdown) {
@@ -766,6 +1136,24 @@ const NetStock = ({ user }) => {
       setItemIdSearchQuery('');
     }
   }, [showItemIdDropdown]);
+
+  useEffect(() => {
+    if (!showHomeLocationDropdown) {
+      setHomeLocationSearchQuery('');
+    }
+  }, [showHomeLocationDropdown]);
+
+  useEffect(() => {
+    if (!showCurrentLocationDropdown) {
+      setCurrentLocationSearchQuery('');
+    }
+  }, [showCurrentLocationDropdown]);
+
+  useEffect(() => {
+    if (!showStatusDropdown) {
+      setStatusSearchQuery('');
+    }
+  }, [showStatusDropdown]);
 
   // Swipe handlers for edit functionality
   const minSwipeDistance = 50;
@@ -1077,6 +1465,11 @@ const NetStock = ({ user }) => {
       return;
     }
 
+    if (!canCreate) {
+      alert("You don't have permission to update stock.");
+      return;
+    }
+
     try {
       // Get the stock record IDs for this item
       const stockRecordIds = selectedItemForEdit.stockRecordIds || [];
@@ -1186,270 +1579,9 @@ const NetStock = ({ user }) => {
         </div>
       </div>
 
-      {/* Item Name and Item ID Dropdowns */}
-      <div className="flex gap-[12px] pt-[10px]">
-        {/* Item Name Dropdown */}
-        <div className="flex-1 relative dropdown-container">
-          <p className="text-[12px] font-medium text-black mb-0.5 leading-normal">Item Name</p>
-          <div className="relative">
-            <div
-              onClick={() => {
-                setShowItemNameDropdown(!showItemNameDropdown);
-                setShowItemIdDropdown(false);
-              }}
-              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer truncate whitespace-nowrap overflow-hidden"
-              style={{
-                color: selectedItemName ? '#000' : '#9E9E9E',
-                boxSizing: 'border-box',
-                paddingRight: selectedItemName ? '40px' : '40px'
-              }}
-            >
-              {selectedItemName || 'Select'}
-            </div>
-            {selectedItemName && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedItemName(null);
-                }}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
-              </button>
-            )}
-            {!selectedItemName && (
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-            )}
-            {showItemNameDropdown && (
-              <div
-                className="fixed inset-0 bg-black bg-opacity-50 z-50 -top-[16px] flex items-center justify-center p-[16px]"
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) {
-                    setShowItemNameDropdown(false);
-                  }
-                }}
-                style={{ fontFamily: "'Manrope', sans-serif" }}
-              >
-                <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                  <div className="flex justify-between items-center px-[24px] pt-[24px]">
-                    <p className="text-[16px] font-semibold text-black">Select Item Name</p>
-                    <button onClick={() => setShowItemNameDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
-                      <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
-                    </button>
-                  </div>
-                  <div className="px-[24px] pt-[4px] pb-[6px]">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={itemNameSearchQuery}
-                        onChange={(e) => setItemNameSearchQuery(e.target.value)}
-                        placeholder="Search"
-                        className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
-                        autoFocus
-                      />
-                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                        <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
-                    <div className="shadow-md rounded-lg overflow-hidden">
-                      {getFilteredItemNameOptions().length > 0 ? (
-                        <div className="space-y-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedItemName(null);
-                              setShowItemNameDropdown(false);
-                            }}
-                            className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${!selectedItemName ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
-                              }`}
-                            style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
-                          >
-                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </div>
-                            <p className="text-[12px] font-medium text-black truncate whitespace-nowrap text-left flex-1">All</p>
-                          </button>
-                          {getFilteredItemNameOptions().map((name) => {
-                            const isSelected = selectedItemName === name;
-                            return (
-                              <button
-                                key={name}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedItemName(name);
-                                  setShowItemNameDropdown(false);
-                                }}
-                                className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
-                                  }`}
-                                style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
-                              >
-                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                </div>
-                                <p className="text-[12px] font-medium text-black truncate whitespace-nowrap text-left flex-1">{name}</p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-[16px]">
-                          <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
-                            {itemNameSearchQuery.trim() ? 'No options found' : 'No options available'}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Item ID Dropdown */}
-        <div className="flex-1 relative dropdown-container">
-          <p className="text-[12px] font-medium text-black mb-0.5 leading-normal">Item ID</p>
-          <div className="relative">
-            <div
-              onClick={() => {
-                setShowItemIdDropdown(!showItemIdDropdown);
-                setShowItemNameDropdown(false);
-              }}
-              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[40px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
-              style={{
-                color: selectedItemId ? '#000' : '#9E9E9E',
-                boxSizing: 'border-box',
-                paddingRight: selectedItemId ? '40px' : '40px'
-              }}
-            >
-              {selectedItemId || 'Select'}
-            </div>
-            {selectedItemId && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedItemId(null);
-                }}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
-              </button>
-            )}
-            {!selectedItemId && (
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-            )}
-            {showItemIdDropdown && (
-              <div
-                className="fixed inset-0 bg-black bg-opacity-50 z-50 -top-[16px] flex items-center justify-center p-[16px]"
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) {
-                    setShowItemIdDropdown(false);
-                  }
-                }}
-                style={{ fontFamily: "'Manrope', sans-serif" }}
-              >
-                <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                  <div className="flex justify-between items-center px-[24px] pt-[24px]">
-                    <p className="text-[16px] font-semibold text-black">Select Item ID</p>
-                    <button onClick={() => setShowItemIdDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity">
-                      <img src={Close} alt="Close" className="w-[11px] h-[11px]" />
-                    </button>
-                  </div>
-                  <div className="px-[24px] pt-[4px] pb-[6px]">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={itemIdSearchQuery}
-                        onChange={(e) => setItemIdSearchQuery(e.target.value)}
-                        placeholder="Search"
-                        className="w-full h-[32px] pl-[30px] pr-[16px] border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
-                        autoFocus
-                      />
-                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                        <img src={Search} alt="Search" className="w-[12px] h-[12px]" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-[24px] min-h-[65vh]">
-                    <div className="shadow-md rounded-lg overflow-hidden">
-                      {getFilteredItemIdOptions().length > 0 ? (
-                        <div className="space-y-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedItemId(null);
-                              setShowItemIdDropdown(false);
-                            }}
-                            className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${!selectedItemId ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
-                              }`}
-                            style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
-                          >
-                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </div>
-                            <p className="text-[12px] font-medium text-black truncate whitespace-nowrap text-left flex-1">All</p>
-                          </button>
-                          {getFilteredItemIdOptions().map((id) => {
-                            const isSelected = selectedItemId === id;
-                            return (
-                              <button
-                                key={id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedItemId(id);
-                                  setShowItemIdDropdown(false);
-                                }}
-                                className={`w-full px-[10px] flex items-center gap-[12px] transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
-                                  }`}
-                                style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
-                              >
-                                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                </div>
-                                <p className="text-[12px] font-medium text-black truncate whitespace-nowrap text-left flex-1">{id}</p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-[16px]">
-                          <p className="text-[14px] font-medium text-[#9E9E9E] text-center">
-                            {itemIdSearchQuery.trim() ? 'No options found' : 'No options available'}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Universal Search and Download */}
-      <div className="flex items-center gap-[8px] pt-[6px] pb-[6px]">
-        <div className="flex-1 relative">
+      {/* Universal Search and Filter */}
+      <div className="mt-[6px] pb-[6px]">
+        <div className="relative">
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="5.5" stroke="#747474" strokeWidth="1.5" />
@@ -1464,7 +1596,88 @@ const NetStock = ({ user }) => {
             className="w-full h-[36px] pl-[40px] pr-[12px] text-[12px] rounded-full font-medium bg-white focus:outline-none border border-[rgba(0,0,0,0.12)]"
           />
         </div>
-        
+        <div className="flex items-center mt-[6px] gap-[4px] min-w-0">
+          <button onClick={() => setShowFilterBottomSheet(true)} className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0">
+            <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" /> {!(selectedItemName || selectedItemId || selectedHomeLocation || selectedCurrentLocation || selectedStatus) && (
+              <span className="text-[12px] font-medium text-black">Filter</span>
+            )}
+          </button>
+          {/* Active Filter Chips */}
+          <div
+            className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none min-w-0"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {(selectedItemName || selectedItemId || selectedHomeLocation || selectedCurrentLocation || selectedStatus) && (
+              <>
+                {selectedItemName && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Item Name</span>
+                    <button
+                      onClick={() => setSelectedItemName(null)}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {selectedItemId && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Item ID</span>
+                    <button
+                      onClick={() => setSelectedItemId(null)}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {selectedHomeLocation && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Home</span>
+                    <button
+                      onClick={() => setSelectedHomeLocation('')}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {selectedCurrentLocation && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Current</span>
+                    <button
+                      onClick={() => setSelectedCurrentLocation('')}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {selectedStatus && (
+                  <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-black">Status</span>
+                    <button
+                      onClick={() => setSelectedStatus('')}
+                      className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -1485,8 +1698,12 @@ const NetStock = ({ user }) => {
                     const itemId = item.id || index;
                     const swipeState = swipeStates[itemId];
                     const isExpanded = expandedItemId === itemId;
-                    // Allow editing for items without itemId that have a non-zero quantity (can be positive or negative)
-                    const canEdit = !item.hasItemId && item.quantity !== 0;
+                    // Allow editing only for the legacy single-card quantity rows.
+                    // For quantity split-by-location cards, editing would be ambiguous.
+                    const canEdit =
+                      !item.hasItemId &&
+                      item.quantity !== 0 &&
+                      item.isEditableQuantityCard !== false;
 
                     // Calculate swipe offset (button width is 48px)
                     const buttonWidth = 48;
@@ -1614,10 +1831,10 @@ const NetStock = ({ user }) => {
                   {/* Table Header - fixed, does not scroll */}
                   <div className="bg-gray-50 border-b border-gray-200 flex-shrink-0">
                     <div className="grid grid-cols-12 gap-[8px] px-[12px] py-[8px]">
-                      <div className="col-span-1 text-[12px] font-medium font-semibold"></div>
-                      <div className="col-span-5 text-[12px] font-medium text-black font-semibold">Item Name</div>
-                      <div className="col-span-3 text-[12px] font-medium text-black font-semibold">Brand</div>
-                      <div className="col-span-3 text-[12px] font-medium text-black text-right font-semibold">Total Stock</div>
+                      <div className="col-span-1 text-[12px] font-semibold"></div>
+                      <div className="col-span-5 text-[12px] text-black font-semibold">Item Name</div>
+                      <div className="col-span-3 text-[12px] text-black font-semibold">Brand</div>
+                      <div className="col-span-3 text-[12px] text-black text-right font-semibold">Total Stock</div>
                     </div>
                   </div>
                   {/* Table Body - scrollable */}
@@ -1742,6 +1959,193 @@ const NetStock = ({ user }) => {
             </div>
           </div>
         </>
+      )}
+      {showFilterBottomSheet && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-end justify-center"
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+          onClick={() => setShowFilterBottomSheet(false)}
+        >
+          <div
+            className="bg-white w-full h-[380px] rounded-tl-[16px] rounded-tr-[16px] relative z-[101] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex-shrink-0 flex items-center justify-between px-6 pt-5 pb-1">
+              <p className="text-[16px] font-bold text-black">Select Filters</p>
+              <button type="button" onClick={() => setShowFilterBottomSheet(false)} className="text-[#e06256] text-xl font-bold leading-none">
+                <img src={Close} alt="close" className="w-[11px] h-[11px]" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-1">
+               <div className='flex items-start gap-[12px]'>
+                 <div className="mb-4 flex-1">
+                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Item Name</p>
+                  <div className="relative">
+                    <div onClick={() => setShowItemNameDropdown(true)} className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer min-w-0" style={{ color: selectedItemName ? '#000' : '#9E9E9E', boxSizing: 'border-box' }}>
+                      <span className="truncate">{selectedItemName || 'Select Item Name'}</span>
+                    </div>
+                    {selectedItemName && (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedItemName(null); }} className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors">
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                 <div className="mb-4 flex-1">
+                  <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Item ID</p>
+                  <div className="relative">
+                    <div onClick={() => setShowItemIdDropdown(true)} className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer min-w-0" style={{ color: selectedItemId ? '#000' : '#9E9E9E', boxSizing: 'border-box' }}>
+                      <span className="truncate">{selectedItemId || 'Select Item ID'}</span>
+                    </div>
+                    {selectedItemId && (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedItemId(null); }} className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors">
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Home Location</p>
+                <div className="relative">
+                  <div onClick={() => setShowHomeLocationDropdown(true)} className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer min-w-0" style={{ color: selectedHomeLocation ? '#000' : '#9E9E9E', boxSizing: 'border-box' }}>
+                    <span className="truncate">{selectedHomeLocation || 'Select Home Location'}</span>
+                  </div>
+                  {selectedHomeLocation && (
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedHomeLocation(''); }} className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors">
+                      <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Current Location</p>
+                <div className="relative">
+                  <div onClick={() => setShowCurrentLocationDropdown(true)} className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer min-w-0" style={{ color: selectedCurrentLocation ? '#000' : '#9E9E9E', boxSizing: 'border-box' }}>
+                    <span className="truncate">{selectedCurrentLocation || 'Select Current Location'}</span>
+                  </div>
+                  {selectedCurrentLocation && (
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedCurrentLocation(''); }} className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors">
+                      <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Status</p>
+                <div className="relative">
+                  <div onClick={() => setShowStatusDropdown(true)} className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-3 pr-10 text-[12px] font-medium bg-white flex items-center cursor-pointer min-w-0" style={{ color: selectedStatus ? '#000' : '#9E9E9E', boxSizing: 'border-box' }}>
+                    <span className="truncate">{selectedStatus || 'Select Status'}</span>
+                  </div>
+                  {selectedStatus && (
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedStatus(''); }} className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors">
+                      <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showItemNameDropdown && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[102] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowItemNameDropdown(false); }} style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-6 pt-[24px]">
+              <p className="text-[16px] font-semibold text-black">Select Item Name</p>
+              <button onClick={() => setShowItemNameDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"><img src={Close} alt="Close" className="w-[11px] h-[11px]" /></button>
+            </div>
+            <div className="px-6 pt-[4px] pb-[6px]">
+              <div className="relative">
+                <input type="text" value={itemNameSearchQuery} onChange={(e) => setItemNameSearchQuery(e.target.value)} placeholder="Search" className="w-full h-[32px] pl-[30px] pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none" autoFocus />
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none"><img src={Search} alt="Search" className="w-[12px] h-[12px]" /></div>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6 min-h-[65vh]">
+              <div className="shadow-md rounded-lg overflow-hidden">
+                {getFilteredItemNameOptions().length > 0 ? (
+                  <div className="space-y-0">
+                    <button type="button" onClick={() => { setSelectedItemName(null); setShowItemNameDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${!selectedItemName ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}>
+                      <p className="text-[12px] font-medium text-black text-left">All</p>
+                    </button>
+                    {getFilteredItemNameOptions().map((name) => (
+                      <button key={name} type="button" onClick={() => { setSelectedItemName(name); setShowItemNameDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${selectedItemName === name ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}>
+                        <p className="text-[12px] font-medium text-black text-left">{name}</p>
+                      </button>
+                    ))}
+                  </div>
+                ) : <div className="flex flex-col items-center justify-center py-4"><p className="text-[14px] font-medium text-[#9E9E9E] text-center">{itemNameSearchQuery.trim() ? 'No options found' : 'No options available'}</p></div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showItemIdDropdown && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[102] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowItemIdDropdown(false); }} style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-6 pt-[24px]">
+              <p className="text-[16px] font-semibold text-black">Select Item ID</p>
+              <button onClick={() => setShowItemIdDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"><img src={Close} alt="Close" className="w-[11px] h-[11px]" /></button>
+            </div>
+            <div className="px-6 pt-[4px] pb-[6px]">
+              <div className="relative">
+                <input type="text" value={itemIdSearchQuery} onChange={(e) => setItemIdSearchQuery(e.target.value)} placeholder="Search" className="w-full h-[32px] pl-[30px] pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none" autoFocus />
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none"><img src={Search} alt="Search" className="w-[12px] h-[12px]" /></div>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6 min-h-[65vh]">
+              <div className="shadow-md rounded-lg overflow-hidden">
+                {getFilteredItemIdOptions().length > 0 ? (
+                  <div className="space-y-0">
+                    <button type="button" onClick={() => { setSelectedItemId(null); setShowItemIdDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${!selectedItemId ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}>
+                      <p className="text-[12px] font-medium text-black text-left">All</p>
+                    </button>
+                    {getFilteredItemIdOptions().map((id) => (
+                      <button key={id} type="button" onClick={() => { setSelectedItemId(id); setShowItemIdDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${selectedItemId === id ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}>
+                        <p className="text-[12px] font-medium text-black text-left">{id}</p>
+                      </button>
+                    ))}
+                  </div>
+                ) : <div className="flex flex-col items-center justify-center py-4"><p className="text-[14px] font-medium text-[#9E9E9E] text-center">{itemIdSearchQuery.trim() ? 'No options found' : 'No options available'}</p></div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHomeLocationDropdown && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[102] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowHomeLocationDropdown(false); }} style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-6 pt-[24px]"><p className="text-[16px] font-semibold text-black">Select Home Location</p><button onClick={() => setShowHomeLocationDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"><img src={Close} alt="Close" className="w-[11px] h-[11px]" /></button></div>
+            <div className="px-6 pt-[4px] pb-[6px]"><div className="relative"><input type="text" value={homeLocationSearchQuery} onChange={(e) => setHomeLocationSearchQuery(e.target.value)} placeholder="Search" className="w-full h-[32px] pl-[30px] pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none" autoFocus /><div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none"><img src={Search} alt="Search" className="w-[12px] h-[12px]" /></div></div></div>
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6 min-h-[65vh]"><div className="shadow-md rounded-lg overflow-hidden">{getFilteredHomeLocationOptions().length > 0 ? <div className="space-y-0"><button type="button" onClick={() => { setSelectedHomeLocation(''); setShowHomeLocationDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${!selectedHomeLocation ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}><p className="text-[12px] font-medium text-black text-left">All</p></button>{getFilteredHomeLocationOptions().map((location) => (<button key={location} type="button" onClick={() => { setSelectedHomeLocation(location); setShowHomeLocationDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${selectedHomeLocation === location ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}><p className="text-[12px] font-medium text-black text-left">{location}</p></button>))}</div> : <div className="flex flex-col items-center justify-center py-4"><p className="text-[14px] font-medium text-[#9E9E9E] text-center">{homeLocationSearchQuery.trim() ? 'No options found' : 'No options available'}</p></div>}</div></div>
+          </div>
+        </div>
+      )}
+
+      {showCurrentLocationDropdown && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[102] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowCurrentLocationDropdown(false); }} style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-6 pt-[24px]"><p className="text-[16px] font-semibold text-black">Select Current Location</p><button onClick={() => setShowCurrentLocationDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"><img src={Close} alt="Close" className="w-[11px] h-[11px]" /></button></div>
+            <div className="px-6 pt-[4px] pb-[6px]"><div className="relative"><input type="text" value={currentLocationSearchQuery} onChange={(e) => setCurrentLocationSearchQuery(e.target.value)} placeholder="Search" className="w-full h-[32px] pl-[30px] pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none" autoFocus /><div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none"><img src={Search} alt="Search" className="w-[12px] h-[12px]" /></div></div></div>
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6 min-h-[65vh]"><div className="shadow-md rounded-lg overflow-hidden">{getFilteredCurrentLocationOptions().length > 0 ? <div className="space-y-0"><button type="button" onClick={() => { setSelectedCurrentLocation(''); setShowCurrentLocationDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${!selectedCurrentLocation ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}><p className="text-[12px] font-medium text-black text-left">All</p></button>{getFilteredCurrentLocationOptions().map((location) => (<button key={location} type="button" onClick={() => { setSelectedCurrentLocation(location); setShowCurrentLocationDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${selectedCurrentLocation === location ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}><p className="text-[12px] font-medium text-black text-left">{location}</p></button>))}</div> : <div className="flex flex-col items-center justify-center py-4"><p className="text-[14px] font-medium text-[#9E9E9E] text-center">{currentLocationSearchQuery.trim() ? 'No options found' : 'No options available'}</p></div>}</div></div>
+          </div>
+        </div>
+      )}
+
+      {showStatusDropdown && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[102] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowStatusDropdown(false); }} style={{ fontFamily: "'Manrope', sans-serif" }}>
+          <div className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center px-6 pt-[24px]"><p className="text-[16px] font-semibold text-black">Select Status</p><button onClick={() => setShowStatusDropdown(false)} className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"><img src={Close} alt="Close" className="w-[11px] h-[11px]" /></button></div>
+            <div className="px-6 pt-[4px] pb-[6px]"><div className="relative"><input type="text" value={statusSearchQuery} onChange={(e) => setStatusSearchQuery(e.target.value)} placeholder="Search" className="w-full h-[32px] pl-[30px] pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none" autoFocus /><div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none"><img src={Search} alt="Search" className="w-[12px] h-[12px]" /></div></div></div>
+            <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6 min-h-[65vh]"><div className="shadow-md rounded-lg overflow-hidden">{getFilteredStatusOptions().length > 0 ? <div className="space-y-0"><button type="button" onClick={() => { setSelectedStatus(''); setShowStatusDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${!selectedStatus ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}><p className="text-[12px] font-medium text-black text-left">All</p></button>{getFilteredStatusOptions().map((status) => (<button key={status} type="button" onClick={() => { setSelectedStatus(status); setShowStatusDropdown(false); }} className={`w-full px-[16px] flex items-center gap-3 transition-colors ${selectedStatus === status ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`} style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}><p className="text-[12px] font-medium text-black text-left">{status}</p></button>))}</div> : <div className="flex flex-col items-center justify-center py-4"><p className="text-[14px] font-medium text-[#9E9E9E] text-center">{statusSearchQuery.trim() ? 'No options found' : 'No options available'}</p></div>}</div></div>
+          </div>
+        </div>
       )}
       {/* Brand Modal */}
       <SelectOptionModal

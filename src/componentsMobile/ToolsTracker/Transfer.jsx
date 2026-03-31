@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import EditIcon from '../Images/edit1.png';
@@ -12,6 +12,7 @@ import Swap1 from '../Images/Down1.svg'
 import CloseIcon from '../Images/Close F.svg'
 import DropdownIcon from '../Images/Dropdown F.svg'
 import Search from '../Images/Search.png'
+import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 const Transfer = ({ user }) => {
   const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
   const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
@@ -32,6 +33,28 @@ const Transfer = ({ user }) => {
   const [selectedCurrentLocation, setSelectedCurrentLocation] = useState(null);
   const [selectedRelocateLocation, setSelectedRelocateLocation] = useState(null);
   const [relocateItemDetails, setRelocateItemDetails] = useState(null);
+
+  // Resolve module permissions (Create/Edit/Delete) for mobile create actions.
+  const [modulePermissions, setModulePermissions] = useState([]);
+  useEffect(() => {
+    const moduleName = 'Tools Tracker';
+    const resolvedUserRoles =
+      user?.userRoles ||
+      (() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          return stored?.userRoles || [];
+        } catch {
+          return [];
+        }
+      })();
+
+    fetchUserModulePermissions(resolvedUserRoles, moduleName)
+      .then(setModulePermissions)
+      .catch(() => setModulePermissions([]));
+  }, [user?.userRoles]);
+
+  const canCreate = modulePermissions.includes('Create');
   const [vendorOptions, setVendorOptions] = useState([]);
   const [items, setItems] = useState([]);
   const [fromOptions, setFromOptions] = useState([]);
@@ -133,6 +156,9 @@ const Transfer = ({ user }) => {
   const [showSearchConfirmModal, setShowSearchConfirmModal] = useState(false);
   const [selectedSearchItem, setSelectedSearchItem] = useState(null);
   const [showSearchUploadModal, setShowSearchUploadModal] = useState(false);
+  const [showSearchQtyModal, setShowSearchQtyModal] = useState(false);
+  const [pendingSearchItem, setPendingSearchItem] = useState(null);
+  const [pendingSearchQty, setPendingSearchQty] = useState('');
   const [searchUploadFiles, setSearchUploadFiles] = useState([]);
   const [searchUploadStatus, setSearchUploadStatus] = useState('');
   const [searchUploadDescription, setSearchUploadDescription] = useState('');
@@ -1282,6 +1308,37 @@ const Transfer = ({ user }) => {
     setSelectedItemNameQuantity(0);
     setSelectedItemMachineNumber('');
   };
+
+  // Show available quantity at the selected FROM location for quantity-only items (no itemId).
+  useEffect(() => {
+    if (!showAddItemsModal) return;
+    if (!selectedFrom?.id) {
+      setSelectedItemNameQuantity(0);
+      return;
+    }
+    if (!addItemFormData.itemNameId) {
+      setSelectedItemNameQuantity(0);
+      return;
+    }
+    if (addItemFormData.itemIdDbId) {
+      setSelectedItemNameQuantity(0);
+      return;
+    }
+    const availableQty = getAvailableQuantityAtLocation(
+      addItemFormData.itemNameId,
+      addItemFormData.brandId,
+      String(selectedFrom.id)
+    );
+    setSelectedItemNameQuantity(availableQty);
+  }, [
+    showAddItemsModal,
+    selectedFrom,
+    addItemFormData.itemNameId,
+    addItemFormData.brandId,
+    addItemFormData.itemIdDbId,
+    stockManagementData,
+    toolsTrackerManagementData
+  ]);
   const handleCloseUploadModal = () => {
     setShowUploadModal(false);
     setUploadFiles([]);
@@ -1348,6 +1405,14 @@ const Transfer = ({ user }) => {
   };
   const handleAddItemSubmit = () => {
     if (addItemFormData.itemName) {
+      // Quantity-only items must have a valid quantity
+      if (!addItemFormData.itemIdDbId) {
+        const q = parseInt(String(addItemFormData.quantity || '').trim(), 10);
+        if (!Number.isFinite(q) || q <= 0) {
+          alert('Please enter a valid quantity.');
+          return;
+        }
+      }
       if (editingItem) {
         const newItemNameId = addItemFormData.itemNameId ? String(addItemFormData.itemNameId) : editingItem.item_name_id;
         const newItemIdDbId = addItemFormData.itemIdDbId ? String(addItemFormData.itemIdDbId) : editingItem.item_ids_id;
@@ -2022,29 +2087,29 @@ const Transfer = ({ user }) => {
         };
       }
     } else {
-      // If no quantity specified, check if item exists at location (legacy check)
-      const locationInfo = getItemCurrentLocation(itemNameId, brandId);
-      if (!locationInfo) {
-        return { isValid: true };
-      }
-      const { locationId, locationType } = locationInfo;
-      if (locationId !== fromProjectIdStr) {
-        let locationName = locationId;
-        const resolvedLocationName = getLocationLabelById(locationId);
-        if (resolvedLocationName) {
-          locationName = resolvedLocationName;
-        } else if (locationType === 'home') {
-          locationName = `Home Location (ID: ${locationId})`;
-        }
+      // If quantity isn't provided (or is 0), don't use single "current location".
+      // For quantity-based items, availability is split across locations, so just ensure
+      // there is some quantity at the selected FROM location.
+      const availableQuantity = getAvailableQuantityAtLocation(itemNameId, brandId, fromProjectIdStr);
+      if (availableQuantity <= 0) {
+        const projectOption = toOptions.find(opt => String(opt.id) === fromProjectIdStr);
+        const projectName = projectOption?.label || projectOption?.name || fromProjectIdStr;
+
         const resolvedBrand = getBrandLabelById(brandId);
         const resolvedItemName = itemName || getItemNameLabelById(itemNameId);
         const itemDetails = [
           resolvedItemName ? `Item Name: ${resolvedItemName}` : `Item Name ID: ${itemNameId}`,
           brandId ? `Brand: ${resolvedBrand || brandId}` : null
         ].filter(Boolean).join(', ');
+
+        const currentLocations = getLocationsWithAvailableQuantity(itemNameId, brandId);
+        const whereItIs = currentLocations.length > 0
+          ? ` Currently available at: ${currentLocations.map(l => `"${l.locationName}" (${l.quantity} unit(s))`).join(', ')}.`
+          : '';
+
         return {
           isValid: false,
-          errorMessage: `Cannot transfer item "${itemName}" (${itemDetails}). This item is currently ${locationType === 'project' ? 'in project' : 'at home location'} "${locationName}" (ID: ${locationId}), not in the selected "From" project.`
+          errorMessage: `Cannot transfer item "${itemName}" (${itemDetails}). No quantity available at "${projectName}" (Project ID: ${fromProjectIdStr}).${whereItIs}`
         };
       }
     }
@@ -2199,6 +2264,10 @@ const Transfer = ({ user }) => {
   };
   const handleUpdateTransfer = async () => {
     if (!editEntryId || !originalEditData) return;
+    if (!canCreate) {
+      alert("You don't have permission to save Tools Tracker changes.");
+      return;
+    }
     if (!selectedFrom || !selectedIncharge) {
       alert('Please fill in all required fields (From and Project Incharge)');
       return;
@@ -2348,6 +2417,10 @@ const Transfer = ({ user }) => {
     }
   };
   const handleSaveTransfer = async () => {
+    if (!canCreate) {
+      alert("You don't have permission to save Tools Tracker transfers.");
+      return;
+    }
     if (entryServiceMode === 'Relocate') {
       if (!selectedRelocateItemId || !selectedCurrentLocation || !selectedRelocateLocation) {
         alert('Please fill in all required fields (Item ID, Current Location, and Relocate Location)');
@@ -2471,27 +2544,19 @@ const Transfer = ({ user }) => {
             }
           }
         } else if (item.item_name_id) {
-          // Check by itemNameId + brandId (for quantity-based transfers)
-          const locationInfo = getItemCurrentLocation(item.item_name_id, item.brand_id);
-          if (!locationInfo) continue; // Item location not found - allow transfer
-
-          const { locationId, locationType } = locationInfo;
-
-          // If item is in a project (not home), check if it's different from both FROM and TO
-          if (locationType === 'project') {
-            const currentProjectId = String(locationId);
-
-            // Allow transfer if we're transferring FROM the project where item currently is
-            // Block if item is in a different project than both FROM and TO
-            if (currentProjectId !== fromProjectId && currentProjectId !== targetProjectId) {
-              const projectOption = toOptions.find(opt => String(opt.id) === currentProjectId);
-              const projectName = projectOption?.label || projectOption?.name || currentProjectId;
-              const itemName = item.itemName || 'Unknown Item';
-              const resolvedItemName = itemName || getItemNameLabelById(item.item_name_id) || item.item_name_id;
-              alert(`Cannot transfer item "${itemName}" (Item Name: ${resolvedItemName}). This item is currently in project "${projectName}". Please return it to home location first or transfer it from the current project.`);
-              setIsSaving(false);
-              return;
-            }
+          // Quantity-based items can exist in multiple locations. Validate against FROM availability.
+          const itemName = item.itemName || 'Unknown Item';
+          const validation = validateItemLocation(
+            item.item_name_id,
+            itemName,
+            item.brand_id,
+            item.quantity,
+            fromProjectId
+          );
+          if (!validation.isValid) {
+            alert(validation.errorMessage);
+            setIsSaving(false);
+            return;
           }
         }
       }
@@ -2858,6 +2923,16 @@ const Transfer = ({ user }) => {
     setShowUniversalSearchModal(false);
     setUniversalSearchQuery('');
   };
+
+  const getEffectiveFromLocationId = useCallback(() => {
+    if (entryServiceMode === 'Relocate') {
+      return selectedCurrentLocation?.id ? String(selectedCurrentLocation.id) : null;
+    }
+    if (entryServiceMode === 'Service' && serviceFlowMode === 'return') {
+      return selectedServiceStore?.id ? String(selectedServiceStore.id) : null;
+    }
+    return selectedFrom?.id ? String(selectedFrom.id) : null;
+  }, [entryServiceMode, selectedCurrentLocation, serviceFlowMode, selectedServiceStore, selectedFrom]);
   const handleSelectSearchItem = (item) => {
     const itemNameObj = toolsItemNameListData.find(
       i => String(i?.id) === String(item?.item_name_id ?? item?.itemNameId)
@@ -2868,20 +2943,81 @@ const Transfer = ({ user }) => {
     const itemIdObj = toolsItemIdFullData.find(
       i => String(i?.id) === String(item?.item_ids_id ?? item?.itemIdsId)
     );
-    const isValidToAdd = validateDraftItemBeforeAdd({
-      itemName: itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown Item',
-      itemNameId: item?.item_name_id ?? item?.itemNameId ?? null,
-      brandId: item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId ?? null,
-      itemIdDbId: item?.item_ids_id ?? item?.itemIdsId ?? null,
-      machineNumber: resolveMachineNumFromStock(item),
-      quantity: item?.quantity || 1
-    });
-    if (!isValidToAdd) {
+    const itemIdsId = item?.item_ids_id ?? item?.itemIdsId ?? null;
+    if (itemIdsId) {
+      const isValidToAdd = validateDraftItemBeforeAdd({
+        itemName: itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown Item',
+        itemNameId: item?.item_name_id ?? item?.itemNameId ?? null,
+        brandId: item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId ?? null,
+        itemIdDbId: itemIdsId,
+        machineNumber: resolveMachineNumFromStock(item),
+        quantity: 1
+      });
+      if (!isValidToAdd) return;
+
+      setSelectedSearchItem({ ...item, quantity: 1 });
+      setShowUniversalSearchModal(false);
+      setShowSearchConfirmModal(true);
       return;
     }
 
-    setSelectedSearchItem(item);
+    // Quantity-only: ask how many qty to transfer from selected FROM location
+    setPendingSearchItem(item);
+    setPendingSearchQty('');
     setShowUniversalSearchModal(false);
+    setShowSearchQtyModal(true);
+  };
+
+  const handleCancelSearchQty = () => {
+    setShowSearchQtyModal(false);
+    setPendingSearchItem(null);
+    setPendingSearchQty('');
+  };
+
+  const handleConfirmSearchQty = () => {
+    if (!pendingSearchItem) return;
+    const qtyNum = parseInt(String(pendingSearchQty || '').trim(), 10);
+    if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+      alert('Please enter a valid quantity.');
+      return;
+    }
+
+    const fromLocationId = getEffectiveFromLocationId();
+    if (!fromLocationId) {
+      alert('Please select From location first.');
+      return;
+    }
+
+    const itemNameObj = toolsItemNameListData.find(
+      i => String(i?.id) === String(pendingSearchItem?.item_name_id ?? pendingSearchItem?.itemNameId)
+    );
+    const brandObj = toolsBrandFullData.find(
+      i => String(i?.id) === String(pendingSearchItem?.brand_id ?? pendingSearchItem?.brandId ?? pendingSearchItem?.brand_name_id ?? pendingSearchItem?.brandNameId)
+    );
+
+    const itemName = itemNameObj?.item_name || itemNameObj?.itemName || 'Unknown Item';
+    const itemNameId = pendingSearchItem?.item_name_id ?? pendingSearchItem?.itemNameId ?? null;
+    const brandId = pendingSearchItem?.brand_id ?? pendingSearchItem?.brandId ?? pendingSearchItem?.brand_name_id ?? pendingSearchItem?.brandNameId ?? null;
+
+    const isValidToAdd = validateDraftItemBeforeAdd({
+      itemName,
+      itemNameId,
+      brandId,
+      itemIdDbId: null,
+      machineNumber: resolveMachineNumFromStock(pendingSearchItem),
+      quantity: String(qtyNum)
+    });
+    if (!isValidToAdd) return;
+
+    setShowSearchQtyModal(false);
+    setSelectedSearchItem({
+      ...pendingSearchItem,
+      quantity: qtyNum,
+      item_name: itemName,
+      brand: brandObj?.tools_brand || brandObj?.toolsBrand || pendingSearchItem?.brand || ''
+    });
+    setPendingSearchItem(null);
+    setPendingSearchQty('');
     setShowSearchConfirmModal(true);
   };
   const handleConfirmSearchItem = () => {
@@ -3773,6 +3909,10 @@ const Transfer = ({ user }) => {
     if (!newItemName || !newItemName.trim()) {
       return;
     }
+    if (!canCreate) {
+      alert("You don't have permission to create Tools Tracker master data.");
+      return;
+    }
     const trimmedName = newItemName.trim();
     if (itemNameOptions.some(name => name.toLowerCase() === trimmedName.toLowerCase())) {
       handleFieldChange('itemName', trimmedName);
@@ -3839,6 +3979,10 @@ const Transfer = ({ user }) => {
     if (!newBrand || !newBrand.trim()) {
       return;
     }
+    if (!canCreate) {
+      alert("You don't have permission to create Tools Tracker master data.");
+      return;
+    }
     const trimmedBrand = newBrand.trim();
     if (brandOptions.some(b => b.toLowerCase() === trimmedBrand.toLowerCase())) {
       handleFieldChange('brand', trimmedBrand);
@@ -3901,6 +4045,10 @@ const Transfer = ({ user }) => {
   };
   const handleAddNewItemId = async (newItemId) => {
     if (!newItemId || !newItemId.trim()) {
+      return;
+    }
+    if (!canCreate) {
+      alert("You don't have permission to create Tools Tracker master data.");
       return;
     }
     const trimmedItemId = newItemId.trim();
@@ -3969,7 +4117,7 @@ const Transfer = ({ user }) => {
     }
   };
   return (
-    <div className="flex flex-col min-h-[calc(100vh-90px-80px)] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="flex flex-col h-[calc(100vh-90px-80px)] min-h-0 overflow-hidden bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
       <div className="sticky top-0 bg-white z-10 flex-shrink-0">
         <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
           <div className="flex items-center  gap-[8px] ">
@@ -3985,7 +4133,7 @@ const Transfer = ({ user }) => {
               <>
                 <button
                   onClick={handleUpdateTransfer}
-                  disabled={isSaving || !areFieldsFilled || items.length === 0}
+                  disabled={!canCreate || isSaving || !areFieldsFilled || items.length === 0}
                   className="text-[12px] font-semibold leading-normal text-black"
                 >
                   {isSaving ? 'Updating...' : 'Update'}
@@ -4001,8 +4149,12 @@ const Transfer = ({ user }) => {
               <>
                 <button
                   onClick={() => setShowConfirmModal(true)}
-                  disabled={isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0)}
-                  className={`flex items-center gap-[4px] text-[12px] font-medium ${isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0) ? 'text-gray-400' : 'text-black'} ${(cloneModeActive || ((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled))) ? '' : 'invisible'}`}
+                  disabled={!canCreate || isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0)}
+                  className={`flex items-center gap-[4px] text-[12px] font-medium ${
+                    !canCreate || isSaving || !areFieldsFilled || (entryServiceMode !== 'Relocate' && items.length === 0)
+                      ? 'text-gray-400'
+                      : 'text-black'
+                  } ${(cloneModeActive || ((items.length > 0 && areFieldsFilled) || (entryServiceMode === 'Relocate' && areFieldsFilled))) ? '' : 'invisible'}`}
                 >
                   {isSaving ? (
                     <span className="text-gray-500">...</span>
@@ -5377,7 +5529,7 @@ const Transfer = ({ user }) => {
         </div>
       )}
       {items.length > 0 && (
-        <div className="flex-1 overflow-y-auto no-scrollbar  scrollbar-none pt-[8px] pb-[120px]">
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar scrollbar-none pt-[8px] pb-[24px]" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="shadow-md rounded-lg space-y-2">
             {items.map((item, index) => {
               const itemId = item.id;
@@ -5392,29 +5544,35 @@ const Transfer = ({ user }) => {
                     ? -buttonWidth
                     : 0;
               const handleTouchStart = (e) => {
-                const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
+                const touch = e.touches ? e.touches[0] : { clientX: e.clientX, clientY: e.clientY };
                 setSwipeStates(prev => ({
                   ...prev,
                   [itemId]: {
                     startX: touch.clientX,
                     currentX: touch.clientX,
+                    startY: touch.clientY ?? 0,
+                    currentY: touch.clientY ?? 0,
                     isSwiping: false
                   }
                 }));
               };
               const handleTouchMove = (e) => {
-                e.preventDefault();
-                const touch = e.touches ? e.touches[0] : { clientX: e.clientX };
+                const touch = e.touches ? e.touches[0] : { clientX: e.clientX, clientY: e.clientY };
                 setSwipeStates(prev => {
                   const state = prev[itemId];
                   if (!state) return prev;
                   const deltaX = touch.clientX - state.startX;
-                  if (deltaX < 0 || (isExpanded && deltaX > 0)) {
+                  const deltaY = (touch.clientY ?? state.currentY ?? state.startY ?? 0) - (state.startY ?? 0);
+                  const absDeltaX = Math.abs(deltaX);
+                  const absDeltaY = Math.abs(deltaY);
+                  const isHorizontalSwipe = absDeltaX > 10 && absDeltaX > absDeltaY;
+                  if (isHorizontalSwipe && (deltaX < 0 || (isExpanded && deltaX > 0))) {
                     return {
                       ...prev,
                       [itemId]: {
                         ...state,
                         currentX: touch.clientX,
+                        currentY: touch.clientY ?? state.currentY ?? state.startY ?? 0,
                         isSwiping: true
                       }
                     };
@@ -6027,7 +6185,9 @@ const Transfer = ({ user }) => {
               >
                 Cancel
               </button>
-              <button onClick={() => { setShowConfirmModal(false); handleSaveTransfer(); }} disabled={isSaving}
+              <button
+                onClick={() => { setShowConfirmModal(false); handleSaveTransfer(); }}
+                disabled={!canCreate || isSaving}
                 className="flex-1 h-[44px] bg-black rounded-[8px] text-[14px] font-semibold text-white hover:bg-gray-800 transition-colors disabled:bg-gray-400"
               >
                 {isSaving ? 'Saving...' : 'Confirm'}
@@ -6123,8 +6283,8 @@ const Transfer = ({ user }) => {
                       const machineNumber = resolveMachineNumFromStock(item);
                       const machineStatus = item?.machine_status ?? item?.machineStatus ?? 'Working';
                       const itemIdsId = item?.item_ids_id ?? item?.itemIdsId;
-                      const brandId = item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId;
-                      const lastEntry = itemIdsId ? getLastEntryDateAndInchargeForItemSet(itemIdsId, brandId, machineNumber) : { dateTime: null, inchargeName: null };
+                      const brandIdForEntry = item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId;
+                      const lastEntry = itemIdsId ? getLastEntryDateAndInchargeForItemSet(itemIdsId, brandIdForEntry, machineNumber) : { dateTime: null, inchargeName: null };
                       const inchargeObj = inchargeOptions.find(
                         i => String(i?.id) === String(item?.project_incharge_id ?? item?.projectInchargeId)
                       );
@@ -6134,13 +6294,23 @@ const Transfer = ({ user }) => {
                         return date && time ? `${date} • ${time}` : '';
                       })();
                       const categoryName = categoryObj?.value || categoryObj?.label || (item?.category_name || item?.categoryName || '');
-                      const quantity = item?.quantity || item?.qty || '';
+                      const itemNameId = item?.item_name_id ?? item?.itemNameId ?? null;
+                      const brandId = item?.brand_id ?? item?.brandId ?? item?.brand_name_id ?? item?.brandNameId ?? null;
+                      const availableQtyAtFrom = !itemIdsId && itemNameId
+                        ? getAvailableQuantityAtLocation(itemNameId, brandId, fromLocationId)
+                        : null;
                       return (
                         <div key={item.id || index} className="bg-white border border-gray-200 rounded-lg px-[16px] py-[6px] cursor-pointer hover:shadow-md transition-shadow mb-1.5" onClick={() => handleSelectSearchItem(item)}>
                           <div className="flex flex-col">
                             <div className="flex justify-between items-start mb-0.5">
                               <p className="text-[14px] font-semibold text-black flex-1 min-w-0 pr-2">{itemName}</p>
-                              {itemIdName && <p className="text-[13px] font-medium text-black flex-shrink-0">{itemIdName}</p>}
+                              {itemIdName
+                                ? <p className="text-[13px] font-medium text-black flex-shrink-0">{itemIdName}</p>
+                                : (
+                                  <p className="text-[13px] font-semibold text-black flex-shrink-0">
+                                    {(availableQtyAtFrom ?? 0)} Qty
+                                  </p>
+                                )}
                             </div>
                             <div className="flex justify-between items-start mb-0.5">
                               <p className="text-[12px] text-[#575757] flex-1 min-w-0 pr-2">{machineNumber || '-'}</p>
@@ -6199,6 +6369,45 @@ const Transfer = ({ user }) => {
                 className="flex-1 h-[44px] bg-black rounded-[8px] text-[14px] font-semibold text-white hover:bg-gray-800 transition-colors"
               >
                 Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSearchQtyModal && pendingSearchItem && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-[120] flex items-center justify-center p-[16px]"
+          onClick={handleCancelSearchQty}
+          style={{ fontFamily: "'Manrope', sans-serif" }}
+        >
+          <div className="bg-white w-full max-w-[340px] rounded-[16px] p-[20px] shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[16px] font-semibold text-black mb-2">Enter Quantity</h3>
+            <p className="text-[12px] text-[#666666] mb-4">
+              How many quantity do you want to transfer from the selected From location?
+            </p>
+            <div className="mb-4">
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                value={pendingSearchQty}
+                onChange={(e) => setPendingSearchQty(e.target.value)}
+                placeholder="Enter qty"
+                className="w-full h-[40px] border border-gray-300 rounded-[10px] px-[12px] text-[14px] font-medium text-black focus:outline-none"
+              />
+            </div>
+            <div className="flex gap-[12px]">
+              <button
+                onClick={handleCancelSearchQty}
+                className="flex-1 h-[42px] border border-gray-300 rounded-[10px] text-[14px] font-semibold text-black bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSearchQty}
+                className="flex-1 h-[42px] bg-black rounded-[10px] text-[14px] font-semibold text-white"
+              >
+                Continue
               </button>
             </div>
           </div>

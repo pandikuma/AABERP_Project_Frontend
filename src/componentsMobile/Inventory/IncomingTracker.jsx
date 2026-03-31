@@ -6,6 +6,8 @@ import Filter from '../Images/Filter.png'
 import Close from '../Images/close.png'
 import Edit from '../Images/edit1.png';
 import Search from '../Images/Search.png'
+import { getIncomingTrackerPrefetchCache } from './incomingTrackerPrefetch';
+import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 
 const IncomingTracker = ({ user, onTabChange }) => {
   // Prevent whole-page scroll; keep only inner containers scrollable
@@ -21,6 +23,28 @@ const IncomingTracker = ({ user, onTabChange }) => {
       document.documentElement.style.overflow = prevHtmlOverflow;
     };
   }, []);
+
+  // Resolve module permissions (Create/Edit/Delete) for mobile create actions.
+  const [modulePermissions, setModulePermissions] = useState([]);
+  useEffect(() => {
+    const moduleName = 'Inventory';
+    const resolvedUserRoles =
+      user?.userRoles ||
+      (() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          return stored?.userRoles || [];
+        } catch {
+          return [];
+        }
+      })();
+
+    fetchUserModulePermissions(resolvedUserRoles, moduleName)
+      .then(setModulePermissions)
+      .catch(() => setModulePermissions([]));
+  }, [user?.userRoles]);
+
+  const canCreate = modulePermissions.includes('Create');
 
   const [activeStatus, setActiveStatus] = useState('live'); // 'live', 'closed', or 'history'
   const [incomingRecords, setIncomingRecords] = useState([]);
@@ -52,6 +76,26 @@ const IncomingTracker = ({ user, onTabChange }) => {
   const [expandedClosedCardId, setExpandedClosedCardId] = useState(null);
   
   const minSwipeDistance = 50;
+
+  // Hydrate from prefetched in-memory cache (if available) to avoid waiting on network.
+  useEffect(() => {
+    const cached = getIncomingTrackerPrefetchCache();
+    if (Array.isArray(cached?.vendors) && vendorData.length === 0) setVendorData(cached.vendors);
+    if (Array.isArray(cached?.sites) && siteData.length === 0) setSiteData(cached.sites);
+    if (Array.isArray(cached?.purchaseOrders) && allPurchaseOrders.length === 0) setAllPurchaseOrders(cached.purchaseOrders);
+    if (Array.isArray(cached?.poItemNames) && poItemName.length === 0) setPoItemName(cached.poItemNames);
+    if (Array.isArray(cached?.poBrands) && poBrand.length === 0) setPoBrand(cached.poBrands);
+    if (Array.isArray(cached?.poModels) && poModel.length === 0) setPoModel(cached.poModels);
+    if (Array.isArray(cached?.poTypes) && poType.length === 0) setPoType(cached.poTypes);
+    if (Array.isArray(cached?.poCategories) && categoryOptions.length === 0) {
+      const options = (cached.poCategories || []).map(item => ({
+        value: item.category || item.categoryName || item.name || '',
+        label: item.category || item.categoryName || item.name || '',
+        id: item.id || item._id || null,
+      }));
+      setCategoryOptions(options);
+    }
+  }, []);
   const getRecordDate = (entry) => new Date(entry?.date || entry?.created_at || entry?.createdAt || 0).getTime();
   const getLatestEntry = (record) => {
     const entries = Array.isArray(record?.mergedEntries) && record.mergedEntries.length > 0
@@ -203,8 +247,20 @@ const IncomingTracker = ({ user, onTabChange }) => {
         console.error('Error fetching purchase orders:', error);
       }
     };
-    fetchPurchaseOrders();
-  }, []);
+    // Only needed for fallback frontend comparison OR when detail view needs PO context.
+    // If backend provides live/closed classification, we can skip this expensive call initially.
+    const resolvedVendorId = resolveVendorIdForIncomingApi?.();
+    const shouldFetch =
+      activeStatus === 'history' ||
+      showDetailView === true ||
+      resolvedVendorId === null ||
+      resolvedVendorId === undefined ||
+      String(resolvedVendorId).trim() === '';
+
+    if (shouldFetch) {
+      fetchPurchaseOrders();
+    }
+  }, [activeStatus, showDetailView, filterVendorName, user]);
 
   // Fetch PO item names, brands, models, types, and categories
   useEffect(() => {
@@ -247,8 +303,19 @@ const IncomingTracker = ({ user, onTabChange }) => {
         console.error('Error fetching PO data:', error);
       }
     };
-    fetchPOData();
-  }, []);
+    // Same idea as above: these are only needed for fallback comparison and detail rendering.
+    const resolvedVendorId = resolveVendorIdForIncomingApi?.();
+    const shouldFetch =
+      activeStatus === 'history' ||
+      showDetailView === true ||
+      resolvedVendorId === null ||
+      resolvedVendorId === undefined ||
+      String(resolvedVendorId).trim() === '';
+
+    if (shouldFetch) {
+      fetchPOData();
+    }
+  }, [activeStatus, showDetailView, filterVendorName, user]);
 
   // Helper function to find name by ID
   const findNameById = (array, id, fieldName) => {
@@ -275,6 +342,32 @@ const IncomingTracker = ({ user, onTabChange }) => {
 
   const resolveCategoryName = (categoryId) => {
     return findNameById(categoryOptions, categoryId, 'category') || findNameById(categoryOptions, categoryId, 'name') || findNameById(categoryOptions, categoryId, 'label') || '';
+  };
+  const resolveVendorIdForIncomingApi = () => {
+    if (filterVendorName.trim()) {
+      const selectedVendor = vendorData.find(
+        (vendor) => (vendor.vendorName || '').toLowerCase() === filterVendorName.toLowerCase()
+      );
+      if (selectedVendor?.id !== undefined && selectedVendor?.id !== null) {
+        return selectedVendor.id;
+      }
+    }
+    const userVendorId = user?.vendor_id ?? user?.vendorId ?? null;
+    if (userVendorId !== undefined && userVendorId !== null && String(userVendorId).trim() !== '') {
+      return userVendorId;
+    }
+    return null;
+  };
+  const getIncomingEndpointByStatus = (status) => {
+    const baseUrl = 'https://backendaab.in/aabuildersDash/api/inventory';
+    if (status === 'live' || status === 'closed') {
+      const vendorId = resolveVendorIdForIncomingApi();
+      if (vendorId !== null && vendorId !== undefined && String(vendorId).trim() !== '') {
+        const endpoint = status === 'live' ? 'getIncomingLive' : 'getIncomingClosed';
+        return `${baseUrl}/${endpoint}?vendorId=${encodeURIComponent(vendorId)}`;
+      }
+    }
+    return `${baseUrl}/getIncoming`;
   };
 
   // Helper function to extract numeric value from eno
@@ -335,7 +428,7 @@ const IncomingTracker = ({ user, onTabChange }) => {
     const fetchIncomingRecords = async () => {
       try {
         setLoading(true);
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll', {
+        const response = await fetch(getIncomingEndpointByStatus(activeStatus), {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -346,17 +439,14 @@ const IncomingTracker = ({ user, onTabChange }) => {
           throw new Error('Network response was not ok');
         }
         const inventoryData = await response.json();
-        // Filter for incoming type only and exclude deleted
-        // Only show records where inventory_type is exactly 'incoming'
-        const incomingItems = inventoryData.filter(item => {
-          const inventoryType = item.inventory_type || item.inventoryType || '';
-          const isIncoming = String(inventoryType).toLowerCase() === 'incoming';
-          const isDeleted = item.delete_status || item.deleteStatus;
-          return isIncoming && !isDeleted;
-        });
+        const apiVendorId = resolveVendorIdForIncomingApi();
+        const useLiveClosedApi = (activeStatus === 'live' || activeStatus === 'closed') &&
+          apiVendorId !== null &&
+          apiVendorId !== undefined &&
+          String(apiVendorId).trim() !== '';
         // Process each incoming record (only those with PO numbers)
         const processedRecords = await Promise.all(
-          incomingItems
+          inventoryData
             .filter(record => {
               // Only process records with valid PO numbers (exclude NO_PO, empty, or null)
               const recordPurchaseNo = record.purchase_no || record.purchaseNo || record.purchase_number || '';
@@ -369,41 +459,44 @@ const IncomingTracker = ({ user, onTabChange }) => {
             .map(async (record) => {
               const purchaseNo = record.purchase_no || record.purchaseNo || record.purchase_number || '';
               const poNumberStr = String(purchaseNo).replace('#', '').trim();
-              // Find matching PO
-              let poData = null;
-              if (poNumberStr && allPurchaseOrders.length > 0) {
-                const targetEno = getNumericEno(poNumberStr);
-                const vendorId = record.vendor_id || record.vendorId;
-                const vendorPOs = vendorId
-                  ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
-                  : allPurchaseOrders;
-                const matchingPOs = vendorPOs.filter(p => {
-                  const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
-                  return poEno === targetEno && poEno !== 0;
-                });
-                if (matchingPOs.length > 0) {
-                  // Get the most recent PO with items
-                  const posWithItems = matchingPOs.filter(p => {
-                    const items = p.purchaseTable || p.purchase_table || p.items || [];
-                    return items.length > 0;
+              let hasBalance;
+              if (!useLiveClosedApi) {
+                // Fallback mode (when live/closed APIs can't be used): recompute pending/closed state in frontend.
+                // Find matching PO
+                let poData = null;
+                if (poNumberStr && allPurchaseOrders.length > 0) {
+                  const targetEno = getNumericEno(poNumberStr);
+                  const vendorId = record.vendor_id || record.vendorId;
+                  const vendorPOs = vendorId
+                    ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
+                    : allPurchaseOrders;
+                  const matchingPOs = vendorPOs.filter(p => {
+                    const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
+                    return poEno === targetEno && poEno !== 0;
                   });
-                  if (posWithItems.length > 0) {
-                    poData = posWithItems.reduce((latest, current) => {
-                      const latestId = parseInt(latest.id || latest._id || 0);
-                      const currentId = parseInt(current.id || current._id || 0);
-                      return currentId > latestId ? current : latest;
+                  if (matchingPOs.length > 0) {
+                    // Get the most recent PO with items
+                    const posWithItems = matchingPOs.filter(p => {
+                      const items = p.purchaseTable || p.purchase_table || p.items || [];
+                      return items.length > 0;
                     });
-                  } else if (matchingPOs.length > 0) {
-                    poData = matchingPOs.reduce((latest, current) => {
-                      const latestId = parseInt(latest.id || latest._id || 0);
-                      const currentId = parseInt(current.id || current._id || 0);
-                      return currentId > latestId ? current : latest;
-                    });
+                    if (posWithItems.length > 0) {
+                      poData = posWithItems.reduce((latest, current) => {
+                        const latestId = parseInt(latest.id || latest._id || 0);
+                        const currentId = parseInt(current.id || current._id || 0);
+                        return currentId > latestId ? current : latest;
+                      });
+                    } else if (matchingPOs.length > 0) {
+                      poData = matchingPOs.reduce((latest, current) => {
+                        const latestId = parseInt(latest.id || latest._id || 0);
+                        const currentId = parseInt(current.id || current._id || 0);
+                        return currentId > latestId ? current : latest;
+                      });
+                    }
                   }
                 }
+                hasBalance = checkBalanceQuantity(record, poData);
               }
-              // Check if has balance quantity
-              const hasBalance = checkBalanceQuantity(record, poData);
               // Get vendor name
               const vendorId = record.vendor_id || record.vendorId;
               const vendor = vendorData.find(v => v.id === vendorId);
@@ -467,10 +560,10 @@ const IncomingTracker = ({ user, onTabChange }) => {
         setLoading(false);
       }
     };
-    if (vendorData.length > 0 && siteData.length > 0 && allPurchaseOrders.length > 0) {
-      fetchIncomingRecords();
-    }
-  }, [vendorData, siteData, allPurchaseOrders]);
+    // Fetch immediately on tab/filter change.
+    // Vendor/site/purchase-order datasets are only for enrichment/fallback and should not block the initial list load.
+    fetchIncomingRecords();
+  }, [vendorData, siteData, allPurchaseOrders, activeStatus, filterVendorName, user]);
   // Function to merge records by purchase_no and vendorName
   const mergeRecords = (records) => {
     const mergedMap = {};
@@ -533,29 +626,33 @@ const IncomingTracker = ({ user, onTabChange }) => {
         const closedBy = (user && user.username) || '';
         const timestamp = new Date().toISOString();
 
-        try {
-          await fetch('https://backendaab.in/aabuildersDash/api/closed_po_records/save', {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              purchase_no: purchaseNo || '',
-              vendor_id: vendorId || 0,
-              closed_by: closedBy,
-              timestamp: timestamp
-            })
-          });
-        } catch (error) {
-          console.error('Error saving closed PO record:', error);
-          // Don't fail the whole operation if this fails
+        if (canCreate) {
+          try {
+            await fetch('https://backendaab.in/aabuildersDash/api/closed_po_records/save', {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                purchase_no: purchaseNo || '',
+                vendor_id: vendorId || 0,
+                closed_by: closedBy,
+                timestamp: timestamp
+              })
+            });
+          } catch (error) {
+            console.error('Error saving closed PO record:', error);
+            // Don't fail the whole operation if this fails
+          }
+        } else {
+          console.warn('Skipping closed_po_records/save - user lacks Create permission');
         }
         // Refresh the incoming records
         const fetchIncomingRecords = async () => {
           try {
             setLoading(true);
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll', {
+            const response = await fetch(getIncomingEndpointByStatus(activeStatus), {
               method: 'GET',
               credentials: 'include',
               headers: {
@@ -568,16 +665,14 @@ const IncomingTracker = ({ user, onTabChange }) => {
             }
 
             const inventoryData = await response.json();
-
-            const incomingItems = inventoryData.filter(item => {
-              const inventoryType = item.inventory_type || item.inventoryType || '';
-              const isIncoming = String(inventoryType).toLowerCase() === 'incoming';
-              const isDeleted = item.delete_status || item.deleteStatus;
-              return isIncoming && !isDeleted;
-            });
+            const apiVendorId = resolveVendorIdForIncomingApi();
+            const useLiveClosedApi = (activeStatus === 'live' || activeStatus === 'closed') &&
+              apiVendorId !== null &&
+              apiVendorId !== undefined &&
+              String(apiVendorId).trim() !== '';
 
             const processedRecords = await Promise.all(
-              incomingItems
+              inventoryData
                 .filter(record => {
                   const recordPurchaseNo = record.purchase_no || record.purchaseNo || record.purchase_number || '';
                   const purchaseNoStr = String(recordPurchaseNo).trim();
@@ -589,43 +684,46 @@ const IncomingTracker = ({ user, onTabChange }) => {
                   const purchaseNo = record.purchase_no || record.purchaseNo || record.purchase_number || '';
                   const poNumberStr = String(purchaseNo).replace('#', '').trim();
 
-                  let poData = null;
-                  if (poNumberStr && allPurchaseOrders.length > 0) {
-                    const targetEno = getNumericEno(poNumberStr);
-                    const vendorId = record.vendor_id || record.vendorId;
+                  let hasBalance;
+                  if (!useLiveClosedApi) {
+                    let poData = null;
+                    if (poNumberStr && allPurchaseOrders.length > 0) {
+                      const targetEno = getNumericEno(poNumberStr);
+                      const vendorId = record.vendor_id || record.vendorId;
 
-                    const vendorPOs = vendorId
-                      ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
-                      : allPurchaseOrders;
+                      const vendorPOs = vendorId
+                        ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
+                        : allPurchaseOrders;
 
-                    const matchingPOs = vendorPOs.filter(p => {
-                      const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
-                      return poEno === targetEno && poEno !== 0;
-                    });
-
-                    if (matchingPOs.length > 0) {
-                      const posWithItems = matchingPOs.filter(p => {
-                        const items = p.purchaseTable || p.purchase_table || p.items || [];
-                        return items.length > 0;
+                      const matchingPOs = vendorPOs.filter(p => {
+                        const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
+                        return poEno === targetEno && poEno !== 0;
                       });
 
-                      if (posWithItems.length > 0) {
-                        poData = posWithItems.reduce((latest, current) => {
-                          const latestId = parseInt(latest.id || latest._id || 0);
-                          const currentId = parseInt(current.id || current._id || 0);
-                          return currentId > latestId ? current : latest;
+                      if (matchingPOs.length > 0) {
+                        const posWithItems = matchingPOs.filter(p => {
+                          const items = p.purchaseTable || p.purchase_table || p.items || [];
+                          return items.length > 0;
                         });
-                      } else if (matchingPOs.length > 0) {
-                        poData = matchingPOs.reduce((latest, current) => {
-                          const latestId = parseInt(latest.id || latest._id || 0);
-                          const currentId = parseInt(current.id || current._id || 0);
-                          return currentId > latestId ? current : latest;
-                        });
+
+                        if (posWithItems.length > 0) {
+                          poData = posWithItems.reduce((latest, current) => {
+                            const latestId = parseInt(latest.id || latest._id || 0);
+                            const currentId = parseInt(current.id || current._id || 0);
+                            return currentId > latestId ? current : latest;
+                          });
+                        } else if (matchingPOs.length > 0) {
+                          poData = matchingPOs.reduce((latest, current) => {
+                            const latestId = parseInt(latest.id || latest._id || 0);
+                            const currentId = parseInt(current.id || current._id || 0);
+                            return currentId > latestId ? current : latest;
+                          });
+                        }
                       }
                     }
-                  }
 
-                  const hasBalance = checkBalanceQuantity(record, poData);
+                    hasBalance = checkBalanceQuantity(record, poData);
+                  }
 
                   const vendorId = record.vendor_id || record.vendorId;
                   const vendor = vendorData.find(v => v.id === vendorId);
@@ -704,125 +802,136 @@ const IncomingTracker = ({ user, onTabChange }) => {
   // Filter records based on status and search
   useEffect(() => {
     let filtered = incomingRecords;
+    const apiVendorId = resolveVendorIdForIncomingApi();
+    const useLiveClosedApi = (activeStatus === 'live' || activeStatus === 'closed') &&
+      apiVendorId !== null &&
+      apiVendorId !== undefined &&
+      String(apiVendorId).trim() !== '';
     // Filter by status (live/closed/history)
     if (activeStatus === 'live') {
       // First merge records with same purchase_no and vendorName
       filtered = mergeRecords(filtered);
-      // Then recalculate hasBalance for merged records and filter
-      filtered = filtered.map(mergedRecord => {
-        // Get PO data for the merged record (use first entry's PO data)
-        const firstEntry = mergedRecord.mergedEntries?.[0] || mergedRecord;
-        const purchaseNo = mergedRecord.purchaseNo || firstEntry.purchaseNo || '';
-        const poNumberStr = String(purchaseNo).replace('#', '').trim();
-        const vendorId = mergedRecord.vendor_id || mergedRecord.vendorId || firstEntry.vendor_id || firstEntry.vendorId;
-        let poData = null;
-        if (poNumberStr && allPurchaseOrders.length > 0) {
-          const targetEno = getNumericEno(poNumberStr);
-          const vendorPOs = vendorId
-            ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
-            : allPurchaseOrders;
-          const matchingPOs = vendorPOs.filter(p => {
-            const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
-            return poEno === targetEno && poEno !== 0;
-          });
-          if (matchingPOs.length > 0) {
-            const posWithItems = matchingPOs.filter(p => {
-              const items = p.purchaseTable || p.purchase_table || p.items || [];
-              return items.length > 0;
+      // Only recompute pending/closed state in fallback mode.
+      if (!useLiveClosedApi) {
+        // Then recalculate hasBalance for merged records and filter
+        filtered = filtered.map(mergedRecord => {
+          // Get PO data for the merged record (use first entry's PO data)
+          const firstEntry = mergedRecord.mergedEntries?.[0] || mergedRecord;
+          const purchaseNo = mergedRecord.purchaseNo || firstEntry.purchaseNo || '';
+          const poNumberStr = String(purchaseNo).replace('#', '').trim();
+          const vendorId = mergedRecord.vendor_id || mergedRecord.vendorId || firstEntry.vendor_id || firstEntry.vendorId;
+          let poData = null;
+          if (poNumberStr && allPurchaseOrders.length > 0) {
+            const targetEno = getNumericEno(poNumberStr);
+            const vendorPOs = vendorId
+              ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
+              : allPurchaseOrders;
+            const matchingPOs = vendorPOs.filter(p => {
+              const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
+              return poEno === targetEno && poEno !== 0;
             });
-            if (posWithItems.length > 0) {
-              poData = posWithItems.reduce((latest, current) => {
-                const latestId = parseInt(latest.id || latest._id || 0);
-                const currentId = parseInt(current.id || current._id || 0);
-                return currentId > latestId ? current : latest;
+            if (matchingPOs.length > 0) {
+              const posWithItems = matchingPOs.filter(p => {
+                const items = p.purchaseTable || p.purchase_table || p.items || [];
+                return items.length > 0;
               });
-            } else if (matchingPOs.length > 0) {
-              poData = matchingPOs.reduce((latest, current) => {
-                const latestId = parseInt(latest.id || latest._id || 0);
-                const currentId = parseInt(current.id || current._id || 0);
-                return currentId > latestId ? current : latest;
-              });
+              if (posWithItems.length > 0) {
+                poData = posWithItems.reduce((latest, current) => {
+                  const latestId = parseInt(latest.id || latest._id || 0);
+                  const currentId = parseInt(current.id || current._id || 0);
+                  return currentId > latestId ? current : latest;
+                });
+              } else if (matchingPOs.length > 0) {
+                poData = matchingPOs.reduce((latest, current) => {
+                  const latestId = parseInt(latest.id || latest._id || 0);
+                  const currentId = parseInt(current.id || current._id || 0);
+                  return currentId > latestId ? current : latest;
+                });
+              }
             }
           }
-        }
-        // Create a merged record object with all inventory items for balance check
-        const mergedRecordForBalance = {
-          ...mergedRecord,
-          inventoryItems: mergedRecord.allInventoryItems || mergedRecord.inventoryItems || mergedRecord.inventory_items || [],
-          inventory_items: mergedRecord.allInventoryItems || mergedRecord.inventoryItems || mergedRecord.inventory_items || []
-        };
-        // Recalculate hasBalance based on merged totals
-        const hasBalance = checkBalanceQuantity(mergedRecordForBalance, poData);
-        return {
-          ...mergedRecord,
-          hasBalance
-        };
-      }).filter(record => {
-        // Show records that have pending stock AND are not closed
-        const hasBalance = record.hasBalance === true;
-        const isNotClosed = record.poClosedStatus !== true;
-        return hasBalance && isNotClosed;
-      });
+          // Create a merged record object with all inventory items for balance check
+          const mergedRecordForBalance = {
+            ...mergedRecord,
+            inventoryItems: mergedRecord.allInventoryItems || mergedRecord.inventoryItems || mergedRecord.inventory_items || [],
+            inventory_items: mergedRecord.allInventoryItems || mergedRecord.inventoryItems || mergedRecord.inventory_items || []
+          };
+          // Recalculate hasBalance based on merged totals
+          const hasBalance = checkBalanceQuantity(mergedRecordForBalance, poData);
+          return {
+            ...mergedRecord,
+            hasBalance
+          };
+        }).filter(record => {
+          // Show records that have pending stock AND are not closed
+          const hasBalance = record.hasBalance === true;
+          const isNotClosed = record.poClosedStatus !== true;
+          return hasBalance && isNotClosed;
+        });
+      }
     } else if (activeStatus === 'closed') {
       // First merge records with same purchase_no and vendorName
       filtered = mergeRecords(filtered);
-      // Then recalculate hasBalance for merged records and filter
-      filtered = filtered.map(mergedRecord => {
-        // Get PO data for the merged record (use first entry's PO data)
-        const firstEntry = mergedRecord.mergedEntries?.[0] || mergedRecord;
-        const purchaseNo = mergedRecord.purchaseNo || firstEntry.purchaseNo || '';
-        const poNumberStr = String(purchaseNo).replace('#', '').trim();
-        const vendorId = mergedRecord.vendor_id || mergedRecord.vendorId || firstEntry.vendor_id || firstEntry.vendorId;
-        let poData = null;
-        if (poNumberStr && allPurchaseOrders.length > 0) {
-          const targetEno = getNumericEno(poNumberStr);
-          const vendorPOs = vendorId
-            ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
-            : allPurchaseOrders;
-          const matchingPOs = vendorPOs.filter(p => {
-            const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
-            return poEno === targetEno && poEno !== 0;
-          });
-          if (matchingPOs.length > 0) {
-            const posWithItems = matchingPOs.filter(p => {
-              const items = p.purchaseTable || p.purchase_table || p.items || [];
-              return items.length > 0;
+      // Only recompute pending/closed state in fallback mode.
+      if (!useLiveClosedApi) {
+        // Then recalculate hasBalance for merged records and filter
+        filtered = filtered.map(mergedRecord => {
+          // Get PO data for the merged record (use first entry's PO data)
+          const firstEntry = mergedRecord.mergedEntries?.[0] || mergedRecord;
+          const purchaseNo = mergedRecord.purchaseNo || firstEntry.purchaseNo || '';
+          const poNumberStr = String(purchaseNo).replace('#', '').trim();
+          const vendorId = mergedRecord.vendor_id || mergedRecord.vendorId || firstEntry.vendor_id || firstEntry.vendorId;
+          let poData = null;
+          if (poNumberStr && allPurchaseOrders.length > 0) {
+            const targetEno = getNumericEno(poNumberStr);
+            const vendorPOs = vendorId
+              ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
+              : allPurchaseOrders;
+            const matchingPOs = vendorPOs.filter(p => {
+              const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
+              return poEno === targetEno && poEno !== 0;
             });
-            if (posWithItems.length > 0) {
-              poData = posWithItems.reduce((latest, current) => {
-                const latestId = parseInt(latest.id || latest._id || 0);
-                const currentId = parseInt(current.id || current._id || 0);
-                return currentId > latestId ? current : latest;
+            if (matchingPOs.length > 0) {
+              const posWithItems = matchingPOs.filter(p => {
+                const items = p.purchaseTable || p.purchase_table || p.items || [];
+                return items.length > 0;
               });
-            } else if (matchingPOs.length > 0) {
-              poData = matchingPOs.reduce((latest, current) => {
-                const latestId = parseInt(latest.id || latest._id || 0);
-                const currentId = parseInt(current.id || current._id || 0);
-                return currentId > latestId ? current : latest;
-              });
+              if (posWithItems.length > 0) {
+                poData = posWithItems.reduce((latest, current) => {
+                  const latestId = parseInt(latest.id || latest._id || 0);
+                  const currentId = parseInt(current.id || current._id || 0);
+                  return currentId > latestId ? current : latest;
+                });
+              } else if (matchingPOs.length > 0) {
+                poData = matchingPOs.reduce((latest, current) => {
+                  const latestId = parseInt(latest.id || latest._id || 0);
+                  const currentId = parseInt(current.id || current._id || 0);
+                  return currentId > latestId ? current : latest;
+                });
+              }
             }
           }
-        }
-        // Create a merged record object with all inventory items for balance check
-        const mergedRecordForBalance = {
-          ...mergedRecord,
-          inventoryItems: mergedRecord.allInventoryItems || mergedRecord.inventoryItems || mergedRecord.inventory_items || [],
-          inventory_items: mergedRecord.allInventoryItems || mergedRecord.inventoryItems || mergedRecord.inventory_items || []
-        };
-        // Recalculate hasBalance based on merged totals
-        const hasBalance = checkBalanceQuantity(mergedRecordForBalance, poData);
-        return {
-          ...mergedRecord,
-          hasBalance
-        };
-      }).filter(record => {
-        // Show records that either:
-        // 1. Have no pending stock (hasBalance === false), OR
-        // 2. Are marked as closed (po_closed_status === true)
-        const hasNoBalance = record.hasBalance === false;
-        const isClosed = record.poClosedStatus === true;
-        return hasNoBalance || isClosed;
-      });
+          // Create a merged record object with all inventory items for balance check
+          const mergedRecordForBalance = {
+            ...mergedRecord,
+            inventoryItems: mergedRecord.allInventoryItems || mergedRecord.inventoryItems || mergedRecord.inventory_items || [],
+            inventory_items: mergedRecord.allInventoryItems || mergedRecord.inventoryItems || mergedRecord.inventory_items || []
+          };
+          // Recalculate hasBalance based on merged totals
+          const hasBalance = checkBalanceQuantity(mergedRecordForBalance, poData);
+          return {
+            ...mergedRecord,
+            hasBalance
+          };
+        }).filter(record => {
+          // Show records that either:
+          // 1. Have no pending stock (hasBalance === false), OR
+          // 2. Are marked as closed (po_closed_status === true)
+          const hasNoBalance = record.hasBalance === false;
+          const isClosed = record.poClosedStatus === true;
+          return hasNoBalance || isClosed;
+        });
+      }
     } else if (activeStatus === 'history') {
       // History shows all records separately (no merging)
       // No additional filtering needed
@@ -864,7 +973,7 @@ const IncomingTracker = ({ user, onTabChange }) => {
       return dateB - dateA;
     });
     setFilteredRecords(filtered);
-  }, [incomingRecords, activeStatus, searchQuery, allPurchaseOrders, filterVendorName, filterStockingLocation, filterPONo]);
+  }, [incomingRecords, activeStatus, searchQuery, allPurchaseOrders, filterVendorName, filterStockingLocation, filterPONo, user, vendorData]);
   return (
     <div className="bg-white flex flex-col h-full overflow-hidden">
       {/* Back Button - Show when detail view is open */}
@@ -1418,8 +1527,8 @@ const IncomingTracker = ({ user, onTabChange }) => {
                       setShowDetailView(true);
                     }}
                   >
-                    <div className="flex items-center gap-[4px]">
-                      <span className="text-[12px] font-semibold text-[#BF9853]">
+                    <div className="flex items-center gap-[8px]">
+                      <span className="text-[12px] font-semibold text-[#BF9853] -ml-[3px]">
                         #{record.purchaseNo || record.entryNumber}
                       </span>
                       <span className="text-[12px] font-semibold text-black">
@@ -1604,28 +1713,32 @@ const IncomingTracker = ({ user, onTabChange }) => {
                   await Promise.all(closePromises);
                   // Save to ClosedPORecords (only once per purchase_no)
                   if (purchaseNo) {
-                    try {
-                      await fetch('https://backendaab.in/aabuildersDash/api/closed_po_records/save', {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                          purchase_no: purchaseNo,
-                          vendor_id: vendorId,
-                          closed_by: closedBy,
-                          timestamp: timestamp
-                        })
-                      });
-                    } catch (error) {
-                      console.error('Error saving closed PO record:', error);
-                      // Don't fail the whole operation if this fails
+                    if (canCreate) {
+                      try {
+                        await fetch('https://backendaab.in/aabuildersDash/api/closed_po_records/save', {
+                          method: 'POST',
+                          credentials: 'include',
+                          headers: {
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({
+                            purchase_no: purchaseNo,
+                            vendor_id: vendorId,
+                            closed_by: closedBy,
+                            timestamp: timestamp
+                          })
+                        });
+                      } catch (error) {
+                        console.error('Error saving closed PO record:', error);
+                        // Don't fail the whole operation if this fails
+                      }
+                    } else {
+                      console.warn('Skipping closed_po_records/save - user lacks Create permission');
                     }
                   }
                   // Refresh data once after all closes
                   setLoading(true);
-                  const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll', {
+                  const response = await fetch(getIncomingEndpointByStatus(activeStatus), {
                     method: 'GET',
                     credentials: 'include',
                     headers: {
@@ -1634,14 +1747,13 @@ const IncomingTracker = ({ user, onTabChange }) => {
                   });
                   if (response.ok) {
                     const inventoryData = await response.json();
-                    const incomingItems = inventoryData.filter(item => {
-                      const inventoryType = item.inventory_type || item.inventoryType || '';
-                      const isIncoming = String(inventoryType).toLowerCase() === 'incoming';
-                      const isDeleted = item.delete_status || item.deleteStatus;
-                      return isIncoming && !isDeleted;
-                    });
+                    const apiVendorId = resolveVendorIdForIncomingApi();
+                    const useLiveClosedApi = (activeStatus === 'live' || activeStatus === 'closed') &&
+                      apiVendorId !== null &&
+                      apiVendorId !== undefined &&
+                      String(apiVendorId).trim() !== '';
                     const processedRecords = await Promise.all(
-                      incomingItems
+                      inventoryData
                         .filter(record => {
                           const recordPurchaseNo = record.purchase_no || record.purchaseNo || record.purchase_number || '';
                           const purchaseNoStr = String(recordPurchaseNo).trim();
@@ -1652,38 +1764,42 @@ const IncomingTracker = ({ user, onTabChange }) => {
                         .map(async (record) => {
                           const purchaseNo = record.purchase_no || record.purchaseNo || record.purchase_number || '';
                           const poNumberStr = String(purchaseNo).replace('#', '').trim();
-                          let poData = null;
-                          if (poNumberStr && allPurchaseOrders.length > 0) {
-                            const targetEno = getNumericEno(poNumberStr);
-                            const vendorId = record.vendor_id || record.vendorId;
-                            const vendorPOs = vendorId
-                              ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
-                              : allPurchaseOrders;
-                            const matchingPOs = vendorPOs.filter(p => {
-                              const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
-                              return poEno === targetEno && poEno !== 0;
-                            });
-                            if (matchingPOs.length > 0) {
-                              const posWithItems = matchingPOs.filter(p => {
-                                const items = p.purchaseTable || p.purchase_table || p.items || [];
-                                return items.length > 0;
+                          let hasBalance;
+                          if (!useLiveClosedApi) {
+                            let poData = null;
+                            if (poNumberStr && allPurchaseOrders.length > 0) {
+                              const targetEno = getNumericEno(poNumberStr);
+                              const vendorId = record.vendor_id || record.vendorId;
+                              const vendorPOs = vendorId
+                                ? allPurchaseOrders.filter(p => String(p.vendor_id || p.vendorId) === String(vendorId))
+                                : allPurchaseOrders;
+                              const matchingPOs = vendorPOs.filter(p => {
+                                const poEno = getNumericEno(p.eno || p.ENO || p.poNumber || p.po_number || '');
+                                return poEno === targetEno && poEno !== 0;
                               });
-                              if (posWithItems.length > 0) {
-                                poData = posWithItems.reduce((latest, current) => {
-                                  const latestId = parseInt(latest.id || latest._id || 0);
-                                  const currentId = parseInt(current.id || current._id || 0);
-                                  return currentId > latestId ? current : latest;
+                              if (matchingPOs.length > 0) {
+                                const posWithItems = matchingPOs.filter(p => {
+                                  const items = p.purchaseTable || p.purchase_table || p.items || [];
+                                  return items.length > 0;
                                 });
-                              } else if (matchingPOs.length > 0) {
-                                poData = matchingPOs.reduce((latest, current) => {
-                                  const latestId = parseInt(latest.id || latest._id || 0);
-                                  const currentId = parseInt(current.id || current._id || 0);
-                                  return currentId > latestId ? current : latest;
-                                });
+                                if (posWithItems.length > 0) {
+                                  poData = posWithItems.reduce((latest, current) => {
+                                    const latestId = parseInt(latest.id || latest._id || 0);
+                                    const currentId = parseInt(current.id || current._id || 0);
+                                    return currentId > latestId ? current : latest;
+                                  });
+                                } else if (matchingPOs.length > 0) {
+                                  poData = matchingPOs.reduce((latest, current) => {
+                                    const latestId = parseInt(latest.id || latest._id || 0);
+                                    const currentId = parseInt(current.id || current._id || 0);
+                                    return currentId > latestId ? current : latest;
+                                  });
+                                }
                               }
                             }
+
+                            hasBalance = checkBalanceQuantity(record, poData);
                           }
-                          const hasBalance = checkBalanceQuantity(record, poData);
                           const vendorId = record.vendor_id || record.vendorId;
                           const vendor = vendorData.find(v => v.id === vendorId);
                           const vendorName = vendor ? vendor.vendorName : 'Unknown Vendor';
@@ -1762,10 +1878,9 @@ const IncomingTracker = ({ user, onTabChange }) => {
           }}
         >
           <div
-            className="bg-white w-full rounded-t-3xl shadow-lg"
+            className="bg-white w-full h-[240px] rounded-t-3xl shadow-lg"
             style={{ maxHeight: '60vh' }}
-            onClick={(e) => e.stopPropagation()}
-          >
+            onClick={(e) => e.stopPropagation()} >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-[24px] pt-[16px] pb-3 border-b border-[rgba(0,0,0,0.08)] flex-shrink-0">
               <h2 className="text-[16px] font-semibold text-black">Select Filters</h2>
@@ -1842,7 +1957,6 @@ const IncomingTracker = ({ user, onTabChange }) => {
           </div>
         </div>
       )}
-
       <SelectVendorModal
         isOpen={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}

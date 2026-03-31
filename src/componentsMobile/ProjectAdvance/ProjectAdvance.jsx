@@ -38,6 +38,9 @@ const ProjectAdvance = ({ user, onLogout }) => {
     if (page === 'purchase-order') {
       setCurrentPage('purchase-order');
       navigate('/purchaseorder');
+    } else if (page === 'billing') {
+      setCurrentPage('billing');
+      navigate('/tracker/pendingbill');
     } else if (page === 'inventory') {
       setCurrentPage('inventory');
       navigate('/inventory');
@@ -68,7 +71,7 @@ const ProjectAdvance = ({ user, onLogout }) => {
       {/* Tabs - Fixed */}
       <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
       {/* Content Area - fixed height so only inner content (e.g. cards) scrolls, not the page */}
-      <div className="pt-[85px] flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 85px)' }}>
+      <div className="pt-[84px] flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 85px)' }}>
         {/* Advance Form Tab Content */}
         {activeTab === 'advanceform' && (
           <AdvanceForm
@@ -80,6 +83,7 @@ const ProjectAdvance = ({ user, onLogout }) => {
         {activeTab === 'history' && (
           <div className="flex-1 min-h-0 overflow-hidden">
             <History
+              user={user}
               onVendorClick={(data) => {
                 setInitialFromHistory(data);
                 setActiveTab('advanceform');

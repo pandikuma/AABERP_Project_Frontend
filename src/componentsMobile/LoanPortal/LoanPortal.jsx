@@ -37,6 +37,9 @@ const LoanPortal = ({ user, onLogout }) => {
     if (page === 'purchase-order') {
       setCurrentPage('purchase-order');
       navigate('/purchaseorder');
+    } else if (page === 'billing') {
+      setCurrentPage('billing');
+      navigate('/tracker/pendingbill');
     } else if (page === 'inventory') {
       setCurrentPage('inventory');
       navigate('/inventory');
@@ -67,7 +70,7 @@ const LoanPortal = ({ user, onLogout }) => {
       {/* Tabs - Fixed */}
       <Tabs activeTab={activeTab} onTabChange={setActiveTab} />
       {/* Content Area - fixed height so only inner content (e.g. cards) scrolls, not the page */}
-      <div className="pt-[85px] flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 85px)' }}>
+      <div className="pt-[88px] flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 85px)' }}>
         {/* Loan Form Tab Content */}
         {activeTab === 'loanform' && (
           <LoanForm />
@@ -75,7 +78,7 @@ const LoanPortal = ({ user, onLogout }) => {
         {/* History Tab Content */}
         {activeTab === 'history' && (
           <div className="flex-1 min-h-0 overflow-hidden">
-            <History />
+            <History user={user} />
           </div>
         )}
         {/* Report Tab Content */}

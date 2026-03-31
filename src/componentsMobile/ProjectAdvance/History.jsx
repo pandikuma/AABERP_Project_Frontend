@@ -3,6 +3,8 @@ import Filter from '../Images/Filter.png';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import UploadFile from '../Images/Upload Small.svg';
 import Pen from '../Images/Pen.svg';
+import CloseIcon from '../Images/Close F.svg'
+import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 
 // ISO 8601 week helpers (same as AdvanceReport.js)
 const getISOWeekNumber = (date) => {
@@ -60,7 +62,7 @@ const PREDEFINED_SITE_OPTIONS = [
   { value: 'Bill Payment Tracker', label: 'Bill Payment Tracker', id: 12, sNo: '12' },
 ];
 
-const History = ({ onVendorClick }) => {
+const History = ({ onVendorClick, user } = {}) => {
   const resolveActiveBranchId = () => {
     try {
       const selectedBranchId = localStorage.getItem('selectedBranchId');
@@ -82,6 +84,29 @@ const History = ({ onVendorClick }) => {
   };
 
   const [advanceData, setAdvanceData] = useState([]);
+
+  // Resolve module permissions from user's roles (used to block History "upload/update" actions).
+  const [modulePermissions, setModulePermissions] = useState([]);
+  useEffect(() => {
+    const moduleName = 'Advance Portal';
+    const resolvedUserRoles =
+      user?.userRoles ||
+      (() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          return stored?.userRoles || [];
+        } catch {
+          return [];
+        }
+      })();
+
+    fetchUserModulePermissions(resolvedUserRoles, moduleName)
+      .then(setModulePermissions)
+      .catch(() => setModulePermissions([]));
+  }, [user?.userRoles]);
+
+  const canEdit = modulePermissions.includes('Edit');
+
   const [vendorOptions, setVendorOptions] = useState([]);
   const [contractorOptions, setContractorOptions] = useState([]);
   const [siteOptions, setSiteOptions] = useState([...PREDEFINED_SITE_OPTIONS]);
@@ -352,24 +377,9 @@ const History = ({ onVendorClick }) => {
     return result;
   })();
 
-  const getTypeBadgeClass = (type) => {
-    switch (type) {
-      case 'Advance':
-        return 'bg-[#E8F5E9] text-[#2E7D32]';
-      case 'Bill Settlement':
-        return 'bg-[#E3F2FD] text-[#1976D2]';
-      case 'Refund':
-        return 'bg-[#FFF3E0] text-[#F57C00]';
-      case 'Transfer':
-        return 'bg-[#FFF3E0] text-black';
-      default:
-        return 'bg-gray-100 text-gray-600';
-    }
-  };
-
   const getPaymentModeBadgeClass = (mode) => {
-    const m = (mode || '').toLowerCase();
-    if (!m) return 'bg-gray-100 text-gray-600';
+    if (!mode || mode === '') return 'bg-gray-100 text-gray-600';
+    const m = String(mode).toLowerCase();
     if (m === 'cash') return 'bg-[#E7F4FD] text-[#336EA8]';
     return 'bg-[#FFEFFF] text-[#815182]';
   };
@@ -419,11 +429,20 @@ const History = ({ onVendorClick }) => {
   const minSwipeDistance = 50;
 
   const handleUploadClick = (item) => {
+    if (!canEdit) {
+      alert("You don't have permission to edit.");
+      return;
+    }
     setItemToUploadFor(item);
     setShowUploadConfirmModal(true);
   };
 
   const handleUploadConfirm = () => {
+    if (!canEdit) {
+      setShowUploadConfirmModal(false);
+      setItemToUploadFor(null);
+      return;
+    }
     if (!itemToUploadFor) return;
     setShowUploadConfirmModal(false);
     setUploadingForId(itemToUploadFor.id);
@@ -440,6 +459,11 @@ const History = ({ onVendorClick }) => {
     const file = e.target?.files?.[0];
     e.target.value = '';
     if (!file || !uploadingForId) {
+      setUploadingForId(null);
+      return;
+    }
+    if (!canEdit) {
+      alert("You don't have permission to edit.");
       setUploadingForId(null);
       return;
     }
@@ -649,29 +673,41 @@ const History = ({ onVendorClick }) => {
 
   return (
     <div
-      className="relative w-full bg-white max-w-[360px] mx-auto flex flex-col scrollbar-none overflow-hidden"
+      className="relative w-full bg-white max-w-[360px] flex flex-col scrollbar-none overflow-hidden"
       style={{ fontFamily: "'Manrope', sans-serif" }}
     >
       {/* Date and Category Section */}
-      <div className="px-[16px] pt-[8px]">
-        <div className="flex items-center justify-end border-b border-[#E0E0E0] pb-[8px]">
-
-          <button
-            onClick={() => setShowTypeModal(true)}
-            className="text-[12px] font-semibold text-black leading-normal cursor-pointer"
-          >
-            {typeFilter || 'Type'}
-          </button>
+      <div className="pt-[10px]">
+        <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[10px]">
+          <div />
+          <div className="flex items-center gap-[4px]">
+            <button
+              type="button"
+              onClick={() => setShowTypeModal(true)}
+              className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              {typeFilter || 'Type'}
+            </button>
+            {typeFilter && (
+              <button
+                type="button"
+                onClick={() => setTypeFilter('')}
+                className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {/* Filter */}
-      <div className="flex-shrink-0 px-[16px] pt-[8px]">
+      <div className="flex-shrink-0">
         <div className="flex items-center justify-between gap-[20px]">
-          <div className="flex items-center gap-[8px] min-w-0">
+          <div className="flex items-center gap-[4px] min-w-0">
             <button
               type="button"
               onClick={() => setShowFilterModal(true)}
-              className="flex items-center gap-[8px] px-[0px] flex-shrink-0"
+              className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0"
             >
               <img src={Filter} alt="Filter" className="w-[11px] h-[11px]" />
               {!(typeFilter || vendorContractorFilter || entryNoFilter || projectNameFilter || paymentModeFilter) && (
@@ -681,24 +717,10 @@ const History = ({ onVendorClick }) => {
               )}
             </button>
             {/* Active Filter Tags - Next to Filter button */}
-            <div className="flex items-center gap-[8px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {/* Type Filter Tag */}
-              {typeFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
-                  <span className="text-[11px] font-medium text-black">{typeFilter}</span>
-                  <button
-                    onClick={() => setTypeFilter('')}
-                    className="w-4 h-4 flex items-center justify-center hover:bg-gray-300 rounded-full transition-colors"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M7 3L3 7M3 3L7 7" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                </div>
-              )}
+            <div className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {/* Contractor/Vendor Filter Tag */}
               {vendorContractorFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Contractor/Vendor</span>
                   <button
                     onClick={() => setVendorContractorFilter('')}
@@ -712,7 +734,7 @@ const History = ({ onVendorClick }) => {
               )}
               {/* Entry No Filter Tag */}
               {entryNoFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Entry. No</span>
                   <button
                     onClick={() => setEntryNoFilter('')}
@@ -726,7 +748,7 @@ const History = ({ onVendorClick }) => {
               )}
               {/* Project Name Filter Tag */}
               {projectNameFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Project</span>
                   <button
                     onClick={() => setProjectNameFilter('')}
@@ -740,7 +762,7 @@ const History = ({ onVendorClick }) => {
               )}
               {/* Mode Filter Tag */}
               {paymentModeFilter && (
-                <div className="flex items-center gap-[6px] border px-[10px] py-[6px] rounded-full flex-shrink-0">
+                <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Mode</span>
                   <button
                     onClick={() => setPaymentModeFilter('')}
@@ -754,10 +776,9 @@ const History = ({ onVendorClick }) => {
               )}
             </div>
           </div>
-          {(typeFilter || vendorContractorFilter || entryNoFilter || projectNameFilter || paymentModeFilter) && (
+          {(vendorContractorFilter || entryNoFilter || projectNameFilter || paymentModeFilter) && (
             <button
               onClick={() => {
-                setTypeFilter('');
                 setVendorContractorFilter('');
                 setEntryNoFilter('');
                 setProjectNameFilter('');
@@ -772,7 +793,7 @@ const History = ({ onVendorClick }) => {
       </div>
       {/* Cards List - Scrollable */}
       <div
-        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide px-[16px] mt-1 max-h-[calc(100vh-160px-80px)]"
+        className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide mt-1 max-h-[calc(100vh-160px-80px)]"
         onClick={() => setUploadExpandedId(null)}
       >
         {filtered.length === 0 ? (
@@ -900,18 +921,13 @@ const History = ({ onVendorClick }) => {
                         >
                           {item.ref}
                         </span>
-                        {(() => {
-                          const paymentModeDisplay = item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '');
-                          return (
-                            <span
-                              className={`px-[8px] py-[2px] rounded-full text-[10px] font-medium flex items-center gap-[4px] ${getPaymentModeBadgeClass(
-                                paymentModeDisplay
-                              )}`}
-                            >
-                              {paymentModeDisplay}
-                            </span>
-                          );
-                        })()}
+                        <span
+                          className={`px-[8px] py-[2px] rounded-full text-[10px] font-medium flex items-center gap-[4px] ${getPaymentModeBadgeClass(
+                            item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '')
+                          )}`}
+                        >
+                          {item.type === 'Transfer' && !item.paymentMode ? 'Online' : (item.paymentMode || '')}
+                        </span>
                       </div>
                       {/* Row 2: entityName (clickable – opens Advance form with vendor/project and bill details) and empty space */}
                       <div className="flex items-center justify-between">
@@ -1102,7 +1118,7 @@ const History = ({ onVendorClick }) => {
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div
-            className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[60vh] flex flex-col"
+            className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] -translate-y-[22px] rounded-b-[20px] shadow-lg flex flex-col transform max-h-[80vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1122,7 +1138,7 @@ const History = ({ onVendorClick }) => {
             </div>
 
             {/* Search Bar */}
-            <div className="px-[24px] pt-[16px] pb-[16px]">
+            <div className="px-[24px] pt-[4px] pb-[6px]">
               <div className="relative">
                 <input
                   type="text"
@@ -1142,7 +1158,7 @@ const History = ({ onVendorClick }) => {
             </div>
 
             {/* Options List */}
-            <div className="flex-1 overflow-y-auto mb-4 px-[24px] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex-1 overflow-y-auto mb-[8px] px-[24px] min-h-[65vh] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <div className="shadow-md rounded-lg overflow-hidden">
                 {(['Advance', 'Bill Settlement', 'Transfer', 'Refund']
                   .filter(type => type.toLowerCase().includes(typeSearchQuery.toLowerCase()))
@@ -1153,31 +1169,15 @@ const History = ({ onVendorClick }) => {
                       <button
                         key={index}
                         onClick={() => {
-                          setTypeFilter(typeFilter === type ? '' : type);
+                          setTypeFilter(type);
                           setShowTypeModal(false);
                           setTypeSearchQuery('');
                         }}
-                        className={`w-full h-[40px] px-[24px] flex items-center justify-between transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
+                        className={`w-full px-[16px] flex items-center gap-3 transition-colors ${isSelected ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'
                           }`}
+                        style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
                       >
-                        {/* Left: Option Text */}
-                        <div className="flex items-center gap-[12px] flex-1 min-w-0">
-                          <p className="text-[14px] font-medium text-black text-left truncate">{type}</p>
-                        </div>
-
-                        {/* Right: Radio Button */}
-                        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0 ml-3">
-                          {isSelected ? (
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="10" cy="10" r="9" stroke="#e4572e" strokeWidth="2" fill="none" />
-                              <circle cx="10" cy="10" r="4" fill="#e4572e" />
-                            </svg>
-                          ) : (
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="10" cy="10" r="9" stroke="#9E9E9E" strokeWidth="1.5" fill="none" />
-                            </svg>
-                          )}
-                        </div>
+                        <p className="text-[12px] font-medium text-black text-left">{type}</p>
                       </button>
                     );
                   }))}
@@ -1249,7 +1249,7 @@ const History = ({ onVendorClick }) => {
           style={{ fontFamily: "'Manrope', sans-serif" }}
         >
           <div
-            className="bg-white rounded-t-2xl w-full max-w-[360px] p-[16px] relative"
+            className="bg-white rounded-t-2xl w-full p-[16px] h-[220px] relative"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2">
@@ -1285,14 +1285,12 @@ const History = ({ onVendorClick }) => {
                         }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                       </button>
                     ) : (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
                     )}
@@ -1319,14 +1317,12 @@ const History = ({ onVendorClick }) => {
                         }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                       </button>
                     ) : (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
                     )}
@@ -1353,14 +1349,12 @@ const History = ({ onVendorClick }) => {
                         }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                       </button>
                     ) : (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
                     )}
@@ -1387,43 +1381,18 @@ const History = ({ onVendorClick }) => {
                         }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
                       </button>
                     ) : (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                         <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="flex gap-[16px]">
-              <button
-                type="button"
-                onClick={() => {
-                  setVendorContractorFilter('');
-                  setEntryNoFilter('');
-                  setProjectNameFilter('');
-                  setPaymentModeFilter('');
-                  setShowFilterModal(false);
-                }}
-                className="px-[24px] w-full py-[8px] text-[14px] font-semibold text-black border border-[rgba(0,0,0,0.16)] rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowFilterModal(false)}
-                className="px-[24px] py-[8px] w-full text-[14px] font-semibold text-white bg-black rounded-lg"
-              >
-                Save
-              </button>
             </div>
           </div>
         </div>

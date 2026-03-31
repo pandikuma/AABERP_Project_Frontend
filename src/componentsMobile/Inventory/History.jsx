@@ -7,8 +7,9 @@ import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import Filter from '../Images/Filter.png'
 import Close from '../Images/close.png'
 import Search from '../Images/Search.png'
+import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 
-const History = ({ onTabChange }) => {
+const History = ({ onTabChange, user } = {}) => {
   // Prevent whole-page scroll; keep only inner list scrollable
   useEffect(() => {
     const prevBodyOverflow = document.body.style.overflow;
@@ -48,6 +49,29 @@ const History = ({ onTabChange }) => {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showInchargeDropdown, setShowInchargeDropdown] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+
+  // Resolve module permissions from user's roles (used to block Edit/Delete on History cards).
+  const [modulePermissions, setModulePermissions] = useState([]);
+  useEffect(() => {
+    const moduleName = 'Inventory';
+    const resolvedUserRoles =
+      user?.userRoles ||
+      (() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          return stored?.userRoles || [];
+        } catch {
+          return [];
+        }
+      })();
+
+    fetchUserModulePermissions(resolvedUserRoles, moduleName)
+      .then(setModulePermissions)
+      .catch(() => setModulePermissions([]));
+  }, [user?.userRoles]);
+
+  const canEdit = modulePermissions.includes('Edit');
+  const canDelete = modulePermissions.includes('Delete');
 
   // Fetch client data
   useEffect(() => {
@@ -673,6 +697,10 @@ const History = ({ onTabChange }) => {
 
   // Handle edit (for update)
   const handleEdit = async (item) => {
+    if (!canEdit) {
+      alert("You don't have permission to edit.");
+      return;
+    }
     try {
       // Get the original inventory item data (should already have inventoryItems from originalItem)
       let inventoryData = item.originalItem || item;
@@ -839,6 +867,10 @@ const History = ({ onTabChange }) => {
 
   // Handle delete
   const handleDelete = (itemId) => {
+    if (!canDelete) {
+      alert("You don't have permission to delete.");
+      return;
+    }
     console.log('Delete item:', itemId);
     // TODO: Implement delete functionality
     setExpandedItemId(null);
@@ -1034,7 +1066,7 @@ const History = ({ onTabChange }) => {
       </div>
 
       {/* History List */}
-      <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pt-[8px]">
+      <div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pt-[6px]">
         {loading ? (
           <div className="flex items-center justify-center py-[32px]">
             <p className="text-[12px] text-gray-500">Loading...</p>
@@ -1182,7 +1214,10 @@ const History = ({ onTabChange }) => {
                         e.stopPropagation();
                         handleEdit(item);
                       }}
-                      className="action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm"
+                      disabled={!canEdit}
+                      className={`action-button w-[48px] h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center gap-1.5 hover:bg-[#22a882] transition-colors shadow-sm ${
+                        !canEdit ? 'opacity-50 cursor-not-allowed hover:bg-[#007233]' : ''
+                      }`}
                       title="Edit"
                     >
                       <img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
@@ -1192,7 +1227,10 @@ const History = ({ onTabChange }) => {
                         e.stopPropagation();
                         handleDelete(item.id);
                       }}
-                      className="action-button w-[48px] h-[95px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm"
+                      disabled={!canDelete}
+                      className={`action-button w-[48px] h-[95px] bg-[#E4572E] flex rounded-[6px] items-center justify-center gap-1.5 hover:bg-[#cc4d26] transition-colors shadow-sm ${
+                        !canDelete ? 'opacity-50 cursor-not-allowed hover:bg-[#E4572E]' : ''
+                      }`}
                       title="Delete"
                     >
                       <img src={Delete} alt="Delete" className="w-[18px] h-[18px]" />
@@ -1310,7 +1348,7 @@ const History = ({ onTabChange }) => {
                     <button
                       type="button"
                       onClick={() => setShowDatePicker(true)}
-                      className="w-full h-[32px] px-[12px] border border-gray-300 rounded text-[14px] bg-white focus:outline-none focus:border-gray-400 flex items-center justify-between"
+                      className="w-full h-[32px] px-[12px] border border-gray-300 rounded font-semibold text-[12px] bg-white focus:outline-none focus:border-gray-400 flex items-center justify-between"
                       style={{ fontFamily: "'Manrope', sans-serif" }}
                     >
                       <span className={`${filterDate ? 'text-black' : 'text-[#9E9E9E]'} truncate`}>

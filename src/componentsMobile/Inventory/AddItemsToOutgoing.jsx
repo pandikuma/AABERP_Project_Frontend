@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import CloseIcon from '../Images/Close F.svg';
+import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 
 const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selectedCategory = '', onCategoryChange, onRefreshItemName, onRefreshModel, onRefreshBrand, onRefreshType }) => {
   const [formData, setFormData] = useState({
@@ -18,6 +19,21 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [showBrandModal, setShowBrandModal] = useState(false);
   const [quantityError, setQuantityError] = useState('');
+
+  // Resolve module permissions (Create/Edit/Delete) for mobile create actions.
+  const [modulePermissions, setModulePermissions] = useState([]);
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || '{}');
+      fetchUserModulePermissions(stored?.userRoles || [], 'Inventory')
+        .then(setModulePermissions)
+        .catch(() => setModulePermissions([]));
+    } catch {
+      setModulePermissions([]);
+    }
+  }, []);
+
+  const canCreate = modulePermissions.includes('Create');
 
   // State for PO item names from API
   const [poItemName, setPoItemName] = useState([]);
@@ -203,7 +219,9 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
       // Merge with saved names from localStorage
       const savedItemNames = localStorage.getItem('itemNameOptions');
       const savedNames = savedItemNames ? JSON.parse(savedItemNames) : [];
-      const allItemNames = [...new Set([...filteredItemNames, ...savedNames])];
+      // Keep localStorage suggestions only if they belong to current category
+      const savedNamesInCategory = savedNames.filter((n) => filteredItemNames.includes(n));
+      const allItemNames = [...new Set([...filteredItemNames, ...savedNamesInCategory])];
       setItemNameOptions(allItemNames);
     } else {
       // If no API data, load from localStorage
@@ -217,7 +235,8 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
       const filteredModels = filterByCategory(poModel, ['model', 'poModel', 'modelName', 'name'], 'category');
       const savedModels = localStorage.getItem('modelOptions');
       const savedModelNames = savedModels ? JSON.parse(savedModels) : [];
-      const allModels = [...new Set([...filteredModels, ...savedModelNames])];
+      const savedModelsInCategory = savedModelNames.filter((n) => filteredModels.includes(n));
+      const allModels = [...new Set([...filteredModels, ...savedModelsInCategory])];
       setModelOptions(allModels);
     } else {
       const savedModels = localStorage.getItem('modelOptions');
@@ -231,7 +250,8 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
       const filteredBrands = filterByCategory(poBrand, ['brand', 'poBrand', 'brandName', 'name'], 'category');
       const savedBrands = localStorage.getItem('brandOptions');
       const savedBrandNames = savedBrands ? JSON.parse(savedBrands) : [];
-      const allBrands = [...new Set([...filteredBrands, ...savedBrandNames])];
+      const savedBrandsInCategory = savedBrandNames.filter((n) => filteredBrands.includes(n));
+      const allBrands = [...new Set([...filteredBrands, ...savedBrandsInCategory])];
       setBrandOptions(allBrands);
     } else {
       const savedBrands = localStorage.getItem('brandOptions');
@@ -248,7 +268,8 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
       const filteredTypesCombined = [...new Set([...filteredTypes1, ...filteredTypes2])];
       const savedTypes = localStorage.getItem('typeOptions');
       const savedTypeNames = savedTypes ? JSON.parse(savedTypes) : [];
-      const allTypes = [...new Set([...filteredTypesCombined, ...savedTypeNames])];
+      const savedTypesInCategory = savedTypeNames.filter((n) => filteredTypesCombined.includes(n));
+      const allTypes = [...new Set([...filteredTypesCombined, ...savedTypesInCategory])];
       setTypeOptions(allTypes);
     } else {
       const savedTypes = localStorage.getItem('typeOptions');
@@ -349,6 +370,10 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
     if (!newCategory || !newCategory.trim()) {
       return;
     }
+    if (!canCreate) {
+      alert("You don't have permission to create categories.");
+      return;
+    }
     try {
       const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/save', {
         method: 'POST',
@@ -433,6 +458,10 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
     }
   };
   const handleSubmitItemName = async (itemName, selectedCategory) => {
+    if (!canCreate) {
+      alert("You don't have permission to create item names.");
+      return;
+    }
     const categoryToUse = selectedCategory || formData.category || '';
     const payload = {
       itemName: itemName,
@@ -462,6 +491,10 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
     }
   };
   const handleSubmitModel = async (model, selectedCategory) => {
+    if (!canCreate) {
+      alert("You don't have permission to create models.");
+      return;
+    }
     const categoryToUse = selectedCategory || formData.category || '';
     const categoryOption = categoryOptions.find(cat =>
       cat.label === categoryToUse || cat.value === categoryToUse
@@ -493,6 +526,10 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
     }
   };
   const handleSubmitBrand = async (brand, selectedCategory) => {
+    if (!canCreate) {
+      alert("You don't have permission to create brands.");
+      return;
+    }
     const categoryToUse = selectedCategory || formData.category || '';
     const categoryOption = categoryOptions.find(cat =>
       cat.label === categoryToUse || cat.value === categoryToUse
@@ -524,6 +561,10 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
     }
   };
   const handleSubmitType = async (typeColor, selectedCategory) => {
+    if (!canCreate) {
+      alert("You don't have permission to create types.");
+      return;
+    }
     const categoryToUse = selectedCategory || formData.category || '';
     const categoryOption = categoryOptions.find(cat =>
       cat.label === categoryToUse || cat.value === categoryToUse
@@ -870,7 +911,7 @@ const AddItemsToOutgoing = ({ isOpen, onClose, onAdd, initialData = {}, selected
                 );
               })()}
             </div>
-            <div className="mt-5 mb-3 flex gap-[16px]">
+            <div className="mt-5 mb-3 flex gap-[16px] sticky bottom-0 bg-white z-[10]">
               <button
                 onClick={onClose}
                 className="w-full h-[40px] border border-[#949494] rounded-[8px] text-[14px] font-bold text-[#363636] bg-white leading-normal"

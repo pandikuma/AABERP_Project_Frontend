@@ -9,6 +9,7 @@ import SearchItemsModal from '../PurchaseOrder/SearchItemsModal';
 import editIcon from '../Images/edit.png';
 import jsPDF from 'jspdf';
 import CloseIcon from '../Images/Close F.svg'
+import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 const Incoming = ({ user }) => {
   // Prevent whole-page scroll; keep only inner lists scrollable
   useEffect(() => {
@@ -23,6 +24,28 @@ const Incoming = ({ user }) => {
       document.documentElement.style.overflow = prevHtmlOverflow;
     };
   }, []);
+
+  // Resolve module permissions (Create/Edit/Delete) for mobile create actions.
+  const [modulePermissions, setModulePermissions] = useState([]);
+  useEffect(() => {
+    const moduleName = 'Inventory';
+    const resolvedUserRoles =
+      user?.userRoles ||
+      (() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          return stored?.userRoles || [];
+        } catch {
+          return [];
+        }
+      })();
+
+    fetchUserModulePermissions(resolvedUserRoles, moduleName)
+      .then(setModulePermissions)
+      .catch(() => setModulePermissions([]));
+  }, [user?.userRoles]);
+
+  const canCreate = modulePermissions.includes('Create');
   // Helper functions for date
   const getTodayDate = () => {
     const today = new Date();
@@ -575,13 +598,19 @@ const Incoming = ({ user }) => {
       const poNumber = inventoryItem.purchase_no || inventoryItem.purchaseNo || inventoryItem.purchase_number || '';
 
       // Set incoming data (including inventoryId if in edit mode)
+      const resolvedInventoryId =
+        inventoryItem.id ||
+        inventoryItem.inventoryId ||
+        inventoryItem.inventoryManagementId ||
+        inventoryItem.inventory_management_id ||
+        null;
       setIncomingData({
         poNumber: poNumber === 'NO_PO' ? '' : poNumber,
         vendorName: vendorName,
         vendorId: vendorId,
         stockingLocation: stockingLocation,
         date: formattedDate,
-        inventoryId: editMode && inventoryItem.id ? inventoryItem.id : null
+        inventoryId: editMode ? resolvedInventoryId : null
       });
 
       // Process inventory items
@@ -1400,6 +1429,11 @@ const Incoming = ({ user }) => {
 
       // Check if this is an update or new record
       const isUpdate = isEditMode && incomingData.inventoryId;
+      // `/save` is used for creating new inventory records; block it if user lacks `Create`.
+      if (!isUpdate && !canCreate) {
+        alert("You don't have permission to create new Inventory entries.");
+        return;
+      }
 
       let payload = {
         vendor_id: incomingData.vendorId,
@@ -1501,8 +1535,11 @@ const Incoming = ({ user }) => {
   };
   return (
     <div
-      className="flex flex-col h-[calc(100vh-90px-80px)] overflow-hidden"
-      style={{ '--incoming-dropdown-max-height': 'calc(100vh - 90px - 80px)' }}
+      className="flex flex-col overflow-hidden"
+      style={{
+        height: 'calc(100svh - 90px - 80px)',
+        '--incoming-dropdown-max-height': 'calc(100svh - 90px - 80px)'
+      }}
     >
       {/* PO Number and Date Row - Only show when not in empty state */}
       {!isEmptyState && (
@@ -1921,10 +1958,12 @@ const Incoming = ({ user }) => {
         stockingLocationId={(() => {
           const stockingLocationSite = siteOptions.find(
             site => site.value === incomingData.stockingLocation && site.markedAsStockingLocation === true
-          ); console.log("stockingLocationId", stockingLocationSite?.id);
+          ); 
           return stockingLocationSite?.id || null;
         })()}
         disableAvailabilityCheck={true}
+        useInventoryData={true}
+        useMappedItemNameDisplay={true}
       />
       <SelectVendorModal
         isOpen={showPOModal}

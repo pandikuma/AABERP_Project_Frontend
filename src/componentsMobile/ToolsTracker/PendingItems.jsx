@@ -1426,7 +1426,7 @@ const PendingItems = ({ user }) => {
             <div className="flex-shrink-0 flex items-center justify-between px-[24px] pt-[20px] pb-[4px]">
               <p className="text-[16px] font-bold text-black">Select Filters</p>
               <button type="button" onClick={() => setShowFilterSheet(false)} className="text-[#e06256] text-xl font-bold leading-none">
-                ×
+              <img src={Close} alt="close" className="w-[11px] h-[11px]" />
               </button>
             </div>
             {/* Backdrop for dropdown */}

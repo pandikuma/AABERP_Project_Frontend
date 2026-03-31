@@ -22,6 +22,7 @@ import Summary from './Summary';
 import editIcon from '../Images/edit.png';
 import SearchBlack from '../Images/search black.png';
 import CloseIcon from '../Images/Close F.svg'
+import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 
 // Module-level cache that persists across component remounts
 const siteEngineersCache = { data: null };
@@ -37,6 +38,28 @@ const PurchaseOrder = ({ user, onLogout }) => {
   });
   const [showAddItems, setShowAddItems] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+
+  // Resolve module permissions (Create/Edit/Delete) for mobile actions.
+  const [modulePermissions, setModulePermissions] = useState([]);
+  useEffect(() => {
+    const moduleName = 'Purchase Order';
+    const resolvedUserRoles =
+      user?.userRoles ||
+      (() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          return stored?.userRoles || [];
+        } catch {
+          return [];
+        }
+      })();
+
+    fetchUserModulePermissions(resolvedUserRoles, moduleName)
+      .then(setModulePermissions)
+      .catch(() => setModulePermissions([]));
+  }, [user?.userRoles]);
+
+  const canCreate = modulePermissions.includes('Create');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
@@ -2228,6 +2251,11 @@ const PurchaseOrder = ({ user, onLogout }) => {
         })
       };
       const isEditingExistingPo = isEditMode && poData.originalId;
+      // `/save` is only used for creating new PO; block it if user lacks `Create`.
+      if (!isEditingExistingPo && !canCreate) {
+        alert("You don't have permission to create a new Purchase Order.");
+        return;
+      }
       const baseUrl = "https://backendaab.in/aabuildersDash/api/purchase_orders";
       const url = isEditingExistingPo
         ? `${baseUrl}/edit_with_history/${poData.originalId}?changedBy=${encodeURIComponent(username)}`
@@ -2590,8 +2618,8 @@ const PurchaseOrder = ({ user, onLogout }) => {
         2: { cellWidth: 75 }, // ITEM NAME
         3: { cellWidth: 28 }, // MODEL
         4: { cellWidth: 20 }, // TYPE
-        5: { cellWidth: 13 }, // QTY
-        6: { cellWidth: 17 }  // PRICE
+        5: { cellWidth: 15 }, // QTY
+        6: { cellWidth: 15 }  // PRICE
       }
       : isVATradersVendor
         ? {
@@ -2611,8 +2639,8 @@ const PurchaseOrder = ({ user, onLogout }) => {
           3: { cellWidth: 28 }, // MODEL
           4: { cellWidth: 20 }, // BRAND
           5: { cellWidth: 20 }, // TYPE
-          6: { cellWidth: 13 }, // QTY
-          7: { cellWidth: 17 }  // PRICE
+          6: { cellWidth: 15 }, // QTY
+          7: { cellWidth: 15 }  // PRICE
         };
     autoTable(doc, {
       startY: 52,
@@ -2803,6 +2831,9 @@ const PurchaseOrder = ({ user, onLogout }) => {
     if (page === 'request-for-quotation') {
       setCurrentPage('request-for-quotation');
       navigate('/rfq');
+    } else if (page === 'billing') {
+      setCurrentPage('billing');
+      navigate('/tracker/pendingbill');
     } else if (page === 'purchase-order') {
       setCurrentPage('purchase-order');
       navigate('/purchaseorder');
@@ -2837,7 +2868,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
       {/* Content Area */}
       <div className="mt-[96px] h-[calc(100vh-96px-80px)] overflow-hidden">
         {/* History Tab Content */}
-        {activeTab === 'history' && <History />}
+        {activeTab === 'history' && <History user={user} />}
         {/* Input Data Tab Content */}
         {activeTab === 'input' && <InputData />}
         {/* Summary Tab Content */}
@@ -2887,8 +2918,10 @@ const PurchaseOrder = ({ user, onLogout }) => {
                     <button
                       type="button"
                       onClick={generatePO}
-                      disabled={isGenerating || isGeneratePrecheckRunning}
-                      className={`text-[12px] font-semibold leading-normal ${(isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'}`}
+                      disabled={!canCreate || isGenerating || isGeneratePrecheckRunning}
+                      className={`text-[12px] font-semibold leading-normal ${
+                        (!canCreate || isGenerating || isGeneratePrecheckRunning) ? 'text-gray-400 cursor-not-allowed' : 'text-black'
+                      }`}
                     >
                       {(isGenerating || isGeneratePrecheckRunning) ? (isEditFromHistory ? 'Updating...' : 'Generating...') : (isEditFromHistory ? 'Update PO' : 'Generate PO')}
                     </button>
@@ -3392,6 +3425,8 @@ const PurchaseOrder = ({ user, onLogout }) => {
           getAvailableItems={getAvailableItems}
           existingItems={items}
           onRefreshData={fetchPoItemName}
+          useInventoryData={true}
+          useMappedItemNameDisplay={true}
         />
         <DuplicatePOConfirmModal
           isOpen={showDuplicatePOConfirm}
