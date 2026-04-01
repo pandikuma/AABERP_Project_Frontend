@@ -13,26 +13,21 @@ const LoanPortal = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState('loan-portal');
-  
   // Load activeTab from localStorage on mount, default to 'loanform'
   const [activeTab, setActiveTab] = useState(() => {
     const savedTab = localStorage.getItem('loanPortalActiveTab');
     return savedTab || 'loanform';
   });
-
   // Save activeTab to localStorage when it changes
   React.useEffect(() => {
     localStorage.setItem('loanPortalActiveTab', activeTab);
   }, [activeTab]);
-
   const handleMenuClick = () => {
     setSidebarOpen(true);
   };
-
   const handleSidebarClose = () => {
     setSidebarOpen(false);
   };
-
   const handleNavigate = (page) => {
     if (page === 'purchase-order') {
       setCurrentPage('purchase-order');
@@ -54,7 +49,6 @@ const LoanPortal = ({ user, onLogout }) => {
       navigate('/loan');
     }
   };
-
   return (
     <div className="relative w-full min-h-screen bg-white max-w-[360px] mx-auto" style={{ fontFamily: "'Manrope', sans-serif" }}>
       {/* Sidebar */}
@@ -91,5 +85,4 @@ const LoanPortal = ({ user, onLogout }) => {
     </div>
   );
 };
-
 export default LoanPortal;

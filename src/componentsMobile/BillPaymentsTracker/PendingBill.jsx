@@ -99,9 +99,16 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [rangeStart, setRangeStart] = useState('');
 	const [rangeEnd, setRangeEnd] = useState('');
 	const [showFillRangeSheet, setShowFillRangeSheet] = useState(false);
-	const [purchaseOrders, setPurchaseOrders] = useState([]);
-	const [lastPoNumber, setLastPoNumber] = useState(null);
+	const [purchaseOrders, setPurchaseOrders] = useState([]); // vendor-filtered orders for Check PO
+	const [purchaseOrdersAll, setPurchaseOrdersAll] = useState([]); // cached for active branch
+	const [loadingPurchaseOrders, setLoadingPurchaseOrders] = useState(false);
+	const [lastPoNumber, setLastPoNumber] = useState(null); // matches desktop: last verified bill number from previous entry
 	const [poValidation, setPoValidation] = useState({}); // { [index]: { matched: boolean, message: string } }
+	const [checkedBills, setCheckedBills] = useState({}); // { [index]: true } only when matched/verified after Check PO
+	const [isEditMode, setIsEditMode] = useState(false);
+	const [noPoSelections, setNoPoSelections] = useState({}); // { [index]: true } => bill_number = "NO_PO"
+	const [isDuplicateMode, setIsDuplicateMode] = useState(false);
+	const [duplicateSelections, setDuplicateSelections] = useState({}); // { [index]: true }
 	const [checkingPO, setCheckingPO] = useState(false);
 	const [submittingVerify, setSubmittingVerify] = useState(false);
 	const [showAddSheet, setShowAddSheet] = useState(false);
@@ -184,39 +191,144 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		return `₹${n.toLocaleString('en-IN')}`;
 	};
 
-	const formatRelativeDateLabel = (input) => {
-		if (!input) return '';
-		try {
-			const d0 = new Date(input);
-			if (isNaN(d0.getTime())) return '';
-			const now = new Date();
-			const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-			const yesterday = new Date(today);
-			yesterday.setDate(yesterday.getDate() - 1);
-			const dateOnly = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate());
-			if (dateOnly.getTime() === today.getTime()) return 'Today';
-			if (dateOnly.getTime() === yesterday.getTime()) return 'Yesterday';
-			const dd = String(d0.getDate()).padStart(2, '0');
-			const mm = String(d0.getMonth() + 1).padStart(2, '0');
-			const yyyy = d0.getFullYear();
-			return `${dd}/${mm}/${yyyy}`;
-		} catch {
-			return '';
+	/** Parse API date fields: ISO string, DD/MM/YYYY, millis, or Jackson LocalDateTime array [y,m,d,h,mi,s]. */
+	const parseTrackerDateValue = (input) => {
+		if (input == null || input === '') return null;
+		if (input instanceof Date) {
+			return isNaN(input.getTime()) ? null : input;
 		}
+		if (Array.isArray(input)) {
+			const y = input[0];
+			const mo = input[1];
+			const day = input[2];
+			const h = input[3] ?? 0;
+			const mi = input[4] ?? 0;
+			const s = input[5] ?? 0;
+			if (y == null || mo == null || day == null) return null;
+			const dt = new Date(Number(y), Number(mo) - 1, Number(day), Number(h), Number(mi), Number(s));
+			return isNaN(dt.getTime()) ? null : dt;
+		}
+		if (typeof input === 'string') {
+			const trimmed = input.trim();
+			if (!trimmed) return null;
+			const slash = trimmed.match(
+				/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*,\s*(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/
+			);
+			if (slash) {
+				const [, dd, mm, yyyy, HH, MM, SS] = slash;
+				const dt = new Date(
+					Number(yyyy),
+					Number(mm) - 1,
+					Number(dd),
+					Number(HH ?? 0),
+					Number(MM ?? 0),
+					Number(SS ?? 0)
+				);
+				return isNaN(dt.getTime()) ? null : dt;
+			}
+			const dt = new Date(trimmed);
+			return isNaN(dt.getTime()) ? null : dt;
+		}
+		if (typeof input === 'number' && Number.isFinite(input)) {
+			const dt = new Date(input);
+			return isNaN(dt.getTime()) ? null : dt;
+		}
+		return null;
 	};
 
-	const formatBillArrival = (input) => {
-		if (!input) return '';
-		const d = new Date(input);
-		if (isNaN(d.getTime())) return '';
-		const dd = String(d.getDate()).padStart(2, '0');
-		const mm = String(d.getMonth() + 1).padStart(2, '0');
-		const yyyy = d.getFullYear();
-		const HH = String(d.getHours()).padStart(2, '0');
-		const MM = String(d.getMinutes()).padStart(2, '0');
-		const SS = String(d.getSeconds()).padStart(2, '0');
-		const rel = formatRelativeDateLabel(input) || '';
-		return `${rel} • ${dd}/${mm}/${yyyy}, ${HH}:${MM}:${SS}`;
+	const formatDdMmYyyyFromDate = (d) => {
+		if (!d || isNaN(d.getTime())) return '';
+		const day = String(d.getDate()).padStart(2, '0');
+		const month = String(d.getMonth() + 1).padStart(2, '0');
+		const year = d.getFullYear();
+		return `${day}/${month}/${year}`;
+	};
+
+	const formatTime12hFromDate = (d) => {
+		if (!d || isNaN(d.getTime())) return '';
+		let hours = d.getHours();
+		const minutes = String(d.getMinutes()).padStart(2, '0');
+		const ampm = hours >= 12 ? 'PM' : 'AM';
+		hours = hours % 12;
+		hours = hours ? String(hours).padStart(2, '0') : '12';
+		return `${hours}:${minutes} ${ampm}`;
+	};
+
+	/** First segment: Today / Yesterday / DD/MM/YYYY (calendar of `d`). */
+	const relativeOrDdMmYyyy = (d) => {
+		if (!d || isNaN(d.getTime())) return '';
+		const now = new Date();
+		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const yesterday = new Date(today);
+		yesterday.setDate(yesterday.getDate() - 1);
+		const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+		if (dateOnly.getTime() === today.getTime()) return 'Today';
+		if (dateOnly.getTime() === yesterday.getTime()) return 'Yesterday';
+		return formatDdMmYyyyFromDate(d);
+	};
+
+	/** Same pattern as BillDatabase.js `formatDate`: DD/MM/YYYY HH:MM AM/PM */
+	const formatBillDatabaseDateFromDate = (date) => {
+		if (!date || isNaN(date.getTime())) return '-';
+		const day = String(date.getDate()).padStart(2, '0');
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const year = date.getFullYear();
+		let hours = date.getHours();
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const ampm = hours >= 12 ? 'PM' : 'AM';
+		hours = hours % 12;
+		hours = hours ? String(hours).padStart(2, '0') : '12';
+		return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
+	};
+
+	/**
+	 * List card subtitle parts: `[arrival-relative|date] • [timestamp date] • [time]`
+	 * Dates are rendered bold; time stays regular (see renderBillCardDateLineParts).
+	 */
+	const getPendingBillCardDateLineParts = (row) => {
+		const arrivalRaw = row?.bill_arrival_date ?? row?.billArrivalDate;
+		const tsRaw = row?.timestamp ?? row?.created_at ?? row?.createdAt;
+		const arrivalDate = parseTrackerDateValue(arrivalRaw);
+		const tsDate = parseTrackerDateValue(tsRaw);
+		if (!arrivalDate && !tsDate) return null;
+		const seg1 = arrivalDate ? relativeOrDdMmYyyy(arrivalDate) : relativeOrDdMmYyyy(tsDate);
+		const seg2 = tsDate ? formatDdMmYyyyFromDate(tsDate) : formatDdMmYyyyFromDate(arrivalDate);
+		const timeSource = tsDate || arrivalDate;
+		const seg3 = formatTime12hFromDate(timeSource);
+		if (!seg1 || !seg2 || !seg3) {
+			const d = tsDate || arrivalDate;
+			if (!d) return null;
+			const single = formatBillDatabaseDateFromDate(d);
+			if (single === '-') return null;
+			const m = single.match(/^(\d{2}\/\d{2}\/\d{4})\s+(.+)$/);
+			if (m) return { kind: 'single', datePart: m[1], timePart: m[2] };
+			return { kind: 'plain', text: single };
+		}
+		return { kind: 'triple', seg1, seg2, seg3 };
+	};
+
+	const renderBillCardDateLineParts = (parts) => {
+		if (!parts) return null;
+		if (parts.kind === 'triple') {
+			return (
+				<>
+					<span className="font-bold text-[#111827]">{parts.seg1}</span>
+					<span className="font-medium text-[#777777]"> • </span>
+					<span className="font-medium text-[#777777]">{parts.seg2}</span>
+					<span className="font-medium text-[#777777]"> • </span>
+					<span className="font-medium text-[#777777]">{parts.seg3}</span>
+				</>
+			);
+		}
+		if (parts.kind === 'single') {
+			return (
+				<>
+					<span className="font-bold text-[#111827]">{parts.datePart}</span>
+					<span className="font-medium text-[#777777]"> {parts.timePart}</span>
+				</>
+			);
+		}
+		return <span className="font-medium text-[#777777]">{parts.text}</span>;
 	};
 
 	const getBillVerificationStatus = (item) => {
@@ -236,18 +348,89 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		const total = Math.max(0, noOfBills + extraBills);
 		// Prefer already-saved bill numbers from backend.
 		const existingVerifications = bill?.billVerifications || bill?.bill_verifications || [];
+		const nextNoPo = {};
 		const existingNumbers = Array.isArray(existingVerifications)
 			? existingVerifications
 				.map((v) => v?.bill_number ?? v?.billNumber ?? '')
-				.map((v) => String(v || '').trim())
+				.map((v, idx) => {
+					const s = String(v || '').trim();
+					if (s === 'NO_PO') {
+						nextNoPo[idx] = true;
+						return '';
+					}
+					return s;
+				})
 			: [];
 		const padded = [...existingNumbers];
 		while (padded.length < total) padded.push('');
 		setVerifyBoxes(padded.slice(0, total));
+		setNoPoSelections(nextNoPo);
+		setIsEditMode(false);
+		setIsDuplicateMode(false);
+		setDuplicateSelections({});
+		setCheckedBills({});
+		setPoValidation({});
 		setRangeStart('');
 		setRangeEnd('');
+		// Desktop behavior: Last PO comes from the previous verified entry for this vendor (not max purchase order ENO).
+		const vendorId = bill?.vendor_id ?? bill?.vendorId ?? null;
+		const lastFromHistory = getLastBillNumberForVendor(vendorId, bill);
+		setLastPoNumber(lastFromHistory || null);
 		setShowVerifyModal(true);
 		setActiveFullScreen('verify');
+	};
+
+	const getLastBillNumberForVendor = (vendorId, currentBill = null) => {
+		if (!vendorId || !Array.isArray(apiData) || apiData.length === 0) return null;
+		const vId = String(vendorId);
+		const vendorBills = apiData.filter((bill) => {
+			const id = bill?.vendor_id ?? bill?.vendorId ?? null;
+			const verifications = bill?.billVerifications || bill?.bill_verifications || [];
+			return String(id ?? '') === vId && Array.isArray(verifications) && verifications.length > 0;
+		});
+		if (vendorBills.length === 0) return null;
+
+		vendorBills.sort((a, b) => {
+			const dateA = a?.bill_arrival_date || a?.billArrivalDate || a?.created_at || a?.createdAt || '';
+			const dateB = b?.bill_arrival_date || b?.billArrivalDate || b?.created_at || b?.createdAt || '';
+			if (dateA && dateB) {
+				const diff = new Date(dateA) - new Date(dateB);
+				if (diff !== 0) return diff;
+			}
+			return Number(a?.id ?? a?.bill_id ?? 0) - Number(b?.id ?? b?.bill_id ?? 0);
+		});
+
+		const currentBillId = currentBill ? (currentBill.id ?? currentBill.bill_id ?? null) : null;
+		const currentDateRaw = currentBill ? (currentBill.bill_arrival_date || currentBill.billArrivalDate || currentBill.created_at || currentBill.createdAt) : null;
+		const currentTime = currentDateRaw ? new Date(currentDateRaw).getTime() : null;
+
+		let previousEntryBill = null;
+		const currentIndex = currentBillId != null
+			? vendorBills.findIndex((b) => (b?.id ?? b?.bill_id) === currentBillId)
+			: -1;
+
+		if (currentIndex > 0) {
+			previousEntryBill = vendorBills[currentIndex - 1];
+		} else if (currentIndex === -1 && currentTime != null && Number.isFinite(currentTime)) {
+			const beforeCurrent = vendorBills.filter((bill) => {
+				const d = bill?.bill_arrival_date || bill?.billArrivalDate || bill?.created_at || bill?.createdAt;
+				if (!d) return false;
+				const t = new Date(d).getTime();
+				if (!Number.isFinite(t)) return false;
+				return t < currentTime;
+			});
+			previousEntryBill = beforeCurrent.length > 0 ? beforeCurrent[beforeCurrent.length - 1] : null;
+		}
+
+		if (!previousEntryBill) return null;
+		const verifications = previousEntryBill?.billVerifications || previousEntryBill?.bill_verifications || [];
+		if (!Array.isArray(verifications) || verifications.length === 0) return null;
+		for (let i = verifications.length - 1; i >= 0; i--) {
+			const billNumber = verifications[i]?.bill_number ?? verifications[i]?.billNumber ?? '';
+			const s = String(billNumber || '').trim();
+			if (s && s !== 'NO_PO') return s;
+		}
+		return null;
 	};
 
 	const getNumericEno = (poOrEno) => {
@@ -257,26 +440,187 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		return m ? Number(m[0]) : 0;
 	};
 
-	const fetchPurchaseOrdersForVendor = async (vendorId) => {
+	const ensureAllPurchaseOrdersLoaded = async () => {
+		if (purchaseOrdersAll.length > 0 || loadingPurchaseOrders) return purchaseOrdersAll;
+		setLoadingPurchaseOrders(true);
 		try {
 			const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll', {
 				method: 'GET',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' }
 			});
-			if (!res.ok) return { orders: [], lastEno: null };
+			if (!res.ok) return [];
 			const data = await res.json();
 			const all = Array.isArray(data) ? data : [];
+			setPurchaseOrdersAll(all);
+			return all;
+		} catch {
+			return [];
+		} finally {
+			setLoadingPurchaseOrders(false);
+		}
+	};
+
+	const isAdminUser = () => {
+		// Match desktop behavior exactly.
+		return username === 'Admin' || username === 'Mahalingam M';
+	};
+
+	const updateDuplicateStatus = async (index, checked) => {
+		try {
+			const persisted = (selectedVerifyBill?.billVerifications || selectedVerifyBill?.bill_verifications || [])?.[index];
+			const billId = persisted?.id;
+			if (!billId) return;
+			const res = await fetchWithBranch(
+				`https://backendaab.in/aabuildersDash/api/vendor-payments/bill/${billId}/duplicate?duplicate=${checked ? 'true' : 'false'}`,
+				{ method: 'PUT', headers: { 'Content-Type': 'application/json' } }
+			);
+			if (!res.ok) throw new Error('Failed to update duplicate');
+			await reloadTrackers();
+		} catch (e) {
+			alert(`Error updating duplicate status: ${e?.message || 'Failed'}`);
+			setDuplicateSelections((prev) => ({ ...(prev || {}), [index]: !checked }));
+		}
+	};
+
+	const canShowSendRequest = () => {
+		// Desktop: Send Request hidden for admin users.
+		return !isAdminUser();
+	};
+
+	const handleApproveRequest = async () => {
+		try {
+			const trackerId = selectedVerifyBill?.id;
+			if (!trackerId) {
+				alert('Tracker ID not found');
+				return;
+			}
+			const vendorId = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
+			if (!vendorId) {
+				alert('Vendor ID not found');
+				return;
+			}
+			// Ensure validations are up-to-date (desktop re-validates on approve)
+			await checkPO();
+
+			// After checkPO we have poValidation; block if any entered is unmatched/Already Entered/Not checked
+			const values = verifyBoxes.map((v) => String(v || '').trim());
+			const unmatched = [];
+			for (let i = 0; i < values.length; i++) {
+				const billNumber = values[i];
+				if (!billNumber) continue;
+				const v = poValidation?.[i];
+				if (!v || v.matched !== true) unmatched.push(`Bill number ${i + 1} (${billNumber})`);
+			}
+			if (unmatched.length > 0) {
+				alert(`Cannot approve: ${unmatched.join(', ')} is/are not matched. Please change these bill numbers.`);
+				return;
+			}
+
+			// Payload: keep existing bill numbers, set empty to NO_PO (desktop message)
+			const verificationsExisting = selectedVerifyBill?.billVerifications || selectedVerifyBill?.bill_verifications || [];
+			const billsData = verifyBoxes.map((billNumberRaw, i) => {
+				const existingBill = Array.isArray(verificationsExisting) ? verificationsExisting[i] : null;
+				const billNumber = String(billNumberRaw || '').trim();
+				const finalBillNumber = billNumber ? billNumber : 'NO_PO';
+				const payload = {
+					bill_number: finalBillNumber,
+					status: 'VERIFIED',
+					is_verified: true,
+					verified_date: new Date().toISOString(),
+					is_duplicate: !!duplicateSelections?.[i]
+				};
+				if (existingBill?.id) payload.id = existingBill.id;
+				return payload;
+			});
+
+			const billRes = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(billsData)
+			});
+			if (!billRes.ok) throw new Error('Failed to update bill verifications');
+
+			const res = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/approve-request?requestApproved=true`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' }
+			});
+			if (!res.ok) throw new Error('Failed to approve request');
+
+			alert('Request approved successfully! Empty bill numbers have been set to NO_PO, existing bill numbers preserved.');
+			await reloadTrackers();
+			setShowVerifyModal(false);
+			setActiveFullScreen(null);
+		} catch (e) {
+			alert(`Error approving request: ${e?.message || 'Failed'}`);
+		}
+	};
+
+	const handleRejectRequest = async () => {
+		try {
+			const trackerId = selectedVerifyBill?.id;
+			if (!trackerId) {
+				alert('Tracker ID not found');
+				return;
+			}
+			const res = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=false`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' }
+			});
+			if (!res.ok) throw new Error('Failed to reject request');
+			alert('Request rejected successfully!');
+			await reloadTrackers();
+			setShowVerifyModal(false);
+			setActiveFullScreen(null);
+		} catch (e) {
+			alert(`Error rejecting request: ${e?.message || 'Failed'}`);
+		}
+	};
+
+const reloadTrackers = async () => {
+		try {
+			const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers', {
+				method: 'GET',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' }
+			});
+			const text = await res.text();
+			let data = [];
+			try {
+				data = JSON.parse(text);
+			} catch {
+				data = [];
+			}
+			setApiData(Array.isArray(data) ? data : []);
+		} catch {
+			// ignore
+		}
+	};
+
+	const fetchPurchaseOrdersForVendor = async (vendorId) => {
+		try {
+			const all = purchaseOrdersAll.length > 0 ? purchaseOrdersAll : await ensureAllPurchaseOrdersLoaded();
 			const vId = vendorId != null ? String(vendorId) : '';
 			const vendorOrders = vId
 				? all.filter((o) => String(o?.vendor_id ?? o?.vendorId ?? '') === vId)
 				: all;
-			const enos = vendorOrders.map(getNumericEno).filter((n) => Number.isFinite(n) && n > 0);
-			const lastEno = enos.length ? Math.max(...enos) : null;
-			return { orders: vendorOrders, lastEno };
+			return { orders: vendorOrders, lastEno: null };
 		} catch {
 			return { orders: [], lastEno: null };
 		}
+	};
+
+	const hasUnverifiedBillNumbers = () => {
+		const values = verifyBoxes.map((v) => String(v || '').trim());
+		for (let i = 0; i < values.length; i++) {
+			if (noPoSelections?.[i]) continue;
+			const billNumber = values[i];
+			if (!billNumber) continue;
+			const validation = poValidation?.[i];
+			if (!validation || validation.matched !== true) return true;
+			if (!checkedBills?.[i]) return true;
+		}
+		return false;
 	};
 
 	useEffect(() => {
@@ -284,14 +628,20 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		const vendorId = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
 		if (!showVerifyModal || !vendorId) return undefined;
 		(async () => {
-			const { orders, lastEno } = await fetchPurchaseOrdersForVendor(vendorId);
+			// Prime purchase orders cache for fast "Check PO"
+			const { orders } = await fetchPurchaseOrdersForVendor(vendorId);
 			if (!mounted) return;
 			setPurchaseOrders(orders);
-			setLastPoNumber(lastEno);
+			// If Last PO wasn't available during openVerifyModal (apiData not loaded yet), compute now.
+			setLastPoNumber((prev) => {
+				if (prev != null && String(prev).trim() !== '') return prev;
+				const lastFromHistory = getLastBillNumberForVendor(vendorId, selectedVerifyBill);
+				return lastFromHistory || null;
+			});
 		})();
 		return () => { mounted = false; };
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [showVerifyModal, selectedVerifyBill?.vendor_id, selectedVerifyBill?.vendorId, activeBranchId]);
+	}, [showVerifyModal, selectedVerifyBill?.vendor_id, selectedVerifyBill?.vendorId, activeBranchId, apiData.length]);
 
 	const fillRange = () => {
 		const start = Number(rangeStart || 0);
@@ -311,27 +661,134 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		setPoValidation({});
 	};
 
+	// Mirrors desktop PendingBill.js handleCheckPO (same rules; mobile uses one array for regular + extra slots).
 	const checkPO = async () => {
 		if (!selectedVerifyBill) return;
 		setCheckingPO(true);
 		try {
 			const vendorId = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId;
-			const { orders } = await fetchPurchaseOrdersForVendor(vendorId);
-			setPurchaseOrders(orders);
-			const vendorENOs = new Set(
-				orders
-					.map((po) => po?.eno ?? po?.ENO ?? po?.poNumber ?? po?.po_number ?? '')
-					.map((v) => String(v || '').replace('#', '').trim())
-					.filter(Boolean)
+			if (!vendorId) {
+				alert('Vendor ID not found');
+				return;
+			}
+
+			const vendorPurchaseOrders = (purchaseOrders || []).filter(
+				(po) => po?.vendor_id === vendorId || po?.vendorId === vendorId
 			);
-			const nextValidation = {};
-			verifyBoxes.forEach((val, idx) => {
-				const s = String(val || '').trim();
-				if (!s) return;
-				const matched = vendorENOs.has(s);
-				nextValidation[idx] = { matched, message: matched ? 'Matched' : 'Not Matched' };
+			const vendorENOs = vendorPurchaseOrders
+				.map((po) => po?.eno ?? po?.po_number ?? po?.purchase_order_number)
+				.filter((eno) => eno);
+
+			const noOfBills = Number(selectedVerifyBill?.no_of_bills ?? selectedVerifyBill?.noOfBills ?? 0) || 0;
+			const extraBillsCount = Number(selectedVerifyBill?.extra_bills ?? selectedVerifyBill?.extraBills ?? 0) || 0;
+			const poNumbers = verifyBoxes.slice(0, noOfBills).map((v) => String(v ?? ''));
+			const extraPoNumbers = verifyBoxes.slice(noOfBills, noOfBills + extraBillsCount).map((v) => String(v ?? ''));
+
+			const newValidationResults = {};
+			const duplicateNumbers = [];
+			const duplicateMap = {};
+			const currentBillNumbers = poNumbers.filter((num) => num.trim() !== '');
+			currentBillNumbers.forEach((billNumber, index) => {
+				if (duplicateMap[billNumber]) {
+					duplicateMap[billNumber].push(index);
+				} else {
+					duplicateMap[billNumber] = [index];
+				}
 			});
-			setPoValidation(nextValidation);
+			const currentExtraBillNumbers = extraPoNumbers.filter((num) => num.trim() !== '');
+			currentExtraBillNumbers.forEach((billNumber, index) => {
+				if (duplicateMap[billNumber]) {
+					duplicateMap[billNumber].push(`extra-${index}`);
+				} else {
+					duplicateMap[billNumber] = [`extra-${index}`];
+				}
+			});
+			Object.keys(duplicateMap).forEach((billNumber) => {
+				if (duplicateMap[billNumber].length > 1) {
+					duplicateNumbers.push(billNumber);
+				}
+			});
+			if (duplicateNumbers.length > 0) {
+				alert(
+					` Duplicate bill found within the same bill number: ${duplicateNumbers.join(', ')}. Please enter unique bill numbers.`
+				);
+				setCheckingPO(false);
+				return;
+			}
+
+			const currentTrackerId = selectedVerifyBill?.id ?? selectedVerifyBill?.bill_id;
+
+			const runValidationForBill = (billNumber, index) => {
+				const isNoPo = !!noPoSelections?.[index];
+				let isMatched = false;
+				let message = '';
+				if (isNoPo) {
+					isMatched = true;
+					message = 'No PO - Verified';
+				} else if (billNumber.trim()) {
+					let isAlreadyEntered = false;
+					for (const tracker of apiData || []) {
+						const tid = tracker?.id ?? tracker?.bill_id;
+						if (tid === currentTrackerId) continue;
+						const trackerVendorId = tracker?.vendor_id ?? tracker?.vendorId;
+						if (String(trackerVendorId ?? '') !== String(vendorId ?? '')) continue;
+						const verifications = tracker?.billVerifications || tracker?.bill_verifications || [];
+						for (const verification of verifications || []) {
+							const existingBill = verification?.bill_number ?? verification?.billNumber;
+							if (
+								existingBill &&
+								existingBill !== 'NO_PO' &&
+								String(existingBill).trim() === billNumber.trim()
+							) {
+								isAlreadyEntered = true;
+								break;
+							}
+						}
+						if (isAlreadyEntered) break;
+					}
+					if (isAlreadyEntered) {
+						isMatched = false;
+						message = 'Already Entered';
+					} else {
+						isMatched = vendorENOs.includes(billNumber.trim());
+						message = isMatched ? 'Matched' : 'Not Matched';
+					}
+				} else {
+					message = 'No PO Entered';
+				}
+				newValidationResults[index] = { matched: isMatched, message };
+			};
+
+			poNumbers.forEach((billNumber, index) => {
+				runValidationForBill(billNumber, index);
+			});
+			if (extraBillsCount > 0) {
+				extraPoNumbers.forEach((billNumber, index) => {
+					runValidationForBill(billNumber, noOfBills + index);
+				});
+			}
+
+			setPoValidation(newValidationResults);
+
+			const newCheckedBills = {};
+			poNumbers.forEach((billNumber, index) => {
+				const isNoPo = !!noPoSelections?.[index];
+				const validation = newValidationResults[index];
+				if ((isNoPo && isAdminUser()) || (billNumber.trim() && validation && validation.matched)) {
+					newCheckedBills[index] = true;
+				}
+			});
+			if (extraBillsCount > 0) {
+				extraPoNumbers.forEach((billNumber, index) => {
+					const globalIndex = noOfBills + index;
+					const isNoPo = !!noPoSelections?.[globalIndex];
+					const validation = newValidationResults[globalIndex];
+					if ((isNoPo && isAdminUser()) || (billNumber.trim() && validation && validation.matched)) {
+						newCheckedBills[globalIndex] = true;
+					}
+				});
+			}
+			setCheckedBills((prev) => ({ ...(prev || {}), ...newCheckedBills }));
 		} catch {
 			alert('Error checking PO numbers');
 		} finally {
@@ -340,12 +797,12 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	};
 
 	const makeDuplicate = () => {
-		// Minimal: duplicate the last filled number into empty slots (desktop has more logic).
-		const filled = verifyBoxes.map((v) => String(v || '').trim()).filter(Boolean);
-		if (filled.length === 0) return;
-		const last = filled[filled.length - 1];
-		const merged = verifyBoxes.map((v) => (String(v || '').trim() ? v : last));
-		setVerifyBoxes(merged);
+		// Desktop behavior: "Duplicate" toggles duplicate mode; user selects which bills are duplicates.
+		setIsDuplicateMode((prev) => {
+			const next = !prev;
+			if (!next) setDuplicateSelections({});
+			return next;
+		});
 	};
 
 	const saveBills = async ({ sendRequest = false } = {}) => {
@@ -359,15 +816,32 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		const extraBillsCount = Number(selectedVerifyBill?.extra_bills ?? selectedVerifyBill?.extraBills ?? 0) || 0;
 		const totalSlots = Math.max(0, maxBills + extraBillsCount);
 		const values = verifyBoxes.slice(0, totalSlots).map((v) => String(v || '').trim());
+
+		if (sendRequest) {
+			// Desktop rule: must verify/check everything before sending request.
+			const anyEntered = values.some((v) => String(v || '').trim() !== '');
+			if (!anyEntered) {
+				alert('Please enter at least one bill number before sending request');
+				return;
+			}
+			if (hasUnverifiedBillNumbers()) {
+				alert('Cannot send request: Some entered bill numbers are not verified or not checked. Please use "Check PO" button to verify all entered bill numbers first.');
+				return;
+			}
+		}
+
 		const billsData = values.map((billNumber, i) => {
 			const existingBill = Array.isArray(verificationsExisting) ? verificationsExisting[i] : null;
-			const matched = poValidation?.[i]?.matched;
-			const isVerified = !!matched;
+			const validation = poValidation?.[i];
+			const isNoPo = !!noPoSelections?.[i];
+			const isVerified = isNoPo ? true : !!(validation && validation.matched);
+			const isDuplicate = !!duplicateSelections?.[i];
 			const payload = {
-				bill_number: billNumber || '',
+				bill_number: isNoPo ? 'NO_PO' : (billNumber || ''),
 				status: isVerified ? 'VERIFIED' : 'NOT_VERIFIED',
 				is_verified: isVerified,
-				verified_date: isVerified ? new Date().toISOString() : null
+				verified_date: isVerified ? new Date().toISOString() : null,
+				is_duplicate: isDuplicate
 			};
 			if (existingBill?.id) payload.id = existingBill.id;
 			return payload;
@@ -390,10 +864,20 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				if (!reqRes.ok) throw new Error('Failed to send request');
 				alert('Saved and request sent successfully!');
 			} else {
+				// Desktop: submit persists bills and clears request flag.
+				await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=false`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' }
+				});
 				alert('Saved successfully!');
 			}
+			await reloadTrackers();
 			setShowVerifyModal(false);
 			setActiveFullScreen(null);
+			setIsDuplicateMode(false);
+			setDuplicateSelections({});
+			setCheckedBills({});
+			setPoValidation({});
 		} catch (e) {
 			alert(e?.message || 'Failed to save');
 		} finally {
@@ -518,6 +1002,51 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		setVendorPickerQuery('');
 	};
 
+	const submitNewTracker = async () => {
+		if (!addForm.receivedDate) {
+			alert('Please select a bill arrival date');
+			return;
+		}
+		if (!addForm.vendorId) {
+			alert('Please select a vendor');
+			return;
+		}
+		const bills = Number(addForm.noOfBills);
+		if (!Number.isFinite(bills) || bills <= 0) {
+			alert('Please enter a valid number of bills');
+			return;
+		}
+		const amount = Number(addForm.totalAmount);
+		if (!Number.isFinite(amount) || amount <= 0) {
+			alert('Please enter a valid total amount');
+			return;
+		}
+		try {
+			const payload = {
+				bill_arrival_date: String(addForm.receivedDate).includes('/')
+					? String(addForm.receivedDate).replaceAll('-', '/')
+					: toDdMmYyyySlashes(addForm.receivedDate),
+				vendor_id: Number(addForm.vendorId),
+				no_of_bills: bills,
+				total_amount: amount,
+				branch_id: activeBranchId
+			};
+			const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/vendor-payments/tracker', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json().catch(() => ({}));
+			alert(`Tracker created with ID: ${data?.id ?? ''}`.trim());
+			closeAddSheet();
+			await reloadTrackers();
+		} catch (e) {
+			alert(e?.message || 'Error creating tracker');
+		}
+	};
+
 	const toDdMmYyyySlashes = (yyyyMmDd) => {
 		if (!yyyyMmDd) return '';
 		const parts = String(yyyyMmDd).split('-');
@@ -581,6 +1110,19 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		return () => window.removeEventListener('branchSelectionChanged', syncBranch);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
+
+useEffect(() => {
+		// Purchase orders are branch-scoped; clear cache on branch change to avoid wrong "Last PO"/Check PO results.
+		setPurchaseOrdersAll([]);
+		setPurchaseOrders([]);
+	}, [activeBranchId]);
+
+	useEffect(() => {
+		// Desktop preloads purchase orders; do the same so "Check PO" is instant.
+		// Fire-and-forget; `ensureAllPurchaseOrdersLoaded` de-dupes with `loadingPurchaseOrders`.
+		ensureAllPurchaseOrdersLoaded();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeBranchId]);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -870,11 +1412,20 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 	const fullScreenHeaderSubTitle = useMemo(() => {
 		const b = selectedVerifyBill;
-		if (!b) return '';
-		const d = b?.bill_arrival_date ?? b?.billArrivalDate;
+		if (!b) return null;
+		const parts = getPendingBillCardDateLineParts(b);
 		const vendorName = getVendorNameById(b?.vendor_id ?? b?.vendorId) || '';
-		const dateStr = d ? new Date(d).toLocaleDateString('en-GB') : '';
-		return `${dateStr}${vendorName ? ` - ${vendorName}` : ''}`;
+		return (
+			<>
+				{renderBillCardDateLineParts(parts)}
+				{vendorName ? (
+					<span className="font-medium text-[#777777]">
+						{parts ? ' - ' : ''}
+						{vendorName}
+					</span>
+				) : null}
+			</>
+		);
 	}, [selectedVerifyBill, vendorMap]);
 
 	const closeFullScreen = () => {
@@ -1245,7 +1796,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	};
 
 	const renderTopBar = (title, onBack, rightNode = null) => (
-		<div className="pt-[16px] px-[14px]">
+		<div className="pt-[16px] ">
 			<div className="flex items-start justify-between gap-[10px]">
 				<div className="flex items-center gap-[10px]">
 					<button type="button" onClick={onBack} className="w-[28px] h-[28px] flex items-center justify-center" aria-label="Back">
@@ -2057,12 +2608,12 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			)}
 
 			{/* Date / Vendor row */}
-			<div className="flex items-center justify-between mt-[2px] border-b border-[#E0E0E0] pb-[8px]">
+			<div className="flex items-center justify-between border-b border-[#E0E0E0] pt-[8px] pb-[8px]">
 				<p className="text-[12px] font-semibold text-[#111827]">Date</p>
 				<p className="text-[12px] font-semibold text-[#111827]">Vendor</p>
 			</div>
 			{/* Search */}
-			<div className=" mt-[10px]">
+			<div className=" mt-[8px]">
 				<div className="w-full h-[36px] rounded-[24px] bg-white border border-[#E5E7EB] flex items-center px-[12px]">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
 						<circle cx="11" cy="11" r="7" stroke="#9CA3AF" strokeWidth="1.5" />
@@ -2098,7 +2649,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 					const noOfBills = row?.no_of_bills ?? row?.noOfBills ?? 0;
 					const extraBills = row?.extra_bills ?? row?.extraBills ?? 0;
 					const billsCount = extraBills > 0 ? `${noOfBills} & ${extraBills}` : (noOfBills || '-');
-					const subLine = formatBillArrival(row?.bill_arrival_date ?? row?.billArrivalDate);
+					const dateLineParts = getPendingBillCardDateLineParts(row);
 
 					const verificationStatus = getBillVerificationStatus(row);
 					const entryStatusText = getEntryStatusText(row);
@@ -2136,7 +2687,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 							{/* Inner card (matches PO History card) */}
 							<div className="bg-white rounded-[8px] h-full px-[12px] py-[12px] transition-all duration-300 ease-out flex flex-col">
 								<div className="flex items-start justify-between gap-[8px]">
-									<div className="min-w-0">
+									<div className="min-w-0  text-left">
 										<p
 											className="text-[12px] font-semibold text-black leading-snug break-words mb-0.5"
 											style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
@@ -2147,7 +2698,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 											className="text-[11px] font-medium text-[#777777] leading-snug break-words"
 											style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
 										>
-											{subLine || ''}
+											{renderBillCardDateLineParts(dateLineParts)}
 										</p>
 									</div>
 									<div className="flex-shrink-0 flex flex-col items-end gap-[4px]">
@@ -2197,19 +2748,29 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 								>
 									Fill Range
 								</button>
-								<button
-									type="button"
-									onClick={() => saveBills({ sendRequest: true })}
-									disabled={submittingVerify}
-									className="text-[12px] font-semibold text-black flex items-center gap-[6px] disabled:opacity-50"
-								>
-									Send Request
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-										<path d="M3 21h18" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
-										<path d="M14 4l6 6" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
-										<path d="M16 2l6 6L8 22H2v-6L16 2z" stroke="#111827" strokeWidth="2" strokeLinejoin="round" />
-									</svg>
-								</button>
+								<div className="flex items-center gap-[10px]">
+									{canShowSendRequest() && (
+										<button
+											type="button"
+											onClick={() => saveBills({ sendRequest: true })}
+											disabled={submittingVerify}
+											className="text-[12px] font-semibold text-black disabled:opacity-50"
+										>
+											Send Request
+										</button>
+									)}
+									<button
+										type="button"
+										onClick={() => setIsEditMode((p) => !p)}
+										className="w-[28px] h-[28px] flex items-center justify-center"
+										aria-label="Edit"
+									>
+										<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+											<path d="M14 4l6 6" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+											<path d="M16 2l6 6L8 22H2v-6L16 2z" stroke="#111827" strokeWidth="2" strokeLinejoin="round" />
+										</svg>
+									</button>
+								</div>
 							</div>
 						</div>
 
@@ -2220,23 +2781,172 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 						>
 							<div className="mt-[10px] rounded-[10px] border border-[#E5E7EB] p-[10px]">
 								<div className="grid grid-cols-4 gap-[10px]">
-									{verifyBoxes.map((v, i) => (
-										<div
-											key={i}
-											className="h-[34px] rounded-[4px] border flex items-center justify-center text-[12px] font-semibold"
-											style={{
-												borderColor: v
-													? (poValidation?.[i]?.matched === false ? '#FCA5A5' : '#6EE7B7')
-													: '#D1D5DB',
-												background: v
-													? (poValidation?.[i]?.matched === false ? '#FEF2F2' : '#ECFDF5')
-													: '#FFFFFF',
-												color: '#111827'
-											}}
-										>
-											{v || 'Enter'}
-										</div>
-									))}
+									{verifyBoxes.map((v, i) => {
+										const isNoPo = !!noPoSelections?.[i];
+										const displayValue = isNoPo ? '' : (v || '');
+										const vState = poValidation?.[i];
+										const isDup = !!duplicateSelections?.[i];
+										const persisted = (selectedVerifyBill?.billVerifications || selectedVerifyBill?.bill_verifications || [])?.[i];
+										const persistedIsVerified = persisted?.is_verified === true || persisted?.status === 'VERIFIED';
+										const persistedIsPaid = persisted?.is_paid === true || persisted?.status === 'PAID';
+
+										// Exact desktop border colors (Tailwind -500 equivalents)
+										const C = {
+											neutral: '#D1D5DB', // gray-300
+											green: '#22C55E',   // green-500
+											red: '#EF4444',     // red-500
+											yellow: '#EAB308',  // yellow-500
+											purple: '#A855F7',  // purple-500
+											orange: '#F97316'   // orange-500
+										};
+
+										// Match desktop renderInputFields: fresh Check PO (poValidation) must win over
+										// persisted row flags — otherwise persistedIsPaid keeps yellow and hides match/red.
+										let borderColor = C.neutral;
+										if ((isDup && (persistedIsVerified || vState?.matched === true || isNoPo))) {
+											borderColor = C.purple;
+										} else if (vState) {
+											if (vState.matched === true) {
+												const billForPaid = String(displayValue || '').trim();
+												const paidPreviously =
+													!isNoPo && !!billForPaid && persistedIsPaid;
+												borderColor = paidPreviously ? C.yellow : C.green;
+											} else if (vState.message === 'Already Entered') {
+												borderColor = C.orange;
+											} else {
+												borderColor = C.red;
+											}
+										} else if (isNoPo) {
+											borderColor = C.green;
+										} else if (persistedIsPaid) {
+											borderColor = C.yellow;
+										} else if (persisted) {
+											borderColor = persistedIsVerified ? C.green : C.red;
+										}
+
+										// Tinted background always matches border status (incl. Check PO on empty slots).
+										const BG = {
+											white: '#FFFFFF',
+											green: '#E2F9E1',
+											red: '#FEE2E2',
+											yellow: '#FEF9C3',
+											purple: '#F3E8FF',
+											orange: '#FFEDD5'
+										};
+										let bgColor = BG.white;
+										if (borderColor === C.green) bgColor = BG.green;
+										else if (borderColor === C.red) bgColor = BG.red;
+										else if (borderColor === C.yellow) bgColor = BG.yellow;
+										else if (borderColor === C.purple) bgColor = BG.purple;
+										else if (borderColor === C.orange) bgColor = BG.orange;
+
+										return (
+											<div key={i} className="flex flex-col gap-[6px]">
+												{isEditMode ? (
+													<>
+														<input
+															value={displayValue}
+															onChange={(e) => {
+																const numericValue = String(e.target.value || '').replace(/[^0-9]/g, '');
+																setVerifyBoxes((prev) => {
+																	const next = [...(prev || [])];
+																	next[i] = numericValue;
+																	return next;
+																});
+																if (numericValue) {
+																	setNoPoSelections((prev) => {
+																		if (!prev?.[i]) return prev || {};
+																		const next = { ...(prev || {}) };
+																		delete next[i];
+																		return next;
+																	});
+																}
+																setCheckedBills((prev) => {
+																	const next = { ...(prev || {}) };
+																	delete next[i];
+																	return next;
+																});
+																setPoValidation((prev) => {
+																	const next = { ...(prev || {}) };
+																	delete next[i];
+																	return next;
+																});
+															}}
+															placeholder="Enter"
+															className="h-[34px] rounded-[6px] border text-[12px] font-semibold text-center outline-none"
+															style={{ borderColor, background: bgColor }}
+														/>
+                                                        {isAdminUser() && !isDuplicateMode && (
+															<label className="flex items-center justify-center gap-[6px] text-[11px] font-medium text-black">
+																<input
+																	type="checkbox"
+																	checked={!!noPoSelections?.[i]}
+																	onChange={(e) => {
+																		const checked = e.target.checked;
+																		setNoPoSelections((prev) => ({ ...(prev || {}), [i]: checked }));
+																		if (checked) {
+																			setVerifyBoxes((prev) => {
+																				const next = [...(prev || [])];
+																				next[i] = '';
+																				return next;
+																			});
+																			setCheckedBills((prev) => ({ ...(prev || {}), [i]: true }));
+																			setPoValidation((prev) => ({ ...(prev || {}), [i]: { matched: true, message: 'No PO - Verified' } }));
+																		} else {
+																			setCheckedBills((prev) => {
+																				const next = { ...(prev || {}) };
+																				delete next[i];
+																				return next;
+																			});
+																			setPoValidation((prev) => {
+																				const next = { ...(prev || {}) };
+																				delete next[i];
+																				return next;
+																			});
+																		}
+																	}}
+																/>
+																<span>No PO</span>
+															</label>
+														)}
+														{isDuplicateMode && (
+															<label className="flex items-center justify-center gap-[6px] text-[11px] font-medium text-black">
+																<input
+																	type="checkbox"
+																	checked={!!duplicateSelections?.[i]}
+																	onChange={(e) => {
+																		const checked = e.target.checked;
+																		setDuplicateSelections((prev) => ({ ...(prev || {}), [i]: checked }));
+																		updateDuplicateStatus(i, checked);
+																	}}
+																/>
+																<span>Duplicate</span>
+															</label>
+														)}
+													</>
+												) : (
+													<div
+														className="h-[34px] rounded-[4px] border flex items-center justify-center text-[12px] font-semibold"
+														onClick={() => {
+															if (!isDuplicateMode) return;
+															const nextChecked = !(duplicateSelections?.[i] || false);
+															setDuplicateSelections((prev) => ({ ...(prev || {}), [i]: nextChecked }));
+															// Desktop behavior: persist duplicate flag immediately when a bill verification exists.
+															updateDuplicateStatus(i, nextChecked);
+														}}
+														style={{
+															borderColor,
+															background: bgColor,
+															color: '#111827',
+															cursor: isDuplicateMode ? 'pointer' : 'default'
+														}}
+													>
+														{isNoPo ? 'NO PO' : (displayValue || 'Enter')}
+													</div>
+												)}
+											</div>
+										);
+									})}
 								</div>
 							</div>
 							<div className="h-[10px]" />
@@ -2258,9 +2968,30 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 									onClick={makeDuplicate}
 									className="h-[40px] rounded-[10px] border border-[#D1D5DB] bg-white text-[13px] font-semibold text-black"
 								>
-									Make Duplicate
+									{isDuplicateMode ? 'Duplicate Mode' : 'Make Duplicate'}
 								</button>
 							</div>
+
+							{isAdminUser() && (selectedVerifyBill?.send_request || selectedVerifyBill?.sendRequest) && !(selectedVerifyBill?.request_approved || selectedVerifyBill?.requestApproved) && (
+								<div className="mt-[10px] grid grid-cols-2 gap-[10px]">
+									<button
+										type="button"
+										onClick={handleApproveRequest}
+										disabled={submittingVerify}
+										className="h-[40px] rounded-[10px] bg-[#16A34A] text-white text-[13px] font-semibold disabled:opacity-70"
+									>
+										Approve
+									</button>
+									<button
+										type="button"
+										onClick={handleRejectRequest}
+										disabled={submittingVerify}
+										className="h-[40px] rounded-[10px] bg-[#DC2626] text-white text-[13px] font-semibold disabled:opacity-70"
+									>
+										Reject
+									</button>
+								</div>
+							)}
 
 							<button
 								type="button"
@@ -2445,6 +3176,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 										type="number"
 										value={addForm.noOfBills}
 										onChange={(e) => setAddForm((p) => ({ ...p, noOfBills: e.target.value }))}
+									onKeyDown={(e) => { if (e.key === 'Enter') submitNewTracker(); }}
 										placeholder="Enter Bill Count"
 										className="w-full h-[38px] rounded-[6px] border border-[#D1D5DB] bg-white px-[12px] text-[12px] font-medium text-[#111827] outline-none"
 									/>
@@ -2455,6 +3187,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 										type="number"
 										value={addForm.totalAmount}
 										onChange={(e) => setAddForm((p) => ({ ...p, totalAmount: e.target.value }))}
+									onKeyDown={(e) => { if (e.key === 'Enter') submitNewTracker(); }}
 										placeholder="Enter Amount"
 										className="w-full h-[38px] rounded-[6px] border border-[#D1D5DB] bg-white px-[12px] text-[12px] font-medium text-[#111827] outline-none"
 									/>
@@ -2471,7 +3204,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 								</button>
 								<button
 									type="button"
-									onClick={closeAddSheet}
+									onClick={submitNewTracker}
 									className="h-[40px] rounded-[10px] bg-black text-[13px] font-semibold text-white"
 								>
 									Submit

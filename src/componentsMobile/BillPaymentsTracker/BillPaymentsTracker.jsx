@@ -230,7 +230,7 @@ const MobileBillPaymentsTracker = ({ user, onLogout }) => {
 				/>
 				<Header title="Bill Payments Tracker" user={user} onLogout={onLogout} onMenuClick={handleMenuClick} />
 				<MobileTabs activeTab={activeTab} onTabChange={setActiveTab} />
-				<div className="pt-[94px] pb-[88px] px-[10px]">
+				<div className="pt-[87px] pb-[88px]">
 					{activeTab === 'pendingbill' && <PendingBillMobile username={user?.username} userRoles={user?.userRoles || []} />}
 					{activeTab === 'billdatabase' && <DatabaseMobile username={user?.username} userRoles={user?.userRoles || []} />}
 					{activeTab === 'billstatement' && <StatementMobile username={user?.username} userRoles={user?.userRoles || []} />}

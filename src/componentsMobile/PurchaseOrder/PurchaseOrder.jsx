@@ -157,6 +157,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
   useEffect(() => {
     expandedItemIdRef.current = expandedItemId;
   }, [expandedItemId]);
+  // This screen uses internal scroll (items list). Prevent any overall page/body scroll.
   useEffect(() => {
     const originalBodyOverflow = document.body.style.overflow;
     const originalHtmlOverflow = document.documentElement.style.overflow;
@@ -2875,7 +2876,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
         {activeTab === 'summary' && <Summary />}
         {/* Create PO Tab Content */}
         {activeTab === 'create' && (
-          <div className="flex flex-col h-full bg-white overflow-hidden">
+          <div className="flex flex-col h-full bg-white">
             {/* PO Number and Date Row - Only show date when not in empty state */}
             <div className="sticky top-0 bg-white z-10 flex-shrink-0">
               <div className="flex-shrink-0 flex mb-[8px] items-center border-b border-[#E0E0E0] justify-between pb-[8px]">
@@ -2963,11 +2964,11 @@ const PurchaseOrder = ({ user, onLogout }) => {
                 </div>
               </div>
             </div>
-            {/* Input Fields - Show dropdowns BEFORE clicking + button (when !hasOpenedAdd) for edit/clone mode */}
-            {/* For edit/clone mode: show dropdowns before clicking + */}
-            {/* For regular flow: show dropdowns before clicking + (when selecting fields) */}
-            {(!hasOpenedAdd && isEditMode) || ((!showAddItems && !hasOpenedAdd) && !isEditMode) || (items.length > 0 && hasOpenedAdd && (!poData.vendorName || !poData.projectName || !poData.projectIncharge)) ? (
-              <div className="flex-shrink-0 space-y-[6px]">
+              {/* Input Fields - Show dropdowns BEFORE clicking + button (when !hasOpenedAdd) for edit/clone mode */}
+              {/* For edit/clone mode: show dropdowns before clicking + */}
+              {/* For regular flow: show dropdowns before clicking + (when selecting fields) */}
+              {(!hasOpenedAdd && isEditMode) || ((!showAddItems && !hasOpenedAdd) && !isEditMode) || (items.length > 0 && hasOpenedAdd && (!poData.vendorName || !poData.projectName || !poData.projectIncharge)) ? (
+                <div className="flex-shrink-0 space-y-[6px]">
                 {/* Vendor Name Field */}
                 <div className=" relative">
                   <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
@@ -3083,7 +3084,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   </div>
                 </div>
               </div>
-            ) : null}
+              ) : null}
             {/* Summary details card - Show AFTER clicking + button (when hasOpenedAdd is true) for edit/clone mode */}
             {/* For regular flow: show summary card AFTER clicking + button */}
             {/* These two views are mutually exclusive - never show both at the same time */}
@@ -3147,7 +3148,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                     {/* Items List - Scrollable */}
                     {items.length > 0 && (
                       <div className="flex-1 overflow-y-auto no-scrollbar pb-[40px]" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                        <div className="space-y-2 ">
+                        <div className="space-y-2">
                           {items.map((item) => {
                             // Use item.id as-is (can be string or number) for consistent swipe state lookup
                             if (!item || !item.id) return null;
