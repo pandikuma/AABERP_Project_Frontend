@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Filter from '../Images/Filter.png';
 import CloseIcon from '../Images/Close F.svg'
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import Edit from '../Images/edit.png'
 
-const Chip = ({ label, tone = 'neutral', onClick }) => {
+const Chip = ({ label, tone = 'neutral', onClick, disabled = false }) => {
 	const toneStyles =
 		tone === 'success'
 			? { bg: '#E2F9E1', text: '#4CAF50', border: '#E2F9E1' }
@@ -18,7 +19,8 @@ const Chip = ({ label, tone = 'neutral', onClick }) => {
 			<button
 				type="button"
 				onClick={onClick}
-				className="px-[8px] py-[2px] rounded-full text-[10px] font-medium inline-flex items-center gap-[4px] border cursor-pointer"
+				disabled={disabled}
+				className={`px-[8px] py-[2px] rounded-full text-[10px] font-medium inline-flex items-center gap-[4px] border ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
 				style={{ background: toneStyles.bg, color: toneStyles.text, borderColor: toneStyles.border }}
 			>
 				{tone === 'success' && (
@@ -96,6 +98,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [bankDetails, setBankDetails] = useState([]);
 	const [loadingBankDetails, setLoadingBankDetails] = useState(false);
 	const [bankDetailsError, setBankDetailsError] = useState(null);
+	const [accountDetails, setAccountDetails] = useState([]);
 	const [rangeStart, setRangeStart] = useState('');
 	const [rangeEnd, setRangeEnd] = useState('');
 	const [showFillRangeSheet, setShowFillRangeSheet] = useState(false);
@@ -121,6 +124,24 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [showVendorPicker, setShowVendorPicker] = useState(false);
 	const [vendorPickerQuery, setVendorPickerQuery] = useState('');
 	const [showReceivedDatePicker, setShowReceivedDatePicker] = useState(false);
+	const [showEditSheet, setShowEditSheet] = useState(false);
+	const [editRow, setEditRow] = useState(null);
+	const [editForm, setEditForm] = useState({
+		vendorId: '',
+		receivedDate: '',
+		noOfBills: '',
+		extraBills: '0',
+		totalAmount: ''
+	});
+	const [showEditVendorPicker, setShowEditVendorPicker] = useState(false);
+	const [editVendorPickerQuery, setEditVendorPickerQuery] = useState('');
+	const [showEditReceivedDatePicker, setShowEditReceivedDatePicker] = useState(false);
+	const [editLoading, setEditLoading] = useState(false);
+	const [swipedRowId, setSwipedRowId] = useState(null);
+	const [touchRowId, setTouchRowId] = useState(null);
+	const [touchStartX, setTouchStartX] = useState(null);
+	const [touchCurrentX, setTouchCurrentX] = useState(null);
+	const [touchIsSwiping, setTouchIsSwiping] = useState(false);
 	const [showBillEntrySheet, setShowBillEntrySheet] = useState(false);
 	const [showBillEntryDatePicker, setShowBillEntryDatePicker] = useState(false);
 	const [billEntryForm, setBillEntryForm] = useState({
@@ -136,6 +157,21 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [showPaymentModePicker, setShowPaymentModePicker] = useState(false);
 	const [paymentModePickerQuery, setPaymentModePickerQuery] = useState('');
 	const [useCarryForward, setUseCarryForward] = useState(false);
+	const [carryForwardAmount, setCarryForwardAmount] = useState(0);
+	const overlayHistoryPushedRef = useRef(false);
+	const overlayOpenRef = useRef(false);
+
+	// Ensures browser/mobile back closes overlays (Verify/Entry/Bank) instead of navigating back to Home.
+	const pushOverlayHistoryState = (overlayName) => {
+		if (overlayHistoryPushedRef.current) return;
+		overlayHistoryPushedRef.current = true;
+		try {
+			window.history.pushState({ __bptOverlay: overlayName }, '', window.location.pathname + window.location.search);
+		} catch {
+			// ignore
+		}
+	};
+	const [carryForwardData, setCarryForwardData] = useState([]);
 	const [paymentForm, setPaymentForm] = useState({
 		date: '',
 		amount: '',
@@ -146,6 +182,14 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	});
 	const [showPaymentAccountPicker, setShowPaymentAccountPicker] = useState(false);
 	const [paymentAccountPickerQuery, setPaymentAccountPickerQuery] = useState('');
+	const [showBankDetailsModal, setShowBankDetailsModal] = useState(false);
+	const [selectedVendorAccountDetails, setSelectedVendorAccountDetails] = useState(null);
+	const [loadingVendorBankDetails, setLoadingVendorBankDetails] = useState(false);
+	const [discount, setDiscount] = useState(0);
+	const [discountSubmitted, setDiscountSubmitted] = useState(false);
+	const [uploadingOverallPdf, setUploadingOverallPdf] = useState(false);
+	const overallPdfInputRef = useRef(null);
+	const paymentStatusCacheRef = useRef(new Map()); // id -> { status, paidToday }
 
 	const paymentModeOptions = useMemo(() => ([
 		'Carry Forward',
@@ -164,15 +208,16 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	}, [paymentModePickerQuery, paymentModeOptions]);
 
 	const paymentAccountOptions = useMemo(() => {
-		const rows = Array.isArray(bankDetails) ? bankDetails : [];
+		// Match desktop: options come from /api/account-details/getAll, not from existing payments.
+		const rows = Array.isArray(accountDetails) ? accountDetails : [];
 		const set = new Set();
-		rows.forEach((p) => {
-			const acc = p?.account_number ?? p?.accountNumber ?? '';
+		rows.forEach((a) => {
+			const acc = a?.account_number ?? a?.accountNumber ?? a?.accountNo ?? '';
 			const s = String(acc || '').trim();
 			if (s) set.add(s);
 		});
 		return Array.from(set);
-	}, [bankDetails]);
+	}, [accountDetails]);
 
 	const filteredPaymentAccountOptions = useMemo(() => {
 		const q = (paymentAccountPickerQuery || '').trim().toLowerCase();
@@ -341,6 +386,21 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		return 'Verify';
 	};
 
+// Match desktop gating rules:
+// - Entry allowed only after ALL bills verified
+// - Payment allowed only after Entry completed
+const isAllBillsVerified = (item) => {
+	const verifications = item?.billVerifications || item?.bill_verifications || [];
+	if (!Array.isArray(verifications) || verifications.length === 0) return false;
+	return verifications.every(v => v?.is_verified === true || v?.status === 'VERIFIED');
+};
+
+const isEntryCompleted = (item) => {
+	const entryStatus = item?.entry_status || item?.entryStatus || 'Entry';
+	const matchStatus = expenseMatchStatus?.[item?.id];
+	return entryStatus === 'Entered' || entryStatus === '✓ Entered' || matchStatus === 'complete_match';
+};
+
 	const openVerifyModal = (bill) => {
 		setSelectedVerifyBill(bill || null);
 		const noOfBills = Number(bill?.no_of_bills ?? bill?.noOfBills ?? 0) || 0;
@@ -376,6 +436,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		const vendorId = bill?.vendor_id ?? bill?.vendorId ?? null;
 		const lastFromHistory = getLastBillNumberForVendor(vendorId, bill);
 		setLastPoNumber(lastFromHistory || null);
+		pushOverlayHistoryState('verify');
 		setShowVerifyModal(true);
 		setActiveFullScreen('verify');
 	};
@@ -591,9 +652,12 @@ const reloadTrackers = async () => {
 			} catch {
 				data = [];
 			}
-			setApiData(Array.isArray(data) ? data : []);
+			const arr = Array.isArray(data) ? data : [];
+			setApiData(arr);
+			return arr;
 		} catch {
 			// ignore
+			return null;
 		}
 	};
 
@@ -887,6 +951,7 @@ const reloadTrackers = async () => {
 
 	const openEntryDetails = (bill) => {
 		setSelectedVerifyBill(bill || null);
+		pushOverlayHistoryState('entry');
 		setActiveFullScreen('entry');
 	};
 
@@ -901,6 +966,72 @@ const reloadTrackers = async () => {
 	const closeBillEntrySheet = () => {
 		setShowBillEntrySheet(false);
 		setShowBillEntryDatePicker(false);
+	};
+
+	// Match desktop PendingBill.js handleEntrySubmit (POST /api/bill-entry/save)
+	const submitBillEntryDetails = async () => {
+		const trackerId = selectedVerifyBill?.id ?? selectedVerifyBill?.bill_id;
+		if (!trackerId) {
+			alert('Tracker ID not found');
+			return;
+		}
+		if (!billEntryForm?.date) {
+			alert('Please fill all required fields');
+			return;
+		}
+		setSubmittingVerify(true);
+		try {
+			// Desktop sends YYYY-MM-DD (date input). Mobile picker gives DD/MM/YYYY — convert for backend.
+			const toYyyyMmDd = (ddMmYyyy) => {
+				const s = String(ddMmYyyy || '').trim();
+				if (!s) return '';
+				if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already ISO date
+				const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+				if (!m) return s;
+				const dd = String(m[1]).padStart(2, '0');
+				const mm = String(m[2]).padStart(2, '0');
+				const yyyy = m[3];
+				return `${yyyy}-${mm}-${dd}`;
+			};
+
+			const payload = {
+				vendor_payments_tracker_id: trackerId,
+				entered_by: username,
+				entered_date: toYyyyMmDd(billEntryForm.date),
+				branch_id: activeBranchId
+			};
+			const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/bill-entry/save', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			if (!res.ok) throw new Error(`Failed to save bill entry (${res.status})`);
+			await res.json().catch(() => ({}));
+
+			alert('Bill entry details saved successfully!');
+
+			// Refresh entry details + expense matching (same idea as desktop)
+			await reloadTrackers();
+			try {
+				const r = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/bill-entry/getAll', {
+					method: 'GET',
+					credentials: 'include',
+					headers: { 'Content-Type': 'application/json' }
+				});
+				if (r.ok) {
+					const data = await r.json();
+					setAllBillEntries(Array.isArray(data) ? data : []);
+				}
+			} catch {
+				// ignore
+			}
+			closeBillEntrySheet();
+		} catch (e) {
+			alert(`Error saving bill entry: ${e?.message || 'Failed'}`);
+		} finally {
+			setSubmittingVerify(false);
+		}
 	};
 
 	const openAdjustmentAmountSheet = () => {
@@ -920,12 +1051,226 @@ const reloadTrackers = async () => {
 		setShowAdjustmentAmountSheet(false);
 	};
 
+	// Match desktop PendingBill.js handleAdjustmentAmountUpdate
+	const submitAdjustmentAmountUpdate = async () => {
+		const billId = selectedVerifyBill?.id ?? selectedVerifyBill?.bill_id;
+		if (!billId) {
+			alert('No bill selected');
+			return;
+		}
+		const raw = adjustmentAmountForm?.amount;
+		if (raw === undefined || raw === null) {
+			alert('Please enter an adjustment amount');
+			return;
+		}
+		const adjustmentAmount = String(raw).trim() === '' ? 0 : parseFloat(String(raw));
+		if (String(raw).trim() !== '' && Number.isNaN(adjustmentAmount)) {
+			alert('Please enter a valid number for adjustment amount');
+			return;
+		}
+
+		setSubmittingVerify(true);
+		try {
+			const res = await fetchWithBranch(
+				`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${billId}/adjustment-amount?adjustmentAmount=${adjustmentAmount}`,
+				{
+					method: 'PUT',
+					credentials: 'include',
+					headers: { 'Content-Type': 'application/json' }
+				}
+			);
+			if (!res.ok) {
+				let msg = `Failed to update adjustment amount (${res.status})`;
+				try {
+					const data = await res.json();
+					if (data?.message) msg = `Error updating adjustment amount: ${data.message}`;
+				} catch {
+					// ignore
+				}
+				throw new Error(msg);
+			}
+
+			// Update selected bill + list (same keys as desktop)
+			setSelectedVerifyBill((prev) => prev ? ({
+				...prev,
+				adjustment_amount: adjustmentAmount,
+				adjustmentAmount: adjustmentAmount
+			}) : prev);
+			setApiData((prev) => (Array.isArray(prev) ? prev.map((item) => {
+				const id = item?.id ?? item?.bill_id;
+				if (String(id ?? '') !== String(billId ?? '')) return item;
+				return { ...item, adjustment_amount: adjustmentAmount, adjustmentAmount: adjustmentAmount };
+			}) : prev));
+
+			alert('Adjustment amount updated successfully');
+			closeAdjustmentAmountSheet();
+		} catch (e) {
+			alert(e?.message || 'Error updating adjustment amount');
+		} finally {
+			setSubmittingVerify(false);
+		}
+	};
+
 	const billEntryInitialDateForModal = () => {
 		const v = billEntryForm?.date;
 		if (!v) return '';
 		if (String(v).includes('/')) return v; // already DD/MM/YYYY
 		if (String(v).includes('-')) return toDdMmYyyySlashes(v); // YYYY-MM-DD
 		return '';
+	};
+
+	const fetchSelectedVendorAccountDetails = async (vendorId) => {
+		try {
+			setLoadingVendorBankDetails(true);
+			const res = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+				method: "GET",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" }
+			});
+			if (!res.ok) {
+				setSelectedVendorAccountDetails(null);
+				return null;
+			}
+			const data = await res.json().catch(() => []);
+			const vendor = (Array.isArray(data) ? data : []).find((v) => String(v?.id ?? '') === String(vendorId ?? ''));
+			setSelectedVendorAccountDetails(vendor || null);
+			return vendor || null;
+		} catch {
+			setSelectedVendorAccountDetails(null);
+			return null;
+		} finally {
+			setLoadingVendorBankDetails(false);
+		}
+	};
+
+	const openBankDetailsModal = async () => {
+		// Open immediately; fetch runs in background (better UX on slow network)
+		setShowBankDetailsModal(true);
+		const vendorId = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
+		if (vendorId != null) {
+			fetchSelectedVendorAccountDetails(vendorId);
+		} else {
+			setSelectedVendorAccountDetails(null);
+		}
+	};
+
+	const closeBankDetailsModal = () => setShowBankDetailsModal(false);
+
+	const copyText = async (text) => {
+		const t = String(text ?? '').trim();
+		if (!t) return;
+		try {
+			if (navigator?.clipboard?.writeText) {
+				await navigator.clipboard.writeText(t);
+			} else {
+				const el = document.createElement('textarea');
+				el.value = t;
+				el.setAttribute('readonly', '');
+				el.style.position = 'absolute';
+				el.style.left = '-9999px';
+				document.body.appendChild(el);
+				el.select();
+				document.execCommand('copy');
+				document.body.removeChild(el);
+			}
+		} catch {
+			// ignore
+		}
+	};
+
+	// Match desktop PendingBill.js fetchCarryForwardData: show AVAILABLE carry forward balance
+	const fetchCarryForwardData = async (vendorId) => {
+		try {
+			const res = await fetchWithBranch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/getAll", {
+				method: "GET",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" }
+			});
+			if (res.ok) {
+				const data = await res.json().catch(() => []);
+				const vendorCarryForward = (Array.isArray(data) ? data : []).filter(item => String(item?.vendor_id ?? '') === String(vendorId ?? ''));
+				setCarryForwardData(vendorCarryForward);
+				const totalCarryForward = vendorCarryForward.reduce((sum, item) => {
+					const amount = parseFloat(item?.amount) || 0;
+					const billAmount = parseFloat(item?.bill_amount) || 0;
+					const refundAmount = parseFloat(item?.refund_amount) || 0;
+					return sum + amount - billAmount - refundAmount;
+				}, 0);
+				setCarryForwardAmount(Math.max(0, totalCarryForward));
+			} else {
+				setCarryForwardData([]);
+				setCarryForwardAmount(0);
+			}
+		} catch {
+			setCarryForwardData([]);
+			setCarryForwardAmount(0);
+		}
+	};
+
+	const handleOverallPaymentPdfChange = async (e) => {
+		const file = e?.target?.files?.[0];
+		if (!file) return;
+		const trackerId = selectedVerifyBill?.id ?? selectedVerifyBill?.bill_id;
+		if (!trackerId) {
+			alert('Tracker ID not found');
+			return;
+		}
+		setUploadingOverallPdf(true);
+		try {
+			// Upload file to Google Drive (same uploader as payment bill copy)
+			const formData = new FormData();
+			const vendorName = getVendorNameById(selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId) || 'Overall Payment';
+			const now = new Date();
+			const timestamp = now.toLocaleString("en-GB", {
+				day: "2-digit",
+				month: "2-digit",
+				year: "numeric",
+				hour: "2-digit",
+				minute: "2-digit",
+				second: "2-digit",
+				hour12: true
+			}).replace(",", "").replace(/\s/g, "-");
+			const fileName = `${timestamp} ${vendorName} - summary bill.pdf`;
+			formData.append('file', file);
+			formData.append('file_name', fileName);
+			const uploadRes = await window.fetch("https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
+				method: "POST",
+				body: formData
+			});
+			if (!uploadRes.ok) throw new Error('File upload failed');
+			const uploadResult = await uploadRes.json().catch(() => ({}));
+			const pdfUrl = uploadResult?.url || '';
+			if (!pdfUrl) throw new Error('Upload did not return a URL');
+
+			// Update tracker overall pdf url (desktop behavior)
+			const res = await fetchWithBranch(
+				`https://backendaab.in/aabuildersDash/api/vendor-payments/bills/${trackerId}/pdf-url?pdfUrl=${encodeURIComponent(pdfUrl)}`,
+				{
+					method: "PUT",
+					credentials: "include",
+					headers: { "Content-Type": "application/json" }
+				}
+			);
+			if (!res.ok) throw new Error(`Failed to update PDF URL (${res.status})`);
+
+			setSelectedVerifyBill((prev) => prev ? ({
+				...prev,
+				over_all_payment_pdf_url: pdfUrl,
+				overAllPaymentPdfUrl: pdfUrl
+			}) : prev);
+			setApiData((prev) => Array.isArray(prev) ? prev.map((t) => {
+				const id = t?.id ?? t?.bill_id;
+				if (String(id ?? '') !== String(trackerId ?? '')) return t;
+				return { ...t, over_all_payment_pdf_url: pdfUrl, overAllPaymentPdfUrl: pdfUrl };
+			}) : prev);
+			alert('PDF uploaded successfully!');
+		} catch (err) {
+			alert(err?.message || 'Error uploading PDF');
+		} finally {
+			setUploadingOverallPdf(false);
+			// reset input so same file can be picked again
+			if (overallPdfInputRef.current) overallPdfInputRef.current.value = '';
+		}
 	};
 
 	const openPaymentSheet = () => {
@@ -939,8 +1284,12 @@ const reloadTrackers = async () => {
 			mode: '',
 			transactionNumber: '',
 			accountNumber: '',
+			chequeNo: '',
+			chequeDate: '',
 			file: null
 		});
+		const vendorIdForCf = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
+		if (vendorIdForCf != null) fetchCarryForwardData(vendorIdForCf);
 		setShowPaymentSheet(true);
 	};
 
@@ -953,6 +1302,243 @@ const reloadTrackers = async () => {
 		setPaymentAccountPickerQuery('');
 	};
 
+	// Match desktop PendingBill.js handlePaymentSubmit (single entry variant)
+	const submitPaymentDetails = async () => {
+		const trackerId = selectedVerifyBill?.id ?? selectedVerifyBill?.bill_id;
+		if (!trackerId) {
+			alert('Tracker ID not found');
+			return;
+		}
+		if (!paymentForm?.date || !paymentForm?.amount || !paymentForm?.mode) {
+			alert('Please fill all required fields in payment details');
+			return;
+		}
+		// Mode-specific required fields (match desktop intent)
+		// - For Cheque: require cheque no + cheque date
+		// - For all non-Cash, non-Carry Forward modes: require account number
+		// - Transaction number is required only for Net Banking / NEFT/RTGS
+		if (paymentForm.mode === 'Cheque') {
+			if (!paymentForm.chequeNo || !paymentForm.chequeDate) {
+				alert('Please fill Cheque No and Cheque Date');
+				return;
+			}
+		}
+		if (paymentForm.mode !== 'Cash' && paymentForm.mode !== 'Carry Forward') {
+			if (!paymentForm.accountNumber) {
+				alert('Please select Account Number');
+				return;
+			}
+		}
+		if (paymentForm.mode === 'Net Banking' || paymentForm.mode === 'NEFT/RTGS') {
+			if (!paymentForm.transactionNumber) {
+				alert('Please fill Transaction Number');
+				return;
+			}
+		}
+
+		setSubmittingVerify(true);
+		try {
+			const toYyyyMmDd = (ddMmYyyy) => {
+				const s = String(ddMmYyyy || '').trim();
+				if (!s) return '';
+				if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+				const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+				if (!m) return s;
+				const dd = String(m[1]).padStart(2, '0');
+				const mm = String(m[2]).padStart(2, '0');
+				const yyyy = m[3];
+				return `${yyyy}-${mm}-${dd}`;
+			};
+
+			// Upload attachment (desktop uses googleUploader and stores returned url as bill_url)
+			let billUrl = '';
+			if (paymentForm.file) {
+				const formData = new FormData();
+				const now = new Date();
+				const timestamp = now.toLocaleString("en-GB", {
+					day: "2-digit",
+					month: "2-digit",
+					year: "numeric",
+					hour: "2-digit",
+					minute: "2-digit",
+					second: "2-digit",
+					hour12: true
+				})
+					.replace(",", "")
+					.replace(/\s/g, "-");
+				const vendorName = getVendorNameById(selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId) || 'Payment';
+				const finalName = `${timestamp} ${vendorName} ${paymentForm.mode}`;
+				formData.append('file', paymentForm.file);
+				formData.append('file_name', finalName);
+				const uploadRes = await window.fetch("https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
+					method: "POST",
+					body: formData
+				});
+				if (!uploadRes.ok) throw new Error('File upload failed');
+				const uploadResult = await uploadRes.json().catch(() => ({}));
+				billUrl = uploadResult?.url || '';
+			}
+
+			const actualAmount = Number(selectedVerifyBill?.total_amount ?? selectedVerifyBill?.totalAmount ?? 0) || 0;
+			const discountToSend = !discountSubmitted ? (Number(discount) || 0) : 0;
+			const paymentData = {
+				vendor_payments_tracker_id: trackerId,
+				date: toYyyyMmDd(paymentForm.date),
+				actual_amount: actualAmount,
+				amount: parseFloat(paymentForm.amount) || 0,
+				discount_amount: discountToSend,
+				carry_forward_amount: 0,
+				vendor_bill_payment_mode: paymentForm.mode,
+				cheque_number: paymentForm.chequeNo || '',
+				cheque_date: paymentForm.chequeDate || '',
+				transaction_number: paymentForm.transactionNumber || '',
+				account_number: paymentForm.accountNumber || '',
+				bill_url: billUrl,
+				branch_id: activeBranchId
+			};
+			const res = await fetchWithBranch("https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/save", {
+				method: "POST",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(paymentData)
+			});
+			if (!res.ok) throw new Error(`Failed to save payment details: ${res.statusText}`);
+			const savedPaymentDetail = await res.json().catch(() => ({}));
+			// Also send to respective APIs based on mode (same as desktop PendingBill.js)
+			const vendorId = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
+			const isoDate = toYyyyMmDd(paymentForm.date);
+			const amountNum = parseFloat(paymentForm.amount) || 0;
+			if (paymentForm.mode !== 'Cash' && paymentForm.mode !== 'Carry Forward') {
+				const weeklyPaymentBillPayload = {
+					date: isoDate,
+					created_at: new Date().toISOString(),
+					contractor_id: null,
+					vendor_id: vendorId,
+					employee_id: null,
+					project_id: 10,
+					type: "Vendor Bill Payment",
+					bill_payment_mode: paymentForm.mode,
+					amount: amountNum,
+					status: true,
+					weekly_number: "",
+					weekly_payment_expense_id: null,
+					advance_portal_id: null,
+					staff_advance_portal_id: null,
+					claim_payment_id: null,
+					cheque_number: paymentForm.chequeNo || null,
+					cheque_date: paymentForm.chequeDate || null,
+					transaction_number: paymentForm.transactionNumber || null,
+					account_number: paymentForm.accountNumber || null,
+					vendor_payment_tracker_id: trackerId,
+					tenant_id: null,
+					tenant_complex_name: null,
+					branch_id: activeBranchId
+				};
+				try {
+					await fetchWithBranch("https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(weeklyPaymentBillPayload)
+					});
+				} catch {
+					// ignore (desktop logs only)
+				}
+			}
+			if (paymentForm.mode === 'Cash') {
+				const weeklyExpensePayload = {
+					date: isoDate,
+					created_at: new Date().toISOString(),
+					contractor_id: null,
+					vendor_id: vendorId,
+					employee_id: null,
+					project_id: 10,
+					type: "Vendor Bill Payment",
+					amount: amountNum,
+					status: false,
+					weekly_number: "",
+					period_start_date: null,
+					period_end_date: null,
+					advance_portal_id: null,
+					staff_advance_portal_id: null,
+					loan_portal_id: null,
+					rent_management_id: null,
+					expenses_entry_id: null,
+					vendor_payment_tracker_id: trackerId,
+					send_to_expenses_entry: false,
+					bill_copy_url: savedPaymentDetail?.bill_url || billUrl || '',
+					branch_id: activeBranchId
+				};
+				try {
+					await fetchWithBranch("https://backendaab.in/aabuildersDash/api/weekly-expenses/save", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(weeklyExpensePayload)
+					});
+				} catch {
+					// ignore (desktop logs only)
+				}
+			}
+			// Refresh carry forward availability (desktop fetchCarryForwardData)
+			try {
+				const vendorIdForCf = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
+				if (vendorIdForCf != null) {
+					const cfRes = await fetchWithBranch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/getAll", {
+						method: "GET",
+						credentials: "include",
+						headers: { "Content-Type": "application/json" }
+					});
+					if (cfRes.ok) {
+						const data = await cfRes.json().catch(() => []);
+						const vendorCarryForward = (Array.isArray(data) ? data : []).filter(item => String(item?.vendor_id ?? '') === String(vendorIdForCf));
+						setCarryForwardData(vendorCarryForward);
+						const totalCarryForward = vendorCarryForward.reduce((sum, item) => {
+							const amount = parseFloat(item?.amount) || 0;
+							const billAmount = parseFloat(item?.bill_amount) || 0;
+							const refundAmount = parseFloat(item?.refund_amount) || 0;
+							return sum + amount - billAmount - refundAmount;
+						}, 0);
+						setCarryForwardAmount(Math.max(0, totalCarryForward));
+					} else {
+						setCarryForwardData([]);
+						setCarryForwardAmount(0);
+					}
+				}
+			} catch {
+				// ignore
+			}
+			// Refresh bank details list after save
+			try {
+				const bankRes = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${trackerId}`, {
+					method: 'GET',
+					credentials: 'include',
+					headers: { 'Content-Type': 'application/json' }
+				});
+				if (bankRes.ok) {
+					const data = await bankRes.json();
+					setBankDetails(Array.isArray(data) ? data : []);
+				}
+			} catch {
+				// ignore
+			}
+
+			// Refresh trackers + keep current bank view in sync (no full reload)
+			try {
+				const updated = await reloadTrackers();
+				if (Array.isArray(updated)) {
+					const hit = updated.find((t) => String(t?.id ?? t?.bill_id ?? '') === String(trackerId ?? ''));
+					if (hit) setSelectedVerifyBill(hit);
+				}
+			} catch {
+				// ignore
+			}
+			alert('Payment details saved successfully!');
+			closePaymentSheet();
+		} catch (e) {
+			alert(e?.message || 'Error saving payment details');
+		} finally {
+			setSubmittingVerify(false);
+		}
+	};
 	const paymentInitialDateForModal = () => {
 		const v = paymentForm?.date;
 		if (!v) return '';
@@ -960,12 +1546,13 @@ const reloadTrackers = async () => {
 		if (String(v).includes('-')) return toDdMmYyyySlashes(v); // YYYY-MM-DD
 		return '';
 	};
-
 	const openBankDetails = async (bill) => {
 		setSelectedVerifyBill(bill || null);
+		pushOverlayHistoryState('bank');
 		setActiveFullScreen('bank');
 		setLoadingBankDetails(true);
 		setBankDetailsError(null);
+		setUseCarryForward(false);
 		try {
 			const res = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${bill?.id}`, {
 				method: 'GET',
@@ -974,15 +1561,21 @@ const reloadTrackers = async () => {
 			});
 			if (!res.ok) throw new Error(`Failed to load bank details (${res.status})`);
 			const data = await res.json();
-			setBankDetails(Array.isArray(data) ? data : []);
+			const rows = Array.isArray(data) ? data : [];
+			setBankDetails(rows);
+			// Match desktop: discount input is locked if any discount already applied
+			const totalDiscount = rows.reduce((sum, p) => sum + (Number(p?.discount_amount || 0) || 0), 0);
+			setDiscount(totalDiscount || 0);
+			setDiscountSubmitted(totalDiscount > 0);
 		} catch (e) {
 			setBankDetails([]);
 			setBankDetailsError(e?.message || 'Failed to load bank details');
+			setDiscount(0);
+			setDiscountSubmitted(false);
 		} finally {
 			setLoadingBankDetails(false);
 		}
 	};
-
 	const openAddSheet = () => {
 		setAddForm({
 			vendorId: '',
@@ -993,6 +1586,96 @@ const reloadTrackers = async () => {
 		setVendorPickerQuery('');
 		setShowVendorPicker(false);
 		setShowAddSheet(true);
+	};
+	const openEditTrackerSheet = (row) => {
+		setEditRow(row || null);
+		setSwipedRowId(null);
+		const vendorId = row?.vendor_id ?? row?.vendorId ?? '';
+		const billArrival = row?.bill_arrival_date ?? row?.billArrivalDate ?? '';
+		const noOfBills = row?.no_of_bills ?? row?.noOfBills ?? '';
+		const extraBills = row?.extra_bills ?? row?.extraBills ?? '0';
+		const totalAmount = row?.total_amount ?? row?.totalAmount ?? '';
+		// Received Date === bill_arrival_date (robust parse for DD/MM/YYYY, YYYY-MM-DD, ISO, arrays)
+		const receivedDate = (() => {
+			if (!billArrival) return '';
+			const d = parseTrackerDateValue(billArrival);
+			return d ? formatDdMmYyyyFromDate(d) : '';
+		})();
+		setEditForm({
+			vendorId: vendorId ? String(vendorId) : '',
+			receivedDate: receivedDate || '',
+			noOfBills: String(noOfBills ?? ''),
+			extraBills: String(extraBills ?? '0'),
+			totalAmount: String(totalAmount ?? '')
+		});
+		setShowEditVendorPicker(false);
+		setEditVendorPickerQuery('');
+		setShowEditReceivedDatePicker(false);
+		setShowEditSheet(true);
+	};
+	const closeEditSheet = () => {
+		setShowEditSheet(false);
+		setEditRow(null);
+		setShowEditVendorPicker(false);
+		setEditVendorPickerQuery('');
+		setShowEditReceivedDatePicker(false);
+	};
+
+	const getEditReceivedDateInitialForModal = () => {
+		const v = editForm.receivedDate;
+		if (!v) return '';
+		if (String(v).includes('/')) return v;
+		if (String(v).includes('-')) return toDdMmYyyySlashes(v);
+		return '';
+	};
+
+	const submitEditTracker = async () => {
+		if (!editRow?.id) return;
+		if (!editForm.receivedDate) {
+			alert('Please select a bill arrival date');
+			return;
+		}
+		if (!editForm.vendorId) {
+			alert('Please select a vendor');
+			return;
+		}
+		const bills = Number(editForm.noOfBills);
+		if (!Number.isFinite(bills) || bills <= 0) {
+			alert('Please enter a valid number of bills');
+			return;
+		}
+		const extraBills = Math.max(0, Number(editForm.extraBills || 0) || 0);
+		const amount = Number(editForm.totalAmount);
+		if (!Number.isFinite(amount) || amount <= 0) {
+			alert('Please enter a valid total amount');
+			return;
+		}
+		setEditLoading(true);
+		try {
+			const payload = {
+				bill_arrival_date: String(editForm.receivedDate),
+				vendor_id: Number(editForm.vendorId),
+				no_of_bills: bills,
+				extra_bills: extraBills,
+				total_amount: amount,
+				branch_id: activeBranchId
+			};
+			// Desktop endpoint: /tracker/{id}/update-details
+			const res = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${editRow.id}/update-details`, {
+				method: 'PUT',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			if (!res.ok) throw new Error(await res.text());
+			alert('Tracker updated successfully');
+			closeEditSheet();
+			await reloadTrackers();
+		} catch (e) {
+			alert(e?.message || 'Error updating tracker');
+		} finally {
+			setEditLoading(false);
+		}
 	};
 
 	const closeAddSheet = () => {
@@ -1079,6 +1762,18 @@ const reloadTrackers = async () => {
 		unique.sort((a, b) => a.name.localeCompare(b.name));
 		return unique;
 	}, [vendorMap]);
+
+	const selectedVendorNameForEditSheet = useMemo(() => {
+		if (!editForm.vendorId) return '';
+		const hit = vendorOptionsForSheet.find(v => String(v.id) === String(editForm.vendorId));
+		return hit?.name || '';
+	}, [editForm.vendorId, vendorOptionsForSheet]);
+
+	const filteredVendorOptionsForEditSheet = useMemo(() => {
+		const q = (editVendorPickerQuery || '').trim().toLowerCase();
+		if (!q) return vendorOptionsForSheet;
+		return vendorOptionsForSheet.filter(v => (v.name || '').toLowerCase().includes(q));
+	}, [vendorOptionsForSheet, editVendorPickerQuery]);
 
 	const selectedVendorNameForSheet = useMemo(() => {
 		if (!addForm.vendorId) return '';
@@ -1190,6 +1885,21 @@ useEffect(() => {
 			}
 		};
 
+		const fetchAccountDetails = async () => {
+			try {
+				const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/account-details/getAll', {
+					method: 'GET',
+					credentials: 'include',
+					headers: { 'Content-Type': 'application/json' }
+				});
+				if (!res.ok) return;
+				const data = await res.json().catch(() => []);
+				if (isMounted) setAccountDetails(Array.isArray(data) ? data : []);
+			} catch {
+				// ignore
+			}
+		};
+
 		const fetchExpensesData = async () => {
 			try {
 				const res = await fetchWithBranch('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
@@ -1217,6 +1927,7 @@ useEffect(() => {
 		fetchVendorNames();
 		fetchTrackerData();
 		fetchAllBillEntries();
+		fetchAccountDetails();
 		fetchExpensesData();
 		return () => {
 			isMounted = false;
@@ -1368,20 +2079,65 @@ useEffect(() => {
 
 		const fetchPaymentStatuses = async () => {
 			if (apiData.length === 0) return;
-			const statuses = await Promise.all(apiData.map(async item => {
+			// Prioritize latest trackers first, fetch only missing in cache (rest fills later)
+			const list = [...apiData].sort((a, b) => (Number(b?.id ?? 0) || 0) - (Number(a?.id ?? 0) || 0));
+			const toFetch = [];
+			for (const item of list) {
+				const id = item?.id;
+				if (id == null) continue;
+				if (paymentStatusCacheRef.current.has(id)) continue;
+				toFetch.push(item);
+				if (toFetch.length >= 30) break; // fast first paint
+			}
+			const fetched = await Promise.all(toFetch.map(async (item) => {
 				const result = await getPaymentStatus(item);
 				return { id: item?.id, status: result?.status, paidToday: result?.paidToday };
 			}));
+
+			// Merge cached + fetched into state maps
 			const map = {};
 			const paidTodayMap = {};
-			statuses.forEach(s => {
+			// include cached
+			for (const [id, val] of paymentStatusCacheRef.current.entries()) {
+				map[id] = val?.status || 'To Pay';
+				paidTodayMap[id] = !!val?.paidToday;
+			}
+			// include fetched (and cache them)
+			fetched.forEach(s => {
 				if (s?.id != null) {
 					map[s.id] = s.status;
 					paidTodayMap[s.id] = !!s.paidToday;
+					paymentStatusCacheRef.current.set(s.id, { status: s.status, paidToday: !!s.paidToday });
 				}
 			});
 			setPaymentStatuses(map);
 			setPaidTodayBills(paidTodayMap);
+
+			// Background fill for remaining (don’t block UI)
+			setTimeout(async () => {
+				const rest = [];
+				for (const item of list) {
+					const id = item?.id;
+					if (id == null) continue;
+					if (paymentStatusCacheRef.current.has(id)) continue;
+					rest.push(item);
+				}
+				if (rest.length === 0) return;
+				const restFetched = await Promise.all(rest.map(async (item) => {
+					const result = await getPaymentStatus(item);
+					return { id: item?.id, status: result?.status, paidToday: result?.paidToday };
+				}));
+				const nextMap = { ...map };
+				const nextPaid = { ...paidTodayMap };
+				restFetched.forEach((s) => {
+					if (s?.id == null) return;
+					nextMap[s.id] = s.status;
+					nextPaid[s.id] = !!s.paidToday;
+					paymentStatusCacheRef.current.set(s.id, { status: s.status, paidToday: !!s.paidToday });
+				});
+				setPaymentStatuses(nextMap);
+				setPaidTodayBills(nextPaid);
+			}, 0);
 		};
 
 		fetchPaymentStatuses();
@@ -1401,9 +2157,16 @@ useEffect(() => {
 	}, [apiData, paymentStatuses, paidTodayBills]);
 
 	const filtered = useMemo(() => {
-		if (!query) return visibleRows;
+		const base = Array.isArray(visibleRows) ? [...visibleRows] : [];
+		// Match desktop: latest tracker first (higher id on top)
+		base.sort((a, b) => {
+			const aId = Number(a?.id ?? a?.bill_id ?? a?.billId ?? 0) || 0;
+			const bId = Number(b?.id ?? b?.bill_id ?? b?.billId ?? 0) || 0;
+			return bId - aId;
+		});
+		if (!query) return base;
 		const q = query.toLowerCase();
-		return visibleRows.filter((row) => {
+		return base.filter((row) => {
 			const id = row?.vendor_id ?? row?.vendorId;
 			const name = getVendorNameById(id);
 			return (name || '').toLowerCase().includes(q);
@@ -1414,25 +2177,38 @@ useEffect(() => {
 		const b = selectedVerifyBill;
 		if (!b) return null;
 		const parts = getPendingBillCardDateLineParts(b);
-		const vendorName = getVendorNameById(b?.vendor_id ?? b?.vendorId) || '';
 		return (
 			<>
 				{renderBillCardDateLineParts(parts)}
-				{vendorName ? (
-					<span className="font-medium text-[#777777]">
-						{parts ? ' - ' : ''}
-						{vendorName}
-					</span>
-				) : null}
 			</>
 		);
 	}, [selectedVerifyBill, vendorMap]);
 
 	const closeFullScreen = () => {
+		overlayHistoryPushedRef.current = false;
 		setActiveFullScreen(null);
 		setShowVerifyModal(false);
 		setSelectedVerifyBill(null);
 	};
+
+	// Keep track of whether an overlay is currently open so we can intercept browser back.
+	useEffect(() => {
+		overlayOpenRef.current = !!showVerifyModal || activeFullScreen !== null;
+	}, [showVerifyModal, activeFullScreen]);
+
+	// When the user taps browser back while an overlay is open,
+	// close the overlay instead of navigating back to Home.
+	useEffect(() => {
+		const onPopState = () => {
+			if (!overlayOpenRef.current) return;
+			overlayHistoryPushedRef.current = false;
+			setActiveFullScreen(null);
+			setShowVerifyModal(false);
+			setSelectedVerifyBill(null);
+		};
+		window.addEventListener('popstate', onPopState);
+		return () => window.removeEventListener('popstate', onPopState);
+	}, []);
 
 	// Build Expense Matching Details (used by Entry Details screen)
 	const expenseMatchingDetails = useMemo(() => {
@@ -1487,17 +2263,20 @@ useEffect(() => {
 		const totalPayable = Number(selectedVerifyBill?.total_amount ?? selectedVerifyBill?.totalAmount ?? 0) || 0;
 		const rows = Array.isArray(bankDetails) ? bankDetails : [];
 		const receivedAmount = rows.reduce((sum, p) => sum + (Number(p?.amount || 0) || 0) + (Number(p?.carry_forward_amount || 0) || 0), 0);
-		const carryForwardAmount = rows.reduce((sum, p) => sum + (Number(p?.carry_forward_amount || 0) || 0), 0);
 		const discountAmount = rows.reduce((sum, p) => sum + (Number(p?.discount_amount || 0) || 0), 0);
-		const netPayable = Math.max(0, totalPayable - receivedAmount - discountAmount);
+		// Match desktop: CF affects totals only when checkbox is ON.
+		const cfAvailable = Number(carryForwardAmount || 0) || 0;
+		const cfToUse = useCarryForward ? Math.min(cfAvailable, Math.max(0, totalPayable - receivedAmount - discountAmount)) : 0;
+		const netPayable = Math.max(0, totalPayable - receivedAmount - discountAmount - cfToUse);
 		return {
 			totalPayable,
 			receivedAmount,
-			carryForwardAmount,
+			carryForwardAmount: cfAvailable,
+			carryForwardToUse: cfToUse,
 			discountAmount,
 			netPayable
 		};
-	}, [bankDetails, selectedVerifyBill]);
+	}, [bankDetails, selectedVerifyBill, useCarryForward, carryForwardAmount]);
 
 	// Last/previous payment details (to match desktop "Previous Payment Details")
 	const lastBankPayment = useMemo(() => {
@@ -1525,6 +2304,8 @@ useEffect(() => {
 	const resolveBankPaymentMode = (p) => {
 		if (!p) return '';
 		const direct =
+			p?.vendor_bill_payment_mode ??
+			p?.vendorBillPaymentMode ??
 			p?.mode ??
 			p?.payment_mode ??
 			p?.paymentMode ??
@@ -1815,22 +2596,38 @@ useEffect(() => {
 			</div>
 		</div>
 	);
+
+	const getVendorBillsTitle = (bill) => {
+		const b = bill || null;
+		const vendorName = b ? (getVendorNameById(b?.vendor_id ?? b?.vendorId) || 'Vendor') : 'Vendor';
+		const noOfBills = Number(b?.no_of_bills ?? b?.noOfBills ?? 0) || 0;
+		const extraBills = Number(b?.extra_bills ?? b?.extraBills ?? 0) || 0;
+		const total = Math.max(0, noOfBills + extraBills);
+		return `${vendorName} - ${total} Bills`;
+	};
 	return (
 		<div className="w-full flex flex-col" style={{ height: 'calc(100vh - 182px)', overflow: 'hidden' }}>
 			{/* Full-screen flows (Verified / Entry / Paid) */}
 			{activeFullScreen === 'entry' && (
 				<div className="fixed inset-0 z-[999] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
 					<div className="w-full max-w-[360px] mx-auto min-h-screen bg-white">
-						{renderTopBar('Bill Entry Details', () => setActiveFullScreen(null), (
-							<button
-								type="button"
-								onClick={downloadMatchingExpensesPDF}
-								className="text-[12px] font-semibold text-black mt-[6px]"
-							>
-								Download
-							</button>
-						))}
-						<div className="px-[14px] pt-[10px] pb-[10px] flex flex-col" style={{ minHeight: 'calc(100vh - 86px)' }}>
+						{renderTopBar(getVendorBillsTitle(selectedVerifyBill), () => setActiveFullScreen(null))}
+
+						{/* Divider just below the header (under date) */}
+						<div className="pt-[8px]">
+							<div className="h-[2px] bg-[#E5E7EB]" />
+						</div>
+
+						<div className="pt-[4px] pb-[4px] flex flex-col" style={{ minHeight: 'calc(100vh - 86px)' }}>
+							<div className="flex items-center justify-end pb-[4px]">
+								<button
+									type="button"
+									onClick={downloadMatchingExpensesPDF}
+									className="text-[12px] font-semibold text-black mt-[2px]"
+								>
+									Download
+								</button>
+							</div>
 							{/* Previously entered rows */}
 							{billEntryDetailsRows.length > 0 && (
 								<div className="rounded-[12px] border border-[#E5E7EB] bg-white p-[12px]">
@@ -1983,10 +2780,11 @@ useEffect(() => {
 									</button>
 									<button
 										type="button"
-										onClick={closeBillEntrySheet}
+										onClick={submitBillEntryDetails}
+										disabled={submittingVerify}
 										className="h-[44px] rounded-[10px] bg-black text-white text-[14px] font-semibold"
 									>
-										Submit
+										{submittingVerify ? 'Submitting...' : 'Submit'}
 									</button>
 								</div>
 							</div>
@@ -2067,10 +2865,11 @@ useEffect(() => {
 									</button>
 									<button
 										type="button"
-										onClick={closeAdjustmentAmountSheet}
+										onClick={submitAdjustmentAmountUpdate}
+										disabled={submittingVerify}
 										className="h-[44px] rounded-[10px] bg-black text-white text-[14px] font-semibold"
 									>
-										Submit
+										{submittingVerify ? 'Submitting...' : 'Submit'}
 									</button>
 								</div>
 							</div>
@@ -2082,15 +2881,42 @@ useEffect(() => {
 			{activeFullScreen === 'bank' && (
 				<div className="fixed inset-0 z-[999] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
 					<div className="w-full max-w-[360px] mx-auto min-h-screen bg-white">
-						{renderTopBar('Enter PO Number', () => setActiveFullScreen(null), (
-							<button type="button" className="text-[12px] font-semibold text-black mt-[6px]">Submit</button>
-						))}
-						<div className="px-[14px] pt-[10px] pb-[10px] flex flex-col" style={{ minHeight: 'calc(100vh - 86px)' }}>
-							<div className="flex items-center justify-between">
-								<p className="text-[12px] font-semibold text-black underline underline-offset-4">Bank Details</p>
-								<p className="text-[12px] font-semibold text-[#666666]">
-									({Array.isArray(bankDetails) ? bankDetails.length : 0} Nos)
-								</p>
+						{renderTopBar(
+							getVendorNameById(selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId) || 'Vendor',
+							() => setActiveFullScreen(null),
+							<p className="text-[11px] font-semibold text-[#666666] leading-tight mt-[20px]">
+								(
+								{Number(selectedVerifyBill?.no_of_bills ?? selectedVerifyBill?.noOfBills ?? 0) +
+									Number(selectedVerifyBill?.extra_bills ?? selectedVerifyBill?.extraBills ?? 0)}
+								Nos)
+							</p>
+						)}
+
+						{/* Divider just below the header (under date and Last PO) */}
+						<div className="pt-[8px]">
+							<div className="h-[2px] bg-[#E5E7EB]" />
+						</div>
+
+						<div className="flex flex-col" style={{ minHeight: 'calc(100vh - 86px)' }}>
+							<div
+								className="flex mt-[4px] items-center justify-between"
+								role="button"
+								tabIndex={0}
+								onClick={openBankDetailsModal}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') openBankDetailsModal();
+								}}
+							>
+								<span className="text-[12px] font-semibold text-black underline underline-offset-4">
+									Bank Details
+								</span>
+								<button
+									type="button"
+									className="text-[12px] font-semibold text-black"
+									onClick={(e) => e.stopPropagation()}
+								>
+									Submit
+								</button>
 							</div>
 
 							{loadingBankDetails && <p className="text-[12px] text-center text-[#6B7280] mt-[10px]">Loading…</p>}
@@ -2098,93 +2924,60 @@ useEffect(() => {
 								<p className="text-[12px] text-center text-red-600 mt-[10px]">{bankDetailsError}</p>
 							)}
 
-							<div className="mt-[10px] space-y-[10px]">
+							<div className="space-y-[10px]">
 								{(Array.isArray(bankDetails) ? bankDetails : []).map((p, i) => {
 									const mode = resolveBankPaymentMode(p);
-									const amount = Number(p?.amount || 0) || 0;
+									const amount = mode === 'Carry Forward'
+										? (Number(p?.carry_forward_amount || 0) || 0)
+										: (Number(p?.amount || 0) || 0);
+									const billUrlForAmount =
+										p?.bill_url ??
+										p?.billUrl ??
+										p?.bill_copy_url ??
+										p?.billCopyUrl ??
+										p?.bill_copy ??
+										p?.billCopy ??
+										'';
 									const acc = p?.account_number || p?.accountNumber || '';
 									const txn = p?.transaction_number || p?.transactionNumber || '';
 									const chequeNo = p?.cheque_no || p?.chequeNo || '';
 									const date = p?.date || p?.payment_date || '';
 									return (
 										<div key={i} className="rounded-[14px] bg-[#FAFAFA] border border-[#EFEFEF] px-[14px] py-[12px] flex items-start justify-between gap-[10px]">
-											<div className="min-w-0">
+											<div className="min-w-0 text-left">
 												<p className="text-[12px] font-semibold text-black truncate">{acc ? `A/C - ${acc}` : 'A/C - -'}</p>
 												<p className="text-[12px] text-black mt-[2px] truncate">
 													{chequeNo ? `CHQ-${chequeNo}` : (txn || '')}
 												</p>
 												<p className="text-[10px] text-[#666666] mt-[4px]">{date ? new Date(date).toLocaleString('en-GB') : ''}</p>
 											</div>
-											<div className="flex-shrink-0 text-right">
+											<div className="flex-shrink-0 flex flex-col items-end">
 												<span className="inline-flex px-[10px] py-[3px] rounded-full text-[10px] font-semibold bg-[#F3E8FF] text-[#7C3AED]">
 													{mode || 'Mode'}
 												</span>
-												<p className="text-[13px] font-semibold text-green-700 mt-[6px]">{formatIndianCurrency(amount)}</p>
+												<button
+													type="button"
+													onClick={() => {
+														const url = String(billUrlForAmount || '').trim();
+														if (!url) return;
+														window.open(url, '_blank', 'noopener,noreferrer');
+													}}
+													disabled={!String(billUrlForAmount || '').trim()}
+													className={`mt-[6px] text-[13px] font-semibold ${String(billUrlForAmount || '').trim() ? 'text-green-700 underline underline-offset-2' : 'text-green-700'}`}
+													title={String(billUrlForAmount || '').trim() ? 'Open bill copy' : 'No bill copy'}
+												>
+													{formatIndianCurrency(amount)}
+												</button>
 											</div>
 										</div>
 									);
 								})}
 							</div>
 
-							{/* Previous/Last Payment Details (match desktop "Previous Payment Details") */}
-							{lastBankPayment && (
-								<div className="mt-[12px] rounded-[14px] border border-[#E5E7EB] bg-white p-[14px]">
-									<p className="text-[12px] font-semibold text-[#111827] text-center mb-[10px]">
-										Previous Payment Details:
-									</p>
-									<div className="flex items-start justify-between gap-[10px]">
-										<div className="flex-1 min-w-0">
-											<p className="text-[11px] font-semibold text-[#111827] mb-[6px]">Date</p>
-											<div className="h-[34px] rounded-[6px] border border-[#E5E7EB] bg-white px-[10px] flex items-center">
-												<p className="text-[12px] font-medium text-[#111827] truncate">
-													{formatEntryDateDdMmYyyy(
-														lastBankPayment?.date ??
-														lastBankPayment?.payment_date ??
-														lastBankPayment?.paymentDate ??
-														lastBankPayment?.timestamp ??
-														lastBankPayment?.created_at ??
-														lastBankPayment?.createdAt ??
-														''
-													) || '-'}
-												</p>
-											</div>
-										</div>
-										<div className="flex-1 min-w-0">
-											<p className="text-[11px] font-semibold text-[#111827] mb-[6px]">Amount</p>
-											<div className="h-[34px] rounded-[6px] border border-[#E5E7EB] bg-white px-[10px] flex items-center justify-end">
-												<p className="text-[12px] font-medium text-[#111827] truncate">
-													{formatIndianCurrency(
-														(Number(lastBankPayment?.amount || 0) || 0) +
-														(Number(lastBankPayment?.carry_forward_amount || 0) || 0)
-													)}
-												</p>
-											</div>
-										</div>
-										<div className="flex-1 min-w-0">
-											<p className="text-[11px] font-semibold text-[#111827] mb-[6px]">Mode</p>
-											<div className="h-[34px] rounded-[6px] border border-[#E5E7EB] bg-white px-[10px] flex items-center">
-												<p className="text-[12px] font-medium text-[#111827] truncate">
-													{resolveBankPaymentMode(lastBankPayment) || '-'}
-												</p>
-											</div>
-										</div>
-									</div>
-									{lastBankPaymentViewUrl ? (
-										<button
-											type="button"
-											onClick={() => window.open(lastBankPaymentViewUrl, '_blank', 'noopener,noreferrer')}
-											className="mt-[10px] text-[12px] font-semibold underline"
-											style={{ color: '#C58B2A' }}
-										>
-											View
-										</button>
-									) : null}
-								</div>
-							)}
-
 							<button
 								type="button"
 								onClick={openPaymentSheet}
+								disabled={paymentStatuses[selectedVerifyBill?.id] === '✓ Paid'}
 								className="mt-[12px] w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white text-[13px] font-semibold text-black"
 							>
 								+ Add on
@@ -2195,9 +2988,37 @@ useEffect(() => {
 							<div className="mt-auto rounded-[14px] border border-[#E5E7EB] bg-white p-[14px]">
 								<div className="flex items-center justify-between mb-[8px]">
 									<p className="text-[14px] font-semibold text-black">Summary Details</p>
-									<button type="button" className="text-[12px] font-semibold" style={{ color: '#C58B2A' }}>
-										Attach File
-									</button>
+									<div className="flex items-center gap-[10px]">
+										<input
+											ref={overallPdfInputRef}
+											type="file"
+											accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,application/pdf,image/*"
+											onChange={handleOverallPaymentPdfChange}
+											style={{ display: 'none' }}
+										/>
+										<button
+											type="button"
+											onClick={() => overallPdfInputRef.current?.click()}
+											disabled={uploadingOverallPdf}
+											className={`text-[12px] font-semibold ${uploadingOverallPdf ? 'opacity-50 cursor-not-allowed' : ''}`}
+											style={{ color: '#C58B2A' }}
+										>
+											{uploadingOverallPdf ? 'Uploading...' : 'Attach File'}
+										</button>
+										{(selectedVerifyBill?.over_all_payment_pdf_url || selectedVerifyBill?.overAllPaymentPdfUrl) ? (
+											<button
+												type="button"
+												onClick={() => {
+													const url = selectedVerifyBill?.over_all_payment_pdf_url || selectedVerifyBill?.overAllPaymentPdfUrl;
+													if (url) window.open(url, '_blank', 'noopener,noreferrer');
+												}}
+												className="text-[12px] font-semibold"
+												style={{ color: '#111827' }}
+											>
+												View
+											</button>
+										) : null}
+									</div>
 								</div>
 								<div className="flex items-center justify-between py-[6px]">
 									<p className="text-[12px] text-[#666666]">Total Payable Amount</p>
@@ -2214,11 +3035,14 @@ useEffect(() => {
 											type="checkbox"
 											checked={useCarryForward}
 											onChange={(e) => setUseCarryForward(e.target.checked)}
+											disabled={(bankSummaryDetails?.carryForwardAmount ?? 0) <= 0 || (paymentStatuses[selectedVerifyBill?.id] === '✓ Paid')}
 											className="w-[14px] h-[14px] accent-green-600"
 											aria-label="Use Carry Forward"
 										/>
 									</div>
-									<p className="text-[12px] font-semibold text-black">{formatIndianCurrency(bankSummaryDetails?.carryForwardAmount ?? 0)}</p>
+									<p className={`text-[12px] font-semibold ${useCarryForward ? 'text-green-700' : 'text-black'}`}>
+										{formatIndianCurrency(bankSummaryDetails?.carryForwardAmount ?? 0)}
+									</p>
 								</div>
 								<div className="h-[1px] bg-[#E5E7EB] my-[8px]" />
 								<div className="flex items-center justify-between py-[6px]">
@@ -2227,7 +3051,19 @@ useEffect(() => {
 								</div>
 								<div className="flex items-center justify-between py-[6px]">
 									<p className="text-[12px] underline text-[#C58B2A]">Discount</p>
-									<p className="text-[12px] font-semibold" style={{ color: '#C58B2A' }}>{formatIndianCurrency(bankSummaryDetails?.discountAmount ?? 0)}</p>
+									<input
+										type="text"
+										value={discount === 0 ? '' : String(discount).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+										onChange={(e) => {
+											if (discountSubmitted) return;
+											const raw = String(e.target.value || '').replace(/,/g, '').replace(/\D/g, '');
+											setDiscount(Number(raw) || 0);
+										}}
+										disabled={discountSubmitted}
+										placeholder="0"
+										className={`w-[90px] h-[28px] px-[10px] text-right text-[12px] font-semibold rounded-[6px] border border-[#E5E7EB] outline-none ${discountSubmitted ? 'bg-[#F3F4F6] text-[#6B7280] cursor-not-allowed' : 'bg-white text-[#C58B2A]'}`}
+										title={discountSubmitted ? 'Discount already applied in previous payment' : 'Enter discount amount'}
+									/>
 								</div>
 								<div className="h-[1px] bg-[#E5E7EB] my-[8px]" />
 								<div className="flex items-center justify-between py-[6px]">
@@ -2247,7 +3083,7 @@ useEffect(() => {
 								aria-label="Close"
 								onClick={closePaymentSheet}
 							/>
-							<div className="relative w-full bg-white rounded-t-[18px] px-[16px] pt-[14px] pb-[16px]">
+							<div className="relative w-full bg-white rounded-t-[18px] pt-[14px] pb-[16px]">
 									<style>{`
 										/* Hide number input spinner arrows for Payment Details amount */
 										.bpt-payment-amount-input::-webkit-outer-spin-button,
@@ -2345,19 +3181,22 @@ useEffect(() => {
 									</div>
 								</div>
 
-								{(paymentForm.mode === 'Net Banking' || paymentForm.mode === 'NEFT/RTGS') && (
+								{/* For all modes except Cash & Carry Forward, show Account Number. */}
+								{paymentForm.mode && paymentForm.mode !== 'Cash' && paymentForm.mode !== 'Carry Forward' && (
 									<>
-										<div className="mt-[12px]">
-											<p className="text-[12px] font-semibold text-black mb-[6px]">Transaction Number</p>
-											<input
-												type="text"
-												inputMode="numeric"
-												value={paymentForm.transactionNumber}
-												onChange={(e) => setPaymentForm((p) => ({ ...p, transactionNumber: e.target.value.replace(/[^0-9]/g, '') }))}
-												className="w-full h-[40px] border border-[#D1D5DB] rounded-[6px] text-[13px] font-medium px-[12px] outline-none bg-white"
-												placeholder="Enter"
-											/>
-										</div>
+										{(paymentForm.mode === 'Net Banking' || paymentForm.mode === 'NEFT/RTGS') && (
+											<div className="mt-[12px]">
+												<p className="text-[12px] font-semibold text-black mb-[6px]">Transaction Number</p>
+												<input
+													type="text"
+													inputMode="numeric"
+													value={paymentForm.transactionNumber}
+													onChange={(e) => setPaymentForm((p) => ({ ...p, transactionNumber: e.target.value.replace(/[^0-9]/g, '') }))}
+													className="w-full h-[40px] border border-[#D1D5DB] rounded-[6px] text-[13px] font-medium px-[12px] outline-none bg-white"
+													placeholder="Enter"
+												/>
+											</div>
+										)}
 
 										<div className="mt-[12px]">
 											<p className="text-[12px] font-semibold text-black mb-[6px]">Account Number</p>
@@ -2387,6 +3226,32 @@ useEffect(() => {
 												</div>
 											</div>
 										</div>
+
+										{paymentForm.mode === 'Cheque' && (
+											<>
+												<div className="mt-[12px]">
+													<p className="text-[12px] font-semibold text-black mb-[6px]">Cheque No</p>
+													<input
+														type="text"
+														inputMode="numeric"
+														value={paymentForm.chequeNo}
+														onChange={(e) => setPaymentForm((p) => ({ ...p, chequeNo: e.target.value.replace(/[^0-9]/g, '') }))}
+														className="w-full h-[40px] border border-[#D1D5DB] rounded-[6px] text-[13px] font-medium px-[12px] outline-none bg-white"
+														placeholder="Enter"
+													/>
+												</div>
+												<div className="mt-[12px]">
+													<p className="text-[12px] font-semibold text-black mb-[6px]">Cheque Date</p>
+													<input
+														type="text"
+														value={paymentForm.chequeDate}
+														onChange={(e) => setPaymentForm((p) => ({ ...p, chequeDate: e.target.value }))}
+														className="w-full h-[40px] border border-[#D1D5DB] rounded-[6px] text-[13px] font-medium px-[12px] outline-none bg-white"
+														placeholder="dd/mm/yyyy"
+													/>
+												</div>
+											</>
+										)}
 									</>
 								)}
 
@@ -2415,10 +3280,11 @@ useEffect(() => {
 									</button>
 									<button
 										type="button"
-										onClick={closePaymentSheet}
+										onClick={submitPaymentDetails}
+										disabled={submittingVerify || (paymentStatuses[selectedVerifyBill?.id] === '✓ Paid')}
 										className="h-[44px] rounded-[10px] bg-black text-white text-[14px] font-semibold"
 									>
-										Save
+										{submittingVerify ? 'Saving...' : 'Save'}
 									</button>
 								</div>
 							</div>
@@ -2518,6 +3384,7 @@ useEffect(() => {
 											</div>
 										</div>
 									</div>
+
 								</div>
 							)}
 
@@ -2654,6 +3521,8 @@ useEffect(() => {
 					const verificationStatus = getBillVerificationStatus(row);
 					const entryStatusText = getEntryStatusText(row);
 					const paymentStatus = paymentStatuses[row?.id] || 'To Pay';
+					const canOpenEntry = isAllBillsVerified(row);
+					const canOpenPayment = isEntryCompleted(row);
 
 					const statusLeft =
 						verificationStatus === '✓ Verified' ? (
@@ -2665,27 +3534,148 @@ useEffect(() => {
 						);
 
 					const statusMid = (entryStatusText === 'Entered' || entryStatusText === '✓ Entered') ? (
-						<Chip label="Entered" tone={entryStatusText === '✓ Entered' ? 'success' : 'warn'} onClick={() => openEntryDetails(row)} />
+						<Chip
+							label="Entered"
+							tone={entryStatusText === '✓ Entered' ? 'success' : 'warn'}
+							disabled={!canOpenEntry}
+							onClick={() => {
+								if (canOpenEntry) openEntryDetails(row);
+								else alert('Complete bill verification before entering details');
+							}}
+						/>
 					) : (
-						<Chip label="To Entry" tone="neutral" onClick={() => openEntryDetails(row)} />
+						<Chip
+							label="To Entry"
+							tone="neutral"
+							disabled={!canOpenEntry}
+							onClick={() => {
+								if (canOpenEntry) openEntryDetails(row);
+								else alert('Complete bill verification before entering details');
+							}}
+						/>
 					);
 
 					const statusRight =
 						paymentStatus === '✓ Paid' ? (
-							<Chip label="Paid" tone="success" onClick={() => openBankDetails(row)} />
+							<Chip
+								label="Paid"
+								tone="success"
+								disabled={!canOpenPayment}
+								onClick={() => {
+									if (canOpenPayment) openBankDetails(row);
+									else alert('Complete entry before proceeding with payment');
+								}}
+							/>
 						) : paymentStatus === 'Paid' ? (
-							<Chip label="Paid" tone="warn" onClick={() => openBankDetails(row)} />
+							<Chip
+								label="Paid"
+								tone="warn"
+								disabled={!canOpenPayment}
+								onClick={() => {
+									if (canOpenPayment) openBankDetails(row);
+									else alert('Complete entry before proceeding with payment');
+								}}
+							/>
 						) : (
-							<Chip label="To Pay" tone="neutral" onClick={() => openBankDetails(row)} />
+							<Chip
+								label="To Pay"
+								tone="neutral"
+								disabled={!canOpenPayment}
+								onClick={() => {
+									if (canOpenPayment) openBankDetails(row);
+									else alert('Complete entry before proceeding with payment');
+								}}
+							/>
 						);
+
+					const rowId = row?.id ?? row?.bill_id ?? idx;
+					const isSwiped = String(swipedRowId ?? '') === String(rowId ?? '');
+					const isActiveTouch = touchStartX != null && String(touchRowId ?? '') === String(rowId ?? '');
+					const deltaX = (isActiveTouch && touchCurrentX != null) ? (touchCurrentX - touchStartX) : 0;
+					const swipeOffset = (() => {
+						// If expanded, allow swipe right to close (move towards 0)
+						if (isSwiped) {
+							if (isActiveTouch && deltaX > 0) return Math.min(0, -72 + deltaX);
+							return -72;
+						}
+						// If not expanded, allow swipe left to reveal (move towards -72)
+						if (isActiveTouch && deltaX < 0) return Math.max(-72, deltaX);
+						return 0;
+					})();
+					const showSwipeActions = isSwiped || (isActiveTouch && touchIsSwiping && swipeOffset < -20);
 
 					return (
 						<div
-							key={idx}
+							key={rowId}
 							className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] w-full"
+							onTouchStart={(e) => {
+								if (!e.touches?.[0]) return;
+								setTouchRowId(rowId);
+								setTouchStartX(e.touches[0].clientX);
+								setTouchCurrentX(e.touches[0].clientX);
+								setTouchIsSwiping(false);
+							}}
+							onTouchMove={(e) => {
+								if (touchStartX == null || !e.touches?.[0]) return;
+								const x = e.touches[0].clientX;
+								const dx = x - touchStartX;
+								// allow swipe left to open, and swipe right to close when already expanded
+								if (dx < 0 || (isSwiped && dx > 0)) {
+									if (e.preventDefault) e.preventDefault();
+									setTouchCurrentX(x);
+									setTouchIsSwiping(true);
+								}
+							}}
+							onTouchEnd={() => {
+								const minSwipeDistance = 50;
+								const dx = (touchCurrentX != null && touchStartX != null) ? (touchCurrentX - touchStartX) : 0;
+								if (Math.abs(dx) >= minSwipeDistance) {
+									if (dx < 0) setSwipedRowId(rowId); // open
+									else setSwipedRowId(null); // close
+								}
+								setTouchRowId(null);
+								setTouchStartX(null);
+								setTouchCurrentX(null);
+								setTouchIsSwiping(false);
+							}}
 						>
-							{/* Inner card (matches PO History card) */}
-							<div className="bg-white rounded-[8px] h-full px-[12px] py-[12px] transition-all duration-300 ease-out flex flex-col">
+							{/* Edit action behind (hidden until swipe) */}
+							<div
+								className="absolute right-0 top-0 h-full w-[72px] flex items-center justify-center"
+								style={{
+									opacity: showSwipeActions ? 1 : 0,
+									transition: 'opacity 0.2s ease-out',
+									pointerEvents: showSwipeActions ? 'auto' : 'none'
+								}}
+							>
+								<button
+									type="button"
+									onTouchStart={(e) => e.stopPropagation()}
+									onTouchEnd={(e) => e.stopPropagation()}
+									onClick={(e) => {
+										e.stopPropagation();
+										openEditTrackerSheet(row);
+									}}
+									className="h-full w-full bg-[#0B7A35] flex items-center justify-center"
+									aria-label="Edit"
+								>
+									<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+										<path d="M12 20h9" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+										<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
+									</svg>
+								</button>
+							</div>
+
+							{/* Foreground card */}
+							<div
+								className="bg-white rounded-[8px] h-full px-[12px] py-[12px] border-b border-[#E5E7EB] transition-transform duration-200 ease-out flex flex-col select-none"
+								style={{
+									transform: `translateX(${swipeOffset}px)`,
+									touchAction: 'pan-y',
+									userSelect: 'none',
+									WebkitUserSelect: 'none'
+								}}
+							>
 								<div className="flex items-start justify-between gap-[8px]">
 									<div className="min-w-0  text-left">
 										<p
@@ -2726,21 +3716,42 @@ useEffect(() => {
 				<div className="fixed inset-0 z-[999] bg-white">
 					<div className="w-full max-w-[360px] mx-auto min-h-screen bg-white flex flex-col">
 						{/* Top bar */}
-						{renderTopBar('Enter PO Number', closeFullScreen, (
+						{renderTopBar(getVendorBillsTitle(selectedVerifyBill), closeFullScreen, (
 							<div className="text-right flex-shrink-0">
 								<p className="text-[11px] font-semibold text-black leading-tight">
 									Last PO:{' '}
-									{lastPoNumber != null ? String(lastPoNumber) : '-'}
+									{lastPoNumber != null ? String(lastPoNumber) : ''}
 								</p>
 								<p className="text-[10px] font-medium text-[#777777] leading-tight mt-[2px]">
-									({Object.values(poValidation || {}).every(v => v?.matched === true) && Object.keys(poValidation || {}).length > 0 ? 'All Bills Verified' : 'Bills'})
+									{(() => {
+										const total =
+											Math.max(0, Number(selectedVerifyBill?.no_of_bills ?? selectedVerifyBill?.noOfBills ?? 0) || 0) +
+											Math.max(0, Number(selectedVerifyBill?.extra_bills ?? selectedVerifyBill?.extraBills ?? 0) || 0);
+										const persisted = (selectedVerifyBill?.billVerifications || selectedVerifyBill?.bill_verifications || []);
+										let verified = 0;
+										for (let i = 0; i < total; i += 1) {
+											const isNoPo = !!(noPoSelections && noPoSelections[i]);
+											const pv = poValidation ? poValidation[i] : null;
+											const per = Array.isArray(persisted) ? persisted[i] : null;
+											const perVerified = per?.is_verified === true || per?.status === 'VERIFIED';
+											if (isNoPo || (pv && pv.matched === true) || perVerified) verified += 1;
+										}
+										if (total > 0 && verified === total) return '(All Bills Verified)';
+										if (verified > 0) return `(${verified} Bills Verified)`;
+										return '(Bills)';
+									})()}
 								</p>
 							</div>
 						))}
 
+						{/* Divider just below the header (under date and Last PO) */}
+						<div className=" pt-[8px]">
+							<div className="h-[2px] bg-[#E5E7EB]" />
+						</div>
+
 						{/* Content (grid scrolls; buttons pinned) */}
-						<div className="px-[14px] pt-[10px] pb-[16px] flex-shrink-0">
-							<div className="flex items-center justify-between">
+						<div className="pt-[4px] flex-shrink-0">
+							<div className="flex items-center justify-between ">
 								<button
 									type="button"
 									onClick={() => setShowFillRangeSheet(true)}
@@ -2762,13 +3773,10 @@ useEffect(() => {
 									<button
 										type="button"
 										onClick={() => setIsEditMode((p) => !p)}
-										className="w-[28px] h-[28px] flex items-center justify-center"
+										className="w-[26px] h-[26px] bg-white flex items-center justify-center"
 										aria-label="Edit"
 									>
-										<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-											<path d="M14 4l6 6" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
-											<path d="M16 2l6 6L8 22H2v-6L16 2z" stroke="#111827" strokeWidth="2" strokeLinejoin="round" />
-										</svg>
+										<img src={Edit} alt="edit" className="w-[14px] h-[14px]" />
 									</button>
 								</div>
 							</div>
@@ -2776,10 +3784,10 @@ useEffect(() => {
 
 						{/* Scroll area: PO boxes */}
 						<div
-							className="px-[14px] overflow-y-auto no-scrollbar scrollbar-none flex-shrink-0"
+							className=" overflow-y-auto no-scrollbar scrollbar-none flex-shrink-0"
 							style={{ maxHeight: 'calc(100vh - 310px)' }}
 						>
-							<div className="mt-[10px] rounded-[10px] border border-[#E5E7EB] p-[10px]">
+							<div className=" rounded-[10px] border border-[#E5E7EB] p-[10px]">
 								<div className="grid grid-cols-4 gap-[10px]">
 									{verifyBoxes.map((v, i) => {
 										const isNoPo = !!noPoSelections?.[i];
@@ -2944,6 +3952,7 @@ useEffect(() => {
 														{isNoPo ? 'NO PO' : (displayValue || 'Enter')}
 													</div>
 												)}
+
 											</div>
 										);
 									})}
@@ -2953,8 +3962,8 @@ useEffect(() => {
 						</div>
 
 						{/* Bottom actions (pinned) */}
-						<div className="px-[14px] pb-[16px] flex-shrink-0 bg-white">
-							<div className="mt-[10px] grid grid-cols-2 gap-[10px]">
+						<div className=" pb-[16px] flex-shrink-0 bg-white">
+							<div className=" grid grid-cols-2 gap-[10px]">
 								<button
 									type="button"
 									onClick={checkPO}
@@ -3294,6 +4303,343 @@ useEffect(() => {
 			)}
 
 			{/* Received Date picker (same as ToolsTracker wheel modal) */}
+			{/* Global Bank Details modal (must float above all screens) */}
+			{showBankDetailsModal && (
+				<div
+					className="fixed inset-0 bg-black/60 flex items-center justify-center px-[14px]"
+					style={{ zIndex: 99999 }}
+					onClick={(e) => {
+						if (e.target === e.currentTarget) closeBankDetailsModal();
+					}}
+				>
+					<div className="w-full max-w-[360px] bg-white rounded-[14px] border border-[#E5E7EB] overflow-hidden shadow-xl">
+						<div className="px-[16px] pt-[16px] pb-[10px] flex items-center justify-between">
+							<p className="text-[18px] font-semibold text-black">Bank Details</p>
+							<button
+								type="button"
+								onClick={closeBankDetailsModal}
+								className="w-[36px] h-[36px] flex items-center justify-center"
+								aria-label="Close"
+							>
+								<span className="text-[22px] leading-none font-semibold text-[#E4572E]">×</span>
+							</button>
+						</div>
+						<div className="px-[16px] pb-[16px]">
+							{loadingVendorBankDetails && !selectedVendorAccountDetails ? (
+								<p className="text-[12px] text-center text-[#6B7280]">Loading…</p>
+							) : null}
+							{(() => {
+								const d = selectedVendorAccountDetails || {};
+								const Icon = ({ kind }) => {
+									const cls = "w-[16px] h-[16px] text-[#6B7280]";
+									if (kind === 'user') return (
+										<svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+											<path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+											<path d="M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="2" />
+										</svg>
+									);
+									if (kind === 'bank') return (
+										<svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+											<path d="M3 10h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+											<path d="M5 10V20M9 10V20M15 10V20M19 10V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+											<path d="M4 7l8-4 8 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+											<path d="M4 20h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+										</svg>
+									);
+									if (kind === 'card') return (
+										<svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+											<path d="M3 7h18v10H3V7Z" stroke="currentColor" strokeWidth="2" />
+											<path d="M3 10h18" stroke="currentColor" strokeWidth="2" />
+										</svg>
+									);
+									if (kind === 'tag') return (
+										<svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+											<path d="M20 13l-7 7-11-11V2h7l11 11Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+											<path d="M7.5 7.5h0" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+										</svg>
+									);
+									if (kind === 'pin') return (
+										<svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+											<path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11Z" stroke="currentColor" strokeWidth="2" />
+											<path d="M12 10.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="currentColor" strokeWidth="2" />
+										</svg>
+									);
+									if (kind === 'phone') return (
+										<svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+											<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.5a16 16 0 0 0 6 6l1.1-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6A2 2 0 0 1 22 16.9Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+										</svg>
+									);
+									// mail
+									return (
+										<svg className={cls} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+											<path d="M4 4h16v16H4V4Z" stroke="currentColor" strokeWidth="2" />
+											<path d="M4 7l8 6 8-6" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+										</svg>
+									);
+								};
+
+								const CopyIcon = () => (
+									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+										<path d="M9 9h10v12H9V9Z" stroke="currentColor" strokeWidth="2" />
+										<path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" stroke="currentColor" strokeWidth="2" />
+									</svg>
+								);
+
+								const Row = ({ label, value, iconKind }) => (
+									<div className="flex items-start justify-between gap-[10px] py-[12px] border-b border-[#EEE] last:border-b-0">
+										<div className="flex items-start gap-[10px] min-w-0">
+											<div className="mt-[2px]">{Icon({ kind: iconKind })}</div>
+											<div className="min-w-0">
+												<p className="text-[12px] font-medium text-[#6B7280] leading-tight">{label}</p>
+												<p className="text-[14px] font-semibold text-black break-words mt-[2px]">{value || '-'}</p>
+											</div>
+										</div>
+										<button
+											type="button"
+											onClick={() => copyText(value)}
+											className="w-[32px] h-[32px] rounded-[8px] border border-[#E5E7EB] flex items-center justify-center text-[#6B7280] flex-shrink-0"
+											aria-label={`Copy ${label}`}
+										>
+											<CopyIcon />
+										</button>
+									</div>
+								);
+								return (
+									<div className="rounded-[12px] border border-[#E5E7EB] overflow-hidden bg-white">
+										<div className="px-[14px]">
+											<Row label="Account Holder Name" value={d?.account_holder_name} iconKind="user" />
+											<Row label="Bank Name" value={d?.bank_name} iconKind="bank" />
+											<Row label="Account Number" value={d?.account_number} iconKind="card" />
+											<Row label="IFSC Code" value={d?.ifsc_code} iconKind="tag" />
+											<Row label="Branch Name" value={d?.branch} iconKind="pin" />
+											<Row label="Contact Number" value={d?.contact_number} iconKind="phone" />
+											<Row label="Contact Email" value={d?.contact_email} iconKind="mail" />
+										</div>
+									</div>
+								);
+							})()}
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Edit bottom sheet (mobile) */}
+			{showEditSheet && (
+				<div className={`fixed inset-0 ${showEditReceivedDatePicker ? 'z-[40]' : 'z-[999]'} flex items-end justify-center`}>
+					<button
+						type="button"
+						className="absolute inset-0 bg-black/40"
+						aria-label="Close"
+						onClick={closeEditSheet}
+					/>
+					<div className="relative w-full bg-white rounded-t-[18px] px-[16px] pt-[14px] pb-[16px]">
+						<div className="flex items-center justify-between">
+							<p className="text-[14px] font-semibold text-black">Edit Tracker Details</p>
+							<button
+								type="button"
+								onClick={closeEditSheet}
+								className="w-[28px] h-[28px] flex items-center justify-center"
+								aria-label="Close"
+							>
+								<span className="text-[20px] leading-none font-semibold text-[#E4572E]">×</span>
+							</button>
+						</div>
+
+						<div className="mt-[10px] flex flex-col gap-[10px]">
+							<div>
+								<p className="text-[12px] font-semibold text-black mb-[6px]">Received Date</p>
+								<div className="relative">
+									<div
+										role="button"
+										tabIndex={0}
+										onClick={() => setShowEditReceivedDatePicker(true)}
+										onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowEditReceivedDatePicker(true); }}
+										className="w-full h-[38px] rounded-[6px] border border-[#D1D5DB] bg-white px-[12px] pr-[34px] text-[12px] font-medium flex items-center cursor-pointer"
+										style={{ color: editForm.receivedDate ? '#111827' : '#9E9E9E' }}
+									>
+										<span className="truncate">
+											{editForm.receivedDate ? String(editForm.receivedDate).replaceAll('/', '-') : 'dd-mm-yyyy'}
+										</span>
+									</div>
+									<div className="pointer-events-none absolute right-[10px] top-1/2 -translate-y-1/2">
+										<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+											<path d="M7 10h10" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+											<path d="M7 14h7" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+											<path d="M8 3v3" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+											<path d="M16 3v3" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+											<path d="M5 6h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" stroke="#111827" strokeWidth="2" strokeLinejoin="round" />
+										</svg>
+									</div>
+								</div>
+							</div>
+
+							<div>
+								<p className="text-[12px] font-semibold text-black mb-[6px]">Vendor Name</p>
+								<div className="relative">
+									<div
+										role="button"
+										tabIndex={0}
+										onClick={() => setShowEditVendorPicker(true)}
+										onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowEditVendorPicker(true); }}
+										className="w-full h-[38px] rounded-[6px] border border-[#D1D5DB] bg-white px-[12px] pr-[34px] text-[12px] font-medium flex items-center cursor-pointer"
+										style={{ color: selectedVendorNameForEditSheet ? '#111827' : '#9E9E9E' }}
+									>
+										<span className="truncate">{selectedVendorNameForEditSheet || 'Select Vendor'}</span>
+									</div>
+									<div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+										<svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+											<path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+										</svg>
+									</div>
+								</div>
+							</div>
+
+							<div className="grid grid-cols-2 gap-[10px]">
+								<div>
+									<p className="text-[12px] font-semibold text-black mb-[6px]">Number of bills</p>
+									<input
+										type="number"
+										value={editForm.noOfBills}
+										onChange={(e) => setEditForm((p) => ({ ...p, noOfBills: e.target.value }))}
+										className="w-full h-[38px] rounded-[6px] border border-[#D1D5DB] bg-white px-[12px] text-[12px] font-medium text-[#111827] outline-none"
+									/>
+								</div>
+								<div>
+									<p className="text-[12px] font-semibold text-black mb-[6px]">Extra Bills (PO)</p>
+									<input
+										type="number"
+										value={editForm.extraBills}
+										onChange={(e) => setEditForm((p) => ({ ...p, extraBills: e.target.value }))}
+										className="w-full h-[38px] rounded-[6px] border border-[#D1D5DB] bg-white px-[12px] text-[12px] font-medium text-[#111827] outline-none"
+									/>
+								</div>
+							</div>
+
+							<div>
+								<p className="text-[12px] font-semibold text-black mb-[6px]">Total Amount</p>
+								<input
+									type="number"
+									value={editForm.totalAmount}
+									onChange={(e) => setEditForm((p) => ({ ...p, totalAmount: e.target.value }))}
+									className="w-full h-[38px] rounded-[6px] border border-[#D1D5DB] bg-white px-[12px] text-[12px] font-medium text-[#111827] outline-none"
+								/>
+							</div>
+
+							<div className="mt-[4px] grid grid-cols-2 gap-[12px]">
+								<button
+									type="button"
+									onClick={closeEditSheet}
+									disabled={editLoading}
+									className="h-[40px] rounded-[10px] border border-[#D1D5DB] bg-white text-[13px] font-semibold text-black disabled:opacity-50"
+								>
+									Cancel
+								</button>
+								<button
+									type="button"
+									onClick={submitEditTracker}
+									disabled={editLoading}
+									className="h-[40px] rounded-[10px] bg-black text-white text-[13px] font-semibold disabled:opacity-50"
+								>
+									{editLoading ? 'Updating...' : 'Update'}
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Edit vendor picker popup */}
+			{showEditVendorPicker && (
+				<div
+					className="fixed inset-0 bg-black bg-opacity-50 z-[1307] flex items-center justify-center p-4"
+					onClick={(e) => {
+						if (e.target === e.currentTarget) {
+							setShowEditVendorPicker(false);
+							setEditVendorPickerQuery('');
+						}
+					}}
+				>
+					<div
+						className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] rounded-b-[20px] shadow-lg max-h-[80vh] flex flex-col"
+						onClick={(e) => e.stopPropagation()}
+						onMouseDown={(e) => e.stopPropagation()}
+					>
+						<div className="flex justify-between items-center px-6 pt-[20px] pb-[10px]">
+							<p className="text-[16px] font-semibold text-black">Select Vendor</p>
+							<button
+								type="button"
+								onClick={() => {
+									setShowEditVendorPicker(false);
+									setEditVendorPickerQuery('');
+								}}
+								className="text-red-500 text-[20px] font-semibold hover:opacity-80 transition-opacity"
+								aria-label="Close"
+							>
+								<span className="text-[20px] leading-none font-semibold text-[#E4572E]">×</span>
+							</button>
+						</div>
+						<div className="px-6 pt-[4px] pb-[6px]">
+							<div className="relative">
+								<input
+									type="text"
+									value={editVendorPickerQuery}
+									onChange={(e) => setEditVendorPickerQuery(e.target.value)}
+									placeholder="Search"
+									className="w-full h-[32px] pl-[30px] pr-4 border border-[rgba(0,0,0,0.16)] rounded-[8px] text-[12px] font-medium text-black placeholder:text-[#9E9E9E] bg-white focus:outline-none"
+									autoFocus
+								/>
+								<div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+									<svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+										<circle cx="11" cy="11" r="7" stroke="#9CA3AF" strokeWidth="1.5" />
+										<path d="M20 20L17 17" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
+									</svg>
+								</div>
+							</div>
+						</div>
+						<div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none mb-4 px-6 min-h-[65vh]">
+							<div className="shadow-md rounded-lg overflow-hidden">
+								{filteredVendorOptionsForEditSheet.length > 0 ? (
+									<div className="space-y-0">
+										{filteredVendorOptionsForEditSheet.map((v) => (
+											<button
+												key={v.id}
+												type="button"
+												onClick={() => {
+													setEditForm((p) => ({ ...p, vendorId: v.id }));
+													setShowEditVendorPicker(false);
+													setEditVendorPickerQuery('');
+												}}
+												className={`w-full px-[16px] flex items-center gap-3 transition-colors ${String(editForm.vendorId) === String(v.id) ? 'bg-[#FFF9E6]' : 'hover:bg-[#F5F5F5]'}`}
+												style={{ minHeight: '44px', maxHeight: '44px', height: '44px' }}
+											>
+												<p className="text-[12px] font-medium text-black text-left">{v.name}</p>
+											</button>
+										))}
+									</div>
+								) : (
+									<div className="flex flex-col items-center justify-center py-4">
+										<p className="text-[14px] font-medium text-[#9E9E9E] text-center">
+											{editVendorPickerQuery ? 'No options found' : 'No options available'}
+										</p>
+									</div>
+								)}
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Edit received date picker */}
+			<DatePickerModal
+				isOpen={showEditReceivedDatePicker}
+				onClose={() => setShowEditReceivedDatePicker(false)}
+				onConfirm={(formattedDate) => {
+					setEditForm((p) => ({ ...p, receivedDate: formattedDate }));
+					setShowEditReceivedDatePicker(false);
+				}}
+				initialDate={getEditReceivedDateInitialForModal()}
+			/>
+
 			<div className="bpt-received-date-picker">
 				<style>{`
 					/* Keep the date picker overlay above the app header/tabs (don't let header float above it) */

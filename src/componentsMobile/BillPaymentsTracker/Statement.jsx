@@ -233,6 +233,25 @@ const StatementMobile = () => {
 		}
 	};
 
+	// Concurrency-limited parallel map (prevents 100s of simultaneous requests)
+	const pMapLimit = async (items, limit, mapper) => {
+		const list = Array.isArray(items) ? items : [];
+		const results = new Array(list.length);
+		let nextIndex = 0;
+		const workers = new Array(Math.max(1, Number(limit) || 1)).fill(0).map(async () => {
+			while (nextIndex < list.length) {
+				const i = nextIndex++;
+				try {
+					results[i] = await mapper(list[i], i);
+				} catch (e) {
+					results[i] = { __error: e };
+				}
+			}
+		});
+		await Promise.all(workers);
+		return results;
+	};
+
 	useEffect(() => {
 		let mounted = true;
 		(async () => {
@@ -264,14 +283,19 @@ const StatementMobile = () => {
 				setTrackers(Array.isArray(trackerList) ? trackerList : []);
 				setAllBillEntries(Array.isArray(entries) ? entries : []);
 
-				// Load payment info per tracker (same as desktop statement)
-				const paymentData = {};
-				for (const t of (Array.isArray(trackerList) ? trackerList : [])) {
+				// Load payment info per tracker (PARALLEL + limited concurrency)
+				const list = (Array.isArray(trackerList) ? trackerList : []).filter(t => t?.id != null);
+				const paymentPairs = await pMapLimit(list, 6, async (t) => {
 					const id = t?.id;
-					if (id == null) continue;
-					// eslint-disable-next-line no-await-in-loop
-					paymentData[id] = await getPaymentInfo(id);
-				}
+					const info = await getPaymentInfo(id);
+					return [id, info];
+				});
+				const paymentData = {};
+				paymentPairs.forEach((pair) => {
+					if (!Array.isArray(pair)) return;
+					const [id, info] = pair;
+					if (id != null) paymentData[id] = Array.isArray(info) ? info : [];
+				});
 				if (!mounted) return;
 				setPaymentInfo(paymentData);
 			} catch (e) {

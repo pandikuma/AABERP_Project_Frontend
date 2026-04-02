@@ -95,6 +95,10 @@ const DatabaseMobile = () => {
 	const [bankDetails, setBankDetails] = useState([]);
 	const [loadingBankDetails, setLoadingBankDetails] = useState(false);
 	const [bankDetailsError, setBankDetailsError] = useState(null);
+	const [showBankDetailsModal, setShowBankDetailsModal] = useState(false);
+	const [selectedVendorAccountDetails, setSelectedVendorAccountDetails] = useState(null);
+	const [loadingVendorBankDetails, setLoadingVendorBankDetails] = useState(false);
+	const paymentStatusCacheRef = useRef(new Map()); // id -> status
 	useEffect(() => {
 		let isMounted = true;
 		const load = async () => {
@@ -154,6 +158,60 @@ const DatabaseMobile = () => {
 		if (!Number.isFinite(n)) return '₹0';
 		return `₹${n.toLocaleString('en-IN')}`;
 	};
+
+	const copyText = async (text) => {
+		const t = String(text ?? '').trim();
+		if (!t) return;
+		try {
+			if (navigator?.clipboard?.writeText) {
+				await navigator.clipboard.writeText(t);
+			} else {
+				const el = document.createElement('textarea');
+				el.value = t;
+				el.setAttribute('readonly', '');
+				el.style.position = 'absolute';
+				el.style.left = '-9999px';
+				document.body.appendChild(el);
+				el.select();
+				document.execCommand('copy');
+				document.body.removeChild(el);
+			}
+		} catch {
+			// ignore
+		}
+	};
+
+	const fetchSelectedVendorAccountDetails = async (vendorId) => {
+		try {
+			setLoadingVendorBankDetails(true);
+			const res = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+				method: "GET",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" }
+			});
+			if (!res.ok) {
+				setSelectedVendorAccountDetails(null);
+				return null;
+			}
+			const data = await res.json().catch(() => []);
+			const vendor = (Array.isArray(data) ? data : []).find((v) => String(v?.id ?? '') === String(vendorId ?? ''));
+			setSelectedVendorAccountDetails(vendor || null);
+			return vendor || null;
+		} catch {
+			setSelectedVendorAccountDetails(null);
+			return null;
+		} finally {
+			setLoadingVendorBankDetails(false);
+		}
+	};
+
+	const openBankDetailsModal = () => {
+		setShowBankDetailsModal(true);
+		const vendorId = detailRow?.vendor_id ?? detailRow?.vendorId ?? null;
+		if (vendorId != null) fetchSelectedVendorAccountDetails(vendorId);
+	};
+
+	const closeBankDetailsModal = () => setShowBankDetailsModal(false);
 
 	const formatRelativeDateLabel = (input) => {
 		if (!input) return '';
@@ -344,16 +402,55 @@ const DatabaseMobile = () => {
 
 		const run = async () => {
 			if ((apiData || []).length === 0) return;
-			const statuses = await Promise.all((apiData || []).map(async (item) => {
+			const list = [...(apiData || [])].sort((a, b) => (Number(b?.id ?? 0) || 0) - (Number(a?.id ?? 0) || 0));
+			const toFetch = [];
+			for (const item of list) {
+				const id = item?.id;
+				if (id == null) continue;
+				if (paymentStatusCacheRef.current.has(id)) continue;
+				toFetch.push(item);
+				if (toFetch.length >= 30) break;
+			}
+			const fetched = await Promise.all(toFetch.map(async (item) => {
 				const r = await getPaymentStatus(item);
 				return { id: item?.id, status: r?.status || 'To Pay' };
 			}));
 			if (cancelled) return;
 			const map = {};
-			statuses.forEach((s) => {
-				if (s?.id != null) map[s.id] = s.status;
+			for (const [id, status] of paymentStatusCacheRef.current.entries()) {
+				map[id] = status || 'To Pay';
+			}
+			fetched.forEach((s) => {
+				if (s?.id != null) {
+					map[s.id] = s.status;
+					paymentStatusCacheRef.current.set(s.id, s.status);
+				}
 			});
 			setPaymentStatuses(map);
+
+			// background fill
+			setTimeout(async () => {
+				const rest = [];
+				for (const item of list) {
+					const id = item?.id;
+					if (id == null) continue;
+					if (paymentStatusCacheRef.current.has(id)) continue;
+					rest.push(item);
+				}
+				if (rest.length === 0) return;
+				const restFetched = await Promise.all(rest.map(async (item) => {
+					const r = await getPaymentStatus(item);
+					return { id: item?.id, status: r?.status || 'To Pay' };
+				}));
+				if (cancelled) return;
+				const next = { ...map };
+				restFetched.forEach((s) => {
+					if (s?.id == null) return;
+					next[s.id] = s.status;
+					paymentStatusCacheRef.current.set(s.id, s.status);
+				});
+				setPaymentStatuses(next);
+			}, 0);
 		};
 		run();
 		return () => { cancelled = true; };
@@ -379,9 +476,9 @@ const DatabaseMobile = () => {
 		const b = detailRow;
 		if (!b) return '';
 		const d = b?.bill_arrival_date ?? b?.billArrivalDate;
-		const vendorName = getVendorNameById(b?.vendor_id ?? b?.vendorId) || '';
-		const dateStr = d ? new Date(d).toLocaleDateString('en-GB') : '';
-		return `${dateStr}${vendorName ? ` - ${vendorName}` : ''}`;
+		// Match PendingBill.jsx: show only date line (no vendor)
+		const dateStr = d ? formatBillArrival(d) : '';
+		return `${dateStr}`;
 	}, [detailRow, vendorMap]);
 
 	const renderTopBar = (title, onBack, rightNode = null) => (
@@ -404,6 +501,24 @@ const DatabaseMobile = () => {
 			</div>
 		</div>
 	);
+
+	const getVendorBillsTitle = (bill) => {
+		const b = bill || null;
+		const vendorName = b ? (getVendorNameById(b?.vendor_id ?? b?.vendorId) || 'Vendor') : 'Vendor';
+		const noOfBills = Number(b?.no_of_bills ?? b?.noOfBills ?? 0) || 0;
+		const extraBills = Number(b?.extra_bills ?? b?.extraBills ?? 0) || 0;
+		const total = Math.max(0, noOfBills + extraBills);
+		return `${vendorName} - ${total} Bills`;
+	};
+
+	const bankSummaryDetails = useMemo(() => {
+		const totalPayable = Number(detailRow?.total_amount ?? detailRow?.totalAmount ?? 0) || 0;
+		const rows = Array.isArray(bankDetails) ? bankDetails : [];
+		const receivedAmount = rows.reduce((sum, p) => sum + (Number(p?.amount || 0) || 0) + (Number(p?.carry_forward_amount || 0) || 0), 0);
+		const discountAmount = rows.reduce((sum, p) => sum + (Number(p?.discount_amount || 0) || 0), 0);
+		const netPayable = Math.max(0, totalPayable - receivedAmount - discountAmount);
+		return { totalPayable, receivedAmount, discountAmount, netPayable };
+	}, [detailRow, bankDetails]);
 
 	const hydrateTrackerDetails = async (row) => {
 		const id = row?.id;
@@ -1038,7 +1153,7 @@ const DatabaseMobile = () => {
 			{activeFullScreen === 'verify' && (
 				<div className="fixed inset-0 z-[999] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
 					<div className="w-full max-w-[360px] mx-auto min-h-screen bg-white">
-						{renderTopBar('Enter PO Number', () => setActiveFullScreen(null))}
+						{renderTopBar(getVendorBillsTitle(detailRow), () => setActiveFullScreen(null))}
 						<div className="px-[14px] pt-[10px] pb-[10px]">
 							<div className="rounded-[10px] border border-[#E5E7EB] p-[10px]">
 								{(() => {
@@ -1128,7 +1243,7 @@ const DatabaseMobile = () => {
 			{activeFullScreen === 'entry' && (
 				<div className="fixed inset-0 z-[999] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
 					<div className="w-full max-w-[360px] mx-auto min-h-screen bg-white">
-						{renderTopBar('Bill Entry Details', () => setActiveFullScreen(null), (
+						{renderTopBar(getVendorBillsTitle(detailRow), () => setActiveFullScreen(null), (
 							<button type="button" onClick={downloadMatchingExpensesPDF} className="text-[12px] font-semibold text-black mt-[6px]">
 								Download
 							</button>
@@ -1194,8 +1309,18 @@ const DatabaseMobile = () => {
 			{activeFullScreen === 'bank' && (
 				<div className="fixed inset-0 z-[999] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
 					<div className="w-full max-w-[360px] mx-auto min-h-screen bg-white">
-						{renderTopBar('Bank Details', () => setActiveFullScreen(null))}
-						<div className="px-[14px] pt-[10px] pb-[10px]">
+						{renderTopBar(getVendorBillsTitle(detailRow), () => setActiveFullScreen(null))}
+						<div className="px-[14px] pt-[10px] pb-[10px] flex flex-col" style={{ minHeight: 'calc(100vh - 86px)' }}>
+							<div
+								className="flex items-center justify-between"
+								role="button"
+								tabIndex={0}
+								onClick={openBankDetailsModal}
+								onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openBankDetailsModal(); }}
+							>
+								<span className="text-[12px] font-semibold text-black underline underline-offset-4">Bank Details</span>
+								<p className="text-[12px] font-semibold text-[#666666]">({Array.isArray(bankDetails) ? bankDetails.length : 0} Nos)</p>
+							</div>
 							{loadingBankDetails && <p className="text-[12px] text-center text-[#6B7280] mt-[10px]">Loading…</p>}
 							{!!bankDetailsError && !loadingBankDetails && (
 								<p className="text-[12px] text-center text-red-600 mt-[10px]">{bankDetailsError}</p>
@@ -1209,6 +1334,11 @@ const DatabaseMobile = () => {
 									const txn = p?.transaction_number || p?.transactionNumber || '';
 									const chequeNo = p?.cheque_no || p?.chequeNo || '';
 									const date = p?.date || p?.payment_date || p?.timestamp || '';
+									const billUrl =
+										p?.bill_url ??
+										p?.bill_copy_url ??
+										p?.bill_copy ??
+										'';
 									return (
 										<div key={i} className="rounded-[14px] bg-[#FAFAFA] border border-[#EFEFEF] px-[14px] py-[12px] flex items-start justify-between gap-[10px]">
 											<div className="min-w-0">
@@ -1216,16 +1346,115 @@ const DatabaseMobile = () => {
 												<p className="text-[12px] text-black mt-[2px] truncate">{chequeNo ? `CHQ-${chequeNo}` : (txn || '')}</p>
 												<p className="text-[10px] text-[#666666] mt-[4px]">{date ? new Date(date).toLocaleString('en-GB') : ''}</p>
 											</div>
-											<div className="flex-shrink-0 text-right">
+											<div className="flex-shrink-0 flex flex-col items-end">
 												<span className="inline-flex px-[10px] py-[3px] rounded-full text-[10px] font-semibold bg-[#F3E8FF] text-[#7C3AED]">
 													{mode || 'Mode'}
 												</span>
-												<p className="text-[13px] font-semibold text-green-700 mt-[6px]">{formatIndianCurrency(amount + cf)}</p>
+												<button
+													type="button"
+													onClick={() => {
+														const url = String(billUrl || '').trim();
+														if (!url) return;
+														window.open(url, '_blank', 'noopener,noreferrer');
+													}}
+													disabled={!String(billUrl || '').trim()}
+													className={`mt-[6px] text-[13px] font-semibold ${String(billUrl || '').trim() ? 'text-green-700 underline underline-offset-2' : 'text-green-700'}`}
+												>
+													{formatIndianCurrency(amount + cf)}
+												</button>
 											</div>
 										</div>
 									);
 								})}
 							</div>
+
+							<div className="flex-1" />
+
+							<div className="mt-auto rounded-[14px] border border-[#E5E7EB] bg-white p-[14px]">
+								<p className="text-[14px] font-semibold text-black mb-[8px]">Summary Details</p>
+								<div className="flex items-center justify-between py-[6px]">
+									<p className="text-[12px] text-[#666666]">Total Payable Amount</p>
+									<p className="text-[12px] font-semibold text-black">{formatIndianCurrency(bankSummaryDetails?.totalPayable ?? 0)}</p>
+								</div>
+								<div className="flex items-center justify-between py-[6px]">
+									<p className="text-[12px] text-[#666666]">Received Amount</p>
+									<p className="text-[12px] font-semibold text-black">{formatIndianCurrency(bankSummaryDetails?.receivedAmount ?? 0)}</p>
+								</div>
+								<div className="h-[1px] bg-[#E5E7EB] my-[8px]" />
+								<div className="flex items-center justify-between py-[6px]">
+									<p className="text-[12px] text-[#666666]">Total Amount</p>
+									<p className="text-[12px] font-semibold text-black">{formatIndianCurrency(bankSummaryDetails?.totalPayable ?? 0)}</p>
+								</div>
+								<div className="flex items-center justify-between py-[6px]">
+									<p className="text-[12px] underline text-[#C58B2A]">Discount</p>
+									<p className="text-[12px] font-semibold" style={{ color: '#C58B2A' }}>
+										{formatIndianCurrency(bankSummaryDetails?.discountAmount ?? 0)}
+									</p>
+								</div>
+								<div className="h-[1px] bg-[#E5E7EB] my-[8px]" />
+								<div className="flex items-center justify-between py-[6px]">
+									<p className="text-[12px] font-semibold text-black">Net Payable</p>
+									<p className="text-[12px] font-semibold text-black">{formatIndianCurrency(bankSummaryDetails?.netPayable ?? 0)}</p>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Bank Details popup (same UI as PendingBill.jsx) */}
+			{showBankDetailsModal && (
+				<div
+					className="fixed inset-0 bg-black/60 flex items-center justify-center px-[14px]"
+					style={{ zIndex: 99999 }}
+					onClick={(e) => { if (e.target === e.currentTarget) closeBankDetailsModal(); }}
+				>
+					<div className="w-full max-w-[360px] bg-white rounded-[14px] border border-[#E5E7EB] overflow-hidden shadow-xl">
+						<div className="px-[16px] pt-[16px] pb-[10px] flex items-center justify-between">
+							<p className="text-[18px] font-semibold text-black">Bank Details</p>
+							<button type="button" onClick={closeBankDetailsModal} className="w-[36px] h-[36px] flex items-center justify-center" aria-label="Close">
+								<span className="text-[22px] leading-none font-semibold text-[#E4572E]">×</span>
+							</button>
+						</div>
+						<div className="px-[16px] pb-[16px]">
+							{loadingVendorBankDetails && !selectedVendorAccountDetails ? (
+								<p className="text-[12px] text-center text-[#6B7280]">Loading…</p>
+							) : null}
+							{(() => {
+								const d = selectedVendorAccountDetails || {};
+								const RowX = ({ label, value }) => (
+									<div className="flex items-start justify-between gap-[10px] py-[12px] border-b border-[#EEE] last:border-b-0">
+										<div className="min-w-0">
+											<p className="text-[12px] font-medium text-[#6B7280] leading-tight">{label}</p>
+											<p className="text-[14px] font-semibold text-black break-words mt-[2px]">{value || '-'}</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => copyText(value)}
+											className="w-[32px] h-[32px] rounded-[8px] border border-[#E5E7EB] flex items-center justify-center text-[#6B7280] flex-shrink-0"
+											aria-label={`Copy ${label}`}
+										>
+											<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+												<path d="M9 9h10v12H9V9Z" stroke="currentColor" strokeWidth="2" />
+												<path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" stroke="currentColor" strokeWidth="2" />
+											</svg>
+										</button>
+									</div>
+								);
+								return (
+									<div className="rounded-[12px] border border-[#E5E7EB] overflow-hidden bg-white">
+										<div className="px-[14px]">
+											<RowX label="Account Holder Name" value={d?.account_holder_name} />
+											<RowX label="Bank Name" value={d?.bank_name} />
+											<RowX label="Account Number" value={d?.account_number} />
+											<RowX label="IFSC Code" value={d?.ifsc_code} />
+											<RowX label="Branch Name" value={d?.branch} />
+											<RowX label="Contact Number" value={d?.contact_number} />
+											<RowX label="Contact Email" value={d?.contact_email} />
+										</div>
+									</div>
+								);
+							})()}
 						</div>
 					</div>
 				</div>
