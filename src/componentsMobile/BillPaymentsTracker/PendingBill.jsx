@@ -205,6 +205,8 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [uploadingOverallPdf, setUploadingOverallPdf] = useState(false);
 	const [showVendorPopup, setShowVendorPopup] = useState(false);
 	const [selectedVendor, setSelectedVendor] = useState("");
+	const [showDatePicker, setShowDatePicker] = useState(false);
+	const [selectedDate, setSelectedDate] = useState("");
 	const vendorList = Object.entries(vendorMap || {}).map(([id, name]) => ({
 		id,
 		name
@@ -3691,7 +3693,12 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 			{/* Date / Vendor row */}
 			<div className="flex items-center justify-between border-b border-[#E0E0E0] pt-[8px] pb-[8px]">
-				<p className="text-[12px] font-semibold text-[#111827]">Date</p>
+				<p
+					className="text-[12px] font-semibold text-[#111827] cursor-pointer"
+					onClick={() => setShowDatePicker(true)}
+				>
+					{selectedDate || "Date"}
+				</p>
 				<div className="flex items-center gap-2">
 					<p
 						className="text-[12px] font-semibold text-[#111827] cursor-pointer"
@@ -5050,6 +5057,15 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 					setShowEditReceivedDatePicker(false);
 				}}
 				initialDate={getEditReceivedDateInitialForModal()}
+			/>
+			<DatePickerModal
+				isOpen={showDatePicker}
+				onClose={() => setShowDatePicker(false)}
+				onConfirm={(formattedDate) => {
+					setSelectedDate(formattedDate);
+					setShowDatePicker(false);
+				}}
+				initialDate={selectedDate}
 			/>
 
 			<div className="bpt-received-date-picker">
