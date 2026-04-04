@@ -4,7 +4,12 @@ import CloseIcon from '../Images/Close F.svg'
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import Edit1 from '../Images/edit1.png'
 import Edit from '../Images/edit.png'
+import BackArrow from '../Images/BAck Icon.svg'
+import Star from '../Images/Star.svg'
+import Search from '../Images/Search.png'
+import Close from '../Images/close.png'
 
 const Chip = ({ label, tone = 'neutral', onClick, disabled = false }) => {
 	const toneStyles =
@@ -12,7 +17,7 @@ const Chip = ({ label, tone = 'neutral', onClick, disabled = false }) => {
 			? { bg: '#E2F9E1', text: '#4CAF50', border: '#E2F9E1' }
 			: tone === 'warn'
 				? { bg: '#FFD39E', text: '#111827', border: '#FFD39E' }
-					: { bg: '#FAF6ED', text: '#111827', border: '#D1D5DB' };
+				: { bg: '#FAF6ED', text: '#111827', border: '#D1D5DB' };
 
 	if (typeof onClick === 'function') {
 		return (
@@ -87,10 +92,13 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [vendorMap, setVendorMap] = useState({});
 	const [expensesData, setExpensesData] = useState([]);
 	const [allBillEntries, setAllBillEntries] = useState([]);
-	const [expenseMatchStatus, setExpenseMatchStatus] = useState({});
 	const [paymentStatuses, setPaymentStatuses] = useState({});
 	const [paidTodayBills, setPaidTodayBills] = useState({});
 	const [query, setQuery] = useState('');
+	const [showFilterSheet, setShowFilterSheet] = useState(false);
+	const [filterFromDate, setFilterFromDate] = useState(''); // YYYY-MM-DD
+	const [filterToDate, setFilterToDate] = useState(''); // YYYY-MM-DD
+	const [filterPaymentStatus, setFilterPaymentStatus] = useState(''); // '' | 'To Pay' | 'Paid' | '✓ Paid'
 	const [showVerifyModal, setShowVerifyModal] = useState(false);
 	const [selectedVerifyBill, setSelectedVerifyBill] = useState(null);
 	const [verifyBoxes, setVerifyBoxes] = useState([]);
@@ -142,6 +150,12 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [touchStartX, setTouchStartX] = useState(null);
 	const [touchCurrentX, setTouchCurrentX] = useState(null);
 	const [touchIsSwiping, setTouchIsSwiping] = useState(false);
+	const touchRowIdRef = useRef(touchRowId);
+	const touchStartXRef = useRef(touchStartX);
+	const touchCurrentXRef = useRef(touchCurrentX);
+	useEffect(() => { touchRowIdRef.current = touchRowId; }, [touchRowId]);
+	useEffect(() => { touchStartXRef.current = touchStartX; }, [touchStartX]);
+	useEffect(() => { touchCurrentXRef.current = touchCurrentX; }, [touchCurrentX]);
 	const [showBillEntrySheet, setShowBillEntrySheet] = useState(false);
 	const [showBillEntryDatePicker, setShowBillEntryDatePicker] = useState(false);
 	const [billEntryForm, setBillEntryForm] = useState({
@@ -158,6 +172,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [paymentModePickerQuery, setPaymentModePickerQuery] = useState('');
 	const [useCarryForward, setUseCarryForward] = useState(false);
 	const [carryForwardAmount, setCarryForwardAmount] = useState(0);
+	const prevUseCarryForwardRef = useRef(useCarryForward);
 	const overlayHistoryPushedRef = useRef(false);
 	const overlayOpenRef = useRef(false);
 
@@ -188,8 +203,18 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [discount, setDiscount] = useState(0);
 	const [discountSubmitted, setDiscountSubmitted] = useState(false);
 	const [uploadingOverallPdf, setUploadingOverallPdf] = useState(false);
+	const [showVendorPopup, setShowVendorPopup] = useState(false);
+	const [selectedVendor, setSelectedVendor] = useState("");
+	const vendorList = Object.entries(vendorMap || {}).map(([id, name]) => ({
+		id,
+		name
+	}));
+	const [search, setSearch] = useState("");
+
+	const filteredVendors = vendorList.filter(v =>
+		v.name.toLowerCase().includes(search.toLowerCase())
+	);
 	const overallPdfInputRef = useRef(null);
-	const paymentStatusCacheRef = useRef(new Map()); // id -> { status, paidToday }
 
 	const paymentModeOptions = useMemo(() => ([
 		'Carry Forward',
@@ -200,6 +225,54 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		'Cash',
 		'NEFT/RTGS'
 	]), []);
+
+	// Mouse drag swipe (desktop testing): mirror touch swipe behavior.
+	useEffect(() => {
+		const onMouseMove = (e) => {
+			const rowId = touchRowIdRef.current;
+			const startX = touchStartXRef.current;
+			if (rowId == null || startX == null) return;
+
+			const x = e.clientX;
+			const dx = x - startX;
+			const isSwiped = String(swipedRowId ?? '') === String(rowId ?? '');
+
+			// allow swipe left to open, and swipe right to close when already expanded
+			if (dx < 0 || (isSwiped && dx > 0)) {
+				e.preventDefault?.();
+				setTouchCurrentX(x);
+				setTouchIsSwiping(true);
+			}
+		};
+
+		const onMouseUp = () => {
+			const rowId = touchRowIdRef.current;
+			const startX = touchStartXRef.current;
+			const currentX = touchCurrentXRef.current;
+			if (rowId == null || startX == null) return;
+
+			const minSwipeDistance = 50;
+			const dx = (currentX != null) ? (currentX - startX) : 0;
+			if (Math.abs(dx) >= minSwipeDistance) {
+				if (dx < 0) setSwipedRowId(rowId); // open
+				else setSwipedRowId(null); // close
+			}
+
+			setTouchRowId(null);
+			setTouchStartX(null);
+			setTouchCurrentX(null);
+			setTouchIsSwiping(false);
+		};
+
+		if (touchStartX == null || touchRowId == null) return undefined;
+
+		document.addEventListener('mousemove', onMouseMove, { passive: false });
+		document.addEventListener('mouseup', onMouseUp);
+		return () => {
+			document.removeEventListener('mousemove', onMouseMove);
+			document.removeEventListener('mouseup', onMouseUp);
+		};
+	}, [touchStartX, touchRowId, swipedRowId]);
 
 	const filteredPaymentModeOptions = useMemo(() => {
 		const q = (paymentModePickerQuery || '').trim().toLowerCase();
@@ -277,6 +350,20 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		if (typeof input === 'number' && Number.isFinite(input)) {
 			const dt = new Date(input);
 			return isNaN(dt.getTime()) ? null : dt;
+		}
+		return null;
+	};
+
+	// Fallback: derive a "last" PO from the current bill's persisted verifications
+	// when history-based lookup is unavailable. Mirrors getLastBillNumberForVendor's
+	// rule of skipping 'NO_PO' entries.
+	const getLastNonNoPoFromCurrent = (bill) => {
+		const verifications = bill?.billVerifications || bill?.bill_verifications || [];
+		if (!Array.isArray(verifications) || verifications.length === 0) return null;
+		for (let i = verifications.length - 1; i >= 0; i -= 1) {
+			const billNumber = verifications[i]?.bill_number ?? verifications[i]?.billNumber ?? '';
+			const s = String(billNumber || '').trim();
+			if (s && s !== 'NO_PO') return s;
 		}
 		return null;
 	};
@@ -386,20 +473,19 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		return 'Verify';
 	};
 
-// Match desktop gating rules:
-// - Entry allowed only after ALL bills verified
-// - Payment allowed only after Entry completed
-const isAllBillsVerified = (item) => {
-	const verifications = item?.billVerifications || item?.bill_verifications || [];
-	if (!Array.isArray(verifications) || verifications.length === 0) return false;
-	return verifications.every(v => v?.is_verified === true || v?.status === 'VERIFIED');
-};
+	// Match desktop gating rules:
+	// - Entry allowed only after ALL bills verified
+	// - Payment allowed only after Entry completed
+	const isAllBillsVerified = (item) => {
+		const verifications = item?.billVerifications || item?.bill_verifications || [];
+		if (!Array.isArray(verifications) || verifications.length === 0) return false;
+		return verifications.every(v => v?.is_verified === true || v?.status === 'VERIFIED');
+	};
 
-const isEntryCompleted = (item) => {
-	const entryStatus = item?.entry_status || item?.entryStatus || 'Entry';
-	const matchStatus = expenseMatchStatus?.[item?.id];
-	return entryStatus === 'Entered' || entryStatus === '✓ Entered' || matchStatus === 'complete_match';
-};
+	const isEntryCompleted = (item) => {
+		const entryStatus = item?.entry_status || item?.entryStatus || 'Entry';
+		return entryStatus === 'Entered' || entryStatus === '✓ Entered';
+	};
 
 	const openVerifyModal = (bill) => {
 		setSelectedVerifyBill(bill || null);
@@ -638,9 +724,9 @@ const isEntryCompleted = (item) => {
 		}
 	};
 
-const reloadTrackers = async () => {
+	const reloadTrackers = async () => {
 		try {
-			const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers', {
+			const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers/pending', {
 				method: 'GET',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' }
@@ -1278,10 +1364,12 @@ const reloadTrackers = async () => {
 		const dd = String(today.getDate()).padStart(2, '0');
 		const mm = String(today.getMonth() + 1).padStart(2, '0');
 		const yyyy = today.getFullYear();
+		const cfToUse = Number(bankSummaryDetails?.carryForwardToUse ?? 0) || 0;
+		const shouldPrefillCf = useCarryForward && cfToUse > 0;
 		setPaymentForm({
 			date: `${dd}/${mm}/${yyyy}`,
-			amount: '',
-			mode: '',
+			amount: shouldPrefillCf ? String(cfToUse) : '',
+			mode: shouldPrefillCf ? 'Carry Forward' : '',
 			transactionNumber: '',
 			accountNumber: '',
 			chequeNo: '',
@@ -1381,13 +1469,17 @@ const reloadTrackers = async () => {
 
 			const actualAmount = Number(selectedVerifyBill?.total_amount ?? selectedVerifyBill?.totalAmount ?? 0) || 0;
 			const discountToSend = !discountSubmitted ? (Number(discount) || 0) : 0;
+			const amountNum = parseFloat(paymentForm.amount) || 0;
+			const isCarryForwardMode = paymentForm.mode === 'Carry Forward';
 			const paymentData = {
 				vendor_payments_tracker_id: trackerId,
 				date: toYyyyMmDd(paymentForm.date),
 				actual_amount: actualAmount,
-				amount: parseFloat(paymentForm.amount) || 0,
+				// Match backend compute rules and list rendering:
+				// - for Carry Forward mode, store as carry_forward_amount (amount becomes 0)
+				amount: isCarryForwardMode ? 0 : amountNum,
 				discount_amount: discountToSend,
-				carry_forward_amount: 0,
+				carry_forward_amount: isCarryForwardMode ? amountNum : 0,
 				vendor_bill_payment_mode: paymentForm.mode,
 				cheque_number: paymentForm.chequeNo || '',
 				cheque_date: paymentForm.chequeDate || '',
@@ -1407,7 +1499,28 @@ const reloadTrackers = async () => {
 			// Also send to respective APIs based on mode (same as desktop PendingBill.js)
 			const vendorId = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
 			const isoDate = toYyyyMmDd(paymentForm.date);
-			const amountNum = parseFloat(paymentForm.amount) || 0;
+			// For Carry Forward payments: also write a vendor carry-forward "bill_amount" row to consume balance.
+			if (isCarryForwardMode && vendorId != null && amountNum > 0) {
+				const cfConsumePayload = {
+					date: isoDate,
+					created_at: new Date().toISOString(),
+					vendor_id: vendorId,
+					amount: 0,
+					bill_amount: amountNum,
+					refund_amount: 0,
+					vendor_payment_tracker_id: trackerId,
+					branch_id: activeBranchId
+				};
+				try {
+					await fetchWithBranch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/save", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(cfConsumePayload)
+					});
+				} catch {
+					// ignore; main payment is already saved
+				}
+			}
 			if (paymentForm.mode !== 'Cash' && paymentForm.mode !== 'Carry Forward') {
 				const weeklyPaymentBillPayload = {
 					date: isoDate,
@@ -1553,6 +1666,10 @@ const reloadTrackers = async () => {
 		setLoadingBankDetails(true);
 		setBankDetailsError(null);
 		setUseCarryForward(false);
+		// Load available carry-forward balance for this vendor (used by the checkbox in Summary Details).
+		const vendorIdForCf = bill?.vendor_id ?? bill?.vendorId ?? null;
+		if (vendorIdForCf != null) fetchCarryForwardData(vendorIdForCf);
+		else setCarryForwardAmount(0);
 		try {
 			const res = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${bill?.id}`, {
 				method: 'GET',
@@ -1788,11 +1905,7 @@ const reloadTrackers = async () => {
 	}, [vendorOptionsForSheet, vendorPickerQuery]);
 
 	const getEntryStatusText = (item) => {
-		const baseStatus = item?.entry_status || item?.entryStatus || 'Entry';
-		const matchStatus = expenseMatchStatus[item?.id];
-		if (matchStatus === 'complete_match') return '✓ Entered';
-		if (matchStatus === 'partial_match') return 'Entered';
-		return baseStatus;
+		return item?.entry_status || item?.entryStatus || 'Entry';
 	};
 
 	useEffect(() => {
@@ -1806,7 +1919,7 @@ const reloadTrackers = async () => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-useEffect(() => {
+	useEffect(() => {
 		// Purchase orders are branch-scoped; clear cache on branch change to avoid wrong "Last PO"/Check PO results.
 		setPurchaseOrdersAll([]);
 		setPurchaseOrders([]);
@@ -1845,12 +1958,15 @@ useEffect(() => {
 				// ignore
 			}
 		};
-
+		const vendorList = Object.entries(vendorMap || {}).map(([id, name]) => ({
+			id,
+			name
+		}));
 		const fetchTrackerData = async () => {
 			setLoading(true);
 			setError(null);
 			try {
-				const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers', {
+				const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers/pending', {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }
@@ -1935,226 +2051,24 @@ useEffect(() => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [activeBranchId]);
 
-	useEffect(() => {
-		const computeExpenseMatchStatus = () => {
-			const matchStatus = {};
-			const billMap = {};
-			apiData.forEach(bill => {
-				const id = bill?.id;
-				if (id != null) billMap[id] = bill;
-			});
-
-			const groupedBillEntries = {};
-			allBillEntries.forEach(be => {
-				const trackerId = be?.vendor_payments_tracker_id ?? be?.vendorPaymentsTrackerId;
-				if (!trackerId) return;
-				if (!groupedBillEntries[trackerId]) groupedBillEntries[trackerId] = [];
-				groupedBillEntries[trackerId].push(be);
-			});
-
-			Object.keys(groupedBillEntries).forEach(trackerId => {
-				const bill = billMap[trackerId];
-				if (!bill) return;
-
-				const vendorName = getVendorNameById(bill?.vendor_id ?? bill?.vendorId) || bill?.vendor_name;
-				const billAmount = parseFloat(bill?.total_amount ?? bill?.totalAmount) || 0;
-				if (!vendorName || billAmount <= 0) {
-					matchStatus[trackerId] = 'no_match';
-					return;
-				}
-
-				const billEntriesForTracker = groupedBillEntries[trackerId] || [];
-				const enteredDates = [...new Set(billEntriesForTracker.map(be => be?.entered_date ?? be?.enteredDate).filter(Boolean))];
-				if (enteredDates.length === 0) {
-					matchStatus[trackerId] = 'no_match';
-					return;
-				}
-
-				const billEnteredDates = enteredDates.map(date => {
-					try {
-						return new Date(date).toISOString().split('T')[0];
-					} catch {
-						return null;
-					}
-				}).filter(Boolean);
-
-				const dateMatchedExpenses = expensesData.filter(expense => {
-					const expenseDate = new Date(expense?.timestamp ?? expense?.date);
-					if (isNaN(expenseDate.getTime())) return false;
-					const iso = expenseDate.toISOString().split('T')[0];
-					return billEnteredDates.includes(iso);
-				});
-
-				const vendorMatchedExpenses = dateMatchedExpenses.filter(expense => expense?.vendor === vendorName);
-				const matchingExpenses = vendorMatchedExpenses.filter(expense => {
-					const at = String(expense?.accountType ?? '').trim();
-					return at === 'Bill Payments' || at === 'Bill Refund' || at === 'Bill Payments + Claim';
-				});
-
-				const totalExpenseAmount = matchingExpenses.reduce((sum, expense) => sum + (parseFloat(expense?.amount) || 0), 0);
-				const adjustmentAmount = parseFloat(bill?.adjustment_amount ?? bill?.adjustmentAmount) || 0;
-				const adjustedBillAmount = billAmount - adjustmentAmount;
-				if (matchingExpenses.length === 0) {
-					matchStatus[trackerId] = 'no_match';
-				} else if (Math.abs(totalExpenseAmount - adjustedBillAmount) < 0.01) {
-					matchStatus[trackerId] = 'complete_match';
-				} else if (totalExpenseAmount > 0) {
-					matchStatus[trackerId] = 'partial_match';
-				} else {
-					matchStatus[trackerId] = 'no_match';
-				}
-			});
-
-			setExpenseMatchStatus(matchStatus);
-		};
-
-		if (apiData.length > 0 && expensesData.length > 0 && allBillEntries.length > 0) {
-			computeExpenseMatchStatus();
-		}
-	}, [apiData, expensesData, allBillEntries, vendorMap]);
+	// Entry/payment/verification statuses are now computed in backend (`/trackers/pending`).
 
 	useEffect(() => {
-		const getPaymentStatus = async (item) => {
-			try {
-				const response = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${item?.id}`, {
-					method: 'GET',
-					credentials: 'include',
-					headers: { 'Content-Type': 'application/json' }
-				});
-				if (!response.ok) return { status: 'To Pay', lastPaymentDate: null, paidToday: false };
-				const paymentDetails = await response.json();
-				if (!paymentDetails || paymentDetails.length === 0) return { status: 'To Pay', lastPaymentDate: null, paidToday: false };
-
-				const totalPaid = paymentDetails.reduce((sum, payment) => {
-					const amount = parseFloat(payment?.amount) || 0;
-					const carryForwardAmount = parseFloat(payment?.carry_forward_amount) || 0;
-					return sum + amount + carryForwardAmount;
-				}, 0);
-
-				const totalDiscount = paymentDetails.reduce((sum, payment) => sum + (payment?.discount_amount || 0), 0);
-				const actualAmount = parseFloat(item?.total_amount ?? item?.totalAmount) || 0;
-				const remainingAmount = Math.max(0, actualAmount - totalPaid - totalDiscount);
-
-				let lastPaymentDate = null;
-				if (paymentDetails.length > 0) {
-					const dates = paymentDetails
-						.map(p => p?.date)
-						.filter(Boolean)
-						.sort((a, b) => new Date(b) - new Date(a));
-					if (dates.length > 0) lastPaymentDate = dates[0];
-				}
-
-				const today = new Date();
-				today.setHours(0, 0, 0, 0);
-				const todayEnd = new Date(today);
-				todayEnd.setHours(23, 59, 59, 999);
-				let paidToday = false;
-				for (const payment of paymentDetails) {
-					const ts = payment?.timestamp ?? payment?.created_at;
-					if (ts) {
-						const paymentTimestamp = new Date(ts);
-						if (paymentTimestamp >= today && paymentTimestamp <= todayEnd) {
-							paidToday = true;
-							break;
-						}
-					}
-					const dp = payment?.date;
-					if (dp) {
-						const paymentDate = new Date(dp);
-						paymentDate.setHours(0, 0, 0, 0);
-						if (paymentDate.getTime() === today.getTime()) {
-							paidToday = true;
-							break;
-						}
-					}
-				}
-
-				if (remainingAmount === 0) return { status: '✓ Paid', lastPaymentDate, paidToday };
-				if (totalPaid > 0) return { status: 'Paid', lastPaymentDate, paidToday };
-				return { status: 'To Pay', lastPaymentDate, paidToday };
-			} catch {
-				return { status: 'To Pay', lastPaymentDate: null, paidToday: false };
-			}
-		};
-
-		const fetchPaymentStatuses = async () => {
-			if (apiData.length === 0) return;
-			// Prioritize latest trackers first, fetch only missing in cache (rest fills later)
-			const list = [...apiData].sort((a, b) => (Number(b?.id ?? 0) || 0) - (Number(a?.id ?? 0) || 0));
-			const toFetch = [];
-			for (const item of list) {
-				const id = item?.id;
-				if (id == null) continue;
-				if (paymentStatusCacheRef.current.has(id)) continue;
-				toFetch.push(item);
-				if (toFetch.length >= 30) break; // fast first paint
-			}
-			const fetched = await Promise.all(toFetch.map(async (item) => {
-				const result = await getPaymentStatus(item);
-				return { id: item?.id, status: result?.status, paidToday: result?.paidToday };
-			}));
-
-			// Merge cached + fetched into state maps
-			const map = {};
-			const paidTodayMap = {};
-			// include cached
-			for (const [id, val] of paymentStatusCacheRef.current.entries()) {
-				map[id] = val?.status || 'To Pay';
-				paidTodayMap[id] = !!val?.paidToday;
-			}
-			// include fetched (and cache them)
-			fetched.forEach(s => {
-				if (s?.id != null) {
-					map[s.id] = s.status;
-					paidTodayMap[s.id] = !!s.paidToday;
-					paymentStatusCacheRef.current.set(s.id, { status: s.status, paidToday: !!s.paidToday });
-				}
-			});
-			setPaymentStatuses(map);
-			setPaidTodayBills(paidTodayMap);
-
-			// Background fill for remaining (don’t block UI)
-			setTimeout(async () => {
-				const rest = [];
-				for (const item of list) {
-					const id = item?.id;
-					if (id == null) continue;
-					if (paymentStatusCacheRef.current.has(id)) continue;
-					rest.push(item);
-				}
-				if (rest.length === 0) return;
-				const restFetched = await Promise.all(rest.map(async (item) => {
-					const result = await getPaymentStatus(item);
-					return { id: item?.id, status: result?.status, paidToday: result?.paidToday };
-				}));
-				const nextMap = { ...map };
-				const nextPaid = { ...paidTodayMap };
-				restFetched.forEach((s) => {
-					if (s?.id == null) return;
-					nextMap[s.id] = s.status;
-					nextPaid[s.id] = !!s.paidToday;
-					paymentStatusCacheRef.current.set(s.id, { status: s.status, paidToday: !!s.paidToday });
-				});
-				setPaymentStatuses(nextMap);
-				setPaidTodayBills(nextPaid);
-			}, 0);
-		};
-
-		fetchPaymentStatuses();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [apiData, activeBranchId]);
-
-	// Desktop behavior: hide fully paid rows unless paid today; keep To Pay + Paid
-	const visibleRows = useMemo(() => {
-		return apiData.filter((item) => {
-			const status = paymentStatuses[item?.id] || 'To Pay';
-			const hasPaidToday = paidTodayBills[item?.id] || false;
-			if (status === 'To Pay') return true;
-			if (status === 'Paid') return true;
-			if (hasPaidToday) return true;
-			return false; // hide only fully paid bills
+		// Backend pending endpoint returns `payment_status` + `paid_today`.
+		const nextStatuses = {};
+		const nextPaidToday = {};
+		(apiData || []).forEach((item) => {
+			const id = item?.id;
+			if (id == null) return;
+			nextStatuses[id] = item?.payment_status || item?.paymentStatus || 'To Pay';
+			nextPaidToday[id] = !!(item?.paid_today ?? item?.paidToday);
 		});
-	}, [apiData, paymentStatuses, paidTodayBills]);
+		setPaymentStatuses(nextStatuses);
+		setPaidTodayBills(nextPaidToday);
+	}, [apiData]);
+
+	// Backend already returns only the rows required for PendingBill.
+	const visibleRows = useMemo(() => (Array.isArray(apiData) ? apiData : []), [apiData]);
 
 	const filtered = useMemo(() => {
 		const base = Array.isArray(visibleRows) ? [...visibleRows] : [];
@@ -2166,12 +2080,38 @@ useEffect(() => {
 		});
 		if (!query) return base;
 		const q = query.toLowerCase();
+		const toDateOnly = (input) => {
+			const d = parseTrackerDateValue(input);
+			if (!d) return '';
+			const yyyy = d.getFullYear();
+			const mm = String(d.getMonth() + 1).padStart(2, '0');
+			const dd = String(d.getDate()).padStart(2, '0');
+			return `${yyyy}-${mm}-${dd}`;
+		};
+		const from = String(filterFromDate || '').trim();
+		const to = String(filterToDate || '').trim();
+		const payF = String(filterPaymentStatus || '').trim();
+
 		return base.filter((row) => {
 			const id = row?.vendor_id ?? row?.vendorId;
 			const name = getVendorNameById(id);
-			return (name || '').toLowerCase().includes(q);
+			if (!(name || '').toLowerCase().includes(q)) return false;
+
+			if (from || to) {
+				const dateOnly = toDateOnly(row?.bill_arrival_date ?? row?.billArrivalDate ?? row?.created_at ?? row?.createdAt ?? row?.timestamp);
+				if (!dateOnly) return false;
+				if (from && dateOnly < from) return false;
+				if (to && dateOnly > to) return false;
+			}
+
+			if (payF) {
+				const status = paymentStatuses[row?.id] || 'To Pay';
+				if (status !== payF) return false;
+			}
+
+			return true;
 		});
-	}, [visibleRows, query, vendorMap]);
+	}, [visibleRows, query, vendorMap, filterFromDate, filterToDate, filterPaymentStatus, paymentStatuses]);
 
 	const fullScreenHeaderSubTitle = useMemo(() => {
 		const b = selectedVerifyBill;
@@ -2278,6 +2218,52 @@ useEffect(() => {
 		};
 	}, [bankDetails, selectedVerifyBill, useCarryForward, carryForwardAmount]);
 
+	const lockCarryForwardPayment = useMemo(() => {
+		if (!showPaymentSheet) return false;
+		if (!useCarryForward) return false;
+		if (paymentForm?.mode !== 'Carry Forward') return false;
+		const amt = Number(paymentForm?.amount || 0) || 0;
+		const cfToUse = Number(bankSummaryDetails?.carryForwardToUse ?? 0) || 0;
+		return amt > 0 && cfToUse > 0;
+	}, [showPaymentSheet, useCarryForward, paymentForm?.mode, paymentForm?.amount, bankSummaryDetails?.carryForwardToUse]);
+
+	// If user toggles Carry Forward on the Bank screen, prefill the Payment bottom sheet (like desktop).
+	useEffect(() => {
+		if (!showPaymentSheet) return;
+		const cfToUse = Number(bankSummaryDetails?.carryForwardToUse ?? 0) || 0;
+		if (useCarryForward && cfToUse > 0) {
+			setPaymentForm((p) => ({
+				...p,
+				mode: p?.mode && p.mode !== 'Carry Forward' ? p.mode : 'Carry Forward',
+				amount: p?.amount ? p.amount : String(cfToUse)
+			}));
+			return;
+		}
+		// If unchecked and user was in Carry Forward mode, clear the auto-filled values.
+		if (!useCarryForward) {
+			setPaymentForm((p) => {
+				if (p?.mode !== 'Carry Forward') return p;
+				return { ...p, mode: '', amount: '' };
+			});
+		}
+	}, [useCarryForward, bankSummaryDetails, showPaymentSheet]);
+
+	// Desktop-like behavior: when Carry Forward is checked, open the payment bottom sheet and prefill it.
+	useEffect(() => {
+		if (activeFullScreen !== 'bank') return;
+		// keep prev ref in sync
+		const prev = prevUseCarryForwardRef.current;
+		prevUseCarryForwardRef.current = useCarryForward;
+		// Open only on the rising edge (unchecked -> checked), so user can still close the sheet.
+		if (!prev && useCarryForward) {
+			if (showPaymentSheet) return;
+			const cfToUse = Number(bankSummaryDetails?.carryForwardToUse ?? 0) || 0;
+			if (cfToUse <= 0) return;
+			openPaymentSheet();
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [useCarryForward, activeFullScreen, showPaymentSheet, bankSummaryDetails?.carryForwardToUse]);
+
 	// Last/previous payment details (to match desktop "Previous Payment Details")
 	const lastBankPayment = useMemo(() => {
 		const rows = Array.isArray(bankDetails) ? bankDetails : [];
@@ -2319,7 +2305,7 @@ useEffect(() => {
 
 		// Heuristics when mode is missing from API:
 		const amt = Number(p?.amount || 0) || 0;
-		const cf = Number(p?.carry_forward_amount || 0) || 0;
+		const cf = Number(p?.carry_forward_amount ?? p?.carryForwardAmount ?? 0) || 0;
 		if (cf > 0 && amt <= 0) return 'Carry Forward';
 		if (String(p?.cheque_no || p?.chequeNo || '').trim()) return 'Cheque';
 		if (String(p?.transaction_number || p?.transactionNumber || '').trim()) return 'Net Banking';
@@ -2581,9 +2567,7 @@ useEffect(() => {
 			<div className="flex items-start justify-between gap-[10px]">
 				<div className="flex items-center gap-[10px]">
 					<button type="button" onClick={onBack} className="w-[28px] h-[28px] flex items-center justify-center" aria-label="Back">
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-							<path d="M15 18L9 12L15 6" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-						</svg>
+						<img src={BackArrow} alt="Back" className="w-[18px] h-[18px]" />
 					</button>
 					<div className="min-w-0">
 						<p className="text-[14px] font-semibold text-black leading-tight">{title}</p>
@@ -2630,27 +2614,132 @@ useEffect(() => {
 							</div>
 							{/* Previously entered rows */}
 							{billEntryDetailsRows.length > 0 && (
-								<div className="rounded-[12px] border border-[#E5E7EB] bg-white p-[12px]">
-									<div className="grid grid-cols-2 gap-[12px]">
-										<div>
-											<p className="text-[12px] font-semibold text-[#111827] mb-[6px]">Entered By</p>
-										</div>
-										<div>
-											<p className="text-[12px] font-semibold text-[#111827] mb-[6px]">Date</p>
-										</div>
-									</div>
-									<div className="mt-[6px] space-y-[10px]">
-										{billEntryDetailsRows.map((r, i) => (
-											<div key={i} className="grid grid-cols-2 gap-[12px]">
-												<div className="h-[36px] rounded-[6px] bg-[#F3F4F6] border border-[#E5E7EB] px-[10px] flex items-center">
-													<p className="text-[12px] font-medium text-[#111827] truncate">{r.enteredBy || '-'}</p>
+								<div className="mt-[2px] space-y-[10px]">
+									{billEntryDetailsRows.map((r, i) => {
+										const entryRowId = `entry-${i}`;
+										const ACTIONS_WIDTH = 56;
+										const isSwiped = String(swipedRowId ?? '') === String(entryRowId ?? '');
+										const isActiveTouch = touchStartX != null && String(touchRowId ?? '') === String(entryRowId ?? '');
+										const deltaX = (isActiveTouch && touchCurrentX != null) ? (touchCurrentX - touchStartX) : 0;
+
+										const swipeOffset = (() => {
+											if (isSwiped) {
+												if (isActiveTouch && deltaX > 0) return Math.min(0, -ACTIONS_WIDTH + deltaX);
+												return -ACTIONS_WIDTH;
+											}
+											if (isActiveTouch && deltaX < 0) return Math.max(-ACTIONS_WIDTH, deltaX);
+											return 0;
+										})();
+
+										const showSwipeActions = isSwiped || (isActiveTouch && touchIsSwiping && swipeOffset < -20);
+
+										return (
+											<div
+												key={entryRowId}
+												className="relative overflow-hidden"
+												onMouseDown={(e) => {
+													// Only left-click / primary button
+													if (e.button !== 0) return;
+													e.preventDefault();
+													setTouchRowId(entryRowId);
+													setTouchStartX(e.clientX);
+													setTouchCurrentX(e.clientX);
+													setTouchIsSwiping(false);
+												}}
+												onTouchStart={(e) => {
+													if (!e.touches?.[0]) return;
+													setTouchRowId(entryRowId);
+													setTouchStartX(e.touches[0].clientX);
+													setTouchCurrentX(e.touches[0].clientX);
+													setTouchIsSwiping(false);
+												}}
+												onTouchMove={(e) => {
+													if (touchStartX == null || !e.touches?.[0]) return;
+													const x = e.touches[0].clientX;
+													const dx = x - touchStartX;
+													// allow swipe left to open, and swipe right to close when already expanded
+													if (dx < 0 || (isSwiped && dx > 0)) {
+														if (e.preventDefault) e.preventDefault();
+														setTouchCurrentX(x);
+														setTouchIsSwiping(true);
+													}
+												}}
+												onTouchEnd={() => {
+													const minSwipeDistance = 50;
+													const dx = (touchCurrentX != null && touchStartX != null) ? (touchCurrentX - touchStartX) : 0;
+													if (Math.abs(dx) >= minSwipeDistance) {
+														if (dx < 0) setSwipedRowId(entryRowId);
+														else setSwipedRowId(null);
+													}
+													setTouchRowId(null);
+													setTouchStartX(null);
+													setTouchCurrentX(null);
+													setTouchIsSwiping(false);
+												}}
+											>
+												{/* Actions behind row */}
+												<div
+													className="absolute right-0 top-0 h-full flex items-center justify-end z-0"
+													style={{
+														width: `${ACTIONS_WIDTH}px`,
+														opacity: showSwipeActions ? 1 : 0,
+														transition: 'opacity 0.2s ease-out',
+														pointerEvents: showSwipeActions ? 'auto' : 'none'
+													}}
+												>
+													<button
+														type="button"
+														onClick={(e) => {
+															e.stopPropagation();
+															setBillEntryForm({
+																enteredBy: r.enteredBy || username || '',
+																date: r.date || ''
+															});
+															setShowBillEntrySheet(true);
+															setSwipedRowId(null);
+															setTouchRowId(null);
+															setTouchStartX(null);
+															setTouchCurrentX(null);
+															setTouchIsSwiping(false);
+														}}
+														className="action-button w-[48px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center hover:bg-[#22a882] transition-colors shadow-sm"
+														title="Edit"
+														aria-label="Edit"
+													>
+														<img src={Edit1} alt="Edit" className="w-[18px] h-[18px]" />
+													</button>
 												</div>
-												<div className="h-[36px] rounded-[6px] bg-[#F3F4F6] border border-[#E5E7EB] px-[10px] flex items-center">
-													<p className="text-[12px] font-medium text-[#111827] truncate">{formatEntryDateDdMmYyyy(r.date) || '-'}</p>
+
+												{/* Sliding row */}
+												<div
+													style={{
+														transform: `translateX(${swipeOffset}px)`,
+														touchAction: 'pan-y',
+														userSelect: 'none',
+														WebkitUserSelect: 'none',
+														willChange: 'transform',
+														transition: isActiveTouch ? 'none' : 'transform 0.3s ease-out'
+													}}
+													className="rounded-[10px] border border-[#E5E7EB] bg-white px-[12px] py-[10px]"
+												>
+													<div className="grid grid-cols-2 gap-[12px]">
+														<div>
+															<p className="text-[12px] font-semibold text-[#111827] mb-[6px]">Entered By</p>
+															<div className="h-[36px] rounded-[6px] bg-[#F3F4F6] border border-[#E5E7EB] px-[10px] flex items-center">
+																<p className="text-[12px] font-medium text-[#111827] truncate">{r.enteredBy || '-'}</p>
+															</div>
+														</div>
+														<div>
+															<p className="text-[12px] font-semibold text-[#111827] mb-[6px]">Date</p>
+															<div className="h-[36px] rounded-[6px] bg-[#F3F4F6] border border-[#E5E7EB] px-[10px] flex items-center">
+																<p className="text-[12px] font-medium text-[#111827] truncate">{formatEntryDateDdMmYyyy(r.date) || '-'}</p>
+															</div>
+														</div>
+													</div>
 												</div>
 											</div>
-										))}
-									</div>
+										);
+									})}
 								</div>
 							)}
 
@@ -2927,8 +3016,9 @@ useEffect(() => {
 							<div className="space-y-[10px]">
 								{(Array.isArray(bankDetails) ? bankDetails : []).map((p, i) => {
 									const mode = resolveBankPaymentMode(p);
+									const cfAmt = Number(p?.carry_forward_amount ?? p?.carryForwardAmount ?? 0) || 0;
 									const amount = mode === 'Carry Forward'
-										? (Number(p?.carry_forward_amount || 0) || 0)
+										? cfAmt
 										: (Number(p?.amount || 0) || 0);
 									const billUrlForAmount =
 										p?.bill_url ??
@@ -2942,32 +3032,151 @@ useEffect(() => {
 									const txn = p?.transaction_number || p?.transactionNumber || '';
 									const chequeNo = p?.cheque_no || p?.chequeNo || '';
 									const date = p?.date || p?.payment_date || '';
+									const paidRowId = `paid-${i}`;
+									const ACTIONS_WIDTH = 56;
+									const isSwiped = String(swipedRowId ?? '') === String(paidRowId ?? '');
+									const isActiveTouch = touchStartX != null && String(touchRowId ?? '') === String(paidRowId ?? '');
+									const deltaX = (isActiveTouch && touchCurrentX != null) ? (touchCurrentX - touchStartX) : 0;
+
+									const swipeOffset = (() => {
+										if (isSwiped) {
+											if (isActiveTouch && deltaX > 0) return Math.min(0, -ACTIONS_WIDTH + deltaX);
+											return -ACTIONS_WIDTH;
+										}
+										if (isActiveTouch && deltaX < 0) return Math.max(-ACTIONS_WIDTH, deltaX);
+										return 0;
+									})();
+
+									const showSwipeActions = isSwiped || (isActiveTouch && touchIsSwiping && swipeOffset < -20);
+
+									const isoDate = (() => {
+										try {
+											if (!date) return '';
+											return new Date(date).toISOString().split('T')[0];
+										} catch {
+											return '';
+										}
+									})();
+
 									return (
-										<div key={i} className="rounded-[14px] bg-[#FAFAFA] border border-[#EFEFEF] px-[14px] py-[12px] flex items-start justify-between gap-[10px]">
-											<div className="min-w-0 text-left">
-												<p className="text-[12px] font-semibold text-black truncate">{acc ? `A/C - ${acc}` : 'A/C - -'}</p>
-												<p className="text-[12px] text-black mt-[2px] truncate">
-													{chequeNo ? `CHQ-${chequeNo}` : (txn || '')}
-												</p>
-												<p className="text-[10px] text-[#666666] mt-[4px]">{date ? new Date(date).toLocaleString('en-GB') : ''}</p>
-											</div>
-											<div className="flex-shrink-0 flex flex-col items-end">
-												<span className="inline-flex px-[10px] py-[3px] rounded-full text-[10px] font-semibold bg-[#F3E8FF] text-[#7C3AED]">
-													{mode || 'Mode'}
-												</span>
+										<div
+											key={i}
+											className="relative overflow-hidden"
+											onMouseDown={(e) => {
+												if (e.button !== 0) return;
+												e.preventDefault();
+												setTouchRowId(paidRowId);
+												setTouchStartX(e.clientX);
+												setTouchCurrentX(e.clientX);
+												setTouchIsSwiping(false);
+											}}
+											onTouchStart={(e) => {
+												if (!e.touches?.[0]) return;
+												setTouchRowId(paidRowId);
+												setTouchStartX(e.touches[0].clientX);
+												setTouchCurrentX(e.touches[0].clientX);
+												setTouchIsSwiping(false);
+											}}
+											onTouchMove={(e) => {
+												if (touchStartX == null || !e.touches?.[0]) return;
+												const x = e.touches[0].clientX;
+												const dx = x - touchStartX;
+												if (dx < 0 || (isSwiped && dx > 0)) {
+													if (e.preventDefault) e.preventDefault();
+													setTouchCurrentX(x);
+													setTouchIsSwiping(true);
+												}
+											}}
+											onTouchEnd={() => {
+												const minSwipeDistance = 50;
+												const dx = (touchCurrentX != null && touchStartX != null) ? (touchCurrentX - touchStartX) : 0;
+												if (Math.abs(dx) >= minSwipeDistance) {
+													if (dx < 0) setSwipedRowId(paidRowId);
+													else setSwipedRowId(null);
+												}
+												setTouchRowId(null);
+												setTouchStartX(null);
+												setTouchCurrentX(null);
+												setTouchIsSwiping(false);
+											}}
+										>
+											{/* Actions behind row */}
+											<div
+												className="absolute right-0 top-0 h-full flex items-center justify-end z-0"
+												style={{
+													width: `${ACTIONS_WIDTH}px`,
+													opacity: showSwipeActions ? 1 : 0,
+													transition: 'opacity 0.2s ease-out',
+													pointerEvents: showSwipeActions ? 'auto' : 'none'
+												}}
+											>
 												<button
 													type="button"
-													onClick={() => {
-														const url = String(billUrlForAmount || '').trim();
-														if (!url) return;
-														window.open(url, '_blank', 'noopener,noreferrer');
+													onClick={(e) => {
+														e.stopPropagation();
+														setPaymentForm({
+															date: isoDate || '',
+															amount: String(amount || ''),
+															mode: mode || '',
+															transactionNumber: txn || '',
+															accountNumber: acc || '',
+															chequeNo: chequeNo || '',
+															chequeDate: isoDate || '',
+															file: null
+														});
+														setShowPaymentSheet(true);
+														setSwipedRowId(null);
+														setTouchRowId(null);
+														setTouchStartX(null);
+														setTouchCurrentX(null);
+														setTouchIsSwiping(false);
 													}}
-													disabled={!String(billUrlForAmount || '').trim()}
-													className={`mt-[6px] text-[13px] font-semibold ${String(billUrlForAmount || '').trim() ? 'text-green-700 underline underline-offset-2' : 'text-green-700'}`}
-													title={String(billUrlForAmount || '').trim() ? 'Open bill copy' : 'No bill copy'}
+													className="action-button w-[56px] h-full bg-[#007233] rounded-[10px] flex items-center justify-center hover:bg-[#22a882] transition-colors shadow-sm"
+													title="Edit"
+													aria-label="Edit"
 												>
-													{formatIndianCurrency(amount)}
+													<img src={Edit1} alt="Edit" className="w-[18px] h-[18px]" />
 												</button>
+											</div>
+
+											{/* Sliding card */}
+											<div
+												style={{
+													transform: `translateX(${swipeOffset}px)`,
+													touchAction: 'pan-y',
+													userSelect: 'none',
+													WebkitUserSelect: 'none',
+													willChange: 'transform',
+													transition: isActiveTouch ? 'none' : 'transform 0.3s ease-out'
+												}}
+											>
+												<div className="rounded-[14px] bg-[#FAFAFA] border border-[#EFEFEF] px-[14px] py-[12px] flex items-start justify-between gap-[10px]">
+													<div className="min-w-0 text-left">
+														<p className="text-[12px] font-semibold text-black truncate">{acc ? `A/C - ${acc}` : 'A/C - -'}</p>
+														<p className="text-[12px] text-black mt-[2px] truncate">
+															{chequeNo ? `CHQ-${chequeNo}` : (txn || '')}
+														</p>
+														<p className="text-[10px] text-[#666666] mt-[4px]">{date ? new Date(date).toLocaleString('en-GB') : ''}</p>
+													</div>
+													<div className="flex-shrink-0 flex flex-col items-end">
+														<span className="inline-flex px-[10px] py-[3px] rounded-full text-[10px] font-semibold bg-[#F3E8FF] text-[#7C3AED]">
+															{mode || 'Mode'}
+														</span>
+														<button
+															type="button"
+															onClick={() => {
+																const url = String(billUrlForAmount || '').trim();
+																if (!url) return;
+																window.open(url, '_blank', 'noopener,noreferrer');
+															}}
+															disabled={!String(billUrlForAmount || '').trim()}
+															className={`mt-[6px] text-[13px] font-semibold ${String(billUrlForAmount || '').trim() ? 'text-green-700 underline underline-offset-2' : 'text-green-700'}`}
+															title={String(billUrlForAmount || '').trim() ? 'Open bill copy' : 'No bill copy'}
+														>
+															{formatIndianCurrency(amount)}
+														</button>
+													</div>
+												</div>
 											</div>
 										</div>
 									);
@@ -2977,7 +3186,10 @@ useEffect(() => {
 							<button
 								type="button"
 								onClick={openPaymentSheet}
-								disabled={paymentStatuses[selectedVerifyBill?.id] === '✓ Paid'}
+								disabled={
+									!(selectedVerifyBill?.id ?? selectedVerifyBill?.bill_id) ||
+									(paymentStatuses[(selectedVerifyBill?.id ?? selectedVerifyBill?.bill_id)] === '✓ Paid' && (Number(bankSummaryDetails?.netPayable ?? 0) || 0) <= 0)
+								}
 								className="mt-[12px] w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white text-[13px] font-semibold text-black"
 							>
 								+ Add on
@@ -3084,7 +3296,7 @@ useEffect(() => {
 								onClick={closePaymentSheet}
 							/>
 							<div className="relative w-full bg-white rounded-t-[18px] pt-[14px] pb-[16px]">
-									<style>{`
+								<style>{`
 										/* Hide number input spinner arrows for Payment Details amount */
 										.bpt-payment-amount-input::-webkit-outer-spin-button,
 										.bpt-payment-amount-input::-webkit-inner-spin-button {
@@ -3142,11 +3354,12 @@ useEffect(() => {
 											type="number"
 											value={paymentForm.amount}
 											onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))}
+											disabled={lockCarryForwardPayment}
 											onWheel={(e) => {
 												e.preventDefault();
 												e.currentTarget.blur();
 											}}
-											className="w-full h-[40px] border border-[#D1D5DB] rounded-[6px] text-[13px] font-medium px-[12px] outline-none bg-white text-right bpt-payment-amount-input"
+											className={`w-full h-[40px] border border-[#D1D5DB] rounded-[6px] text-[13px] font-medium px-[12px] outline-none text-right bpt-payment-amount-input ${lockCarryForwardPayment ? 'bg-[#F3F4F6] text-[#6B7280] cursor-not-allowed' : 'bg-white'}`}
 											placeholder="0"
 										/>
 									</div>
@@ -3159,17 +3372,19 @@ useEffect(() => {
 											role="button"
 											tabIndex={0}
 											onClick={() => {
+												if (lockCarryForwardPayment) return;
 												setPaymentModePickerQuery('');
 												setShowPaymentModePicker(true);
 											}}
 											onKeyDown={(e) => {
+												if (lockCarryForwardPayment) return;
 												if (e.key === 'Enter' || e.key === ' ') {
 													setPaymentModePickerQuery('');
 													setShowPaymentModePicker(true);
 												}
 											}}
-											className="w-full h-[40px] border border-[#D1D5DB] rounded-[6px] text-[13px] font-medium px-[12px] pr-[34px] outline-none bg-white flex items-center cursor-pointer"
-											style={{ color: paymentForm.mode ? '#111827' : '#9E9E9E' }}
+											className={`w-full h-[40px] border border-[#D1D5DB] rounded-[6px] text-[13px] font-medium px-[12px] pr-[34px] outline-none flex items-center ${lockCarryForwardPayment ? 'bg-[#F3F4F6] cursor-not-allowed' : 'bg-white cursor-pointer'}`}
+											style={{ color: paymentForm.mode ? (lockCarryForwardPayment ? '#6B7280' : '#111827') : '#9E9E9E' }}
 										>
 											<span className="truncate">{paymentForm.mode || 'Select Mode'}</span>
 										</div>
@@ -3477,15 +3692,46 @@ useEffect(() => {
 			{/* Date / Vendor row */}
 			<div className="flex items-center justify-between border-b border-[#E0E0E0] pt-[8px] pb-[8px]">
 				<p className="text-[12px] font-semibold text-[#111827]">Date</p>
-				<p className="text-[12px] font-semibold text-[#111827]">Vendor</p>
+				<div className="flex items-center gap-2">
+					<p
+						className="text-[12px] font-semibold text-[#111827] cursor-pointer"
+						onClick={() => setShowVendorPopup(true)}
+					>
+						{selectedVendor || "Vendor"}
+					</p>
+
+					{/* ✅ SVG Clear Button */}
+					{selectedVendor && (
+						<span
+							className="cursor-pointer flex items-center"
+							onClick={(e) => {
+								e.stopPropagation(); // prevent popup open
+								setSelectedVendor("");
+							}}
+						>
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 12 12"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									d="M9 3L3 9M3 3L9 9"
+									stroke="#848484"
+									strokeWidth="1.5"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								/>
+							</svg>
+						</span>
+					)}
+				</div>
 			</div>
 			{/* Search */}
 			<div className=" mt-[8px]">
 				<div className="w-full h-[36px] rounded-[24px] bg-white border border-[#E5E7EB] flex items-center px-[12px]">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-						<circle cx="11" cy="11" r="7" stroke="#9CA3AF" strokeWidth="1.5" />
-						<path d="M20 20L17 17" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
-					</svg>
+					<img src={Search} alt="Search" className="w-[12px] h-[12px]" />
 					<input
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
@@ -3498,12 +3744,95 @@ useEffect(() => {
 			{/* Filter and Download Row (match ToolsTracker History layout) */}
 			<div className="flex justify-between items-center gap-[4px] px-0 mt-[6px] flex-shrink-0">
 				<div className="flex items-center gap-[4px] min-w-0">
-					<button type="button" className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0">
+					<button
+						type="button"
+						onClick={() => setShowFilterSheet(true)}
+						className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0"
+					>
 						<img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
 						<span className="text-[12px] font-medium text-black flex-shrink-0">Filter</span>
 					</button>
 				</div>
 			</div>
+
+			{/* Filter Bottom Sheet */}
+			{showFilterSheet && (
+				<div
+					className="fixed inset-0 bg-black/60 z-[1201] flex items-end justify-center"
+					style={{ fontFamily: "'Manrope', sans-serif" }}
+					onClick={() => setShowFilterSheet(false)}
+				>
+					<div
+						className="bg-white w-full rounded-tl-[16px] rounded-tr-[16px] relative z-[1202] overflow-hidden flex flex-col"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div className="flex-shrink-0 flex items-center justify-between px-[16px] pt-[14px] pb-[10px]">
+							<p className="text-[14px] font-bold text-black">Filters</p>
+							<button type="button" onClick={() => setShowFilterSheet(false)} className="text-[#E4572E] text-[18px] font-bold leading-none" aria-label="Close">
+								<img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+							</button>
+						</div>
+
+						<div className="flex-1 overflow-y-auto px-[16px] py-[12px]">
+							<div className="grid grid-cols-2 gap-[12px]">
+								<div>
+									<p className="text-[12px] font-semibold text-black mb-[2px]">From Date</p>
+									<input
+										type="date"
+										value={filterFromDate}
+										onChange={(e) => setFilterFromDate(e.target.value)}
+										className="w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white px-[10px] text-[12px] font-medium text-[#111827] outline-none"
+									/>
+								</div>
+								<div>
+									<p className="text-[12px] font-semibold text-black mb-[2px]">To Date</p>
+									<input
+										type="date"
+										value={filterToDate}
+										onChange={(e) => setFilterToDate(e.target.value)}
+										className="w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white px-[10px] text-[12px] font-medium text-[#111827] outline-none"
+									/>
+								</div>
+							</div>
+
+							<div className="mt-[12px]">
+								<p className="text-[12px] font-semibold text-black mb-[2px]">Payment Status</p>
+								<select
+									value={filterPaymentStatus}
+									onChange={(e) => setFilterPaymentStatus(e.target.value)}
+									className="w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white px-[10px] text-[12px] font-medium text-[#111827] outline-none"
+								>
+									<option value="">All</option>
+									<option value="To Pay">To Pay</option>
+									<option value="Paid">Paid</option>
+									<option value="✓ Paid">✓ Paid</option>
+								</select>
+							</div>
+						</div>
+
+						<div className="flex-shrink-0 px-[16px] pb-[26px] pt-[10px] grid grid-cols-2 gap-[12px]">
+							<button
+								type="button"
+								onClick={() => {
+									setFilterFromDate('');
+									setFilterToDate('');
+									setFilterPaymentStatus('');
+								}}
+								className="h-[42px] rounded-[10px] border border-[#D1D5DB] bg-white text-[13px] font-semibold text-black"
+							>
+								Clear
+							</button>
+							<button
+								type="button"
+								onClick={() => setShowFilterSheet(false)}
+								className="h-[42px] rounded-[10px] bg-black text-[13px] font-semibold text-white"
+							>
+								Apply
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 			{/* List */}
 			<div
 				className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pb-4"
@@ -3592,14 +3921,15 @@ useEffect(() => {
 					const isSwiped = String(swipedRowId ?? '') === String(rowId ?? '');
 					const isActiveTouch = touchStartX != null && String(touchRowId ?? '') === String(rowId ?? '');
 					const deltaX = (isActiveTouch && touchCurrentX != null) ? (touchCurrentX - touchStartX) : 0;
+					const ACTIONS_WIDTH = 56; // match Database.jsx single action width feel
 					const swipeOffset = (() => {
 						// If expanded, allow swipe right to close (move towards 0)
 						if (isSwiped) {
-							if (isActiveTouch && deltaX > 0) return Math.min(0, -72 + deltaX);
-							return -72;
+							if (isActiveTouch && deltaX > 0) return Math.min(0, -ACTIONS_WIDTH + deltaX);
+							return -ACTIONS_WIDTH;
 						}
-						// If not expanded, allow swipe left to reveal (move towards -72)
-						if (isActiveTouch && deltaX < 0) return Math.max(-72, deltaX);
+						// If not expanded, allow swipe left to reveal (move towards -ACTIONS_WIDTH)
+						if (isActiveTouch && deltaX < 0) return Math.max(-ACTIONS_WIDTH, deltaX);
 						return 0;
 					})();
 					const showSwipeActions = isSwiped || (isActiveTouch && touchIsSwiping && swipeOffset < -20);
@@ -3608,6 +3938,15 @@ useEffect(() => {
 						<div
 							key={rowId}
 							className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] w-full"
+							onMouseDown={(e) => {
+								// Only left-click / primary button
+								if (e.button !== 0) return;
+								e.preventDefault();
+								setTouchRowId(rowId);
+								setTouchStartX(e.clientX);
+								setTouchCurrentX(e.clientX);
+								setTouchIsSwiping(false);
+							}}
 							onTouchStart={(e) => {
 								if (!e.touches?.[0]) return;
 								setTouchRowId(rowId);
@@ -3639,10 +3978,11 @@ useEffect(() => {
 								setTouchIsSwiping(false);
 							}}
 						>
-							{/* Edit action behind (hidden until swipe) */}
+							{/* Edit action behind (match Database.jsx style) */}
 							<div
-								className="absolute right-0 top-0 h-full w-[72px] flex items-center justify-center"
+								className="absolute right-0 top-0 h-full flex items-center justify-end z-0"
 								style={{
+									width: `${ACTIONS_WIDTH}px`,
 									opacity: showSwipeActions ? 1 : 0,
 									transition: 'opacity 0.2s ease-out',
 									pointerEvents: showSwipeActions ? 'auto' : 'none'
@@ -3655,14 +3995,13 @@ useEffect(() => {
 									onClick={(e) => {
 										e.stopPropagation();
 										openEditTrackerSheet(row);
+										setSwipedRowId(null);
 									}}
-									className="h-full w-full bg-[#0B7A35] flex items-center justify-center"
+									className="action-button w-[48px] h-full min-h-[95px] bg-[#007233] rounded-[6px] flex items-center justify-center hover:bg-[#22a882] transition-colors shadow-sm"
+									title="Edit"
 									aria-label="Edit"
 								>
-									<svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-										<path d="M12 20h9" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-										<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
-									</svg>
+									<img src={Edit1} alt="Edit" className="w-[18px] h-[18px]" />
 								</button>
 							</div>
 
@@ -3720,7 +4059,7 @@ useEffect(() => {
 							<div className="text-right flex-shrink-0">
 								<p className="text-[11px] font-semibold text-black leading-tight">
 									Last PO:{' '}
-									{lastPoNumber != null ? String(lastPoNumber) : ''}
+									{lastPoNumber != null ? String(lastPoNumber) : (getLastNonNoPoFromCurrent(selectedVerifyBill) || '')}
 								</p>
 								<p className="text-[10px] font-medium text-[#777777] leading-tight mt-[2px]">
 									{(() => {
@@ -3884,7 +4223,7 @@ useEffect(() => {
 															className="h-[34px] rounded-[6px] border text-[12px] font-semibold text-center outline-none"
 															style={{ borderColor, background: bgColor }}
 														/>
-                                                        {isAdminUser() && !isDuplicateMode && (
+														{isAdminUser() && !isDuplicateMode && (
 															<label className="flex items-center justify-center gap-[6px] text-[11px] font-medium text-black">
 																<input
 																	type="checkbox"
@@ -3963,7 +4302,7 @@ useEffect(() => {
 
 						{/* Bottom actions (pinned) */}
 						<div className=" pb-[16px] flex-shrink-0 bg-white">
-							<div className=" grid grid-cols-2 gap-[10px]">
+							<div className={` grid ${isEditMode ? 'grid-cols-2' : 'grid-cols-1'} gap-[10px]`}>
 								<button
 									type="button"
 									onClick={checkPO}
@@ -3972,13 +4311,15 @@ useEffect(() => {
 								>
 									{checkingPO ? 'Checking...' : 'Check PO'}
 								</button>
-								<button
-									type="button"
-									onClick={makeDuplicate}
-									className="h-[40px] rounded-[10px] border border-[#D1D5DB] bg-white text-[13px] font-semibold text-black"
-								>
-									{isDuplicateMode ? 'Duplicate Mode' : 'Make Duplicate'}
-								</button>
+								{isEditMode && (
+									<button
+										type="button"
+										onClick={makeDuplicate}
+										className="h-[40px] rounded-[10px] border border-[#D1D5DB] bg-white text-[13px] font-semibold text-black"
+									>
+										{isDuplicateMode ? 'Duplicate Mode' : 'No Po Mode'}
+									</button>
+								)}
 							</div>
 
 							{isAdminUser() && (selectedVerifyBill?.send_request || selectedVerifyBill?.sendRequest) && !(selectedVerifyBill?.request_approved || selectedVerifyBill?.requestApproved) && (
@@ -4111,7 +4452,9 @@ useEffect(() => {
 								className="w-[28px] h-[28px] flex items-center justify-center"
 								aria-label="Close"
 							>
-								<span className="text-[20px] leading-none font-semibold text-[#E4572E]">×</span>
+								<span className="text-[20px] leading-none font-semibold text-[#E4572E]">
+									<img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+								</span>
 							</button>
 						</div>
 
@@ -4185,7 +4528,7 @@ useEffect(() => {
 										type="number"
 										value={addForm.noOfBills}
 										onChange={(e) => setAddForm((p) => ({ ...p, noOfBills: e.target.value }))}
-									onKeyDown={(e) => { if (e.key === 'Enter') submitNewTracker(); }}
+										onKeyDown={(e) => { if (e.key === 'Enter') submitNewTracker(); }}
 										placeholder="Enter Bill Count"
 										className="w-full h-[38px] rounded-[6px] border border-[#D1D5DB] bg-white px-[12px] text-[12px] font-medium text-[#111827] outline-none"
 									/>
@@ -4196,14 +4539,14 @@ useEffect(() => {
 										type="number"
 										value={addForm.totalAmount}
 										onChange={(e) => setAddForm((p) => ({ ...p, totalAmount: e.target.value }))}
-									onKeyDown={(e) => { if (e.key === 'Enter') submitNewTracker(); }}
+										onKeyDown={(e) => { if (e.key === 'Enter') submitNewTracker(); }}
 										placeholder="Enter Amount"
 										className="w-full h-[38px] rounded-[6px] border border-[#D1D5DB] bg-white px-[12px] text-[12px] font-medium text-[#111827] outline-none"
 									/>
 								</div>
 							</div>
 
-							<div className="mt-[4px] grid grid-cols-2 gap-[12px]">
+							<div className="mt-[4px] grid grid-cols-2 gap-[12px] mb-[10px]">
 								<button
 									type="button"
 									onClick={closeAddSheet}
@@ -4434,7 +4777,7 @@ useEffect(() => {
 					/>
 					<div className="relative w-full bg-white rounded-t-[18px] px-[16px] pt-[14px] pb-[16px]">
 						<div className="flex items-center justify-between">
-							<p className="text-[14px] font-semibold text-black">Edit Tracker Details</p>
+							<p className="flex-1 text-left text-[14px] font-semibold text-black">Edit Tracker Details</p>
 							<button
 								type="button"
 								onClick={closeEditSheet}
@@ -4445,7 +4788,7 @@ useEffect(() => {
 							</button>
 						</div>
 
-						<div className="mt-[10px] flex flex-col gap-[10px]">
+						<div className="mt-[10px] flex flex-col gap-[10px] text-left">
 							<div>
 								<p className="text-[12px] font-semibold text-black mb-[6px]">Received Date</p>
 								<div className="relative">
@@ -4628,7 +4971,76 @@ useEffect(() => {
 					</div>
 				</div>
 			)}
+			{showVendorPopup && (
+				<div
+					className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center"
+					onClick={() => setShowVendorPopup(false)}
+				>
+					<div
+						className="bg-white w-[92%] max-w-[360px] h-[80vh] rounded-[20px] p-4 flex flex-col"
+						onClick={(e) => e.stopPropagation()}
+					>
+						{/* Header */}
+						<div className="flex justify-between items-center mb-2">
+							<h2 className="text-[16px] font-semibold">Select Vendor</h2>
+							<span
+								className=" cursor-pointer"
+								onClick={() => setShowVendorPopup(false)}
+							>
+								<img src={Close} alt="Close" className="w-[11px] h-[11px]" />
+							</span>
+						</div>
 
+						<div className="mb-3 relative">
+							<img
+								src={Search}
+								alt="search"
+								className="absolute left-3 top-1/2 transform -translate-y-1/2 w-[12px] h-[12px] opacity-60"
+							/>
+
+							<input
+								type="text"
+								placeholder="Search"
+								className="w-full pl-[30px] pr-3 py-2 border rounded-[10px] text-[13px] outline-none"
+								value={search}
+								onChange={(e) => setSearch(e.target.value)}
+							/>
+						</div>
+
+						{/* Vendor List Card */}
+						<div className=" rounded-[12px] shadow-sm overflow-y-auto no-scrollbar scrollbar-none">
+							{vendorList.length > 0 ? (
+								vendorList
+									.filter(v =>
+										v.name.toLowerCase().includes(search.toLowerCase())
+									)
+									.map((vendor) => (
+										<div
+											key={vendor.id}
+											className="flex items-center gap-3 p-3 rounded-[10px] cursor-pointer hover:bg-gray-100"
+											onClick={() => {
+												setSelectedVendor(vendor.name);
+												setShowVendorPopup(false);
+											}}
+										>
+											{/* ⭐ Star Icon */}
+											<img src={Star} alt="Star" className="w-[16px] h-[16px]" />
+
+											{/* Vendor Name */}
+											<span className="text-[14px] text-gray-800">
+												{vendor.name}
+											</span>
+										</div>
+									))
+							) : (
+								<p className="text-sm text-gray-400 text-center py-4">
+									No vendors found
+								</p>
+							)}
+						</div>
+					</div>
+				</div>
+			)}
 			{/* Edit received date picker */}
 			<DatePickerModal
 				isOpen={showEditReceivedDatePicker}

@@ -72,17 +72,17 @@ const StatementRow = ({
 );
 
 const StatementMobile = () => {
-	// Note: legacy backend uses different base paths for names vs tracker modules.
 	const API_BASE = 'https://backendaab.in/aabuildersDash/api';
-	const NAMES_BASE = 'https://backendaab.in/aabuilderDash/api';
 
 	const [query, setQuery] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState(null);
-	const [trackers, setTrackers] = useState([]);
-	const [vendorMap, setVendorMap] = useState({});
-	const [allBillEntries, setAllBillEntries] = useState([]);
-	const [paymentInfo, setPaymentInfo] = useState({}); // { [trackerId]: [{ date, rawDate, mode, amount, billUrl }] }
+	const [rows, setRows] = useState([]); // already-expanded statement rows from backend
+	const [showFilterSheet, setShowFilterSheet] = useState(false);
+	const [filterFromDate, setFilterFromDate] = useState(''); // YYYY-MM-DD (tracker/bill arrival date)
+	const [filterToDate, setFilterToDate] = useState(''); // YYYY-MM-DD (tracker/bill arrival date)
+	const [filterPaymentDate, setFilterPaymentDate] = useState(''); // YYYY-MM-DD (payment date)
+	const [filterPaymentMode, setFilterPaymentMode] = useState(''); // '' | mode label
 
 	const parseDateAny = (input) => {
 		if (input == null || input === '') return null;
@@ -162,40 +162,6 @@ const StatementMobile = () => {
 		return parseInt(Math.abs(n), 10).toLocaleString('en-IN');
 	};
 
-	const getVendorNameById = (vendorId) => {
-		if (vendorId == null) return 'Unknown Vendor';
-		return vendorMap[vendorId] || vendorMap[String(vendorId)] || 'Unknown Vendor';
-	};
-
-	const getBillVerificationDate = (item) => {
-		const verifications = item?.billVerifications || item?.bill_verifications || [];
-		if (!Array.isArray(verifications) || verifications.length === 0) return '-';
-		const verifiedBills = verifications.filter(v => v?.is_verified === true || v?.status === 'VERIFIED');
-		if (verifiedBills.length === 0) return '-';
-		const dates = verifiedBills
-			.map(v => v?.verified_date || v?.verification_date || v?.created_at || v?.updated_at || v?.timestamp || v?.date)
-			.map(parseDateAny)
-			.filter(Boolean)
-			.sort((a, b) => a - b);
-		if (dates.length === 0) return '-';
-		return formatDdMmYyyy(dates[dates.length - 1]); // latest
-	};
-
-	const getEntryDate = (trackerId) => {
-		const entries = (Array.isArray(allBillEntries) ? allBillEntries : []).filter((e) => {
-			const id = e?.vendor_payments_tracker_id ?? e?.vendorPaymentsTrackerId;
-			return String(id ?? '') === String(trackerId ?? '');
-		});
-		if (entries.length === 0) return '-';
-		const dates = entries
-			.map(e => e?.entered_date ?? e?.enteredDate)
-			.map(parseDateAny)
-			.filter(Boolean)
-			.sort((a, b) => a - b);
-		if (dates.length === 0) return '-';
-		return formatDdMmYyyy(dates[dates.length - 1]); // latest
-	};
-
 	const openUrl = (url) => {
 		if (!url) return;
 		const s = String(url || '').trim();
@@ -203,187 +169,104 @@ const StatementMobile = () => {
 		window.open(s, '_blank', 'noopener,noreferrer');
 	};
 
-	const getPaymentInfo = async (trackerId) => {
-		try {
-			const res = await fetch(`${API_BASE}/vendor-bill-tracker/get/${trackerId}`, {
-				method: 'GET',
-				credentials: 'include',
-				headers: { 'Content-Type': 'application/json' }
-			});
-			if (!res.ok) return [];
-			const paymentDetails = await res.json().catch(() => []);
-			if (!paymentDetails || paymentDetails.length === 0) return [];
-			return paymentDetails.map((payment) => {
-				const rawUrl = payment?.bill_url || payment?.file_url || payment?.document_url || payment?.bill_document_url || payment?.url;
-				const isHttpUrl = typeof rawUrl === 'string' && /^(http|https):\/\//i.test(rawUrl);
-				const rawDate = payment?.date;
-				const amount = parseFloat(payment?.amount) || 0;
-				const carryForwardAmount = parseFloat(payment?.carry_forward_amount) || 0;
-				const totalAmount = amount + carryForwardAmount;
-				return {
-					date: rawDate ? formatDdMmYyyy(parseDateAny(rawDate)) : '-',
-					rawDate: rawDate || null,
-					mode: payment?.vendor_bill_payment_mode || '-',
-					amount: totalAmount > 0 ? totalAmount : (payment?.amount || payment?.payment_amount || '-'),
-					billUrl: isHttpUrl ? rawUrl : null
-				};
-			});
-		} catch {
-			return [];
-		}
-	};
-
-	// Concurrency-limited parallel map (prevents 100s of simultaneous requests)
-	const pMapLimit = async (items, limit, mapper) => {
-		const list = Array.isArray(items) ? items : [];
-		const results = new Array(list.length);
-		let nextIndex = 0;
-		const workers = new Array(Math.max(1, Number(limit) || 1)).fill(0).map(async () => {
-			while (nextIndex < list.length) {
-				const i = nextIndex++;
-				try {
-					results[i] = await mapper(list[i], i);
-				} catch (e) {
-					results[i] = { __error: e };
-				}
-			}
-		});
-		await Promise.all(workers);
-		return results;
-	};
-
 	useEffect(() => {
 		let mounted = true;
-		(async () => {
+		const q = String(query || '').trim();
+		const from = String(filterFromDate || '').trim();
+		const to = String(filterToDate || '').trim();
+		const paymentDate = String(filterPaymentDate || '').trim();
+		const paymentMode = String(filterPaymentMode || '').trim();
+
+		const controller = new AbortController();
+
+		const run = async () => {
 			setLoading(true);
 			setError(null);
 			try {
-				const [vendorsRes, trackersRes, entriesRes] = await Promise.all([
-					// Desktop BillStatement.js uses /aabuilderDash for vendor names.
-					fetch(`${NAMES_BASE}/vendor_Names/getAll`, { method: 'GET', credentials: 'include' }),
-					fetch(`${API_BASE}/vendor-payments/trackers`, { method: 'GET', credentials: 'include' }),
-					fetch(`${API_BASE}/bill-entry/getAll`, { method: 'GET', credentials: 'include' })
-				]);
+				const params = new URLSearchParams();
+				if (q) params.set('query', q);
+				if (from) params.set('fromDate', from);
+				if (to) params.set('toDate', to);
+				if (paymentDate) params.set('paymentDate', paymentDate);
+				if (paymentMode) params.set('paymentMode', paymentMode);
 
-				const vendors = vendorsRes.ok ? await vendorsRes.json().catch(() => []) : [];
-				const trackerList = trackersRes.ok ? await trackersRes.json().catch(() => []) : [];
-				const entries = entriesRes.ok ? await entriesRes.json().catch(() => []) : [];
+				const url = `${API_BASE}/vendor-payments/statement${params.toString() ? `?${params.toString()}` : ''}`;
+				const res = await fetch(url, {
+					method: 'GET',
+					credentials: 'include',
+					headers: { 'Content-Type': 'application/json' },
+					signal: controller.signal
+				});
+				if (!res.ok) {
+					const msg = await res.text().catch(() => '');
+					throw new Error(msg || `Request failed (${res.status})`);
+				}
+				const data = await res.json().catch(() => []);
 				if (!mounted) return;
-
-				const vMap = {};
-				(Array.isArray(vendors) ? vendors : []).forEach((v) => {
-					const id = v?.id;
-					const name = v?.vendorName ?? v?.name ?? v?.label;
-					if (id != null && name) {
-						vMap[id] = name;
-						vMap[String(id)] = name;
-					}
-				});
-				setVendorMap(vMap);
-				setTrackers(Array.isArray(trackerList) ? trackerList : []);
-				setAllBillEntries(Array.isArray(entries) ? entries : []);
-
-				// Load payment info per tracker (PARALLEL + limited concurrency)
-				const list = (Array.isArray(trackerList) ? trackerList : []).filter(t => t?.id != null);
-				const paymentPairs = await pMapLimit(list, 6, async (t) => {
-					const id = t?.id;
-					const info = await getPaymentInfo(id);
-					return [id, info];
-				});
-				const paymentData = {};
-				paymentPairs.forEach((pair) => {
-					if (!Array.isArray(pair)) return;
-					const [id, info] = pair;
-					if (id != null) paymentData[id] = Array.isArray(info) ? info : [];
-				});
-				if (!mounted) return;
-				setPaymentInfo(paymentData);
+				setRows(Array.isArray(data) ? data : []);
 			} catch (e) {
+				// Ignore aborts during rapid typing
+				if (String(e?.name || '') === 'AbortError') return;
 				if (!mounted) return;
+				setRows([]);
 				setError(e?.message || 'Failed to load statement');
 			} finally {
 				if (mounted) setLoading(false);
 			}
-		})();
-		return () => { mounted = false; };
-	}, []);
+		};
+
+		// Small debounce for search typing, but keep filters responsive.
+		const shouldDebounce = Boolean(q);
+		const t = window.setTimeout(run, shouldDebounce ? 300 : 0);
+
+		return () => {
+			mounted = false;
+			window.clearTimeout(t);
+			controller.abort();
+		};
+	}, [query, filterFromDate, filterToDate, filterPaymentDate, filterPaymentMode]);
 
 	const statementRows = useMemo(() => {
-		const list = Array.isArray(trackers) ? trackers : [];
-		const rows = [];
-		list.forEach((t) => {
-			const id = t?.id;
-			const vendorId = t?.vendor_id ?? t?.vendorId;
-			const vendorName = getVendorNameById(vendorId);
-			const noOfBills = t?.no_of_bills ?? t?.noOfBills ?? '-';
-			const totalAmount = t?.total_amount ?? t?.totalAmount ?? '-';
-			const overallPdfUrl = t?.over_all_payment_pdf_url || t?.overAllPaymentPdfUrl || null;
+		const list = Array.isArray(rows) ? rows : [];
+		return list.map((r, idx) => {
+			const paid = r?.paid_amount;
+			const overall = r?.overall_amount;
 
-			const yearCandidate =
-				parseDateAny(t?.timestamp ?? t?.created_at ?? t?.createdAt ?? t?.bill_arrival_date ?? t?.billArrivalDate);
-			const year = yearCandidate ? yearCandidate.getFullYear() : '';
-			const title = `${id ?? ''}${year ? ` - ${year}` : ''} - Bills ${noOfBills}`;
+			const arrivalDateObj = parseDateAny(r?.arrival_date);
+			const paymentTsObj = parseDateAny(r?.payment_timestamp);
+			const paymentDateObj = parseDateAny(r?.payment_date);
 
-			const vDate = getBillVerificationDate(t);
-			const eDate = getEntryDate(id);
+			const primaryDate = paymentTsObj || paymentDateObj || arrivalDateObj;
+			const seg1 = primaryDate ? relativeOrDate(primaryDate) : '-';
+			const seg2 = primaryDate ? formatDdMmYyyy(primaryDate) : '-';
+			const seg3 = primaryDate ? formatTime12h(primaryDate) : '-';
 
-			const payments = paymentInfo?.[id] || [];
-			if (!Array.isArray(payments) || payments.length === 0) {
-				rows.push({
-					key: `t-${id}`,
-					title,
-					vendorName,
-					mode: '-',
-					paidAmount: '-',
-					overallAmount: totalAmount !== '-' ? formatInr(totalAmount) : '-',
-					dateLineParts: null,
-					vDate,
-					eDate,
-					pDate: '-',
-					billUrl: null,
-					overallPdfUrl: overallPdfUrl
-				});
-				return;
-			}
-			payments.forEach((pay, idx) => {
-				const arrivalDate = parseDateAny(t?.bill_arrival_date ?? t?.billArrivalDate);
-				const payDateObj = parseDateAny(pay?.rawDate);
-				const seg1 = arrivalDate ? relativeOrDate(arrivalDate) : (payDateObj ? relativeOrDate(payDateObj) : '-');
-				const seg2 = payDateObj ? formatDdMmYyyy(payDateObj) : '-';
-				const seg3 = payDateObj ? formatTime12h(payDateObj) : '-';
+			const dateLineNode = (
+				<>
+					<span className="font-bold text-[#111827]">{seg1}</span>
+					<span className="font-medium text-[#777777]"> • </span>
+					<span className="font-medium text-[#777777]">{seg2}</span>
+					<span className="font-medium text-[#777777]"> • </span>
+					<span className="font-medium text-[#777777]">{seg3}</span>
+				</>
+			);
 
-				const dateLineNode = (
-					<>
-						<span className="font-bold text-[#111827]">{seg1}</span>
-						<span className="font-medium text-[#777777]"> • </span>
-						<span className="font-medium text-[#777777]">{seg2}</span>
-						<span className="font-medium text-[#777777]"> • </span>
-						<span className="font-medium text-[#777777]">{seg3}</span>
-					</>
-				);
-
-				const isLastPayment = idx === payments.length - 1;
-				rows.push({
-					key: `t-${id}-p-${idx}`,
-					title,
-					vendorName,
-					mode: pay?.mode || '-',
-					paidAmount: pay?.amount !== '-' ? formatInr(pay.amount) : '-',
-					overallAmount: totalAmount !== '-' ? formatInr(totalAmount) : '-',
-					dateLineNode,
-					vDate,
-					eDate,
-					pDate: pay?.date || '-',
-					billUrl: pay?.billUrl || null,
-					overallPdfUrl: isLastPayment ? overallPdfUrl : null
-				});
-			});
+			return {
+				key: `${r?.tracker_id ?? 't'}-${idx}`,
+				title: r?.title ?? '-',
+				vendorName: r?.vendor_name ?? 'Unknown Vendor',
+				mode: r?.mode ?? '-',
+				paidAmount: Number.isFinite(Number(paid)) ? formatInr(paid) : (paid == null ? '-' : String(paid)),
+				overallAmount: Number.isFinite(Number(overall)) ? formatInr(overall) : (overall == null ? '-' : String(overall)),
+				dateLineNode,
+				vDate: r?.v_date ?? '-',
+				eDate: r?.e_date ?? '-',
+				pDate: r?.p_date ?? r?.payment_date ?? '-',
+				billUrl: r?.bill_url ?? null,
+				overallPdfUrl: r?.overall_pdf_url ?? null
+			};
 		});
-		// Basic vendor search (mobile)
-		if (!query) return rows;
-		const q = query.toLowerCase();
-		return rows.filter((r) => (r.vendorName || '').toLowerCase().includes(q));
-	}, [trackers, vendorMap, allBillEntries, paymentInfo, query]);
+	}, [rows]);
 
 	return (
 		<div className="w-full h-[calc(100vh-96px-80px)] overflow-hidden flex flex-col">
@@ -409,7 +292,11 @@ const StatementMobile = () => {
 				</div>
 				<div className="flex justify-between items-center gap-[4px] px-0 flex-shrink-0">
 					<div className="flex items-center gap-[4px] min-w-0">
-						<button type="button" className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0">
+						<button
+							type="button"
+							onClick={() => setShowFilterSheet(true)}
+							className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0"
+						>
 							<img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
 							<span className="text-[12px] font-medium text-black flex-shrink-0">Filter</span>
 						</button>
@@ -420,10 +307,107 @@ const StatementMobile = () => {
 				</div>
 			</div>
 
+			{/* Filter Bottom Sheet */}
+			{showFilterSheet && (
+				<div
+					className="fixed inset-0 bg-black/60 z-[1201] flex items-end justify-center"
+					style={{ fontFamily: "'Manrope', sans-serif" }}
+					onClick={() => setShowFilterSheet(false)}
+				>
+					<div
+						className="bg-white w-full rounded-tl-[16px] rounded-tr-[16px] relative z-[1202] overflow-hidden flex flex-col"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div className="flex-shrink-0 flex items-center justify-between px-[16px] pt-[14px] pb-[10px] border-b border-[#E5E7EB]">
+							<p className="text-[14px] font-semibold text-black">Filters</p>
+							<button type="button" onClick={() => setShowFilterSheet(false)} className="text-[#E4572E] text-[18px] font-bold leading-none" aria-label="Close">
+								×
+							</button>
+						</div>
+
+						<div className="flex-1 overflow-y-auto px-[16px] py-[12px]">
+							<div className="grid grid-cols-2 gap-[12px]">
+								<div>
+									<p className="text-[12px] font-semibold text-black mb-[6px]">From Date</p>
+									<input
+										type="date"
+										value={filterFromDate}
+										onChange={(e) => setFilterFromDate(e.target.value)}
+										className="w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white px-[10px] text-[12px] font-medium text-[#111827] outline-none"
+									/>
+								</div>
+								<div>
+									<p className="text-[12px] font-semibold text-black mb-[6px]">To Date</p>
+									<input
+										type="date"
+										value={filterToDate}
+										onChange={(e) => setFilterToDate(e.target.value)}
+										className="w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white px-[10px] text-[12px] font-medium text-[#111827] outline-none"
+									/>
+								</div>
+							</div>
+
+							<div className="mt-[12px]">
+								<p className="text-[12px] font-semibold text-black mb-[6px]">Payment Date</p>
+								<input
+									type="date"
+									value={filterPaymentDate}
+									onChange={(e) => setFilterPaymentDate(e.target.value)}
+									className="w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white px-[10px] text-[12px] font-medium text-[#111827] outline-none"
+								/>
+							</div>
+
+							<div className="mt-[12px]">
+								<p className="text-[12px] font-semibold text-black mb-[6px]">Payment Mode</p>
+								<select
+									value={filterPaymentMode}
+									onChange={(e) => setFilterPaymentMode(e.target.value)}
+									className="w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white px-[10px] text-[12px] font-medium text-[#111827] outline-none"
+								>
+									<option value="">All</option>
+									<option value="Carry Forward">Carry Forward</option>
+									<option value="Net Banking">Net Banking</option>
+									<option value="PhonePe">PhonePe</option>
+									<option value="GPay">GPay</option>
+									<option value="Cheque">Cheque</option>
+									<option value="Cash">Cash</option>
+									<option value="NEFT/RTGS">NEFT/RTGS</option>
+								</select>
+							</div>
+						</div>
+
+						<div className="flex-shrink-0 px-[16px] pb-[16px] pt-[10px] border-t border-[#E5E7EB] grid grid-cols-2 gap-[12px]">
+							<button
+								type="button"
+								onClick={() => {
+									setFilterFromDate('');
+									setFilterToDate('');
+									setFilterPaymentDate('');
+									setFilterPaymentMode('');
+								}}
+								className="h-[42px] rounded-[10px] border border-[#D1D5DB] bg-white text-[13px] font-semibold text-black"
+							>
+								Clear
+							</button>
+							<button
+								type="button"
+								onClick={() => setShowFilterSheet(false)}
+								className="h-[42px] rounded-[10px] bg-black text-[13px] font-semibold text-white"
+							>
+								Apply
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
 			<div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none pb-[10px]">
 				<div className="flex flex-col">
 					{!loading && statementRows.length === 0 && !error && (
 						<p className="text-[12px] text-center text-[#6B7280] mt-[6px]">No data</p>
+					)}
+					{error && !loading && (
+						<p className="text-[12px] text-center text-[#E4572E] mt-[6px]">{error}</p>
 					)}
 					{statementRows.map((r) => (
 						<StatementRow

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Filter from '../Images/Filter.png';
 import Edit from '../Images/edit1.png';
 import Delete from '../Images/delete.png';
+import BackIcon from '../Images/BAck Icon.svg';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -46,15 +47,28 @@ const Chip = ({ label, tone = 'neutral', onClick }) => {
 	);
 };
 
-const Row = ({ name, amount, billsCount, subLine, statusLeft, statusMid, statusRight }) => (
+const Row = ({ name, amount, billsCount, subLineNode, statusLeft, statusMid, statusRight, onAmountClick }) => (
 	<div className="bg-white rounded-[12px] shadow-lg border border-[#E5E7EB] overflow-hidden px-[12px] py-[10px]">
 		<div className="flex items-start justify-between">
 			<div className="flex flex-col min-w-0">
-				<p className="text-[13px] font-semibold text-[#111827] leading-[18px] truncate">{name || '-'}</p>
-				<p className="text-[10px] font-semibold text-[#6B7280] leading-[14px] mt-[2px]">{subLine}</p>
+				<p className="text-left text-[13px] font-semibold text-[#111827] leading-[18px] truncate">{name || '-'}</p>
+				<p className="text-[10px] font-semibold text-[#6B7280] leading-[14px] mt-[2px]">
+					{subLineNode || ''}
+				</p>
 			</div>
 			<div className="text-right flex-shrink-0 ml-[10px]">
-				<p className="text-[13px] font-bold text-[#111827] leading-[18px]">₹{amount?.toLocaleString?.('en-IN') || amount || '0'}</p>
+				{typeof onAmountClick === 'function' ? (
+					<button
+						type="button"
+						onClick={onAmountClick}
+						className="text-[13px] font-bold text-[#111827] leading-[18px]"
+						style={{ textDecoration: 'underline' }}
+					>
+						₹{amount?.toLocaleString?.('en-IN') || amount || '0'}
+					</button>
+				) : (
+					<p className="text-[13px] font-bold text-[#111827] leading-[18px]">₹{amount?.toLocaleString?.('en-IN') || amount || '0'}</p>
+				)}
 				<p className="text-[10px] font-semibold text-[#6B7280] leading-[14px] mt-[2px]">No.of bills: {billsCount ?? '-'}</p>
 			</div>
 		</div>
@@ -67,9 +81,14 @@ const Row = ({ name, amount, billsCount, subLine, statusLeft, statusMid, statusR
 );
 
 const DatabaseMobile = () => {
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState(null);
 	const [apiData, setApiData] = useState([]);
 	const [vendorMap, setVendorMap] = useState({});
 	const [query, setQuery] = useState('');
+	const [showFilterSheet, setShowFilterSheet] = useState(false);
+	const [filterFromDate, setFilterFromDate] = useState(''); // YYYY-MM-DD
+	const [filterToDate, setFilterToDate] = useState(''); // YYYY-MM-DD
 	const [expandedRowId, setExpandedRowId] = useState(null);
 	const [swipeStates, setSwipeStates] = useState({}); // { [id]: { startX, startY, currentX, currentY, isSwiping } }
 	const [showEditSheet, setShowEditSheet] = useState(false);
@@ -87,33 +106,43 @@ const DatabaseMobile = () => {
 	// Detail screens (Verified / Entered / Paid)
 	const [activeFullScreen, setActiveFullScreen] = useState(null); // null | 'verify' | 'entry' | 'bank'
 	const [detailRow, setDetailRow] = useState(null);
-	const [verifyPage, setVerifyPage] = useState(1);
 	const [allBillEntries, setAllBillEntries] = useState([]);
 	const [expensesData, setExpensesData] = useState([]);
-	const [expenseMatchStatus, setExpenseMatchStatus] = useState({});
-	const [paymentStatuses, setPaymentStatuses] = useState({});
 	const [bankDetails, setBankDetails] = useState([]);
 	const [loadingBankDetails, setLoadingBankDetails] = useState(false);
 	const [bankDetailsError, setBankDetailsError] = useState(null);
 	const [showBankDetailsModal, setShowBankDetailsModal] = useState(false);
 	const [selectedVendorAccountDetails, setSelectedVendorAccountDetails] = useState(null);
 	const [loadingVendorBankDetails, setLoadingVendorBankDetails] = useState(false);
-	const paymentStatusCacheRef = useRef(new Map()); // id -> status
 	useEffect(() => {
 		let isMounted = true;
 		const load = async () => {
+			if (isMounted) {
+				setLoading(true);
+				setError(null);
+			}
 			try {
-				const res = await fetch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers', {
+				// Backend already filters to only fully paid rows.
+				const res = await fetch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers/enriched/paid', {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }
 				});
+				if (!res.ok) {
+					const msg = await res.text().catch(() => '');
+					throw new Error(msg || `Failed to load (${res.status})`);
+				}
 				const text = await res.text();
 				let data = [];
 				try { data = JSON.parse(text); } catch (e) { data = []; }
 				if (isMounted) setApiData(Array.isArray(data) ? data : []);
 			} catch (e) {
-				if (isMounted) setApiData([]);
+				if (isMounted) {
+					setApiData([]);
+					setError(e?.message || 'Failed to load');
+				}
+			} finally {
+				if (isMounted) setLoading(false);
 			}
 		};
 		load();
@@ -179,6 +208,145 @@ const DatabaseMobile = () => {
 		} catch {
 			// ignore
 		}
+	};
+
+	const openUrl = (url) => {
+		if (!url) return;
+		const s = String(url || '').trim();
+		if (!/^(https?:\/\/)/i.test(s)) return;
+		window.open(s, '_blank', 'noopener,noreferrer');
+	};
+
+	/** Parse API date fields: ISO string, DD/MM/YYYY, millis, or Jackson LocalDateTime array [y,m,d,h,mi,s]. */
+	const parseTrackerDateValue = (input) => {
+		if (input == null || input === '') return null;
+		if (input instanceof Date) return isNaN(input.getTime()) ? null : input;
+		if (Array.isArray(input)) {
+			const y = input[0];
+			const mo = input[1];
+			const day = input[2];
+			const h = input[3] ?? 0;
+			const mi = input[4] ?? 0;
+			const s = input[5] ?? 0;
+			if (y == null || mo == null || day == null) return null;
+			const dt = new Date(Number(y), Number(mo) - 1, Number(day), Number(h), Number(mi), Number(s));
+			return isNaN(dt.getTime()) ? null : dt;
+		}
+		if (typeof input === 'string') {
+			const trimmed = input.trim();
+			if (!trimmed) return null;
+			const slash = trimmed.match(
+				/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*,\s*(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/
+			);
+			if (slash) {
+				const [, dd, mm, yyyy, HH, MM, SS] = slash;
+				const dt = new Date(
+					Number(yyyy),
+					Number(mm) - 1,
+					Number(dd),
+					Number(HH ?? 0),
+					Number(MM ?? 0),
+					Number(SS ?? 0)
+				);
+				return isNaN(dt.getTime()) ? null : dt;
+			}
+			const dt = new Date(trimmed);
+			return isNaN(dt.getTime()) ? null : dt;
+		}
+		if (typeof input === 'number' && Number.isFinite(input)) {
+			const dt = new Date(input);
+			return isNaN(dt.getTime()) ? null : dt;
+		}
+		return null;
+	};
+
+	const formatDdMmYyyyFromDate = (d) => {
+		if (!d || isNaN(d.getTime())) return '';
+		const day = String(d.getDate()).padStart(2, '0');
+		const month = String(d.getMonth() + 1).padStart(2, '0');
+		const year = d.getFullYear();
+		return `${day}/${month}/${year}`;
+	};
+
+	const formatTime12hFromDate = (d) => {
+		if (!d || isNaN(d.getTime())) return '';
+		let hours = d.getHours();
+		const minutes = String(d.getMinutes()).padStart(2, '0');
+		const ampm = hours >= 12 ? 'PM' : 'AM';
+		hours = hours % 12;
+		hours = hours ? String(hours).padStart(2, '0') : '12';
+		return `${hours}:${minutes} ${ampm}`;
+	};
+
+	const relativeOrDdMmYyyy = (d) => {
+		if (!d || isNaN(d.getTime())) return '';
+		const now = new Date();
+		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const yesterday = new Date(today);
+		yesterday.setDate(yesterday.getDate() - 1);
+		const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+		if (dateOnly.getTime() === today.getTime()) return 'Today';
+		if (dateOnly.getTime() === yesterday.getTime()) return 'Yesterday';
+		return formatDdMmYyyyFromDate(d);
+	};
+
+	const formatBillDatabaseDateFromDate = (date) => {
+		if (!date || isNaN(date.getTime())) return '-';
+		const day = String(date.getDate()).padStart(2, '0');
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const year = date.getFullYear();
+		let hours = date.getHours();
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const ampm = hours >= 12 ? 'PM' : 'AM';
+		hours = hours % 12;
+		hours = hours ? String(hours).padStart(2, '0') : '12';
+		return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
+	};
+
+	const getBillCardDateLineParts = (row) => {
+		const arrivalRaw = row?.bill_arrival_date ?? row?.billArrivalDate;
+		const tsRaw = row?.timestamp ?? row?.created_at ?? row?.createdAt;
+		const arrivalDate = parseTrackerDateValue(arrivalRaw);
+		const tsDate = parseTrackerDateValue(tsRaw);
+		if (!arrivalDate && !tsDate) return null;
+		const seg1 = arrivalDate ? relativeOrDdMmYyyy(arrivalDate) : relativeOrDdMmYyyy(tsDate);
+		const seg2 = tsDate ? formatDdMmYyyyFromDate(tsDate) : formatDdMmYyyyFromDate(arrivalDate);
+		const timeSource = tsDate || arrivalDate;
+		const seg3 = formatTime12hFromDate(timeSource);
+		if (!seg1 || !seg2 || !seg3) {
+			const d = tsDate || arrivalDate;
+			if (!d) return null;
+			const single = formatBillDatabaseDateFromDate(d);
+			if (single === '-') return null;
+			const m = single.match(/^(\d{2}\/\d{2}\/\d{4})\s+(.+)$/);
+			if (m) return { kind: 'single', datePart: m[1], timePart: m[2] };
+			return { kind: 'plain', text: single };
+		}
+		return { kind: 'triple', seg1, seg2, seg3 };
+	};
+
+	const renderBillCardDateLineParts = (parts) => {
+		if (!parts) return null;
+		if (parts.kind === 'triple') {
+			return (
+				<>
+					<span className="font-bold text-[#111827]">{parts.seg1}</span>
+					<span className="font-medium text-[#777777]"> • </span>
+					<span className="font-medium text-[#777777]">{parts.seg2}</span>
+					<span className="font-medium text-[#777777]"> • </span>
+					<span className="font-medium text-[#777777]">{parts.seg3}</span>
+				</>
+			);
+		}
+		if (parts.kind === 'single') {
+			return (
+				<>
+					<span className="font-bold text-[#111827]">{parts.datePart}</span>
+					<span className="font-medium text-[#777777]"> {parts.timePart}</span>
+				</>
+			);
+		}
+		return <span className="font-medium text-[#777777]">{parts.text}</span>;
 	};
 
 	const fetchSelectedVendorAccountDetails = async (vendorId) => {
@@ -249,6 +417,10 @@ const DatabaseMobile = () => {
 	};
 
 	const getBillVerificationStatus = (item) => {
+		// Prefer backend enriched field if present.
+		const backend = item?.verification_status;
+		if (backend === '✓ Verified' || backend === 'Verified' || backend === 'To Verify') return backend;
+
 		const verifications = item?.billVerifications || item?.bill_verifications || [];
 		if (!Array.isArray(verifications) || verifications.length === 0) return 'Verify';
 		const allVerified = verifications.every(v => v?.is_verified === true || v?.status === 'VERIFIED');
@@ -291,186 +463,19 @@ const DatabaseMobile = () => {
 		return () => { isMounted = false; };
 	}, []);
 
-	// Compute entry status (Entered / ✓ Entered) similar to PendingBill
-	useEffect(() => {
-		const computeExpenseMatchStatus = () => {
-			const matchStatus = {};
-			const billMap = {};
-			(apiData || []).forEach((bill) => {
-				const id = bill?.id;
-				if (id != null) billMap[id] = bill;
-			});
-
-			const groupedBillEntries = {};
-			(allBillEntries || []).forEach((be) => {
-				const trackerId = be?.vendor_payments_tracker_id ?? be?.vendorPaymentsTrackerId;
-				if (!trackerId) return;
-				if (!groupedBillEntries[trackerId]) groupedBillEntries[trackerId] = [];
-				groupedBillEntries[trackerId].push(be);
-			});
-
-			Object.keys(groupedBillEntries).forEach((trackerId) => {
-				const bill = billMap[trackerId];
-				if (!bill) return;
-				const vendorName = getVendorNameById(bill?.vendor_id ?? bill?.vendorId) || bill?.vendor_name;
-				const billAmount = parseFloat(bill?.total_amount ?? bill?.totalAmount) || 0;
-				if (!vendorName || billAmount <= 0) {
-					matchStatus[trackerId] = 'no_match';
-					return;
-				}
-
-				const billEntriesForTracker = groupedBillEntries[trackerId] || [];
-				const enteredDates = [...new Set(billEntriesForTracker.map(be => be?.entered_date ?? be?.enteredDate).filter(Boolean))];
-				if (enteredDates.length === 0) {
-					matchStatus[trackerId] = 'no_match';
-					return;
-				}
-
-				const billEnteredDates = enteredDates.map((date) => {
-					try { return new Date(date).toISOString().split('T')[0]; } catch { return null; }
-				}).filter(Boolean);
-
-				const dateMatchedExpenses = (expensesData || []).filter((expense) => {
-					const expenseDate = new Date(expense?.timestamp ?? expense?.date);
-					if (isNaN(expenseDate.getTime())) return false;
-					const iso = expenseDate.toISOString().split('T')[0];
-					return billEnteredDates.includes(iso);
-				});
-
-				const vendorMatchedExpenses = dateMatchedExpenses.filter((expense) => expense?.vendor === vendorName);
-				const matchingExpenses = vendorMatchedExpenses.filter((expense) => {
-					const at = String(expense?.accountType ?? '').trim();
-					return at === 'Bill Payments' || at === 'Bill Refund' || at === 'Bill Payments + Claim';
-				});
-
-				const totalExpenseAmount = matchingExpenses.reduce((sum, expense) => sum + (parseFloat(expense?.amount) || 0), 0);
-				const adjustmentAmount = parseFloat(bill?.adjustment_amount ?? bill?.adjustmentAmount) || 0;
-				const adjustedBillAmount = billAmount - adjustmentAmount;
-
-				if (matchingExpenses.length === 0) matchStatus[trackerId] = 'no_match';
-				else if (Math.abs(totalExpenseAmount - adjustedBillAmount) < 0.01) matchStatus[trackerId] = 'complete_match';
-				else if (totalExpenseAmount > 0) matchStatus[trackerId] = 'partial_match';
-				else matchStatus[trackerId] = 'no_match';
-			});
-
-			setExpenseMatchStatus(matchStatus);
-		};
-
-		if ((apiData || []).length > 0 && (expensesData || []).length > 0 && (allBillEntries || []).length > 0) {
-			computeExpenseMatchStatus();
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [apiData, expensesData, allBillEntries, vendorMap]);
-
 	const getEntryStatusText = (item) => {
-		const matchStatus = expenseMatchStatus[item?.id];
-		if (matchStatus === 'complete_match') return '✓ Entered';
-		if (matchStatus === 'partial_match') return 'Entered';
+		// Prefer backend enriched field if present.
+		const backend = item?.entry_status;
+		if (backend === '✓ Entered' || backend === 'Entered' || backend === 'Entry') return backend;
 		return 'Entry';
 	};
 
-	// Payment status for Paid chip (To Pay / Paid / ✓ Paid) - same as PendingBill
-	useEffect(() => {
-		let cancelled = false;
-		const getPaymentStatus = async (item) => {
-			try {
-				const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${item?.id}`, {
-					method: 'GET',
-					credentials: 'include',
-					headers: { 'Content-Type': 'application/json' }
-				});
-				if (!response.ok) return { status: 'To Pay' };
-				const paymentDetails = await response.json();
-				if (!paymentDetails || paymentDetails.length === 0) return { status: 'To Pay' };
-
-				const totalPaid = paymentDetails.reduce((sum, payment) => {
-					const amount = parseFloat(payment?.amount) || 0;
-					const carryForwardAmount = parseFloat(payment?.carry_forward_amount) || 0;
-					return sum + amount + carryForwardAmount;
-				}, 0);
-				const totalDiscount = paymentDetails.reduce((sum, payment) => sum + (payment?.discount_amount || 0), 0);
-				const actualAmount = parseFloat(item?.total_amount ?? item?.totalAmount) || 0;
-				const remainingAmount = Math.max(0, actualAmount - totalPaid - totalDiscount);
-
-				if (remainingAmount === 0) return { status: '✓ Paid' };
-				if (totalPaid > 0) return { status: 'Paid' };
-				return { status: 'To Pay' };
-			} catch {
-				return { status: 'To Pay' };
-			}
-		};
-
-		const run = async () => {
-			if ((apiData || []).length === 0) return;
-			const list = [...(apiData || [])].sort((a, b) => (Number(b?.id ?? 0) || 0) - (Number(a?.id ?? 0) || 0));
-			const toFetch = [];
-			for (const item of list) {
-				const id = item?.id;
-				if (id == null) continue;
-				if (paymentStatusCacheRef.current.has(id)) continue;
-				toFetch.push(item);
-				if (toFetch.length >= 30) break;
-			}
-			const fetched = await Promise.all(toFetch.map(async (item) => {
-				const r = await getPaymentStatus(item);
-				return { id: item?.id, status: r?.status || 'To Pay' };
-			}));
-			if (cancelled) return;
-			const map = {};
-			for (const [id, status] of paymentStatusCacheRef.current.entries()) {
-				map[id] = status || 'To Pay';
-			}
-			fetched.forEach((s) => {
-				if (s?.id != null) {
-					map[s.id] = s.status;
-					paymentStatusCacheRef.current.set(s.id, s.status);
-				}
-			});
-			setPaymentStatuses(map);
-
-			// background fill
-			setTimeout(async () => {
-				const rest = [];
-				for (const item of list) {
-					const id = item?.id;
-					if (id == null) continue;
-					if (paymentStatusCacheRef.current.has(id)) continue;
-					rest.push(item);
-				}
-				if (rest.length === 0) return;
-				const restFetched = await Promise.all(rest.map(async (item) => {
-					const r = await getPaymentStatus(item);
-					return { id: item?.id, status: r?.status || 'To Pay' };
-				}));
-				if (cancelled) return;
-				const next = { ...map };
-				restFetched.forEach((s) => {
-					if (s?.id == null) return;
-					next[s.id] = s.status;
-					paymentStatusCacheRef.current.set(s.id, s.status);
-				});
-				setPaymentStatuses(next);
-			}, 0);
-		};
-		run();
-		return () => { cancelled = true; };
-	}, [apiData]);
-
-	// Desktop Database behavior: show only fully Verified + fully Entered + fully Paid rows
-	const visibleRows = useMemo(() => {
-		return (Array.isArray(apiData) ? apiData : []).filter((item) => {
-			const verification = getBillVerificationStatus(item);
-			if (verification !== '✓ Verified') return false;
-
-			const entry = getEntryStatusText(item);
-			if (entry !== '✓ Entered') return false;
-
-			const pay = paymentStatuses[item?.id] || 'To Pay';
-			if (pay !== '✓ Paid') return false;
-
-			return true;
-		});
-	}, [apiData, expenseMatchStatus, paymentStatuses]);
+	const getPaymentStatusText = (item) => {
+		const backend = item?.payment_status;
+		if (backend === '✓ Paid' || backend === 'Paid' || backend === 'To Pay') return backend;
+		// This screen is paid-only, so default to ✓ Paid.
+		return '✓ Paid';
+	};
 
 	const fullScreenHeaderSubTitle = useMemo(() => {
 		const b = detailRow;
@@ -483,12 +488,10 @@ const DatabaseMobile = () => {
 
 	const renderTopBar = (title, onBack, rightNode = null) => (
 		<div className="">
-			<div className="flex items-start justify-between gap-[10px]">
+			<div className="flex items-start justify-between gap-[10px] border-b-[2px] border-[#E0E0E0] pb-[10px]">
 				<div className="flex items-center gap-[10px]">
 					<button type="button" onClick={onBack} className="w-[28px] h-[28px] flex items-center justify-center" aria-label="Back">
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-							<path d="M15 18L9 12L15 6" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-						</svg>
+						<img src={BackIcon} alt="Back" className="w-[18px] h-[18px]" />
 					</button>
 					<div className="min-w-0">
 						<p className="text-[14px] font-semibold text-black leading-tight">{title}</p>
@@ -542,7 +545,6 @@ const DatabaseMobile = () => {
 		(async () => {
 			const hydrated = await hydrateTrackerDetails(row);
 			setDetailRow(hydrated || null);
-			setVerifyPage(1);
 			setActiveFullScreen('verify');
 		})();
 	};
@@ -977,9 +979,26 @@ const DatabaseMobile = () => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 	const filtered = useMemo(() => {
-		if (!query) return visibleRows;
-		const q = query.toLowerCase();
-		return visibleRows.filter((row) => {
+		const toDateOnly = (input) => {
+			if (!input) return '';
+			try {
+				const d = new Date(input);
+				if (isNaN(d.getTime())) return '';
+				const yyyy = d.getFullYear();
+				const mm = String(d.getMonth() + 1).padStart(2, '0');
+				const dd = String(d.getDate()).padStart(2, '0');
+				return `${yyyy}-${mm}-${dd}`;
+			} catch {
+				return '';
+			}
+		};
+		const from = String(filterFromDate || '').trim();
+		const to = String(filterToDate || '').trim();
+
+		const base = Array.isArray(apiData) ? apiData : [];
+		const q = String(query || '').trim().toLowerCase();
+
+		return base.filter((row) => {
 			const id = row?.vendor_id ?? row?.vendorId ?? row?.vendor?.id ?? row?.vendor?._id;
 			const name =
 				row?.vendorName ||
@@ -987,14 +1006,26 @@ const DatabaseMobile = () => {
 				row?.vendor_name ||
 				getVendorNameById(id) ||
 				'';
-			return String(name || '').toLowerCase().includes(q);
+
+			// Search (vendor name)
+			if (q && !String(name || '').toLowerCase().includes(q)) return false;
+
+			// Date filter (based on bill arrival date)
+			if (from || to) {
+				const dateOnly = toDateOnly(row?.bill_arrival_date ?? row?.billArrivalDate ?? row?.created_at ?? row?.createdAt ?? '');
+				if (!dateOnly) return false;
+				if (from && dateOnly < from) return false;
+				if (to && dateOnly > to) return false;
+			}
+
+			return true;
 		});
-	}, [visibleRows, query, vendorMap]);
+	}, [apiData, query, vendorMap, filterFromDate, filterToDate]);
 	return (
 		<div className="w-full h-[calc(100vh-96px-80px)] overflow-hidden flex flex-col">
 			<div className="flex-shrink-0">
 				<div className=" pt-[8px] pb-[8px] border-b border-[#E5E7EB] flex items-center justify-between">
-				<p className="text-[12px] font-semibold text-[#111827]">Date</p>
+				<p className="text-[12px] font-semibold text-[#111827]"></p>
 				<p className="text-[12px] font-semibold text-[#111827]">Vendor</p>
 			</div>
 			<div className=" mt-[8px]">
@@ -1015,7 +1046,11 @@ const DatabaseMobile = () => {
 			{/* Filter Row (match PendingBill.jsx) */}
 			<div className="flex justify-between items-center gap-[4px] px-0 mt-[6px] flex-shrink-0">
 				<div className="flex items-center gap-[4px] min-w-0">
-					<button type="button" className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0">
+					<button
+						type="button"
+						onClick={() => setShowFilterSheet(true)}
+						className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0"
+					>
 						<img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
 						<span className="text-[12px] font-medium text-black flex-shrink-0">Filter</span>
 					</button>
@@ -1024,6 +1059,9 @@ const DatabaseMobile = () => {
 			</div>
 			<div className="flex-1 overflow-y-auto no-scrollbar scrollbar-none  pb-[10px]">
 				<div className="flex flex-col">
+					{loading && <p className="text-[12px] text-center text-[#6B7280]">Loading…</p>}
+					{!!error && !loading && <p className="text-[12px] text-center text-[#E4572E]">{error}</p>}
+					{!loading && !error && filtered.length === 0 && <p className="text-[12px] text-center text-[#6B7280]">No data</p>}
 					{filtered.map((row, idx) => {
 						const rowId = String(row?.id ?? idx);
 						const swipeState = swipeStates[rowId];
@@ -1100,11 +1138,18 @@ const DatabaseMobile = () => {
 										const vendorName = getVendorNameById(row?.vendor_id ?? row?.vendorId) || row?.vendorName || row?.vendor?.name || row?.vendor_name || 'Vendor';
 										const amount = row?.totalAmount || row?.total_amount || row?.amount || 0;
 										const billsCount = row?.billsCount ?? row?.noOfBills ?? row?.no_of_bills ?? row?.billCount ?? '-';
-										const subLine = formatBillArrival(row?.bill_arrival_date ?? row?.billArrivalDate ?? row?.updatedAt ?? row?.createdAt);
+										const dateLineParts = getBillCardDateLineParts(row);
+										const subLineNode = dateLineParts ? renderBillCardDateLineParts(dateLineParts) : '';
+
+										const overallPdfUrl =
+											row?.over_all_payment_pdf_url ||
+											row?.overAllPaymentPdfUrl ||
+											row?.overall_pdf_url ||
+											null;
 
 										const verificationStatus = getBillVerificationStatus(row);
 										const entryStatusText = getEntryStatusText(row);
-										const paymentStatus = paymentStatuses[row?.id] || 'To Pay';
+										const paymentStatus = getPaymentStatusText(row);
 
 										const statusLeft =
 											verificationStatus === '✓ Verified' ? (
@@ -1135,10 +1180,11 @@ const DatabaseMobile = () => {
 												name={vendorName}
 												amount={amount}
 												billsCount={billsCount}
-												subLine={subLine}
+												subLineNode={subLineNode}
 												statusLeft={statusLeft}
 												statusMid={statusMid}
 												statusRight={statusRight}
+												onAmountClick={overallPdfUrl ? () => openUrl(overallPdfUrl) : null}
 											/>
 										);
 									})()}
@@ -1154,7 +1200,7 @@ const DatabaseMobile = () => {
 				<div className="fixed inset-0 z-[999] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
 					<div className="w-full max-w-[360px] mx-auto min-h-screen bg-white">
 						{renderTopBar(getVendorBillsTitle(detailRow), () => setActiveFullScreen(null))}
-						<div className="px-[14px] pt-[10px] pb-[10px]">
+						<div className=" pt-[10px] pb-[10px]">
 							<div className="rounded-[10px] border border-[#E5E7EB] p-[10px]">
 								{(() => {
 									const noOfBills = Number(detailRow?.no_of_bills ?? detailRow?.noOfBills ?? 0) || 0;
@@ -1169,22 +1215,16 @@ const DatabaseMobile = () => {
 										if (s === 'NO_PO') return 'NO PO';
 										return s;
 									});
-
-									const pageSize = 20;
-									const totalPages = Math.max(1, Math.ceil(slots.length / pageSize));
-									const page = Math.min(totalPages, Math.max(1, verifyPage));
-									const start = (page - 1) * pageSize;
-									const pageItems = slots.slice(start, start + pageSize);
-									const goPrev = () => setVerifyPage((p) => Math.max(1, p - 1));
-									const goNext = () => setVerifyPage((p) => Math.min(totalPages, p + 1));
 									return (
 										<>
-											<div className="grid grid-cols-4 gap-[10px]">
-												{pageItems.map((n, i) => {
+											{/* Match PendingBill.jsx: show all slots (no pagination), grid scrolls if needed */}
+											<div className="overflow-y-auto no-scrollbar scrollbar-none" style={{ maxHeight: 'calc(100vh - 160px)' }}>
+												<div className="grid grid-cols-4 gap-[10px]">
+												{slots.map((n, i) => {
 													const hasValue = String(n || '').trim() !== '';
 													return (
 														<div
-															key={`${start + i}`}
+															key={`${i}`}
 															className="h-[34px] rounded-[4px] border flex items-center justify-center text-[12px] font-semibold"
 															style={{
 																borderColor: hasValue ? '#22C55E' : '#D1D5DB',
@@ -1196,40 +1236,7 @@ const DatabaseMobile = () => {
 														</div>
 													);
 												})}
-											</div>
-											<div className="mt-[12px] flex items-center justify-end gap-[8px]">
-												<button type="button" onClick={goPrev} className="w-[24px] h-[24px] rounded border border-[#E5E7EB] flex items-center justify-center" aria-label="Prev">
-													<span className="text-[14px] text-[#777777]">‹</span>
-												</button>
-												{Array.from({ length: totalPages }).slice(0, 5).map((_, idx) => {
-													const p = idx + 1;
-													const active = p === page;
-													return (
-														<button
-															type="button"
-															key={p}
-															onClick={() => setVerifyPage(p)}
-															className={`w-[24px] h-[24px] rounded border flex items-center justify-center text-[12px] font-semibold ${active ? 'bg-[#FAF6ED]' : 'bg-white'}`}
-															style={{ borderColor: active ? '#BF9853' : '#E5E7EB' }}
-														>
-															{p}
-														</button>
-													);
-												})}
-												{totalPages > 5 ? <span className="text-[12px] text-[#777777]">…</span> : null}
-												{totalPages > 5 ? (
-													<button
-														type="button"
-														onClick={() => setVerifyPage(totalPages)}
-														className={`w-[24px] h-[24px] rounded border flex items-center justify-center text-[12px] font-semibold ${page === totalPages ? 'bg-[#FAF6ED]' : 'bg-white'}`}
-														style={{ borderColor: page === totalPages ? '#BF9853' : '#E5E7EB' }}
-													>
-														{totalPages}
-													</button>
-												) : null}
-												<button type="button" onClick={goNext} className="w-[24px] h-[24px] rounded border border-[#E5E7EB] flex items-center justify-center" aria-label="Next">
-													<span className="text-[14px] text-[#777777]">›</span>
-												</button>
+												</div>
 											</div>
 										</>
 									);
@@ -1248,25 +1255,92 @@ const DatabaseMobile = () => {
 								Download
 							</button>
 						))}
-						<div className="px-[14px] pt-[10px] pb-[10px] flex flex-col" style={{ minHeight: 'calc(100vh - 86px)' }}>
+						<div className="pt-[4px] pb-[10px] flex flex-col" style={{ minHeight: 'calc(100vh - 86px)' }}>
 							{billEntryDetailsRows.length > 0 && (
-								<div className="rounded-[12px] border border-[#E5E7EB] bg-white p-[12px]">
-									<div className="grid grid-cols-2 gap-[12px]">
-										<div><p className="text-[12px] font-semibold text-[#111827] mb-[6px]">Entered By</p></div>
-										<div><p className="text-[12px] font-semibold text-[#111827] mb-[6px]">Date</p></div>
-									</div>
-									<div className="mt-[6px] space-y-[10px]">
-										{billEntryDetailsRows.map((r, i) => (
-											<div key={i} className="grid grid-cols-2 gap-[12px]">
-												<div className="h-[36px] rounded-[6px] bg-[#F3F4F6] border border-[#E5E7EB] px-[10px] flex items-center">
-													<p className="text-[12px] font-medium text-[#111827] truncate">{r.enteredBy || '-'}</p>
+								<div className="mt-[6px] space-y-[10px]">
+									{billEntryDetailsRows.map((r, i) => {
+											const entryRowId = `entry-${i}`;
+											const ENTRY_ACTION_SLIDE = 56;
+											const swipeState = swipeStates[entryRowId];
+											const deltaX = swipeState ? (swipeState.currentX - swipeState.startX) : 0;
+											const swipeOffset =
+												swipeState && swipeState.isSwiping
+													? Math.max(-ENTRY_ACTION_SLIDE, Math.min(0, deltaX))
+													: expandedRowId === entryRowId
+														? -ENTRY_ACTION_SLIDE
+														: 0;
+
+											const showSwipeActions =
+												expandedRowId === entryRowId || (swipeState && swipeState.isSwiping && swipeOffset < -20);
+
+											return (
+												<div
+													key={entryRowId}
+													className="relative overflow-hidden"
+													onTouchStart={(e) => handleTouchStart(e, entryRowId)}
+													onTouchMove={(e) => handleTouchMove(e, entryRowId)}
+													onTouchEnd={() => handleTouchEnd(entryRowId)}
+													onMouseDown={(e) => handleMouseDown(e, entryRowId)}
+													style={{
+														userSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto',
+														WebkitUserSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto'
+													}}
+												>
+													{/* Actions behind row */}
+													<div
+														className="absolute right-0 top-0 h-full flex items-center justify-end z-0"
+														style={{
+															width: `${ENTRY_ACTION_SLIDE}px`,
+															opacity: showSwipeActions ? 1 : 0,
+															transition: 'opacity 0.2s ease-out',
+															pointerEvents: showSwipeActions ? 'auto' : 'none'
+														}}
+													>
+														<button
+															type="button"
+															onClick={(e) => {
+																e.stopPropagation();
+																openEditSheet(detailRow);
+																setExpandedRowId(null);
+															}}
+															className="action-button w-[48px] h-full bg-[#007233] rounded-[6px] flex items-center justify-center hover:bg-[#22a882] transition-colors shadow-sm"
+															title="Edit"
+															aria-label="Edit"
+														>
+															<img src={Edit} alt="Edit" className="w-[18px] h-[18px]" />
+														</button>
+													</div>
+
+													{/* Sliding row */}
+													<div
+														style={{
+															transform: `translateX(${swipeOffset}px)`,
+															touchAction: 'pan-y',
+															userSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto',
+															WebkitUserSelect: (swipeState && swipeState.isSwiping) ? 'none' : 'auto',
+															willChange: 'transform',
+															transition: swipeState && swipeState.isSwiping ? 'none' : 'transform 0.3s ease-out'
+														}}
+														className="rounded-[10px] border border-[#E5E7EB] bg-white px-[12px] py-[10px]"
+													>
+														<div className="grid grid-cols-2 gap-[12px]">
+															<div>
+																<p className="text-[12px] font-semibold text-[#111827] mb-[6px]">Entered By</p>
+																<div className="h-[36px] rounded-[6px] bg-[#F3F4F6] border border-[#E5E7EB] px-[10px] flex items-center">
+																	<p className="text-[12px] font-medium text-[#111827] truncate">{r.enteredBy || '-'}</p>
+																</div>
+															</div>
+															<div>
+																<p className="text-[12px] font-semibold text-[#111827] mb-[6px]">Date</p>
+																<div className="h-[36px] rounded-[6px] bg-[#F3F4F6] border border-[#E5E7EB] px-[10px] flex items-center">
+																	<p className="text-[12px] font-medium text-[#111827] truncate">{formatEntryDateDdMmYyyy(r.date) || '-'}</p>
+																</div>
+															</div>
+														</div>
+													</div>
 												</div>
-												<div className="h-[36px] rounded-[6px] bg-[#F3F4F6] border border-[#E5E7EB] px-[10px] flex items-center">
-													<p className="text-[12px] font-medium text-[#111827] truncate">{formatEntryDateDdMmYyyy(r.date) || '-'}</p>
-												</div>
-											</div>
-										))}
-									</div>
+											);
+										})}
 								</div>
 							)}
 
@@ -1310,7 +1384,7 @@ const DatabaseMobile = () => {
 				<div className="fixed inset-0 z-[999] bg-white" style={{ fontFamily: "'Manrope', sans-serif" }}>
 					<div className="w-full max-w-[360px] mx-auto min-h-screen bg-white">
 						{renderTopBar(getVendorBillsTitle(detailRow), () => setActiveFullScreen(null))}
-						<div className="px-[14px] pt-[10px] pb-[10px] flex flex-col" style={{ minHeight: 'calc(100vh - 86px)' }}>
+						<div className=" pt-[10px] pb-[10px] flex flex-col" style={{ minHeight: 'calc(100vh - 86px)' }}>
 							<div
 								className="flex items-center justify-between"
 								role="button"
@@ -1560,6 +1634,70 @@ const DatabaseMobile = () => {
 						</div>
 					</div>
 			</div>
+			)}
+
+			{/* Filter Bottom Sheet */}
+			{showFilterSheet && (
+				<div
+					className="fixed inset-0 bg-black/60 z-[1201] flex items-end justify-center"
+					style={{ fontFamily: "'Manrope', sans-serif" }}
+					onClick={() => setShowFilterSheet(false)}
+				>
+					<div
+						className="bg-white w-full rounded-tl-[16px] rounded-tr-[16px] relative z-[1202] overflow-hidden flex flex-col"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div className="flex-shrink-0 flex items-center justify-between px-[16px] pt-[14px] pb-[10px] border-b border-[#E5E7EB]">
+							<p className="text-[14px] font-semibold text-black">Filters</p>
+							<button type="button" onClick={() => setShowFilterSheet(false)} className="text-[#E4572E] text-[18px] font-bold leading-none" aria-label="Close">
+								×
+							</button>
+						</div>
+
+						<div className="flex-1 overflow-y-auto px-[16px] py-[12px]">
+							<div className="grid grid-cols-2 gap-[12px]">
+								<div>
+									<p className="text-[12px] font-semibold text-black mb-[6px]">From Date</p>
+									<input
+										type="date"
+										value={filterFromDate}
+										onChange={(e) => setFilterFromDate(e.target.value)}
+										className="w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white px-[10px] text-[12px] font-medium text-[#111827] outline-none"
+									/>
+								</div>
+								<div>
+									<p className="text-[12px] font-semibold text-black mb-[6px]">To Date</p>
+									<input
+										type="date"
+										value={filterToDate}
+										onChange={(e) => setFilterToDate(e.target.value)}
+										className="w-full h-[38px] rounded-[8px] border border-[#D1D5DB] bg-white px-[10px] text-[12px] font-medium text-[#111827] outline-none"
+									/>
+								</div>
+							</div>
+						</div>
+
+						<div className="flex-shrink-0 px-[16px] pb-[16px] pt-[10px] border-t border-[#E5E7EB] grid grid-cols-2 gap-[12px]">
+							<button
+								type="button"
+								onClick={() => {
+									setFilterFromDate('');
+									setFilterToDate('');
+								}}
+								className="h-[42px] rounded-[10px] border border-[#D1D5DB] bg-white text-[13px] font-semibold text-black"
+							>
+								Clear
+							</button>
+							<button
+								type="button"
+								onClick={() => setShowFilterSheet(false)}
+								className="h-[42px] rounded-[10px] bg-black text-[13px] font-semibold text-white"
+							>
+								Apply
+							</button>
+						</div>
+					</div>
+				</div>
 			)}
 		</div>
 	);
