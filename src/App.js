@@ -37,6 +37,8 @@ import ToolsTrackerHeading from './Components/ToolsTracker/ToolsTrackerHeading';
 import TestToolsTrackerHeading from './Components/TestToolsTracker/TestToolsTrackerHeading';
 import MobileRFQLogin from './componentsMobile/RequestForQuotation/LoginPage';
 import MobileRFQ from './componentsMobile/RequestForQuotation/RequestForQuotation';
+import GoodsRecievedNotesCreate from './componentsMobile/Goods Recieved Notes/Create';
+import GoodsRecievedNotesVerify from './componentsMobile/Goods Recieved Notes/Verify';
 
 function MainContentWithSidebarMargin({ children }) {
   const { isSidebarVisible } = useSidebar();
@@ -69,7 +71,8 @@ function AppContent({ user, handleLogout }) {
     location.pathname.startsWith('/tracker') ||
     location.pathname.startsWith('/portal') ||
     location.pathname.startsWith('/loan') ||
-    location.pathname.startsWith('/rfq');
+    location.pathname.startsWith('/rfq') ||
+    location.pathname.startsWith('/grn');
   const shouldHideDesktopBars = isMobile && isMobileRoute;
 
   return (
@@ -123,6 +126,24 @@ function AppContent({ user, handleLogout }) {
           path="/rfq"
           element={
             <MobileRFQ
+              user={user}
+              onLogout={handleLogout}
+            />
+          }
+        />
+        <Route
+          path="/grn/create"
+          element={
+            <GoodsRecievedNotesCreate
+              user={user}
+              onLogout={handleLogout}
+            />
+          }
+        />
+        <Route
+          path="/grn/verify"
+          element={
+            <GoodsRecievedNotesVerify
               user={user}
               onLogout={handleLogout}
             />

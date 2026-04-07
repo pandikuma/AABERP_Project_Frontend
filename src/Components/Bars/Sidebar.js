@@ -77,6 +77,8 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
 
       // Procurement routes
       '/purchaseorder': { menu: 'procurement', submenu: 'Purchase Order' },
+      '/grn/create': { menu: 'procurement', submenu: 'GRN' },
+      '/grn/verify': { menu: 'procurement', submenu: 'GRN' },
       '/inventory': { menu: 'procurement', submenu: 'Inventory' },
       '/toolsTracker': { menu: 'procurement', submenu: 'Tools Tracker' },
       '/testpurchaseorder': { menu: 'procurement', submenu: 'Test PurchaseOrder' },
@@ -457,6 +459,17 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
                 if (onCloseSidebar) onCloseSidebar();
               }}>
               <p className="text-sm cursor-pointer"><li>Purchase Order</li></p>
+            </Link>
+            <Link
+              to="/grn/create"
+              className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'GRN' ? 'text-red-500' : ''
+                }`}
+              onClick={() => {
+                handleSubmenuItemClick('GRN');
+                if (onCloseSidebar) onCloseSidebar();
+              }}
+            >
+              <p className="text-sm cursor-pointer"><li>GRN</li></p>
             </Link>
             <Link to={hasAccessToModel('Inventory') ? '/inventory' : '#'} className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Inventory' ? 'text-red-500' : ''
               }`} onClick={(e) => {
