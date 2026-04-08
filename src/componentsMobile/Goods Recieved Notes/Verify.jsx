@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../PurchaseOrder/Header';
 import Sidebar from '../Bars/Sidebar';
 import BottomNav from '../PurchaseOrder/BottomNav';
-import Kebab from '../Images/Kebab.svg';
 import Filter from '../Images/Filter.png';
+import GoodsRecievedNotesTabs from './GoodsRecievedNotesTabs';
 
 const statusTabs = ['Pending', 'Review', 'Completed'];
 
@@ -131,33 +131,12 @@ const Verify = ({ user, onLogout }) => {
         onLogout={onLogout}
         onMenuClick={handleMenuClick}
       >
-        <div className="bg-white">
-          <div className="relative flex items-end justify-between h-[38px] border-b border-[#D9D9D9]">
-            <div className="flex gap-[20px] h-full">
-              <button
-                type="button"
-                onClick={() => navigate('/grn/create')}
-                className="text-[12px] font-semibold text-[#848484]"
-              >
-                Create
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/grn/verify')}
-                className="relative text-[12px] font-semibold text-black"
-              >
-                Verify
-                <span className="absolute left-[-8px] bottom-[-1px] h-[1.7px] w-[calc(100%+16px)] bg-[#BF9853]" />
-              </button>
-            </div>
-            <button type="button" onClick={() => {}} className="mb-[10px]">
-              <img src={Kebab} alt="More" className="w-[16px] h-[16px]" />
-            </button>
-          </div>
-          <div className="flex items-center h-[32px] border-b border-[#E0E0E0]">
-            <p className="text-[12px] font-semibold text-black leading-normal">Engineer Name</p>
-          </div>
-        </div>
+        <GoodsRecievedNotesTabs
+          activeTab="verify"
+          onTabChange={(tab) => navigate(tab === 'create' ? '/grn/create' : '/grn/verify')}
+          leftLabel="Engineer Name"
+          rightLabel="Vendor"
+        />
       </Header>
 
       <div className="mt-[126px] h-[calc(100vh-126px-80px)] overflow-y-auto no-scrollbar bg-white">
@@ -208,7 +187,7 @@ const Verify = ({ user, onLogout }) => {
                     </div>
                   </div>
                   <div className="flex items-start justify-between mb-[2px]">
-                    <p className="text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 text-black">
+                    <p className="text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 text-black text-left">
                       {card.vendorName}
                     </p>
                     <p className="text-[11px] leading-snug flex-shrink-0 ml-2 truncate max-w-[40%] text-black">
@@ -216,7 +195,7 @@ const Verify = ({ user, onLogout }) => {
                     </p>
                   </div>
                   <div className="flex items-start justify-between mb-[2px]">
-                    <p className="text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 text-[#777777]">
+                    <p className="text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 text-[#777777] text-left">
                       {card.siteName}
                     </p>
                     <p className="text-[11px] font-medium leading-snug text-black flex-shrink-0 ml-2">
