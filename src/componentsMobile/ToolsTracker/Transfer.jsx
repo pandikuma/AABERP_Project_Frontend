@@ -3162,14 +3162,7 @@ const Transfer = ({ user }) => {
   const handleSearchFileSelect = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-    const validFiles = files.filter((file) => {
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`File ${file.name} is too large. Max size is 5MB.`);
-        return false;
-      }
-      return true;
-    });
-    if (validFiles.length === 0) return;
+    const validFiles = files;
 
     const fileEntries = validFiles.map((file) => ({
       id: Date.now() + Math.random(),
@@ -6070,7 +6063,7 @@ const Transfer = ({ user }) => {
                     <path d="M12 3V15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <p className="text-[14px] font-medium text-[#E4572E] mt-[4px]">Click to Upload</p>
-                  <p className="text-[10px] text-gray-400">(Max. File size: 5 MB)</p>
+                  <p className="text-[10px] text-gray-400">Files will be compressed on upload</p>
                 </label>
                 <input
                   id="file-upload-input"
@@ -6586,7 +6579,7 @@ const Transfer = ({ user }) => {
                     <path d="M12 3V15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <p className="text-[14px] font-medium text-[#E4572E] mt-[4px]">Click to Upload</p>
-                  <p className="text-[10px] text-gray-400">(Max. File size: 5 MB)</p>
+                  <p className="text-[10px] text-gray-400">Files will be compressed on upload</p>
                 </label>
                 <input
                   id="search-file-upload-input"

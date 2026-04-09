@@ -1,137 +1,159 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../PurchaseOrder/Header';
 import Sidebar from '../Bars/Sidebar';
 import BottomNav from '../PurchaseOrder/BottomNav';
+import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import Filter from '../Images/Filter.png';
 import GoodsRecievedNotesTabs from './GoodsRecievedNotesTabs';
 
 const statusTabs = ['Pending', 'Review', 'Completed'];
+const vendorCache = { data: null };
+const projectCache = { data: null };
+const siteEngineersCache = { data: null };
+const supportStaffCache = { data: null };
+const basePurchaseOrdersUrl = 'https://backendaab.in/aabuildersDash/api/purchase_orders';
 
-const createCards = [
-  {
-    id: 1,
-    status: 'Pending',
-    poNo: 'PO - 2025 - 134',
-    vendorName: 'Sriram Paints',
-    siteName: 'Ramar - Krishnankovil',
-    time: 'Today - 10:24 AM',
-    engineerName: 'Krishnamoorthi K',
-    contact: '98765432110',
-    itemsCount: 3,
-    items: [
-      {
-        id: 1,
-        name: '12A Switch',
-        brand: 'Natural Cream',
-        type: 'Kundan, Flip Type',
-        category: 'Electricals',
-        quantity: '10/10 Qty',
-        categoryColor: 'text-[#4F5DFF]',
-        categoryBg: 'bg-[#EEF0FF]'
-      },
-      {
-        id: 2,
-        name: '24A Switch',
-        brand: 'Natural Cream',
-        type: 'Kundan, Flip Type',
-        category: 'Electricals',
-        quantity: '50/50 Qty',
-        categoryColor: 'text-[#4F5DFF]',
-        categoryBg: 'bg-[#EEF0FF]'
-      },
-      {
-        id: 3,
-        name: 'Sunrise, Paint',
-        brand: 'Natural Cream',
-        type: 'Kundan, Flip Type',
-        category: 'Paint',
-        quantity: '50/100 Qty',
-        categoryColor: 'text-[#1EBD9D]',
-        categoryBg: 'bg-[#E4FFF8]'
-      }
-    ]
-  },
-  {
-    id: 2,
-    status: 'Pending',
-    poNo: 'PO - 2025 - 14',
-    vendorName: 'Thangapa Nadar Paints',
-    siteName: 'Ramar - Krishnankovil',
-    time: 'Today - 09:42 AM',
-    engineerName: 'Krishnamoorthi K',
-    contact: '98765432110',
-    itemsCount: 10,
-    items: [
-      {
-        id: 1,
-        name: 'Interior Putty',
-        brand: 'Wall Prime',
-        type: 'White Smooth',
-        category: 'Paint',
-        quantity: '12/12 Qty',
-        categoryColor: 'text-[#1EBD9D]',
-        categoryBg: 'bg-[#E4FFF8]'
-      },
-      {
-        id: 2,
-        name: 'Exterior Primer',
-        brand: 'Weather Coat',
-        type: 'Grey Finish',
-        category: 'Paint',
-        quantity: '08/10 Qty',
-        categoryColor: 'text-[#1EBD9D]',
-        categoryBg: 'bg-[#E4FFF8]'
-      }
-    ]
-  },
-  {
-    id: 3,
-    status: 'Review',
-    poNo: 'PO - 2025 - 134',
-    vendorName: 'Sriram Paints',
-    siteName: 'Ramar - Krishnankovil',
-    time: 'Today - 10:24 AM',
-    engineerName: 'Krishnamoorthi K',
-    contact: '98765432110',
-    itemsCount: 3,
-    items: [
-      {
-        id: 1,
-        name: '12A Switch',
-        brand: 'Natural Cream',
-        type: 'Kundan, Flip Type',
-        category: 'Electricals',
-        quantity: '10/10 Qty',
-        categoryColor: 'text-[#4F5DFF]',
-        categoryBg: 'bg-[#EEF0FF]'
-      }
-    ]
-  },
-  {
-    id: 4,
-    status: 'Completed',
-    poNo: 'PO - 2025 - 134',
-    vendorName: 'Sriram Paints',
-    siteName: 'Ramar - Krishnankovil',
-    time: 'Today - 10:24 AM',
-    engineerName: 'Krishnamoorthi K',
-    contact: '98765432110',
-    itemsCount: 3,
-    items: [
-      {
-        id: 1,
-        name: '12A Switch',
-        brand: 'Natural Cream',
-        type: 'Kundan, Flip Type',
-        category: 'Electricals',
-        quantity: '10/10 Qty',
-        categoryColor: 'text-[#4F5DFF]',
-        categoryBg: 'bg-[#EEF0FF]'
-      }
-    ]
+const findNameById = (dataArray, id, fieldNames = []) => {
+  if (!id || !Array.isArray(dataArray)) return '';
+  const idStr = String(id);
+  const found = dataArray.find((item) => String(item?.id || item?._id || '') === idStr);
+  if (!found) return '';
+
+  for (const fieldName of fieldNames) {
+    if (found?.[fieldName]) return found[fieldName];
   }
-];
+
+  return found?.name || found?.label || found?.value || '';
+};
+
+const formatCardTime = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return `${date.toLocaleDateString('en-GB')} - ${date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })}`;
+};
+
+const getGrnStatus = (purchaseOrder) => {
+  if (purchaseOrder?.grnCompleted || purchaseOrder?.grn_completed || purchaseOrder?.is_Grn_completed) return 'Completed';
+  if (purchaseOrder?.grnVerified || purchaseOrder?.grn_verified || purchaseOrder?.is_grn_verified) return 'Review';
+  return 'Pending';
+};
+
+const mapPurchaseOrderItems = (
+  rows = [],
+  poItemName = [],
+  poBrand = [],
+  poModel = [],
+  poType = [],
+  categoryOptions = []
+) =>
+  rows.map((item, index) => {
+    const category =
+      item?.category ||
+      item?.categoryName ||
+      findNameById(categoryOptions, item?.category_id || item?.categoryId, ['label', 'value', 'categoryName', 'category']);
+    const quantity = item?.quantity ?? item?.qty ?? 0;
+    const itemName =
+      item?.name ||
+      item?.itemName ||
+      findNameById(poItemName, item?.item_id || item?.itemId, ['itemName', 'poItemName', 'item_name']);
+    const brand =
+      item?.brand ||
+      item?.brandName ||
+      findNameById(poBrand, item?.brand_id || item?.brandId, ['brand', 'brandName']);
+    const model =
+      item?.model ||
+      item?.modelName ||
+      findNameById(poModel, item?.model_id || item?.modelId, ['model', 'modelName']);
+    const type =
+      item?.type ||
+      item?.typeName ||
+      item?.typeColor ||
+      findNameById(poType, item?.type_id || item?.typeId, ['typeColor', 'type', 'typeName']);
+
+    return {
+      id: item?.id || `item-${index}`,
+      name: itemName,
+      brand,
+      type: [model, type].filter(Boolean).join(', '),
+      category,
+      quantity: `${quantity}/${quantity} Qty`,
+      categoryColor: category.toLowerCase().includes('paint') ? 'text-[#1EBD9D]' : 'text-[#4F5DFF]',
+      categoryBg: category.toLowerCase().includes('paint') ? 'bg-[#E4FFF8]' : 'bg-[#EEF0FF]'
+    };
+  });
+
+const mapPurchaseOrderToCard = (
+  purchaseOrder,
+  vendorNameOptions = [],
+  siteOptions = [],
+  employeeList = [],
+  poItemName = [],
+  poBrand = [],
+  poModel = [],
+  poType = [],
+  categoryOptions = []
+) => {
+  const resolvedVendor =
+    vendorNameOptions.find((option) => String(option.id) === String(purchaseOrder?.vendor_id))?.value ||
+    purchaseOrder?.vendorName ||
+    '';
+  const resolvedProject =
+    siteOptions.find((option) => String(option.id) === String(purchaseOrder?.client_id))?.value ||
+    purchaseOrder?.projectName ||
+    purchaseOrder?.siteName ||
+    '';
+  const matchedEmployee = employeeList.find(
+    (employee) => String(employee.id) === String(purchaseOrder?.site_incharge_id)
+  );
+  const resolvedEngineer =
+    matchedEmployee?.employeeName ||
+    matchedEmployee?.name ||
+    matchedEmployee?.fullName ||
+    matchedEmployee?.employee_name ||
+    purchaseOrder?.projectIncharge ||
+    purchaseOrder?.site_incharge_name ||
+    '';
+  const items = mapPurchaseOrderItems(
+    purchaseOrder?.purchaseOrderTable ||
+      purchaseOrder?.purchaseTable ||
+      purchaseOrder?.poTable ||
+      purchaseOrder?.items ||
+      [],
+    poItemName,
+    poBrand,
+    poModel,
+    poType,
+    categoryOptions
+  );
+
+  const mappedCard = {
+    id: purchaseOrder?.id || purchaseOrder?._id || purchaseOrder?.eno,
+    status: getGrnStatus(purchaseOrder),
+    poNo: purchaseOrder?.eno ? `PO - 2026 - ${purchaseOrder.eno}` : purchaseOrder?.poNumber || 'PO',
+    vendorName: resolvedVendor,
+    siteName: resolvedProject,
+    time: formatCardTime(
+      purchaseOrder?.created_date_time || purchaseOrder?.createdAt || purchaseOrder?.created_at || purchaseOrder?.date
+    ),
+    engineerName: resolvedEngineer,
+    contact: purchaseOrder?.contact || purchaseOrder?.site_incharge_mobile_number || '',
+    itemsCount: items.length,
+    items
+  };
+
+  console.log('GRN Create mapped purchase order card:', {
+    rawPurchaseOrder: purchaseOrder,
+    mappedCard
+  });
+
+  return mappedCard;
+};
 
 const Create = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -142,14 +164,328 @@ const Create = ({ user, onLogout }) => {
   const [showImagePickerSheet, setShowImagePickerSheet] = useState(false);
   const [activeImageItemId, setActiveImageItemId] = useState(null);
   const [selectedImages, setSelectedImages] = useState({});
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [showInchargeModal, setShowInchargeModal] = useState(false);
+  const [selectedVendorFilter, setSelectedVendorFilter] = useState('');
+  const [selectedInchargeFilter, setSelectedInchargeFilter] = useState('');
+  const [selectedInchargeId, setSelectedInchargeId] = useState(null);
+  const [vendorNameOptions, setVendorNameOptions] = useState(() => vendorCache.data || []);
+  const [siteOptions, setSiteOptions] = useState(() => projectCache.data || []);
+  const [employeeList, setEmployeeList] = useState(() => siteEngineersCache.data || []);
+  const [supportStaffList, setSupportStaffList] = useState(() => supportStaffCache.data || []);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [poItemName, setPoItemName] = useState([]);
+  const [poBrand, setPoBrand] = useState([]);
+  const [poModel, setPoModel] = useState([]);
+  const [poType, setPoType] = useState([]);
+  const [categoryOptions, setCategoryOptions] = useState([]);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const photosInputRef = useRef(null);
-  const cards = useMemo(() => createCards, []);
-  const filteredCards = useMemo(
-    () => cards.filter((card) => card.status === activeStatus),
-    [cards, activeStatus]
+  const vendorOptions = useMemo(
+    () => vendorNameOptions.map((option) => option.value).filter(Boolean),
+    [vendorNameOptions]
   );
+  const inchargeOptions = useMemo(() => {
+    const employeeNames = employeeList
+      .map((employee) => employee.employeeName || employee.name || employee.fullName || employee.employee_name || '')
+      .filter(Boolean);
+
+    return [...new Set(employeeNames)].sort((a, b) => a.localeCompare(b));
+  }, [employeeList]);
+  const cards = useMemo(() => {
+    if (!selectedInchargeId) {
+      return [];
+    }
+
+    return purchaseOrders.map((purchaseOrder) =>
+      mapPurchaseOrderToCard(
+        purchaseOrder,
+        vendorNameOptions,
+        siteOptions,
+        employeeList,
+        poItemName,
+        poBrand,
+        poModel,
+        poType,
+        categoryOptions
+      )
+    );
+  }, [categoryOptions, employeeList, poBrand, poItemName, poModel, poType, purchaseOrders, selectedInchargeId, siteOptions, vendorNameOptions]);
+  const filteredCards = useMemo(
+    () =>
+      cards.filter((card) => {
+        const statusMatches = card.status === activeStatus;
+        const vendorMatches = !selectedVendorFilter || card.vendorName === selectedVendorFilter;
+        const inchargeMatches = !selectedInchargeFilter || card.engineerName === selectedInchargeFilter;
+        return statusMatches && vendorMatches && inchargeMatches;
+      }),
+    [activeStatus, cards, selectedInchargeFilter, selectedVendorFilter]
+  );
+
+  useEffect(() => {
+    const fetchVendorNames = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!response.ok) {
+          throw new Error(`Vendor fetch failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const formattedData = Array.isArray(data)
+          ? data.map((item) => ({
+              value: item.vendorName,
+              label: item.vendorName,
+              id: item.id
+            }))
+          : [];
+        vendorCache.data = formattedData;
+        setVendorNameOptions(formattedData);
+      } catch (error) {
+        console.error('Error fetching vendor names:', error);
+      }
+    };
+
+    fetchVendorNames();
+  }, []);
+
+  useEffect(() => {
+    const fetchSites = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/getAll', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!response.ok) {
+          throw new Error(`Project fetch failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const formattedData = Array.isArray(data)
+          ? data.map((item) => ({
+              value: item.siteName || item.projectName || '',
+              label: item.siteName || item.projectName || '',
+              id: item.id
+            }))
+          : [];
+        projectCache.data = formattedData;
+        setSiteOptions(formattedData);
+      } catch (error) {
+        console.error('Error fetching project names:', error);
+      }
+    };
+
+    fetchSites();
+  }, []);
+
+  useEffect(() => {
+    const fetchBothLists = async () => {
+      try {
+        const [employeeResponse, supportStaffResponse] = await Promise.all([
+          fetch('https://backendaab.in/aabuildersDash/api/employee_details/site_engineers', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch('https://backendaab.in/aabuildersDash/api/support_staff/getAll', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+        ]);
+
+        if (employeeResponse.ok) {
+          const employeeData = await employeeResponse.json();
+          const employees = Array.isArray(employeeData) ? employeeData : [];
+          siteEngineersCache.data = employees;
+          setEmployeeList(employees);
+        }
+
+        if (supportStaffResponse.ok) {
+          const supportStaffData = await supportStaffResponse.json();
+          const staff = Array.isArray(supportStaffData) ? supportStaffData : [];
+          supportStaffCache.data = staff;
+          setSupportStaffList(staff);
+        }
+      } catch (error) {
+        console.error('Error fetching project incharge options:', error);
+      }
+    };
+
+    fetchBothLists();
+  }, []);
+
+  useEffect(() => {
+    const fetchPoItemName = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setPoItemName(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching PO item names:', error);
+      }
+    };
+
+    const fetchPoBrand = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setPoBrand(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching PO brands:', error);
+      }
+    };
+
+    const fetchPoModel = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setPoModel(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching PO models:', error);
+      }
+    };
+
+    const fetchPoType = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setPoType(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching PO types:', error);
+      }
+    };
+
+    const fetchPoCategory = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setCategoryOptions(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching PO categories:', error);
+      }
+    };
+
+    fetchPoItemName();
+    fetchPoBrand();
+    fetchPoModel();
+    fetchPoType();
+    fetchPoCategory();
+  }, []);
+
+  useEffect(() => {
+    const username = user?.username ? String(user.username).trim().toLowerCase() : '';
+    if (!username) return;
+    if (selectedInchargeId || selectedInchargeFilter) return;
+    if (!Array.isArray(employeeList) || employeeList.length === 0) return;
+
+    const matchedEmployee = employeeList.find((employee) => {
+      const employeeUsername = employee.user_name || employee.userName || employee.username || '';
+      return String(employeeUsername).trim().toLowerCase() === username;
+    });
+
+    if (!matchedEmployee) return;
+
+    const resolvedName =
+      matchedEmployee.employeeName ||
+      matchedEmployee.name ||
+      matchedEmployee.fullName ||
+      matchedEmployee.employee_name ||
+      '';
+
+    if (!resolvedName) return;
+
+    console.log('GRN Create auto-selected engineer from login:', {
+      username,
+      matchedEmployee
+    });
+
+    setSelectedInchargeFilter(resolvedName);
+    setSelectedInchargeId(matchedEmployee.id || null);
+  }, [employeeList, selectedInchargeFilter, selectedInchargeId, user]);
+
+  useEffect(() => {
+    setSelectedCard(null);
+  }, [activeStatus, selectedVendorFilter, selectedInchargeFilter]);
+
+  useEffect(() => {
+    const fetchPurchaseOrdersByIncharge = async () => {
+      if (!selectedInchargeId) {
+        setPurchaseOrders([]);
+        return;
+      }
+
+      try {
+        console.log('GRN Create fetching purchase orders for site incharge:', {
+          selectedInchargeId,
+          selectedInchargeFilter
+        });
+
+        const response = await fetch(`${basePurchaseOrdersUrl}/site-incharge/${selectedInchargeId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`PO fetch failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('GRN Create site-incharge API response:', data);
+        setPurchaseOrders(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error fetching purchase orders by site incharge:', error);
+        setPurchaseOrders([]);
+      }
+    };
+
+    fetchPurchaseOrdersByIncharge();
+  }, [selectedInchargeId]);
+
+  useEffect(() => {
+    if (!selectedInchargeId) return;
+
+    console.log(
+      'GRN Create mapped cards state:',
+      purchaseOrders.map((purchaseOrder) =>
+        mapPurchaseOrderToCard(
+          purchaseOrder,
+          vendorNameOptions,
+          siteOptions,
+          employeeList,
+          poItemName,
+          poBrand,
+          poModel,
+          poType,
+          categoryOptions
+        )
+      )
+    );
+  }, [categoryOptions, employeeList, poBrand, poItemName, poModel, poType, purchaseOrders, selectedInchargeId, siteOptions, vendorNameOptions]);
 
   const getStatusBadgeStyles = (status) => {
     if (status === 'Review') return 'bg-[#FFF4E5] text-[#C98A1C]';
@@ -262,8 +598,10 @@ const Create = ({ user, onLogout }) => {
         <GoodsRecievedNotesTabs
           activeTab="create"
           onTabChange={(tab) => navigate(tab === 'create' ? '/grn/create' : '/grn/verify')}
-          leftLabel="Engineer"
-          rightLabel="Vendor"
+          leftLabel={selectedInchargeFilter || 'Engineer'}
+          rightLabel={selectedVendorFilter || 'Vendor'}
+          onLeftClick={() => setShowInchargeModal(true)}
+          onRightClick={() => setShowVendorModal(true)}
         />
       </Header>
 
@@ -524,6 +862,39 @@ const Create = ({ user, onLogout }) => {
           </div>
         </div>
       )}
+
+      <SelectVendorModal
+        isOpen={showInchargeModal}
+        onClose={() => setShowInchargeModal(false)}
+        onSelect={(value) => {
+          const selectedEmployee = employeeList.find((employee) => {
+            const employeeName = employee.employeeName || employee.name || employee.fullName || employee.employee_name || '';
+            return employeeName === value;
+          });
+          console.log('GRN Create selected engineer:', {
+            value,
+            selectedEmployee
+          });
+          setSelectedInchargeFilter(value);
+          setSelectedInchargeId(selectedEmployee?.id || null);
+          setShowInchargeModal(false);
+        }}
+        selectedValue={selectedInchargeFilter}
+        options={inchargeOptions}
+        fieldName="Project Incharge"
+      />
+
+      <SelectVendorModal
+        isOpen={showVendorModal}
+        onClose={() => setShowVendorModal(false)}
+        onSelect={(value) => {
+          setSelectedVendorFilter(value);
+          setShowVendorModal(false);
+        }}
+        selectedValue={selectedVendorFilter}
+        options={vendorOptions}
+        fieldName="Vendor"
+      />
 
       <BottomNav activeTab="home" />
     </div>

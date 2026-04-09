@@ -1,12 +1,84 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../PurchaseOrder/Header';
 import Sidebar from '../Bars/Sidebar';
 import BottomNav from '../PurchaseOrder/BottomNav';
+import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import Filter from '../Images/Filter.png';
 import GoodsRecievedNotesTabs from './GoodsRecievedNotesTabs';
 
 const statusTabs = ['Pending', 'Review', 'Completed'];
+const vendorCache = { data: null };
+const projectCache = { data: null };
+const siteEngineersCache = { data: null };
+const supportStaffCache = { data: null };
+const basePurchaseOrdersUrl = 'https://backendaab.in/aabuildersDash/api/purchase_orders';
+
+const formatCardTime = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return `${date.toLocaleDateString('en-GB')} - ${date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })}`;
+};
+
+const getGrnStatus = (purchaseOrder) => {
+  if (purchaseOrder?.grnCompleted || purchaseOrder?.grn_completed || purchaseOrder?.is_Grn_completed) return 'Completed';
+  if (purchaseOrder?.grnVerified || purchaseOrder?.grn_verified || purchaseOrder?.is_grn_verified) return 'Review';
+  return 'Pending';
+};
+
+const mapPurchaseOrderToCard = (purchaseOrder, vendorNameOptions = [], siteOptions = [], employeeList = []) => {
+  const resolvedVendor =
+    vendorNameOptions.find((option) => String(option.id) === String(purchaseOrder?.vendor_id))?.value ||
+    purchaseOrder?.vendorName ||
+    '';
+  const resolvedProject =
+    siteOptions.find((option) => String(option.id) === String(purchaseOrder?.client_id))?.value ||
+    purchaseOrder?.projectName ||
+    purchaseOrder?.siteName ||
+    '';
+  const matchedEmployee = employeeList.find(
+    (employee) => String(employee.id) === String(purchaseOrder?.site_incharge_id)
+  );
+  const resolvedEngineer =
+    matchedEmployee?.employeeName ||
+    matchedEmployee?.name ||
+    matchedEmployee?.fullName ||
+    matchedEmployee?.employee_name ||
+    purchaseOrder?.projectIncharge ||
+    purchaseOrder?.site_incharge_name ||
+    '';
+  const items =
+    purchaseOrder?.purchaseOrderTable ||
+    purchaseOrder?.purchaseTable ||
+    purchaseOrder?.poTable ||
+    purchaseOrder?.items ||
+    [];
+
+  const mappedCard = {
+    id: purchaseOrder?.id || purchaseOrder?._id || purchaseOrder?.eno,
+    status: getGrnStatus(purchaseOrder),
+    poNo: purchaseOrder?.eno ? `PO - 2026 - ${purchaseOrder.eno}` : purchaseOrder?.poNumber || 'PO',
+    vendorName: resolvedVendor,
+    siteName: resolvedProject,
+    time: formatCardTime(
+      purchaseOrder?.created_date_time || purchaseOrder?.createdAt || purchaseOrder?.created_at || purchaseOrder?.date
+    ),
+    engineerName: resolvedEngineer,
+    itemsCount: Array.isArray(items) ? items.length : 0
+  };
+
+  console.log('GRN Verify mapped purchase order card:', {
+    rawPurchaseOrder: purchaseOrder,
+    mappedCard
+  });
+
+  return mappedCard;
+};
 
 const verifyCards = [
   {
@@ -56,11 +128,197 @@ const Verify = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState('goods-recieved-notes');
   const [activeStatus, setActiveStatus] = useState('Pending');
-  const cards = useMemo(() => verifyCards, []);
-  const filteredCards = useMemo(
-    () => cards.filter((card) => card.status === activeStatus),
-    [cards, activeStatus]
+  const [showVendorModal, setShowVendorModal] = useState(false);
+  const [showInchargeModal, setShowInchargeModal] = useState(false);
+  const [selectedVendorFilter, setSelectedVendorFilter] = useState('');
+  const [selectedInchargeFilter, setSelectedInchargeFilter] = useState('');
+  const [selectedInchargeId, setSelectedInchargeId] = useState(null);
+  const [vendorNameOptions, setVendorNameOptions] = useState(() => vendorCache.data || []);
+  const [siteOptions, setSiteOptions] = useState(() => projectCache.data || []);
+  const [employeeList, setEmployeeList] = useState(() => siteEngineersCache.data || []);
+  const [supportStaffList, setSupportStaffList] = useState(() => supportStaffCache.data || []);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const vendorOptions = useMemo(
+    () => vendorNameOptions.map((option) => option.value).filter(Boolean),
+    [vendorNameOptions]
   );
+  const inchargeOptions = useMemo(() => {
+    const employeeNames = employeeList
+      .map((employee) => employee.employeeName || employee.name || employee.fullName || employee.employee_name || '')
+      .filter(Boolean);
+
+    return [...new Set(employeeNames)].sort((a, b) => a.localeCompare(b));
+  }, [employeeList]);
+  const cards = useMemo(() => {
+    if (!selectedInchargeId) {
+      return verifyCards;
+    }
+
+    return purchaseOrders.map((purchaseOrder) =>
+      mapPurchaseOrderToCard(purchaseOrder, vendorNameOptions, siteOptions, employeeList)
+    );
+  }, [employeeList, purchaseOrders, selectedInchargeId, siteOptions, vendorNameOptions]);
+  const filteredCards = useMemo(
+    () =>
+      cards.filter((card) => {
+        const statusMatches = card.status === activeStatus;
+        const vendorMatches = !selectedVendorFilter || card.vendorName === selectedVendorFilter;
+        const inchargeMatches = !selectedInchargeFilter || card.engineerName === selectedInchargeFilter;
+        return statusMatches && vendorMatches && inchargeMatches;
+      }),
+    [activeStatus, cards, selectedInchargeFilter, selectedVendorFilter]
+  );
+
+  useEffect(() => {
+    const fetchVendorNames = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!response.ok) {
+          throw new Error(`Vendor fetch failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const formattedData = Array.isArray(data)
+          ? data.map((item) => ({
+              value: item.vendorName,
+              label: item.vendorName,
+              id: item.id
+            }))
+          : [];
+        vendorCache.data = formattedData;
+        setVendorNameOptions(formattedData);
+      } catch (error) {
+        console.error('Error fetching vendor names:', error);
+      }
+    };
+
+    fetchVendorNames();
+  }, []);
+
+  useEffect(() => {
+    const fetchSites = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/getAll', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!response.ok) {
+          throw new Error(`Project fetch failed: ${response.status}`);
+        }
+        const data = await response.json();
+        const formattedData = Array.isArray(data)
+          ? data.map((item) => ({
+              value: item.siteName || item.projectName || '',
+              label: item.siteName || item.projectName || '',
+              id: item.id
+            }))
+          : [];
+        projectCache.data = formattedData;
+        setSiteOptions(formattedData);
+      } catch (error) {
+        console.error('Error fetching project names:', error);
+      }
+    };
+
+    fetchSites();
+  }, []);
+
+  useEffect(() => {
+    const fetchBothLists = async () => {
+      try {
+        const [employeeResponse, supportStaffResponse] = await Promise.all([
+          fetch('https://backendaab.in/aabuildersDash/api/employee_details/site_engineers', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch('https://backendaab.in/aabuildersDash/api/support_staff/getAll', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+        ]);
+
+        if (employeeResponse.ok) {
+          const employeeData = await employeeResponse.json();
+          const employees = Array.isArray(employeeData) ? employeeData : [];
+          siteEngineersCache.data = employees;
+          setEmployeeList(employees);
+        }
+
+        if (supportStaffResponse.ok) {
+          const supportStaffData = await supportStaffResponse.json();
+          const staff = Array.isArray(supportStaffData) ? supportStaffData : [];
+          supportStaffCache.data = staff;
+          setSupportStaffList(staff);
+        }
+      } catch (error) {
+        console.error('Error fetching project incharge options:', error);
+      }
+    };
+
+    fetchBothLists();
+  }, []);
+
+  useEffect(() => {
+    const fetchPurchaseOrdersByIncharge = async () => {
+      if (!selectedInchargeId) {
+        setPurchaseOrders([]);
+        return;
+      }
+
+      try {
+        console.log('GRN Verify fetching purchase orders for site incharge:', {
+          selectedInchargeId,
+          selectedInchargeFilter
+        });
+
+        const response = await fetch(`${basePurchaseOrdersUrl}/site-incharge/${selectedInchargeId}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`PO fetch failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('GRN Verify site-incharge API response:', data);
+        setPurchaseOrders(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error fetching purchase orders by site incharge:', error);
+        setPurchaseOrders([]);
+      }
+    };
+
+    fetchPurchaseOrdersByIncharge();
+  }, [selectedInchargeId]);
+
+  useEffect(() => {
+    if (!selectedInchargeId) return;
+
+    console.log(
+      'GRN Verify mapped cards state:',
+      purchaseOrders.map((purchaseOrder) =>
+        mapPurchaseOrderToCard(purchaseOrder, vendorNameOptions, siteOptions, employeeList)
+      )
+    );
+  }, [employeeList, purchaseOrders, selectedInchargeId, siteOptions, vendorNameOptions]);
 
   const getStatusBadgeStyles = (status) => {
     if (status === 'Review') return 'bg-[#FFF4E5] text-[#C98A1C]';
@@ -134,8 +392,10 @@ const Verify = ({ user, onLogout }) => {
         <GoodsRecievedNotesTabs
           activeTab="verify"
           onTabChange={(tab) => navigate(tab === 'create' ? '/grn/create' : '/grn/verify')}
-          leftLabel="Engineer Name"
-          rightLabel="Vendor"
+          leftLabel={selectedInchargeFilter || 'Engineer'}
+          rightLabel={selectedVendorFilter || 'Vendor'}
+          onLeftClick={() => setShowInchargeModal(true)}
+          onRightClick={() => setShowVendorModal(true)}
         />
       </Header>
 
@@ -217,6 +477,39 @@ const Verify = ({ user, onLogout }) => {
           </div>
         </div>
       </div>
+
+      <SelectVendorModal
+        isOpen={showInchargeModal}
+        onClose={() => setShowInchargeModal(false)}
+        onSelect={(value) => {
+          const selectedEmployee = employeeList.find((employee) => {
+            const employeeName = employee.employeeName || employee.name || employee.fullName || employee.employee_name || '';
+            return employeeName === value;
+          });
+          console.log('GRN Verify selected engineer:', {
+            value,
+            selectedEmployee
+          });
+          setSelectedInchargeFilter(value);
+          setSelectedInchargeId(selectedEmployee?.id || null);
+          setShowInchargeModal(false);
+        }}
+        selectedValue={selectedInchargeFilter}
+        options={inchargeOptions}
+        fieldName="Project Incharge"
+      />
+
+      <SelectVendorModal
+        isOpen={showVendorModal}
+        onClose={() => setShowVendorModal(false)}
+        onSelect={(value) => {
+          setSelectedVendorFilter(value);
+          setShowVendorModal(false);
+        }}
+        selectedValue={selectedVendorFilter}
+        options={vendorOptions}
+        fieldName="Vendor"
+      />
 
       <BottomNav activeTab="home" />
     </div>

@@ -54,6 +54,8 @@ const History = ({ user, onTabChange }) => {
   const [machineNumbersMap, setMachineNumbersMap] = useState({});
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [imagesLoading, setImagesLoading] = useState(false);
+  // Cache whether a given itemTableId has images to avoid misleading underline/click.
+  const [itemHasImagesByItemTableId, setItemHasImagesByItemTableId] = useState({});
   const [imageViewerData, setImageViewerData] = useState({
     images: [],
     currentIndex: 0,
@@ -205,6 +207,70 @@ const History = ({ user, onTabChange }) => {
     };
     fetchLookupData();
   }, []);
+
+  // Prefetch image availability for current list (best-effort).
+  useEffect(() => {
+    if (!Array.isArray(historyData) || historyData.length === 0) return;
+
+    const ids = Array.from(
+      new Set(
+        historyData
+          .map((e) => e?.itemTableId)
+          .filter((v) => v !== null && v !== undefined && v !== '')
+          .map((v) => String(v))
+      )
+    );
+
+    const missing = ids.filter((id) => itemHasImagesByItemTableId[id] === undefined);
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    const maxToCheck = 40; // keep it light for mobile
+    const toCheck = missing.slice(0, maxToCheck);
+    const concurrency = 5;
+
+    const worker = async (queue) => {
+      while (!cancelled) {
+        const id = queue.shift();
+        if (!id) return;
+        try {
+          const res = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/items/${id}/images`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (!res.ok) {
+            if (!cancelled) {
+              setItemHasImagesByItemTableId((prev) => ({ ...prev, [id]: false }));
+            }
+            continue;
+          }
+          const data = await res.json();
+          const arr = Array.isArray(data) ? data : [];
+          const hasAny = arr.some((img) => {
+            const base64 = img?.tools_image ?? img?.toolsImage;
+            const url = img?.tools_image_url ?? img?.toolsImageUrl;
+            return Boolean(base64 || url);
+          });
+          if (!cancelled) {
+            setItemHasImagesByItemTableId((prev) => ({ ...prev, [id]: hasAny }));
+          }
+        } catch {
+          if (!cancelled) {
+            setItemHasImagesByItemTableId((prev) => ({ ...prev, [id]: false }));
+          }
+        }
+      }
+    };
+
+    const queue = [...toCheck];
+    const workers = Array.from({ length: Math.min(concurrency, queue.length) }, () => worker(queue));
+    Promise.allSettled(workers).catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [historyData, itemHasImagesByItemTableId]);
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -1501,7 +1567,8 @@ const History = ({ user, onTabChange }) => {
               let inchargeName = employeesMap[entry.projectInchargeId] || employeesMap[String(entry.projectInchargeId)] || '-';
               let itemName = itemNamesMap[entry.itemNameId] || itemNamesMap[String(entry.itemNameId)] || entry.itemNameId || '-';
               const itemIdName = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
-              const canViewImages = Boolean(entry.itemTableId);
+              const itemTableIdStr = entry.itemTableId != null ? String(entry.itemTableId) : '';
+              const canViewImages = Boolean(itemTableIdStr) && itemHasImagesByItemTableId[itemTableIdStr] === true;
               let displayValue = itemIdName || (entry.quantity > 0 ? String(entry.quantity) : '');
               let machineNumberText = resolveMachineNumberText(entry);
               // Get entry date from original entry

@@ -5,7 +5,9 @@ const GoodsRecievedNotesTabs = ({
   activeTab = 'create',
   onTabChange,
   leftLabel = 'Engineer',
-  rightLabel = 'Vendor'
+  rightLabel = 'Vendor',
+  onLeftClick,
+  onRightClick
 }) => {
   const tabsContainerRef = useRef(null);
   const activeTabRef = useRef(null);
@@ -69,8 +71,20 @@ const GoodsRecievedNotesTabs = ({
         />
       </div>
       <div className="flex items-center justify-between py-[8px] border-b border-[#E0E0E0]">
-        <p className="text-[12px] font-semibold text-black leading-normal">{leftLabel}</p>
-        <p className="text-[12px] font-semibold text-black leading-normal">{rightLabel}</p>
+        <button
+          type="button"
+          onClick={onLeftClick}
+          className={`text-[12px] font-semibold leading-normal ${onLeftClick ? 'text-black' : 'text-black cursor-default'}`}
+        >
+          {leftLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onRightClick}
+          className={`text-[12px] font-semibold leading-normal ${onRightClick ? 'text-black' : 'text-black cursor-default'}`}
+        >
+          {rightLabel}
+        </button>
       </div>
     </div>
   );
