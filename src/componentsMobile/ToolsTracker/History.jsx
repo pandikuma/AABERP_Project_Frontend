@@ -17,6 +17,97 @@ const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_bra
 const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
 const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
 
+const flattenToolsTrackerEntries = (entries) => {
+  const allEntries = Array.isArray(entries) ? entries : [];
+  const flattenedData = [];
+
+  allEntries.forEach((entry) => {
+    const entryItems =
+      entry.tools_tracker_item_name_table ||
+      entry.toolsTrackerItemNameTable ||
+      entry.toolsTrackerItemNameTables ||
+      [];
+
+    if (entryItems.length === 0) {
+      flattenedData.push({
+        id: `${entry.id}-0`,
+        entryId: entry.id,
+        itemTableId: null,
+        eno: entry.eno || '',
+        toolsEntryType: entry.tools_entry_type || entry.toolsEntryType || 'Entry',
+        fromProjectId: entry.from_project_id || entry.fromProjectId || '',
+        toProjectId: entry.to_project_id || entry.toProjectId || '',
+        homeLocationId: entry.home_location_id || entry.homeLocationId || '',
+        serviceStoreId: entry.service_store_id || entry.serviceStoreId || '',
+        projectInchargeId: entry.project_incharge_id || entry.projectInchargeId || '',
+        createdDateTime: entry.created_date_time || entry.createdDateTime || entry.timestamp || '',
+        createdBy: entry.created_by || entry.createdBy || '',
+        itemNameId: '',
+        brandId: '',
+        itemIdsId: '',
+        machineNumber: '',
+        machineStatus: '',
+        quantity: 0,
+        description: ''
+      });
+      return;
+    }
+
+    entryItems.forEach((item, index) => {
+      const itemTableId = item.id ?? item.Id ?? null;
+      flattenedData.push({
+        id: `${entry.id}-${index}`,
+        entryId: entry.id,
+        itemTableId,
+        eno: entry.eno || '',
+        toolsEntryType: entry.tools_entry_type || entry.toolsEntryType || 'Entry',
+        fromProjectId: entry.from_project_id || entry.fromProjectId || '',
+        toProjectId: entry.to_project_id || entry.toProjectId || '',
+        homeLocationId: item.home_location_id || item.homeLocationId || entry.home_location_id || entry.homeLocationId || '',
+        serviceStoreId: entry.service_store_id || entry.serviceStoreId || '',
+        projectInchargeId: entry.project_incharge_id || entry.projectInchargeId || '',
+        createdDateTime: entry.created_date_time || entry.createdDateTime || entry.timestamp || '',
+        createdBy: entry.created_by || entry.createdBy || '',
+        itemNameId: item.item_name_id || item.itemNameId || '',
+        brandId: item.brand_id || item.brandId || '',
+        itemIdsId: item.item_ids_id || item.itemIdsId || '',
+        machineNumber: item.machine_number || item.machineNumber || '',
+        machineNumberId: item.machine_number_id || item.machineNumberId || '',
+        machineStatus: item.machine_status || item.machineStatus || 'Working',
+        quantity: item.quantity || 0,
+        description: item.description || ''
+      });
+    });
+  });
+
+  flattenedData.sort((a, b) => {
+    const idA = Number(a.entryId ?? a.id ?? 0);
+    const idB = Number(b.entryId ?? b.id ?? 0);
+    if (!Number.isNaN(idA) && !Number.isNaN(idB)) {
+      return idB - idA;
+    }
+    return String(b.entryId ?? b.id ?? '').localeCompare(String(a.entryId ?? a.id ?? ''));
+  });
+
+  return flattenedData;
+};
+
+const getHistoryTabRequests = (historyType, baseUrl) => {
+  if (historyType === 'entry') {
+    return [`${baseUrl}/getByEntryType/entry`];
+  }
+  if (historyType === 'service') {
+    return [
+      `${baseUrl}/getByEntryType/service`,
+      `${baseUrl}/getByEntryType/service_return`
+    ];
+  }
+  if (historyType === 'relocate') {
+    return [`${baseUrl}/getByEntryType/relocate`];
+  }
+  return [`${baseUrl}/getAll`];
+};
+
 const History = ({ user, onTabChange }) => {
   const [historyType, setHistoryType] = useState('entry'); // 'entry' | 'service' | 'relocate' | 'log'
   const [historyData, setHistoryData] = useState([]);
@@ -90,6 +181,8 @@ const History = ({ user, onTabChange }) => {
   const [filterMachineNumberSearchQuery, setFilterMachineNumberSearchQuery] = useState('');
   const expandedEntryIdRef = useRef(expandedEntryId);
   const cloneExpandedEntryIdRef = useRef(cloneExpandedEntryId);
+  const historyCacheRef = useRef({});
+  const logCacheRef = useRef(null);
   useEffect(() => {
     expandedEntryIdRef.current = expandedEntryId;
   }, [expandedEntryId]);
@@ -248,9 +341,8 @@ const History = ({ user, onTabChange }) => {
           const data = await res.json();
           const arr = Array.isArray(data) ? data : [];
           const hasAny = arr.some((img) => {
-            const base64 = img?.tools_image ?? img?.toolsImage;
             const url = img?.tools_image_url ?? img?.toolsImageUrl;
-            return Boolean(base64 || url);
+            return Boolean(url);
           });
           if (!cancelled) {
             setItemHasImagesByItemTableId((prev) => ({ ...prev, [id]: hasAny }));
@@ -272,99 +364,85 @@ const History = ({ user, onTabChange }) => {
     };
   }, [historyData, itemHasImagesByItemTableId]);
   useEffect(() => {
+    let cancelled = false;
+
     const fetchHistory = async () => {
-      try {
+      const cachedTabData = historyCacheRef.current[historyType];
+      if (cachedTabData) {
+        setFullEntriesData(cachedTabData.fullEntriesData);
+        setHistoryData(cachedTabData.historyData);
+        setLoading(false);
+      } else {
         setLoading(true);
-        const response = await fetch(`${TOOLS_TRACKER_MANAGEMENT_BASE_URL}/getAll`, {
+      }
+
+      try {
+        const buildFetchOptions = () => ({
           method: 'GET',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' }
         });
-        if (response.ok) {
-          const data = await response.json();
-          const allEntries = Array.isArray(data) ? data : [];
-          setFullEntriesData(allEntries);
-          const flattenedData = [];
-          allEntries.forEach(entry => {
-            const entryItems = entry.tools_tracker_item_name_table || entry.toolsTrackerItemNameTable || [];
-            if (entryItems.length === 0) {
-              flattenedData.push({
-                id: `${entry.id}-0`,
-                entryId: entry.id,
-                itemTableId: null,
-                eno: entry.eno || '',
-                toolsEntryType: entry.tools_entry_type || entry.toolsEntryType || 'Entry',
-                fromProjectId: entry.from_project_id || entry.fromProjectId || '',
-                toProjectId: entry.to_project_id || entry.toProjectId || '',
-                homeLocationId: entry.home_location_id || entry.homeLocationId || '',
-                serviceStoreId: entry.service_store_id || entry.serviceStoreId || '',
-                projectInchargeId: entry.project_incharge_id || entry.projectInchargeId || '',
-                createdDateTime: entry.created_date_time || entry.createdDateTime || entry.timestamp || '',
-                createdBy: entry.created_by || entry.createdBy || '',
-                itemNameId: '',
-                brandId: '',
-                itemIdsId: '',
-                machineNumber: '',
-                machineStatus: '',
-                quantity: 0,
-                description: ''
-              });
-            } else {
-              entryItems.forEach((item, index) => {
-                const itemTableId = item.id ?? item.Id ?? null;
-                flattenedData.push({
-                  id: `${entry.id}-${index}`,
-                  entryId: entry.id,
-                  itemTableId: itemTableId,
-                  eno: entry.eno || '',
-                  toolsEntryType: entry.tools_entry_type || entry.toolsEntryType || 'Entry',
-                  fromProjectId: entry.from_project_id || entry.fromProjectId || '',
-                  toProjectId: entry.to_project_id || entry.toProjectId || '',
-                  homeLocationId: item.home_location_id || item.homeLocationId || entry.home_location_id || entry.homeLocationId || '',
-                  serviceStoreId: entry.service_store_id || entry.serviceStoreId || '',
-                  projectInchargeId: entry.project_incharge_id || entry.projectInchargeId || '',
-                  createdDateTime: entry.created_date_time || entry.createdDateTime || entry.timestamp || '',
-                  createdBy: entry.created_by || entry.createdBy || '',
-                  itemNameId: item.item_name_id || item.itemNameId || '',
-                  brandId: item.brand_id || item.brandId || '',
-                  itemIdsId: item.item_ids_id || item.itemIdsId || '',
-                  machineNumber: item.machine_number || item.machineNumber || '',
-                  machineNumberId: item.machine_number_id || item.machineNumberId || '',
-                  machineStatus: item.machine_status || item.machineStatus || 'Working',
-                  quantity: item.quantity || 0,
-                  description: item.description || ''
-                });
-              });
-            }
-          });
-          flattenedData.sort((a, b) => {
-            const idA = Number(a.entryId ?? a.id ?? 0);
-            const idB = Number(b.entryId ?? b.id ?? 0);
-            if (!Number.isNaN(idA) && !Number.isNaN(idB)) {
-              return idB - idA; // latest entry id first
-            }
-            return String(b.entryId ?? b.id ?? '').localeCompare(String(a.entryId ?? a.id ?? ''));
-          });
-          setHistoryData(flattenedData);
+
+        const responses = await Promise.all(
+          getHistoryTabRequests(historyType, TOOLS_TRACKER_MANAGEMENT_BASE_URL).map((url) =>
+            fetch(url, buildFetchOptions())
+          )
+        );
+
+        if (responses.every((response) => response.ok)) {
+          const dataSets = await Promise.all(responses.map((response) => response.json()));
+          const allEntries = dataSets.flatMap((data) => (Array.isArray(data) ? data : []));
+          const flattenedData = flattenToolsTrackerEntries(allEntries);
+          const nextTabData = {
+            fullEntriesData: allEntries,
+            historyData: flattenedData
+          };
+
+          historyCacheRef.current[historyType] = nextTabData;
+
+          if (!cancelled) {
+            setFullEntriesData(allEntries);
+            setHistoryData(flattenedData);
+          }
         } else {
           console.error('Failed to fetch history data');
-          setHistoryData([]);
+          if (!cachedTabData && !cancelled) {
+            setFullEntriesData([]);
+            setHistoryData([]);
+          }
         }
       } catch (error) {
         console.error('Error fetching history:', error);
-        setHistoryData([]);
+        if (!cachedTabData && !cancelled) {
+          setFullEntriesData([]);
+          setHistoryData([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
+
     fetchHistory();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [historyType]);
 
   // Fetch edited history and build separate events per edit (no merging)
   useEffect(() => {
     if (historyType !== 'log' || fullEntriesData.length === 0 || historyData.length === 0) return;
     const fetchEditedEntriesAndFields = async () => {
-      setLogLoading(true);
+      const cachedLogEvents = logCacheRef.current;
+      if (cachedLogEvents) {
+        setLogEditEvents(cachedLogEvents);
+        setLogLoading(false);
+      } else {
+        setLogLoading(true);
+      }
+
       try {
         const entryIds = [...new Set((fullEntriesData || []).map(e => e.id).filter(Boolean))];
         const events = [];
@@ -647,10 +725,13 @@ const History = ({ user, onTabChange }) => {
           const db = b.editedDate ? new Date(b.editedDate).getTime() : 0;
           return db - da;
         });
+        logCacheRef.current = events;
         setLogEditEvents(events);
       } catch (err) {
         console.error('Error fetching edited entries:', err);
-        setLogEditEvents([]);
+        if (!cachedLogEvents) {
+          setLogEditEvents([]);
+        }
       } finally {
         setLogLoading(false);
       }
@@ -779,13 +860,9 @@ const History = ({ user, onTabChange }) => {
       }
       const rawImages = await res.json();
       const arr = Array.isArray(rawImages) ? rawImages : [];
-      const processedImages = arr.map(img => {
-        const base64 = img.tools_image ?? img.toolsImage;
-        const url = img.tools_image_url ?? img.toolsImageUrl;
-        if (base64) return `data:image/jpeg;base64,${base64}`;
-        if (url) return url;
-        return null;
-      }).filter(Boolean);
+      const processedImages = arr
+        .map((img) => img?.tools_image_url ?? img?.toolsImageUrl ?? null)
+        .filter(Boolean);
       setImageViewerData(prev => ({
         ...prev,
         images: processedImages,
@@ -1289,7 +1366,7 @@ const History = ({ user, onTabChange }) => {
       if (historyType === 'entry') {
         typeMatch = entryType.toLowerCase() === 'entry';
       } else if (historyType === 'service') {
-        typeMatch = entryType.toLowerCase() === 'service_return';
+        typeMatch = ['service', 'service_return'].includes(entryType.toLowerCase());
       } else {
         typeMatch = entryType.toLowerCase() === 'relocate';
       }

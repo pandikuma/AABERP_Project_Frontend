@@ -1081,7 +1081,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
   };
 
   return (
-    <div className="flex flex-col bg-white min-h-[calc(100vh-90px-80px)]" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="flex flex-col bg-white h-[calc(100vh-90px-80px)] overflow-hidden " style={{ fontFamily: "'Manrope', sans-serif" }}>
       <div className="sticky top-0 bg-white z-10 flex-shrink-0">
         {/* Top Header Section */}
         <div className="flex-shrink-0">
@@ -1220,7 +1220,7 @@ const ServiceHistory = ({ user, onTabChange }) => {
       </div>
 
       {/* Service Records List */}
-      <div className="flex-1 overflow-y-auto pb-[16px]">
+      <div className="flex-1 overflow-y-auto pb-[16px] no-scrollbar scrollbar-none">
         {loading ? (
           <div className="flex items-center justify-center py-[32px]">
             <p className="text-[12px] text-gray-500">Loading...</p>

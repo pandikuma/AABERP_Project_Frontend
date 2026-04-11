@@ -163,7 +163,8 @@ const Create = ({ user, onLogout }) => {
   const [activeStatus, setActiveStatus] = useState('Pending');
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [showImagePickerSheet, setShowImagePickerSheet] = useState(false);
+  const [selectedItemMode, setSelectedItemMode] = useState('card');
+  const [showQtyInput, setShowQtyInput] = useState(false);
   const [activeImageItemId, setActiveImageItemId] = useState(null);
   const [selectedImages, setSelectedImages] = useState({});
   const [activePreviewImageIndex, setActivePreviewImageIndex] = useState({});
@@ -547,73 +548,52 @@ const Create = ({ user, onLogout }) => {
   };
 
   const openImagePickerSheet = (itemId) => {
-    const isDesktopView = typeof window !== 'undefined' && window.innerWidth > 768;
-
-    if (isDesktopView) {
-      setActiveImageItemId(itemId);
-      if (galleryInputRef.current) {
-        galleryInputRef.current.click();
-      }
-      return;
-    }
-
     setActiveImageItemId(itemId);
-    setShowImagePickerSheet(true);
+    if (galleryInputRef.current) {
+      galleryInputRef.current.click();
+    }
   };
 
-  const handleOpenItemDetails = (item) => {
+  const handleOpenItemDetails = (item, showQty = true, mode = 'card') => {
     setSelectedItem(item);
+    setSelectedItemMode(mode);
+    setShowQtyInput(showQty);
   };
 
   const handleCloseItemDetails = () => {
     setSelectedItem(null);
-  };
-
-  const closeImagePickerSheet = () => {
-    setShowImagePickerSheet(false);
-    setActiveImageItemId(null);
-  };
-
-  const handlePickSource = (source) => {
-    if (source === 'camera' && cameraInputRef.current) {
-      cameraInputRef.current.click();
-      return;
-    }
-    if (source === 'gallery' && galleryInputRef.current) {
-      galleryInputRef.current.click();
-      return;
-    }
-    if (source === 'photos' && photosInputRef.current) {
-      photosInputRef.current.click();
-    }
+    setShowQtyInput(false);
+    setSelectedItemMode('card');
   };
 
   const handleImageSelection = (event) => {
     const files = Array.from(event.target.files || []);
     if (!activeImageItemId || files.length === 0) {
-      closeImagePickerSheet();
       return;
     }
 
+    const imageKey = `${activeImageItemId}-${selectedItemMode}`;
+
     setSelectedImages((prev) => {
-      const existingFiles = prev[activeImageItemId] || [];
+      const existingFiles = prev[imageKey] || [];
       const nextFiles = [...existingFiles, ...files].slice(0, 5);
 
       return {
         ...prev,
-        [activeImageItemId]: nextFiles
+        [imageKey]: nextFiles
       };
     });
     setActivePreviewImageIndex((prev) => {
-      const existingFiles = selectedImages[activeImageItemId] || [];
+      const existingFiles = selectedImages[imageKey] || [];
       return {
         ...prev,
-        [activeImageItemId]: existingFiles.length
+        [imageKey]: existingFiles.length
       };
     });
     event.target.value = '';
-    closeImagePickerSheet();
   };
+
+  const currentImageKey = selectedItem ? `${selectedItem.id}-${selectedItemMode}` : null;
 
   return (
     <div className="relative w-full h-[100vh] bg-white max-w-[360px] mx-auto overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
@@ -656,7 +636,11 @@ const Create = ({ user, onLogout }) => {
                       <span className="text-[15px] leading-none">&larr;</span>
                       Back
                     </button>
-                    <button type="button" className="text-[12px] font-semibold text-[#202020]">
+                    <button
+                      type="button"
+                      onClick={handleCloseItemDetails}
+                      className="text-[12px] font-semibold text-[#202020]"
+                    >
                       Submit
                     </button>
                   </div>
@@ -666,9 +650,9 @@ const Create = ({ user, onLogout }) => {
                     <p className="mt-[2px] text-[10px] font-semibold text-[#202020]">{selectedCard.siteName}</p>
 
                     <div className="mt-[10px] h-[270px] rounded-[2px] bg-[#F0F0F0] flex items-center justify-center overflow-hidden">
-                      {selectedImages[selectedItem.id]?.[activePreviewImageIndex[selectedItem.id] || 0] ? (
+                      {selectedImages[currentImageKey]?.[activePreviewImageIndex[currentImageKey] || 0] ? (
                         <img
-                          src={URL.createObjectURL(selectedImages[selectedItem.id][activePreviewImageIndex[selectedItem.id] || 0])}
+                          src={URL.createObjectURL(selectedImages[currentImageKey][activePreviewImageIndex[currentImageKey] || 0])}
                           alt={selectedItem.name}
                           className="w-full h-full object-cover"
                         />
@@ -686,32 +670,34 @@ const Create = ({ user, onLogout }) => {
                       {[selectedItem.name, selectedItem.brand, selectedItem.type].filter(Boolean).join(' - ')}
                     </p>
 
-                    <input
-                      type="text"
-                      value={receivedQuantities[selectedItem.id] || ''}
-                      onChange={(e) =>
-                        setReceivedQuantities((prev) => ({
-                          ...prev,
-                          [selectedItem.id]: e.target.value
-                        }))
-                      }
-                      placeholder="Received Quantity"
-                      className="mt-[6px] w-full h-[32px] rounded-[4px] border border-[#D0D0D0] px-[10px] text-[12px] font-medium text-[#202020] placeholder:text-[#A7A7A7] focus:outline-none"
-                    />
+                    {showQtyInput && (
+                      <input
+                        type="text"
+                        value={receivedQuantities[selectedItem.id] || ''}
+                        onChange={(e) =>
+                          setReceivedQuantities((prev) => ({
+                            ...prev,
+                            [selectedItem.id]: e.target.value
+                          }))
+                        }
+                        placeholder="Received Quantity"
+                        className="mt-[6px] w-full h-[32px] rounded-[4px] border border-[#D0D0D0] px-[10px] text-[12px] font-medium text-[#202020] placeholder:text-[#A7A7A7] focus:outline-none"
+                      />
+                    )}
 
                     <div className="mt-[6px]">
                       <p className="text-[12px] font-semibold text-[#202020]">Description</p>
                       <textarea
-                        value={itemImageDescriptions[selectedItem.id]?.[activePreviewImageIndex[selectedItem.id] || 0] || ''}
+                        value={itemImageDescriptions[currentImageKey]?.[activePreviewImageIndex[currentImageKey] || 0] || ''}
                         onChange={(e) => {
-                          const currentImageIndex = activePreviewImageIndex[selectedItem.id] || 0;
+                          const currentImageIndex = activePreviewImageIndex[currentImageKey] || 0;
                           setItemImageDescriptions((prev) => {
-                            const itemDescriptions = prev[selectedItem.id] || [];
+                            const itemDescriptions = prev[currentImageKey] || [];
                             const updatedDescriptions = [...itemDescriptions];
                             updatedDescriptions[currentImageIndex] = e.target.value;
                             return {
                               ...prev,
-                              [selectedItem.id]: updatedDescriptions
+                              [currentImageKey]: updatedDescriptions
                             };
                           });
                         }}
@@ -722,18 +708,18 @@ const Create = ({ user, onLogout }) => {
                     </div>
 
                     <div className="mt-[8px] flex items-center gap-[6px] overflow-x-auto no-scrollbar">
-                      {(selectedImages[selectedItem.id] || []).map((imageFile, index) => (
+                      {(selectedImages[currentImageKey] || []).map((imageFile, index) => (
                         <button
                           key={`${selectedItem.id}-thumb-${index}`}
                           type="button"
                           onClick={() =>
                             setActivePreviewImageIndex((prev) => ({
                               ...prev,
-                              [selectedItem.id]: index
+                              [currentImageKey]: index
                             }))
                           }
                           className={`w-[40px] h-[40px] bg-[#EFEFEF] border flex-shrink-0 overflow-hidden ${
-                            (activePreviewImageIndex[selectedItem.id] || 0) === index ? 'border-[#4F5DFF]' : 'border-[#E2E2E2]'
+                            (activePreviewImageIndex[currentImageKey] || 0) === index ? 'border-[#4F5DFF]' : 'border-[#E2E2E2]'
                           }`}
                         >
                           <img
@@ -828,10 +814,10 @@ const Create = ({ user, onLogout }) => {
                             <p className="text-[11px] font-medium text-[#202020]">{item.brand}</p>
                             <button
                               type="button"
-                              onClick={() => handleOpenItemDetails(item)}
-                              className="text-[11px] font-medium text-[#202020] underline underline-offset-2"
+                              onClick={() => handleOpenItemDetails(item, true, 'card')}
+                              className={`text-[11px] font-medium text-[#202020] ${selectedImages[`${item.id}-card`]?.length ? 'underline underline-offset-2' : ''}`}
                             >
-                              {selectedImages[item.id]?.length ? `${selectedImages[item.id].length} Image` : 'Image'}
+                              Image
                             </button>
                           </div>
                           <div className="flex items-center justify-between gap-[10px]">
@@ -839,7 +825,8 @@ const Create = ({ user, onLogout }) => {
                             <div className="flex items-center gap-[8px]">
                               <span className="flex-1 border-b border-dashed border-[#9E9E9E]" />
                               <span className="inline-flex items-center rounded-[4px] px-[8px] py-[4px] text-[11px] font-semibold text-[#202020]">
-                                {`${receivedQuantities[item.id] || 0}/${item.orderedQuantity} Qty`}
+                                {receivedQuantities[item.id] || 0}
+                                <span className="text-[#BF9853]">/{item.orderedQuantity} Qty</span>
                               </span>
                             </div>
                           </div>
@@ -850,6 +837,7 @@ const Create = ({ user, onLogout }) => {
 
                   <button
                     type="button"
+                    onClick={() => handleOpenItemDetails(selectedCard.items[0], false, 'button')}
                     className="fixed bottom-[106px] right-[18px] lg:right-[calc(50%-162px)] w-[48px] h-[48px] rounded-full bg-[#C89A43] text-white shadow-lg flex items-center justify-center"
                   >
                     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -969,53 +957,6 @@ const Create = ({ user, onLogout }) => {
         className="hidden"
         onChange={handleImageSelection}
       />
-
-      {showImagePickerSheet && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[80] flex items-end justify-center"
-          onClick={closeImagePickerSheet}
-        >
-          <div
-            className="w-full max-w-[360px] bg-black text-white rounded-t-[20px] px-[24px] pt-[20px] pb-[24px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[14px] font-semibold">Select App</p>
-                <p className="mt-[6px] text-[11px] font-medium text-[#BDBDBD]">You Can Select 5 Images Only</p>
-              </div>
-              <button type="button" onClick={closeImagePickerSheet} className="text-white text-[24px] leading-none">
-                ×
-              </button>
-            </div>
-
-            <div className="flex items-center justify-start gap-[34px] mt-[24px]">
-              <button type="button" onClick={() => handlePickSource('camera')} className="flex flex-col items-center gap-[8px]">
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9.333 7L10.733 5.133C10.953 4.84 11.299 4.667 11.667 4.667H16.333C16.701 4.667 17.047 4.84 17.267 5.133L18.667 7H21C22.289 7 23.333 8.045 23.333 9.333V19.833C23.333 21.122 22.289 22.167 21 22.167H7C5.711 22.167 4.667 21.122 4.667 19.833V9.333C4.667 8.045 5.711 7 7 7H9.333Z" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M14 17.5C15.933 17.5 17.5 15.933 17.5 14C17.5 12.067 15.933 10.5 14 10.5C12.067 10.5 10.5 12.067 10.5 14C10.5 15.933 12.067 17.5 14 17.5Z" stroke="white" strokeWidth="1.5" />
-                </svg>
-                <span className="text-[11px] font-medium">Camera</span>
-              </button>
-              <button type="button" onClick={() => handlePickSource('gallery')} className="flex flex-col items-center gap-[8px]">
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 5.833H21C22.289 5.833 23.333 6.878 23.333 8.167V19.833C23.333 21.122 22.289 22.167 21 22.167H7C5.711 22.167 4.667 21.122 4.667 19.833V8.167C4.667 6.878 5.711 5.833 7 5.833Z" stroke="white" strokeWidth="1.5" />
-                  <path d="M10.5 12.833C11.144 12.833 11.667 12.311 11.667 11.667C11.667 11.023 11.144 10.5 10.5 10.5C9.856 10.5 9.333 11.023 9.333 11.667C9.333 12.311 9.856 12.833 10.5 12.833Z" fill="white" />
-                  <path d="M23.333 17.5L18.667 12.833L7 22.167" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span className="text-[11px] font-medium">Gallery</span>
-              </button>
-              <button type="button" onClick={() => handlePickSource('photos')} className="flex flex-col items-center gap-[8px]">
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M14 4.667L16.357 9.443L21.633 10.212L17.817 13.931L18.718 19.185L14 16.705L9.282 19.185L10.183 13.931L6.367 10.212L11.643 9.443L14 4.667Z" fill="#34A853" />
-                  <path d="M22.167 8.167C22.167 6.878 21.122 5.833 19.833 5.833H8.167C6.878 5.833 5.833 6.878 5.833 8.167V19.833C5.833 21.122 6.878 22.167 8.167 22.167H19.833C21.122 22.167 22.167 21.122 22.167 19.833V8.167Z" stroke="#4285F4" strokeWidth="1.5" />
-                </svg>
-                <span className="text-[11px] font-medium">Photos</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <SelectVendorModal
         isOpen={showInchargeModal}
