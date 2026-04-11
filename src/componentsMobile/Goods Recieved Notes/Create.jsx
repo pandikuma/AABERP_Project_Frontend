@@ -82,6 +82,7 @@ const mapPurchaseOrderItems = (
       brand,
       type: [model, type].filter(Boolean).join(', '),
       category,
+      orderedQuantity: quantity,
       quantity: `${quantity}/${quantity} Qty`,
       categoryColor: category.toLowerCase().includes('paint') ? 'text-[#1EBD9D]' : 'text-[#4F5DFF]',
       categoryBg: category.toLowerCase().includes('paint') ? 'bg-[#E4FFF8]' : 'bg-[#EEF0FF]'
@@ -161,9 +162,13 @@ const Create = ({ user, onLogout }) => {
   const [currentPage, setCurrentPage] = useState('goods-recieved-notes');
   const [activeStatus, setActiveStatus] = useState('Pending');
   const [selectedCard, setSelectedCard] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [showImagePickerSheet, setShowImagePickerSheet] = useState(false);
   const [activeImageItemId, setActiveImageItemId] = useState(null);
   const [selectedImages, setSelectedImages] = useState({});
+  const [activePreviewImageIndex, setActivePreviewImageIndex] = useState({});
+  const [receivedQuantities, setReceivedQuantities] = useState({});
+  const [itemImageDescriptions, setItemImageDescriptions] = useState({});
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [showInchargeModal, setShowInchargeModal] = useState(false);
   const [selectedVendorFilter, setSelectedVendorFilter] = useState('');
@@ -427,6 +432,7 @@ const Create = ({ user, onLogout }) => {
 
   useEffect(() => {
     setSelectedCard(null);
+    setSelectedItem(null);
   }, [activeStatus, selectedVendorFilter, selectedInchargeFilter]);
 
   useEffect(() => {
@@ -541,8 +547,26 @@ const Create = ({ user, onLogout }) => {
   };
 
   const openImagePickerSheet = (itemId) => {
+    const isDesktopView = typeof window !== 'undefined' && window.innerWidth > 768;
+
+    if (isDesktopView) {
+      setActiveImageItemId(itemId);
+      if (galleryInputRef.current) {
+        galleryInputRef.current.click();
+      }
+      return;
+    }
+
     setActiveImageItemId(itemId);
     setShowImagePickerSheet(true);
+  };
+
+  const handleOpenItemDetails = (item) => {
+    setSelectedItem(item);
+  };
+
+  const handleCloseItemDetails = () => {
+    setSelectedItem(null);
   };
 
   const closeImagePickerSheet = () => {
@@ -565,16 +589,28 @@ const Create = ({ user, onLogout }) => {
   };
 
   const handleImageSelection = (event) => {
-    const files = Array.from(event.target.files || []).slice(0, 5);
+    const files = Array.from(event.target.files || []);
     if (!activeImageItemId || files.length === 0) {
       closeImagePickerSheet();
       return;
     }
 
-    setSelectedImages((prev) => ({
-      ...prev,
-      [activeImageItemId]: files
-    }));
+    setSelectedImages((prev) => {
+      const existingFiles = prev[activeImageItemId] || [];
+      const nextFiles = [...existingFiles, ...files].slice(0, 5);
+
+      return {
+        ...prev,
+        [activeImageItemId]: nextFiles
+      };
+    });
+    setActivePreviewImageIndex((prev) => {
+      const existingFiles = selectedImages[activeImageItemId] || [];
+      return {
+        ...prev,
+        [activeImageItemId]: existingFiles.length
+      };
+    });
     event.target.value = '';
     closeImagePickerSheet();
   };
@@ -609,103 +645,221 @@ const Create = ({ user, onLogout }) => {
         <div className="pb-[16px]">
           {selectedCard ? (
             <>
-              <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-[8px] mb-[10px]">
-                <button
-                  type="button"
-                  onClick={() => setSelectedCard(null)}
-                  className="flex items-center gap-[6px] text-[12px] font-medium text-[#202020]"
-                >
-                  <span className="text-[15px] leading-none">&larr;</span>
-                  Back
-                </button>
-                <button type="button" className="text-[12px] font-semibold text-[#202020]">
-                  Submit
-                </button>
-              </div>
+              {selectedItem ? (
+                <>
+                  <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-[8px] mb-[8px]">
+                    <button
+                      type="button"
+                      onClick={handleCloseItemDetails}
+                      className="flex items-center gap-[6px] text-[12px] font-medium text-[#202020]"
+                    >
+                      <span className="text-[15px] leading-none">&larr;</span>
+                      Back
+                    </button>
+                    <button type="button" className="text-[12px] font-semibold text-[#202020]">
+                      Submit
+                    </button>
+                  </div>
 
-              <div className="mt-[8px] rounded-[6px] bg-[#F1F4F8] p-[4px] flex items-center gap-[6px]">
-                {statusTabs.map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveStatus(tab)}
-                    className={`flex-1 h-[28px] rounded-[4px] text-[12px] font-medium ${
-                      activeStatus === tab ? 'bg-white text-[#202020] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]' : 'text-[#7D828B]'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
+                  <div className="pb-[80px] text-left">
+                    <p className="text-[10px] font-semibold text-[#202020]">{selectedCard.vendorName}</p>
+                    <p className="mt-[2px] text-[10px] font-semibold text-[#202020]">{selectedCard.siteName}</p>
 
-              <div className="mt-[10px] rounded-[10px] border border-[#A9A9A9] bg-white px-[12px] py-[10px]">
-                <div className="flex items-start mb-[8px]">
-                  <p className="w-[110px] text-[12px] font-medium text-[#3F3F3F]">Vendor Name</p>
-                  <p className="mx-[8px] text-[12px] font-medium text-black">:</p>
-                  <p className="text-[12px] font-medium text-[#A6A6A6]">{selectedCard.vendorName}</p>
-                </div>
-                <div className="flex items-start mb-[8px]">
-                  <p className="w-[110px] text-[12px] font-medium text-[#3F3F3F]">Project Name</p>
-                  <p className="mx-[8px] text-[12px] font-medium text-black">:</p>
-                  <p className="text-[12px] font-medium text-[#A6A6A6]">{selectedCard.siteName}</p>
-                </div>
-                <div className="flex items-start mb-[8px]">
-                  <p className="w-[110px] text-[12px] font-medium text-[#3F3F3F]">Project Incharge</p>
-                  <p className="mx-[8px] text-[12px] font-medium text-black">:</p>
-                  <p className="text-[12px] font-medium text-[#A6A6A6]">{selectedCard.engineerName}</p>
-                </div>
-                <div className="flex items-start">
-                  <p className="w-[110px] text-[12px] font-medium text-[#3F3F3F]">Contact</p>
-                  <p className="mx-[8px] text-[12px] font-medium text-black">:</p>
-                  <p className="text-[12px] font-medium text-[#A6A6A6]">{selectedCard.contact}</p>
-                </div>
-              </div>
+                    <div className="mt-[10px] h-[270px] rounded-[2px] bg-[#F0F0F0] flex items-center justify-center overflow-hidden">
+                      {selectedImages[selectedItem.id]?.[activePreviewImageIndex[selectedItem.id] || 0] ? (
+                        <img
+                          src={URL.createObjectURL(selectedImages[selectedItem.id][activePreviewImageIndex[selectedItem.id] || 0])}
+                          alt={selectedItem.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <rect width="44" height="44" rx="4" fill="#D9D9D9" />
+                          <path d="M10 31V13H34V31H10Z" fill="#BEBEBE" />
+                          <path d="M13 28L20 21L25 25L29 20L31 22V28H13Z" fill="#9B9B9B" />
+                          <circle cx="28.5" cy="17.5" r="2.5" fill="#F1F1F1" />
+                        </svg>
+                      )}
+                    </div>
 
-              <div className="mt-[12px] mb-[10px] flex items-center gap-[8px] border-b border-[#E0E0E0] pb-[8px]">
-                <p className="text-[14px] font-medium text-black">Items</p>
-                <div className="w-[24px] h-[24px] rounded-full bg-[#E2E2E2] flex items-center justify-center text-[12px] font-semibold text-black">
-                  {selectedCard.items.length}
-                </div>
-              </div>
+                    <p className="mt-[5px] text-[10px] font-semibold text-[#202020]">
+                      {[selectedItem.name, selectedItem.brand, selectedItem.type].filter(Boolean).join(' - ')}
+                    </p>
 
-              <div className="space-y-[10px] pb-[70px]">
-                {selectedCard.items.map((item) => (
-                  <div key={item.id} className="rounded-[16px] border border-[#EFE7DD] bg-white px-[12px] py-[10px] shadow-[0px_1px_8px_rgba(0,0,0,0.04)]">
-                    <div className="flex items-start justify-between gap-[10px]">
-                      <div>
-                        <p className="text-[11px] font-semibold text-[#202020]">{item.name}</p>
-                        <p className="mt-[6px] text-[11px] font-medium text-[#202020]">{item.brand}</p>
-                        <p className="mt-[4px] text-[11px] font-medium text-[#202020]">{item.type}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className={`inline-flex items-center rounded-full px-[10px] py-[4px] text-[10px] font-semibold ${item.categoryColor} ${item.categoryBg}`}>
-                          {item.category}
-                        </div>
+                    <input
+                      type="text"
+                      value={receivedQuantities[selectedItem.id] || ''}
+                      onChange={(e) =>
+                        setReceivedQuantities((prev) => ({
+                          ...prev,
+                          [selectedItem.id]: e.target.value
+                        }))
+                      }
+                      placeholder="Received Quantity"
+                      className="mt-[6px] w-full h-[32px] rounded-[4px] border border-[#D0D0D0] px-[10px] text-[12px] font-medium text-[#202020] placeholder:text-[#A7A7A7] focus:outline-none"
+                    />
+
+                    <div className="mt-[6px]">
+                      <p className="text-[12px] font-semibold text-[#202020]">Description</p>
+                      <textarea
+                        value={itemImageDescriptions[selectedItem.id]?.[activePreviewImageIndex[selectedItem.id] || 0] || ''}
+                        onChange={(e) => {
+                          const currentImageIndex = activePreviewImageIndex[selectedItem.id] || 0;
+                          setItemImageDescriptions((prev) => {
+                            const itemDescriptions = prev[selectedItem.id] || [];
+                            const updatedDescriptions = [...itemDescriptions];
+                            updatedDescriptions[currentImageIndex] = e.target.value;
+                            return {
+                              ...prev,
+                              [selectedItem.id]: updatedDescriptions
+                            };
+                          });
+                        }}
+                        placeholder="Enter Your Description"
+                        rows={4}
+                        className="mt-[6px] w-full rounded-[4px] border border-[#D0D0D0] px-[10px] py-[10px] text-[12px] font-medium text-[#202020] placeholder:text-[#A7A7A7] focus:outline-none resize-none"
+                      />
+                    </div>
+
+                    <div className="mt-[8px] flex items-center gap-[6px] overflow-x-auto no-scrollbar">
+                      {(selectedImages[selectedItem.id] || []).map((imageFile, index) => (
                         <button
+                          key={`${selectedItem.id}-thumb-${index}`}
                           type="button"
-                          onClick={() => openImagePickerSheet(item.id)}
-                          className="mt-[6px] block text-[11px] font-medium text-[#202020] underline underline-offset-2"
+                          onClick={() =>
+                            setActivePreviewImageIndex((prev) => ({
+                              ...prev,
+                              [selectedItem.id]: index
+                            }))
+                          }
+                          className={`w-[40px] h-[40px] bg-[#EFEFEF] border flex-shrink-0 overflow-hidden ${
+                            (activePreviewImageIndex[selectedItem.id] || 0) === index ? 'border-[#4F5DFF]' : 'border-[#E2E2E2]'
+                          }`}
                         >
-                          {selectedImages[item.id]?.length ? `${selectedImages[item.id].length} Image` : 'Image'}
+                          <img
+                            src={URL.createObjectURL(imageFile)}
+                            alt={`${selectedItem.name} ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
                         </button>
-                        <p className="mt-[4px] text-[11px] font-semibold text-[#202020]">{item.quantity}</p>
-                        <div className="mt-[2px] border-b border-dashed border-[#9E9E9E]" />
-                      </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => openImagePickerSheet(selectedItem.id)}
+                        className="w-[40px] h-[40px] bg-[#EFEFEF] flex items-center justify-center text-[#BEBEBE] text-[32px] leading-none flex-shrink-0"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-[8px] mb-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCard(null)}
+                      className="flex items-center gap-[6px] text-[12px] font-medium text-[#202020]"
+                    >
+                      <span className="text-[15px] leading-none">&larr;</span>
+                      Back
+                    </button>
+                    <button type="button" className="text-[12px] font-semibold text-[#202020]">
+                      Submit
+                    </button>
+                  </div>
 
-              <button
-                type="button"
-                className="fixed bottom-[106px] right-[18px] lg:right-[calc(50%-162px)] w-[48px] h-[48px] rounded-full bg-[#C89A43] text-white shadow-lg flex items-center justify-center"
-              >
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11 14V8M11 8L8.5 10.5M11 8L13.5 10.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M6.5 14.5C4.84315 14.5 3.5 15.8431 3.5 17.5C3.5 19.1569 4.84315 20.5 6.5 20.5H15.5C17.1569 20.5 18.5 19.1569 18.5 17.5C18.5 15.8431 17.1569 14.5 15.5 14.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-                  <path d="M11 2.5C6.30558 2.5 2.5 6.30558 2.5 11C2.5 12.4328 2.85449 13.7828 3.48076 14.9668" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </button>
+                  <div className="mt-[8px] rounded-[6px] bg-[#F1F4F8] p-[4px] flex items-center gap-[6px]">
+                    {statusTabs.map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setActiveStatus(tab)}
+                        className={`flex-1 h-[28px] rounded-[4px] text-[12px] font-medium ${
+                          activeStatus === tab ? 'bg-white text-[#202020] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]' : 'text-[#7D828B]'
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-[10px] rounded-[10px] border border-[#A9A9A9] bg-white px-[12px] py-[10px]">
+                    <div className="flex items-start mb-[8px]">
+                      <p className="w-[110px] text-[12px] font-medium text-[#3F3F3F]">Vendor Name</p>
+                      <p className="mx-[8px] text-[12px] font-medium text-black">:</p>
+                      <p className="text-[12px] font-medium text-[#A6A6A6]">{selectedCard.vendorName}</p>
+                    </div>
+                    <div className="flex items-start mb-[8px]">
+                      <p className="w-[110px] text-[12px] font-medium text-[#3F3F3F]">Project Name</p>
+                      <p className="mx-[8px] text-[12px] font-medium text-black">:</p>
+                      <p className="text-[12px] font-medium text-[#A6A6A6]">{selectedCard.siteName}</p>
+                    </div>
+                    <div className="flex items-start mb-[8px]">
+                      <p className="w-[110px] text-[12px] font-medium text-[#3F3F3F]">Project Incharge</p>
+                      <p className="mx-[8px] text-[12px] font-medium text-black">:</p>
+                      <p className="text-[12px] font-medium text-[#A6A6A6]">{selectedCard.engineerName}</p>
+                    </div>
+                    <div className="flex items-start">
+                      <p className="w-[110px] text-[12px] font-medium text-[#3F3F3F]">Contact</p>
+                      <p className="mx-[8px] text-[12px] font-medium text-black">:</p>
+                      <p className="text-[12px] font-medium text-[#A6A6A6]">{selectedCard.contact}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-[12px] mb-[10px] flex items-center gap-[8px] border-b border-[#E0E0E0] pb-[8px]">
+                    <p className="text-[14px] font-medium text-black">Items</p>
+                    <div className="w-[24px] h-[24px] rounded-full bg-[#E2E2E2] flex items-center justify-center text-[12px] font-semibold text-black">
+                      {selectedCard.items.length}
+                    </div>
+                  </div>
+
+                  <div className="space-y-[10px] pb-[70px]">
+                    {selectedCard.items.map((item) => (
+                      <div key={item.id} className="rounded-[16px] border border-[#EFE7DD] bg-white px-[12px] py-[10px] shadow-[0px_1px_8px_rgba(0,0,0,0.04)]">
+                        <div className="space-y-[6px]">
+                          <div className="flex items-center justify-between gap-[10px]">
+                            <p className="text-[11px] font-semibold text-[#202020]">{item.name}</p>
+                            <div className={`inline-flex items-center rounded-full px-[10px] py-[4px] text-[10px] font-semibold ${item.categoryColor} ${item.categoryBg}`}>
+                              {item.category}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between gap-[10px]">
+                            <p className="text-[11px] font-medium text-[#202020]">{item.brand}</p>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenItemDetails(item)}
+                              className="text-[11px] font-medium text-[#202020] underline underline-offset-2"
+                            >
+                              {selectedImages[item.id]?.length ? `${selectedImages[item.id].length} Image` : 'Image'}
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between gap-[10px]">
+                            <p className="text-[11px] font-medium text-[#202020]">{item.type}</p>
+                            <div className="flex items-center gap-[8px]">
+                              <span className="flex-1 border-b border-dashed border-[#9E9E9E]" />
+                              <span className="inline-flex items-center rounded-[4px] px-[8px] py-[4px] text-[11px] font-semibold text-[#202020]">
+                                {`${receivedQuantities[item.id] || 0}/${item.orderedQuantity} Qty`}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="fixed bottom-[106px] right-[18px] lg:right-[calc(50%-162px)] w-[48px] h-[48px] rounded-full bg-[#C89A43] text-white shadow-lg flex items-center justify-center"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M11 14V8M11 8L8.5 10.5M11 8L13.5 10.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M6.5 14.5C4.84315 14.5 3.5 15.8431 3.5 17.5C3.5 19.1569 4.84315 20.5 6.5 20.5H15.5C17.1569 20.5 18.5 19.1569 18.5 17.5C18.5 15.8431 17.1569 14.5 15.5 14.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+                      <path d="M11 2.5C6.30558 2.5 2.5 6.30558 2.5 11C2.5 12.4328 2.85449 13.7828 3.48076 14.9668" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </>
+              )}
             </>
           ) : (
             <>
@@ -739,10 +893,10 @@ const Create = ({ user, onLogout }) => {
                 key={card.id}
                 type="button"
                 onClick={() => setSelectedCard(card)}
-                className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] min-w-[330px] w-full text-left"
+                className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[16px] w-full max-w-full text-left"
                 style={{ marginBottom: '0px' }}
               >
-                <div className="rounded-[8px] h-full px-3 py-[10px] cursor-pointer transition-all duration-300 ease-out select-none bg-white">
+                <div className="rounded-[16px] h-full px-3 py-[10px] cursor-pointer transition-all duration-300 ease-out select-none bg-white">
                   <div className="flex items-start justify-between mb-[2px]">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       <p className="text-[12px] font-semibold leading-snug truncate text-black">
