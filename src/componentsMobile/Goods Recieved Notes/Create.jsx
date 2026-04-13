@@ -13,6 +13,153 @@ const projectCache = { data: null };
 const siteEngineersCache = { data: null };
 const supportStaffCache = { data: null };
 const basePurchaseOrdersUrl = 'https://backendaab.in/aabuildersDash/api/purchase_orders';
+const FILE_UPLOAD_BASE_URL = 'https://backendaab.in/aabuildersDash/api/files';
+const GRN_IMAGES_BASE_URL = 'https://backendaab.in/aabuildersDash/api/grn-images';
+
+/** Prefix for purchase-order-level (common) line placeholder; id is `${prefix}${poId}`. */
+const GRN_PO_COMMON_ID_PREFIX = '__grn_po_common__:';
+
+const uploadGrnFilesToBackend = async (files, { folder, fileNamePrefix } = {}) => {
+  const uploadUrl = `${FILE_UPLOAD_BASE_URL}/upload`;
+  console.log('[GRN files/upload] sending', {
+    url: uploadUrl,
+    method: 'POST',
+    folder: folder || 'FileUpload / GRN_Images',
+    fileNamePrefix: fileNamePrefix || null,
+    fileCount: files.length,
+    fileNames: files.map((f) => f.name)
+  });
+
+  const formData = new FormData();
+  files.forEach((f) => formData.append('files', f));
+  formData.append('folder', folder || 'FileUpload / GRN_Images');
+  if (fileNamePrefix) formData.append('fileName', fileNamePrefix);
+
+  const res = await fetch(uploadUrl, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    console.error('[GRN files/upload] error', { status: res.status, statusText: res.statusText, body: text });
+    throw new Error(text || `Upload failed: ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  const urls = Array.isArray(data?.urls) ? data.urls : [];
+  console.log('[GRN files/upload] response', { status: res.status, urls, raw: data });
+  return urls;
+};
+
+const saveGrnImageToApi = async (payload) => {
+  const url = `${GRN_IMAGES_BASE_URL}/save`;
+  console.log('[GRN grn-images/save] sending', { url, method: 'POST', payload });
+
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const responseText = await res.text().catch(() => '');
+  let responseBody = responseText;
+  try {
+    responseBody = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    // keep as string
+  }
+
+  if (!res.ok) {
+    console.error('[GRN grn-images/save] error response', {
+      status: res.status,
+      statusText: res.statusText,
+      body: responseBody
+    });
+    const errMsg =
+      typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody);
+    throw new Error(errMsg || `Save GRN image failed: ${res.status} ${res.statusText}`);
+  }
+
+  console.log('[GRN grn-images/save] response', { status: res.status, body: responseBody });
+  return responseBody;
+};
+
+const setGrnRequestSendStatus = async (purchaseOrderId, status) => {
+  const url = `${basePurchaseOrdersUrl}/${purchaseOrderId}/grn-request?status=${status ? 'true' : 'false'}`;
+  console.log('[GRN purchase_orders/grn-request] sending', { url, method: 'PATCH' });
+
+  const res = await fetch(url, {
+    method: 'PATCH',
+    credentials: 'include'
+  });
+
+  const responseText = await res.text().catch(() => '');
+  let responseBody = responseText;
+  try {
+    responseBody = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    // keep as string
+  }
+
+  if (!res.ok) {
+    console.error('[GRN purchase_orders/grn-request] error response', {
+      status: res.status,
+      statusText: res.statusText,
+      body: responseBody
+    });
+    const errMsg = typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody);
+    throw new Error(errMsg || `Failed to update grn-request: ${res.status} ${res.statusText}`);
+  }
+
+  console.log('[GRN purchase_orders/grn-request] response', { status: res.status, body: responseBody });
+  return responseBody;
+};
+
+/** One POST /api/grn-images/save per URL (description and quantity per row). */
+const saveGrnRecordsFromSlots = async (urls, descriptions, { purchaseOrderId, isPoLevel, purchaseOrderTableId, quantityStr }) => {
+  for (let i = 0; i < urls.length; i += 1) {
+    const imageUrl = urls[i];
+    if (!imageUrl) {
+      throw new Error('Missing image URL for one of the slots.');
+    }
+    const description = descriptions[i] || '';
+    const payload = {
+      image_url: imageUrl,
+      quantity: quantityStr ?? '',
+      description,
+      purchase_order_id: purchaseOrderId
+    };
+    if (!isPoLevel) {
+      payload.purchase_order_table_id = purchaseOrderTableId;
+    }
+    await saveGrnImageToApi(payload);
+  }
+};
+
+const buildGrnImageFileNamePrefix = ({ purchaseOrderId, purchaseOrderTableId, isPoLevel }) => {
+  const safePart = (value) =>
+    String(value ?? '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '')
+      .slice(0, 80);
+
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const ts = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}_${pad(now.getHours())}:${pad(
+    now.getMinutes()
+  )}:${pad(now.getSeconds())}`;
+
+  if (isPoLevel) {
+    return `GRN_PO_${safePart(purchaseOrderId) || 'po'}_${ts}`;
+  }
+  return `GRN_${safePart(purchaseOrderId) || 'po'}_row_${safePart(purchaseOrderTableId) || 'line'}_${ts}`;
+};
 
 const findNameById = (dataArray, id, fieldNames = []) => {
   if (!id || !Array.isArray(dataArray)) return '';
@@ -76,8 +223,17 @@ const mapPurchaseOrderItems = (
       item?.typeColor ||
       findNameById(poType, item?.type_id || item?.typeId, ['typeColor', 'type', 'typeName']);
 
+    const rawTableRowId = item?.id ?? item?.purchaseOrderTableId ?? item?.purchase_order_table_id;
+    const numericTableRowId =
+      rawTableRowId !== undefined && rawTableRowId !== null
+        ? Number(rawTableRowId)
+        : null;
+    const purchaseOrderTableId =
+      numericTableRowId !== null && Number.isFinite(numericTableRowId) ? numericTableRowId : null;
+
     return {
       id: item?.id || `item-${index}`,
+      purchaseOrderTableId,
       name: itemName,
       brand,
       type: [model, type].filter(Boolean).join(', '),
@@ -166,7 +322,6 @@ const Create = ({ user, onLogout }) => {
   const [selectedItemMode, setSelectedItemMode] = useState('card');
   const [showQtyInput, setShowQtyInput] = useState(false);
   const [activeImageItemId, setActiveImageItemId] = useState(null);
-  const [selectedImages, setSelectedImages] = useState({});
   const [activePreviewImageIndex, setActivePreviewImageIndex] = useState({});
   const [receivedQuantities, setReceivedQuantities] = useState({});
   const [itemImageDescriptions, setItemImageDescriptions] = useState({});
@@ -188,6 +343,16 @@ const Create = ({ user, onLogout }) => {
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const photosInputRef = useRef(null);
+  /** Avoid stale state if onChange runs before activeImageItemId commits (same tick as file picker). */
+  const grnFilePickerTargetRef = useRef(null);
+  const [isSubmittingGrn, setIsSubmittingGrn] = useState(false);
+  /** Server URLs from /api/files/upload (auto after picker); header Submit persists via /api/grn-images/save */
+  const [grnUploadedImageUrls, setGrnUploadedImageUrls] = useState({});
+  const [isUploadingGrn, setIsUploadingGrn] = useState(false);
+  const grnUploadedImageUrlsRef = useRef({});
+  useEffect(() => {
+    grnUploadedImageUrlsRef.current = grnUploadedImageUrls;
+  }, [grnUploadedImageUrls]);
   const vendorOptions = useMemo(
     () => vendorNameOptions.map((option) => option.value).filter(Boolean),
     [vendorNameOptions]
@@ -437,6 +602,10 @@ const Create = ({ user, onLogout }) => {
   }, [activeStatus, selectedVendorFilter, selectedInchargeFilter]);
 
   useEffect(() => {
+    setSelectedItem(null);
+  }, [selectedCard?.id]);
+
+  useEffect(() => {
     const fetchPurchaseOrdersByIncharge = async () => {
       if (!selectedInchargeId) {
         setPurchaseOrders([]);
@@ -548,6 +717,7 @@ const Create = ({ user, onLogout }) => {
   };
 
   const openImagePickerSheet = (itemId) => {
+    grnFilePickerTargetRef.current = { itemId, mode: selectedItemMode };
     setActiveImageItemId(itemId);
     if (galleryInputRef.current) {
       galleryInputRef.current.click();
@@ -566,34 +736,235 @@ const Create = ({ user, onLogout }) => {
     setSelectedItemMode('card');
   };
 
-  const handleImageSelection = (event) => {
+  const handleImageSelection = async (event) => {
     const files = Array.from(event.target.files || []);
-    if (!activeImageItemId || files.length === 0) {
+    event.target.value = '';
+    if (files.length === 0) return;
+    if (!selectedCard?.id || !selectedItem) return;
+
+    const picker = grnFilePickerTargetRef.current;
+    const itemId = picker?.itemId ?? activeImageItemId;
+    const mode = picker?.mode ?? selectedItemMode;
+    if (!itemId) return;
+
+    const imageKey = `${itemId}-${mode}`;
+    const existingUrls = grnUploadedImageUrlsRef.current[imageKey] || [];
+    const room = Math.max(0, 5 - existingUrls.length);
+    const filesToUpload = files.slice(0, room);
+    if (filesToUpload.length === 0) {
+      window.alert('You can add at most 5 images per line.');
       return;
     }
 
-    const imageKey = `${activeImageItemId}-${selectedItemMode}`;
+    const purchaseOrderId = Number(selectedCard.id);
+    if (!Number.isFinite(purchaseOrderId)) {
+      window.alert('Invalid purchase order id.');
+      return;
+    }
 
-    setSelectedImages((prev) => {
-      const existingFiles = prev[imageKey] || [];
-      const nextFiles = [...existingFiles, ...files].slice(0, 5);
+    const isPoLevel = Boolean(selectedItem.isPoLevel);
 
-      return {
+    setIsUploadingGrn(true);
+    try {
+      const newUrls = await uploadGrnFilesToBackend(filesToUpload, {
+        folder: 'FileUpload / GRN_Images',
+        fileNamePrefix: buildGrnImageFileNamePrefix({
+          purchaseOrderId,
+          purchaseOrderTableId: selectedItem.purchaseOrderTableId,
+          isPoLevel
+        })
+      });
+      if (newUrls.length !== filesToUpload.length) {
+        throw new Error('Upload did not return a URL for every file.');
+      }
+
+      const merged = [...existingUrls, ...newUrls];
+      setGrnUploadedImageUrls((prev) => ({ ...prev, [imageKey]: merged }));
+      grnUploadedImageUrlsRef.current = { ...grnUploadedImageUrlsRef.current, [imageKey]: merged };
+
+      const previewIdx = merged.length - 1;
+      setActivePreviewImageIndex((prev) => ({
         ...prev,
-        [imageKey]: nextFiles
-      };
-    });
-    setActivePreviewImageIndex((prev) => {
-      const existingFiles = selectedImages[imageKey] || [];
-      return {
-        ...prev,
-        [imageKey]: existingFiles.length
-      };
-    });
-    event.target.value = '';
+        [imageKey]: previewIdx >= 0 ? previewIdx : 0
+      }));
+    } catch (error) {
+      console.error('GRN auto-upload error:', error);
+      window.alert(error?.message || 'Failed to upload image.');
+    } finally {
+      setIsUploadingGrn(false);
+    }
   };
 
   const currentImageKey = selectedItem ? `${selectedItem.id}-${selectedItemMode}` : null;
+
+  const handleOpenPoCommonImages = () => {
+    if (!selectedCard) return;
+    const poLevelItem = {
+      id: `${GRN_PO_COMMON_ID_PREFIX}${selectedCard.id}`,
+      isPoLevel: true,
+      purchaseOrderTableId: null,
+      name: 'Common - entire purchase order',
+      brand: '',
+      type: '',
+      orderedQuantity: 0
+    };
+    handleOpenItemDetails(poLevelItem, false, 'common');
+  };
+
+  /** Item-detail header Submit: POST /api/grn-images/save for the open line only. */
+  const handleSaveGrnImagesToBackend = async () => {
+    if (!selectedCard?.id || !selectedItem || !currentImageKey) return;
+
+    const urls = grnUploadedImageUrls[currentImageKey] || [];
+
+    if (urls.length === 0) {
+      window.alert('Add at least one image using + (images upload automatically).');
+      return;
+    }
+
+    const isPoLevel = Boolean(selectedItem.isPoLevel);
+    if (!isPoLevel && (selectedItem.purchaseOrderTableId == null || Number.isNaN(selectedItem.purchaseOrderTableId))) {
+      window.alert('This line item has no table id from the server. Save is blocked until the PO row id is available.');
+      return;
+    }
+
+    const purchaseOrderId = Number(selectedCard.id);
+    if (!Number.isFinite(purchaseOrderId)) {
+      window.alert('Invalid purchase order id.');
+      return;
+    }
+
+    const descriptions = itemImageDescriptions[currentImageKey] || [];
+    const quantityStr = isPoLevel ? '' : String(receivedQuantities[selectedItem.id] ?? '').trim();
+
+    setIsSubmittingGrn(true);
+    try {
+      await saveGrnRecordsFromSlots(urls, descriptions, {
+        purchaseOrderId,
+        isPoLevel,
+        purchaseOrderTableId: selectedItem.purchaseOrderTableId,
+        quantityStr
+      });
+
+      // mark GRN request sent after successful save
+      await setGrnRequestSendStatus(purchaseOrderId, true);
+
+      setGrnUploadedImageUrls((prev) => ({ ...prev, [currentImageKey]: [] }));
+      grnUploadedImageUrlsRef.current = { ...grnUploadedImageUrlsRef.current, [currentImageKey]: [] };
+      setItemImageDescriptions((prev) => ({ ...prev, [currentImageKey]: [] }));
+      setActivePreviewImageIndex((prev) => ({ ...prev, [currentImageKey]: 0 }));
+      window.alert('Images saved successfully.');
+      handleCloseItemDetails();
+    } catch (error) {
+      console.error('GRN image save error:', error);
+      window.alert(error?.message || 'Failed to save images.');
+    } finally {
+      setIsSubmittingGrn(false);
+    }
+  };
+
+  /** PO card view Submit: save every line (and common PO images) that has uploaded URLs. */
+  const handleSubmitAllGrnForSelectedCard = async () => {
+    if (!selectedCard?.id) return;
+
+    const purchaseOrderId = Number(selectedCard.id);
+    if (!Number.isFinite(purchaseOrderId)) {
+      window.alert('Invalid purchase order id.');
+      return;
+    }
+
+    const commonKey = `${GRN_PO_COMMON_ID_PREFIX}${selectedCard.id}-common`;
+    const tasks = [];
+
+    const commonUrls = grnUploadedImageUrls[commonKey] || [];
+    if (commonUrls.length > 0) {
+      tasks.push({
+        key: commonKey,
+        urls: commonUrls,
+        descriptions: itemImageDescriptions[commonKey] || [],
+        opts: {
+          purchaseOrderId,
+          isPoLevel: true,
+          purchaseOrderTableId: null,
+          quantityStr: ''
+        }
+      });
+    }
+
+    for (const item of selectedCard.items) {
+      const key = `${item.id}-card`;
+      const urls = grnUploadedImageUrls[key] || [];
+      if (urls.length === 0) continue;
+      if (item.purchaseOrderTableId == null || Number.isNaN(item.purchaseOrderTableId)) {
+        window.alert(`Cannot save images for "${item.name}": missing purchase order line id.`);
+        return;
+      }
+      const quantityStr = String(receivedQuantities[item.id] ?? '').trim();
+      tasks.push({
+        key,
+        urls,
+        descriptions: itemImageDescriptions[key] || [],
+        opts: {
+          purchaseOrderId,
+          isPoLevel: false,
+          purchaseOrderTableId: item.purchaseOrderTableId,
+          quantityStr
+        }
+      });
+    }
+
+    if (tasks.length === 0) {
+      window.alert('No uploaded images to save. Open Image on each item (or use the common upload) first.');
+      return;
+    }
+
+    setIsSubmittingGrn(true);
+    try {
+      const keysToClear = [];
+      for (const t of tasks) {
+        await saveGrnRecordsFromSlots(t.urls, t.descriptions, t.opts);
+        keysToClear.push(t.key);
+      }
+
+      // mark GRN request sent after successful batch save
+      await setGrnRequestSendStatus(purchaseOrderId, true);
+
+      setGrnUploadedImageUrls((prev) => {
+        const next = { ...prev };
+        keysToClear.forEach((k) => {
+          next[k] = [];
+        });
+        return next;
+      });
+      const refNext = { ...grnUploadedImageUrlsRef.current };
+      keysToClear.forEach((k) => {
+        refNext[k] = [];
+      });
+      grnUploadedImageUrlsRef.current = refNext;
+
+      setItemImageDescriptions((prev) => {
+        const next = { ...prev };
+        keysToClear.forEach((k) => {
+          next[k] = [];
+        });
+        return next;
+      });
+      setActivePreviewImageIndex((prev) => {
+        const next = { ...prev };
+        keysToClear.forEach((k) => {
+          next[k] = 0;
+        });
+        return next;
+      });
+
+      window.alert('All images saved successfully.');
+    } catch (error) {
+      console.error('GRN batch save error:', error);
+      window.alert(error?.message || 'Failed to save images.');
+    } finally {
+      setIsSubmittingGrn(false);
+    }
+  };
 
   return (
     <div className="relative w-full h-[100vh] bg-white max-w-[360px] mx-auto overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
@@ -638,10 +1009,11 @@ const Create = ({ user, onLogout }) => {
                     </button>
                     <button
                       type="button"
-                      onClick={handleCloseItemDetails}
-                      className="text-[12px] font-semibold text-[#202020]"
+                      onClick={handleSaveGrnImagesToBackend}
+                      disabled={isSubmittingGrn}
+                      className="text-[12px] font-semibold text-[#202020] disabled:opacity-40"
                     >
-                      Submit
+                      {isSubmittingGrn ? 'Saving…' : 'Submit'}
                     </button>
                   </div>
 
@@ -649,21 +1021,29 @@ const Create = ({ user, onLogout }) => {
                     <p className="text-[10px] font-semibold text-[#202020]">{selectedCard.vendorName}</p>
                     <p className="mt-[2px] text-[10px] font-semibold text-[#202020]">{selectedCard.siteName}</p>
 
-                    <div className="mt-[10px] h-[270px] rounded-[2px] bg-[#F0F0F0] flex items-center justify-center overflow-hidden">
-                      {selectedImages[currentImageKey]?.[activePreviewImageIndex[currentImageKey] || 0] ? (
-                        <img
-                          src={URL.createObjectURL(selectedImages[currentImageKey][activePreviewImageIndex[currentImageKey] || 0])}
-                          alt={selectedItem.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <rect width="44" height="44" rx="4" fill="#D9D9D9" />
-                          <path d="M10 31V13H34V31H10Z" fill="#BEBEBE" />
-                          <path d="M13 28L20 21L25 25L29 20L31 22V28H13Z" fill="#9B9B9B" />
-                          <circle cx="28.5" cy="17.5" r="2.5" fill="#F1F1F1" />
-                        </svg>
+                    <div className="mt-[10px] h-[270px] rounded-[2px] bg-[#F0F0F0] flex items-center justify-center overflow-hidden relative">
+                      {isUploadingGrn && (
+                        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-black/20 text-[12px] font-semibold text-white">
+                          Uploading…
+                        </div>
                       )}
+                      {(() => {
+                        const urls = grnUploadedImageUrls[currentImageKey] || [];
+                        const idx = activePreviewImageIndex[currentImageKey] || 0;
+                        if (idx < urls.length && urls[idx]) {
+                          return (
+                            <img src={urls[idx]} alt={selectedItem.name} className="w-full h-full object-cover" />
+                          );
+                        }
+                        return (
+                          <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="44" height="44" rx="4" fill="#D9D9D9" />
+                            <path d="M10 31V13H34V31H10Z" fill="#BEBEBE" />
+                            <path d="M13 28L20 21L25 25L29 20L31 22V28H13Z" fill="#9B9B9B" />
+                            <circle cx="28.5" cy="17.5" r="2.5" fill="#F1F1F1" />
+                          </svg>
+                        );
+                      })()}
                     </div>
 
                     <p className="mt-[5px] text-[10px] font-semibold text-[#202020]">
@@ -708,9 +1088,9 @@ const Create = ({ user, onLogout }) => {
                     </div>
 
                     <div className="mt-[8px] flex items-center gap-[6px] overflow-x-auto no-scrollbar">
-                      {(selectedImages[currentImageKey] || []).map((imageFile, index) => (
+                      {(grnUploadedImageUrls[currentImageKey] || []).map((url, index) => (
                         <button
-                          key={`${selectedItem.id}-thumb-${index}`}
+                          key={`${selectedItem.id}-url-thumb-${index}`}
                           type="button"
                           onClick={() =>
                             setActivePreviewImageIndex((prev) => ({
@@ -722,17 +1102,16 @@ const Create = ({ user, onLogout }) => {
                             (activePreviewImageIndex[currentImageKey] || 0) === index ? 'border-[#4F5DFF]' : 'border-[#E2E2E2]'
                           }`}
                         >
-                          <img
-                            src={URL.createObjectURL(imageFile)}
-                            alt={`${selectedItem.name} ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={url} alt={`${selectedItem.name} ${index + 1}`} className="w-full h-full object-cover" />
                         </button>
                       ))}
                       <button
                         type="button"
                         onClick={() => openImagePickerSheet(selectedItem.id)}
-                        className="w-[40px] h-[40px] bg-[#EFEFEF] flex items-center justify-center text-[#BEBEBE] text-[32px] leading-none flex-shrink-0"
+                        disabled={
+                          isUploadingGrn || (grnUploadedImageUrls[currentImageKey] || []).length >= 5
+                        }
+                        className="w-[40px] h-[40px] bg-[#EFEFEF] flex items-center justify-center text-[#BEBEBE] text-[32px] leading-none flex-shrink-0 disabled:opacity-40"
                       >
                         +
                       </button>
@@ -750,8 +1129,13 @@ const Create = ({ user, onLogout }) => {
                       <span className="text-[15px] leading-none">&larr;</span>
                       Back
                     </button>
-                    <button type="button" className="text-[12px] font-semibold text-[#202020]">
-                      Submit
+                    <button
+                      type="button"
+                      onClick={handleSubmitAllGrnForSelectedCard}
+                      disabled={isSubmittingGrn || isUploadingGrn}
+                      className="text-[12px] font-semibold text-[#202020] disabled:opacity-40"
+                    >
+                      {isSubmittingGrn ? 'Saving…' : 'Submit'}
                     </button>
                   </div>
 
@@ -815,7 +1199,9 @@ const Create = ({ user, onLogout }) => {
                             <button
                               type="button"
                               onClick={() => handleOpenItemDetails(item, true, 'card')}
-                              className={`text-[11px] font-medium text-[#202020] ${selectedImages[`${item.id}-card`]?.length ? 'underline underline-offset-2' : ''}`}
+                              className={`text-[11px] font-medium text-[#202020] ${
+                                grnUploadedImageUrls[`${item.id}-card`]?.length ? 'underline underline-offset-2' : ''
+                              }`}
                             >
                               Image
                             </button>
@@ -837,7 +1223,7 @@ const Create = ({ user, onLogout }) => {
 
                   <button
                     type="button"
-                    onClick={() => handleOpenItemDetails(selectedCard.items[0], false, 'button')}
+                    onClick={handleOpenPoCommonImages}
                     className="fixed bottom-[106px] right-[18px] lg:right-[calc(50%-162px)] w-[48px] h-[48px] rounded-full bg-[#C89A43] text-white shadow-lg flex items-center justify-center"
                   >
                     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
