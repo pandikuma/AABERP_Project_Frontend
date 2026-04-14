@@ -16,7 +16,8 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
       currentPage === 'goods-recieved-notes' ||
       currentPage === 'inventory' ||
       currentPage === 'tools-tracker',
-    account: currentPage === 'project-advance' || currentPage === 'loan-portal'
+    account: currentPage === 'project-advance' || currentPage === 'loan-portal',
+    'master-data': currentPage === 'master-data'
   });
   const [roleModels, setRoleModels] = useState([]);
   const buildTime = process.env.REACT_APP_BUILD_TIME;
@@ -31,7 +32,8 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
         currentPage === 'goods-recieved-notes' ||
         currentPage === 'inventory' ||
         currentPage === 'tools-tracker',
-      account: currentPage === 'project-advance' || currentPage === 'loan-portal'
+      account: currentPage === 'project-advance' || currentPage === 'loan-portal',
+      'master-data': currentPage === 'master-data'
     });
   }, [currentPage]);
 
@@ -78,8 +80,8 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
         return;
       }
       if (page === 'master-data') {
-        onClose();
         navigate('/master-data');
+        onClose();
         return;
       }
       if (page === 'inventory') {
@@ -115,6 +117,10 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
     toggleExpand('billing');
   };
 
+  const handleMasterDataClick = () => {
+    toggleExpand('master-data');
+  };
+
   const menuItems = [
     { id: 'home', label: 'Home', icon: 'grid' },
     {
@@ -148,7 +154,12 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
     { id: 'design-tools', label: 'Design Tools', icon: 'tools' },
     { id: 'hrm', label: 'HRM', icon: 'person' },
     { id: 'utility-hub', label: 'Utility Hub', icon: 'utility' },
-    { id: 'master-data', label: 'Master Data', icon: 'gear' }
+    {
+      id: 'master-data',
+      label: 'Master Data',
+      icon: 'gear',
+      subItems: [{ id: 'master-data', label: 'Master Data', modelName: null }]
+    }
   ];
 
   const getIcon = (iconType) => {
@@ -257,7 +268,9 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
                             ? handleAccountClick
                             : item.id === 'billing'
                               ? handleBillingClick
-                              : undefined
+                              : item.id === 'master-data'
+                                ? handleMasterDataClick
+                                : undefined
                       }
                     >
                       <div className="flex items-center gap-[12px]">

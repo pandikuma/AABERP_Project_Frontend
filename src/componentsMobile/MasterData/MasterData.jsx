@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../ProjectAdvance/Header';
 import Sidebar from '../Bars/Sidebar';
 import BottomNav from '../ProjectAdvance/BottomNav';
-import editIcon from '../../Components/Images/Edit.svg';
-import deleteIcon from '../../Components/Images/Delete.svg';
+import editIcon from '../Images/edit.png';
+import deleteIcon from '../Images/delete.png';
 
 const masterDataItems = [
   'Project Name',
@@ -261,6 +261,12 @@ const MasterData = ({ user, onLogout }) => {
       isMounted = false;
     };
   }, [selectedItem]);
+
+  useEffect(() => {
+    if (currentPage === 'master-data') {
+      setSelectedItem(null);
+    }
+  }, [currentPage]);
 
   const handleNavigate = (page) => {
     if (page === 'request-for-quotation') {
@@ -977,14 +983,14 @@ const MasterData = ({ user, onLogout }) => {
                         className="flex h-[36px] w-[30px] items-center justify-center rounded-[2px] bg-[#0B7A45] text-white"
                         aria-label="Edit"
                       >
-                        <img src={editIcon} alt="Edit" className="h-[14px] w-[14px]" />
+                        <img src={editIcon} alt="Edit" className="w-[18px] h-[18px]" />
                       </button>
                       <button
                         type="button"
                         className="flex h-[36px] w-[30px] items-center justify-center rounded-[2px] bg-[#F26B3A] text-white"
                         aria-label="Delete"
                       >
-                        <img src={deleteIcon} alt="Delete" className="h-[14px] w-[14px]" />
+                        <img src={deleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
                       </button>
                     </div>
 
@@ -1125,14 +1131,14 @@ const MasterData = ({ user, onLogout }) => {
                         className="flex h-[36px] w-[30px] items-center justify-center rounded-[2px] bg-[#0B7A45] text-white"
                         aria-label="Edit"
                       >
-                        <img src={editIcon} alt="Edit" className="h-[14px] w-[14px]" />
+                        <img src={editIcon} alt="Edit" className="w-[18px] h-[18px]" />
                       </button>
                       <button
                         type="button"
                         className="flex h-[36px] w-[30px] items-center justify-center rounded-[2px] bg-[#F26B3A] text-white"
                         aria-label="Delete"
                       >
-                        <img src={deleteIcon} alt="Delete" className="h-[14px] w-[14px]" />
+                        <img src={deleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
                       </button>
                     </div>
 
