@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import logo from '../Images/AABBlack.png'
 import { prefetchIncomingTrackerData } from '../Inventory/incomingTrackerPrefetch';
 import { prefetchInventoryNetStockData } from '../Inventory/inventoryNetStockPrefetch';
 import { prefetchToolsNetStockData } from '../ToolsTracker/netStockPrefetch';
 
 const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) => {
+  const navigate = useNavigate();
   const [expandedItems, setExpandedItems] = useState({
     billing: currentPage === 'billing',
     procurement:
@@ -73,6 +75,11 @@ const Sidebar = ({ isOpen, onClose, onNavigate, currentPage, userRoles = [] }) =
       // Check permission if modelName is provided
       if (modelName && !hasAccessToModel(modelName)) {
         alert("No permissions for this page");
+        return;
+      }
+      if (page === 'master-data') {
+        onClose();
+        navigate('/master-data');
         return;
       }
       if (page === 'inventory') {
