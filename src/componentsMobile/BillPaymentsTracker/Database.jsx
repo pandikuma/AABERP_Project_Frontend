@@ -130,7 +130,7 @@ const DatabaseMobile = () => {
 			}
 			try {
 				// Backend already filters to only fully paid rows.
-				const res = await fetch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers/enriched/paid', {
+				const res = await fetch('http://localhost:8082/api/vendor-payments/trackers/enriched/paid', {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }
@@ -448,7 +448,7 @@ const DatabaseMobile = () => {
 		const loadSupportData = async () => {
 			try {
 				const [beRes, exRes] = await Promise.all([
-					fetch('https://backendaab.in/aabuildersDash/api/bill-entry/getAll', {
+					fetch('http://localhost:8082/api/bill-entry/getAll', {
 						method: 'GET',
 						credentials: 'include',
 						headers: { 'Content-Type': 'application/json' }
@@ -539,7 +539,7 @@ const DatabaseMobile = () => {
 		const id = row?.id;
 		if (!id) return row;
 		try {
-			const res = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${id}`, {
+			const res = await fetch(`http://localhost:8082/api/vendor-payments/tracker/${id}`, {
 				method: 'GET',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' }
@@ -574,7 +574,7 @@ const DatabaseMobile = () => {
 		setLoadingBankDetails(true);
 		setBankDetailsError(null);
 		try {
-			const res = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${row?.id}`, {
+			const res = await fetch(`http://localhost:8082/api/vendor-bill-tracker/get/${row?.id}`, {
 				method: 'GET',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' }
@@ -806,7 +806,7 @@ const DatabaseMobile = () => {
 				no_of_bills: bills,
 				total_amount: amount
 			};
-			const res = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${editTarget.id}/update-details`, {
+			const res = await fetch(`http://localhost:8082/api/vendor-payments/tracker/${editTarget.id}/update-details`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)

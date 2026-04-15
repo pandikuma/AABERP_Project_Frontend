@@ -8,14 +8,14 @@ import Search from '../Images/Search.png';
 import CloseIcon from '../Images/Close F.svg'
 import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 
-const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
+const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'http://localhost:8082/api/tools_tracker_management';
 const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
 const VENDOR_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/vendor_Names';
-const EMPLOYEE_DETAILS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/employee_details';
-const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
-const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
-const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
-const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
+const EMPLOYEE_DETAILS_BASE_URL = 'http://localhost:8082/api/employee_details';
+const TOOLS_ITEM_NAME_BASE_URL = 'http://localhost:8082/api/tools_item_name';
+const TOOLS_BRAND_BASE_URL = 'http://localhost:8082/api/tools_brand';
+const TOOLS_ITEM_ID_BASE_URL = 'http://localhost:8082/api/tools_item_id';
+const TOOLS_MACHINE_NUMBER_BASE_URL = 'http://localhost:8082/api/tools_machine_number';
 
 const flattenToolsTrackerEntries = (entries) => {
   const allEntries = Array.isArray(entries) ? entries : [];
@@ -801,6 +801,13 @@ const History = ({ user, onTabChange }) => {
     } catch {
       return String(input);
     }
+  };
+
+  const formatBackendDateOrRelative = (backendDate) => {
+    if (!backendDate) return '';
+    const label = formatRelativeDateLabel(backendDate);
+    if (label === 'Today' || label === 'Yesterday') return label;
+    return String(backendDate);
   };
   const resolveMachineNumberText = (entry) => {
     if (entry.machineNumber && String(entry.machineNumber).trim()) {
@@ -1656,7 +1663,8 @@ const History = ({ user, onTabChange }) => {
               // Get entry date from original entry
               const originalEntry = fullEntriesData.find(e => String(e.id) === String(entry.entryId));
               const entryDate = originalEntry?.date || '';
-              const formattedDate = entryDate ? formatRelativeDateLabel(entryDate) : '';
+              // Show Today/Yesterday for current/previous date; otherwise show backend date string as-is.
+              const formattedDate = formatBackendDateOrRelative(entryDate);
               const formattedCreatedDateTime = createdDateTime ? dateTime : '';
               let dateTimeDisplay = dateTime || `${date} • ${time}`;
               if (historyType === 'log') {

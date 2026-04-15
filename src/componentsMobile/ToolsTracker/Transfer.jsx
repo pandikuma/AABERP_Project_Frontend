@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import EditIcon from '../Images/edit1.png';
@@ -14,10 +15,10 @@ import DropdownIcon from '../Images/Dropdown F.svg'
 import Search from '../Images/Search.png'
 import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 const Transfer = ({ user }) => {
-  const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
-  const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
-  const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
-  const FILE_UPLOAD_BASE_URL = 'https://backendaab.in/aabuildersDash/api/files';
+  const TOOLS_ITEM_NAME_BASE_URL = 'http://localhost:8082/api/tools_item_name';
+  const TOOLS_BRAND_BASE_URL = 'http://localhost:8082/api/tools_brand';
+  const TOOLS_ITEM_ID_BASE_URL = 'http://localhost:8082/api/tools_item_id';
+  const FILE_UPLOAD_BASE_URL = 'http://localhost:8082/api/files';
   const [entryNo, setEntryNo] = useState(0);
   const [date, setDate] = useState(() => {
     const today = new Date();
@@ -165,10 +166,10 @@ const Transfer = ({ user }) => {
   const [uploadDescription, setUploadDescription] = useState('');
   const [statusOptions] = useState(['Working', 'Not Working', 'Under Repair', 'Machine Dead']);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_stock_management';
-  const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
-  const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
-  const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
+  const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'http://localhost:8082/api/tools_tracker_stock_management';
+  const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'http://localhost:8082/api/tools_tracker_management';
+  const TOOLS_MACHINE_STATUS_BASE_URL = 'http://localhost:8082/api/tools-machine-status';
+  const TOOLS_MACHINE_NUMBER_BASE_URL = 'http://localhost:8082/api/tools_machine_number';
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -306,7 +307,7 @@ const Transfer = ({ user }) => {
   useEffect(() => {
     const fetchSiteIncharge = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/site_engineers');
+        const response = await fetch('http://localhost:8082/api/employee_details/site_engineers');
         if (response.ok) {
           const data = await response.json();
           const formatted = data.map((item) => ({
@@ -1613,6 +1614,8 @@ const Transfer = ({ user }) => {
       }
     }
   };
+  // Begins pending upload before fetch; caller MUST call endPendingFileUpload() after applying returned URLs to state
+  // (otherwise waitForPendingFileUploads() resolves before React has server URLs in items — save would send blob: URLs).
   const uploadFilesToBackend = async (files, { folder, fileNamePrefix } = {}) => {
     beginPendingFileUpload();
     try {
@@ -1635,8 +1638,9 @@ const Transfer = ({ user }) => {
       const data = await res.json();
       const urls = Array.isArray(data?.urls) ? data.urls : [];
       return urls;
-    } finally {
+    } catch (error) {
       endPendingFileUpload();
+      throw error;
     }
   };
 
@@ -1710,14 +1714,17 @@ const Transfer = ({ user }) => {
         })
       });
 
-      setUploadFiles((prev) =>
-        prev.map((f) => {
-          const idx = fileEntries.findIndex((x) => x.id === f.id);
-          if (idx === -1) return f;
-          const uploadedUrl = urls[idx] || null;
-          return { ...f, progress: uploadedUrl ? 100 : 0, uploadedUrl };
-        })
-      );
+      flushSync(() => {
+        setUploadFiles((prev) =>
+          prev.map((f) => {
+            const idx = fileEntries.findIndex((x) => x.id === f.id);
+            if (idx === -1) return f;
+            const uploadedUrl = urls[idx] || null;
+            return { ...f, progress: uploadedUrl ? 100 : 0, uploadedUrl };
+          })
+        );
+      });
+      endPendingFileUpload();
     } catch (error) {
       console.error('Error uploading file(s):', error);
       // remove the just-added files on failure
@@ -3115,17 +3122,20 @@ const Transfer = ({ user }) => {
       urls.forEach((remoteUrl, idx) => {
         const temp = tempUrls[idx];
         if (!remoteUrl || !temp) return;
-        replaceUrlInItemImages(currentItemId, temp, remoteUrl);
-        setImageViewerData((prev) => ({
-          ...prev,
-          images: (prev.images || []).map((u) => (u === temp ? remoteUrl : u))
-        }));
+        flushSync(() => {
+          replaceUrlInItemImages(currentItemId, temp, remoteUrl);
+          setImageViewerData((prev) => ({
+            ...prev,
+            images: (prev.images || []).map((u) => (u === temp ? remoteUrl : u))
+          }));
+        });
         try {
           URL.revokeObjectURL(temp);
         } catch {
           // ignore
         }
       });
+      endPendingFileUpload();
     } catch (error) {
       console.error('Error uploading viewer image(s):', error);
       alert('Failed to upload image. Please try again.');
@@ -3283,14 +3293,17 @@ const Transfer = ({ user }) => {
           quantity: selectedSearchItem?.quantity || selectedSearchItem?.qty || ''
         })
       });
-      setSearchUploadFiles((prev) =>
-        prev.map((f) => {
-          const idx = fileEntries.findIndex((x) => x.id === f.id);
-          if (idx === -1) return f;
-          const uploadedUrl = urls[idx] || null;
-          return { ...f, progress: uploadedUrl ? 100 : 0, uploadedUrl };
-        })
-      );
+      flushSync(() => {
+        setSearchUploadFiles((prev) =>
+          prev.map((f) => {
+            const idx = fileEntries.findIndex((x) => x.id === f.id);
+            if (idx === -1) return f;
+            const uploadedUrl = urls[idx] || null;
+            return { ...f, progress: uploadedUrl ? 100 : 0, uploadedUrl };
+          })
+        );
+      });
+      endPendingFileUpload();
     } catch (error) {
       console.error('Error uploading search file(s):', error);
       setSearchUploadFiles((prev) => prev.filter((f) => !fileEntries.some((x) => x.id === f.id)));

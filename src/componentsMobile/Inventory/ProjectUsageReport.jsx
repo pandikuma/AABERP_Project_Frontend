@@ -66,7 +66,7 @@ const ProjectUsageReport = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
+        const response = await fetch('http://localhost:8082/api/po_category/getAll');
         if (response.ok) {
           const data = await response.json();
           const options = data.map(item => ({
@@ -88,11 +88,11 @@ const ProjectUsageReport = () => {
     const fetchPOData = async () => {
       try {
         const [itemNamesRes, brandsRes, modelsRes, typesRes, categoriesRes] = await Promise.all([
-          fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll'),
-          fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll')
+          fetch('http://localhost:8082/api/po_itemNames/getAll'),
+          fetch('http://localhost:8082/api/po_brand/getAll'),
+          fetch('http://localhost:8082/api/po_model/getAll'),
+          fetch('http://localhost:8082/api/po_type/getAll'),
+          fetch('http://localhost:8082/api/po_category/getAll')
         ]);
 
         if (itemNamesRes.ok) {
@@ -162,7 +162,7 @@ const ProjectUsageReport = () => {
     const fetchInventoryData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll', {
+        const response = await fetch('http://localhost:8082/api/inventory/getAll', {
           method: 'GET',
           credentials: 'include',
           headers: {

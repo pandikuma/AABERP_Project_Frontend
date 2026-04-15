@@ -226,8 +226,8 @@ const History = ({ onVendorClick, user } = {}) => {
   const loadAdvanceData = useCallback(async () => {
     try {
       const endpoint = hasActiveFilters
-        ? 'https://backendaab.in/aabuildersDash/api/advance_portal/getAll'
-        : 'https://backendaab.in/aabuildersDash/api/advance_portal/getLast150';
+        ? 'http://localhost:8082/api/advance_portal/getAll'
+        : 'http://localhost:8082/api/advance_portal/getLast150';
       const res = await fetch(withBranchUrl(endpoint));
       if (!res.ok) throw new Error('Failed to fetch advance data');
       const data = await res.json();
@@ -500,7 +500,7 @@ const History = ({ onVendorClick, user } = {}) => {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const username = user?.username || user?.name || '';
       const payload = { ...item.entry, file_url: fileUrl };
-      const editRes = await fetch(`https://backendaab.in/aabuildersDash/api/advance_portal/edit/${entryId}?editedBy=${username}`, {
+      const editRes = await fetch(`http://localhost:8082/api/advance_portal/edit/${entryId}?editedBy=${username}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

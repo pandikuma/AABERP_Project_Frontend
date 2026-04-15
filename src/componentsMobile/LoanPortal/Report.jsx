@@ -33,7 +33,7 @@ const Report = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/loans/all');
+        const response = await fetch('http://localhost:8082/api/loans/all');
         if (response.ok) {
           const data = await response.json();
           setLoanData(data);
@@ -102,7 +102,7 @@ const Report = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+        const response = await fetch("http://localhost:8082/api/employee_details/getAll", {
           method: "GET",
           credentials: "include",
           headers: { "Content-Type": "application/json" }
@@ -122,7 +122,7 @@ const Report = () => {
   useEffect(() => {
     const fetchLabour = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuildersDash/api/labours-details/getAll", {
+        const response = await fetch("http://localhost:8082/api/labours-details/getAll", {
           method: "GET",
           credentials: "include",
           headers: { "Content-Type": "application/json" }
@@ -142,7 +142,7 @@ const Report = () => {
   useEffect(() => {
     const fetchPurposes = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/loan-purposes/getAll', {
+        const response = await fetch('http://localhost:8082/api/loan-purposes/getAll', {
           method: "GET",
           credentials: "include",
           headers: { "Content-Type": "application/json" }

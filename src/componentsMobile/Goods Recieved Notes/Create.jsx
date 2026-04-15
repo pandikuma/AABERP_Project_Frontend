@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../PurchaseOrder/Header';
 import Sidebar from '../Bars/Sidebar';
@@ -12,51 +12,33 @@ const vendorCache = { data: null };
 const projectCache = { data: null };
 const siteEngineersCache = { data: null };
 const supportStaffCache = { data: null };
-const basePurchaseOrdersUrl = 'https://backendaab.in/aabuildersDash/api/purchase_orders';
-const FILE_UPLOAD_BASE_URL = 'https://backendaab.in/aabuildersDash/api/files';
-const GRN_IMAGES_BASE_URL = 'https://backendaab.in/aabuildersDash/api/grn-images';
-
+const basePurchaseOrdersUrl = 'http://localhost:8082/api/purchase_orders';
+const FILE_UPLOAD_BASE_URL = 'http://localhost:8082/api/files';
+const GRN_IMAGES_BASE_URL = 'http://localhost:8082/api/grn-images';
 /** Prefix for purchase-order-level (common) line placeholder; id is `${prefix}${poId}`. */
 const GRN_PO_COMMON_ID_PREFIX = '__grn_po_common__:';
-
 const uploadGrnFilesToBackend = async (files, { folder, fileNamePrefix } = {}) => {
   const uploadUrl = `${FILE_UPLOAD_BASE_URL}/upload`;
-  console.log('[GRN files/upload] sending', {
-    url: uploadUrl,
-    method: 'POST',
-    folder: folder || 'FileUpload / GRN_Images',
-    fileNamePrefix: fileNamePrefix || null,
-    fileCount: files.length,
-    fileNames: files.map((f) => f.name)
-  });
-
   const formData = new FormData();
   files.forEach((f) => formData.append('files', f));
   formData.append('folder', folder || 'FileUpload / GRN_Images');
   if (fileNamePrefix) formData.append('fileName', fileNamePrefix);
-
   const res = await fetch(uploadUrl, {
     method: 'POST',
     credentials: 'include',
     body: formData
   });
-
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     console.error('[GRN files/upload] error', { status: res.status, statusText: res.statusText, body: text });
     throw new Error(text || `Upload failed: ${res.status} ${res.statusText}`);
   }
-
   const data = await res.json();
   const urls = Array.isArray(data?.urls) ? data.urls : [];
-  console.log('[GRN files/upload] response', { status: res.status, urls, raw: data });
   return urls;
 };
-
 const saveGrnImageToApi = async (payload) => {
   const url = `${GRN_IMAGES_BASE_URL}/save`;
-  console.log('[GRN grn-images/save] sending', { url, method: 'POST', payload });
-
   const res = await fetch(url, {
     method: 'POST',
     credentials: 'include',
@@ -65,7 +47,6 @@ const saveGrnImageToApi = async (payload) => {
     },
     body: JSON.stringify(payload)
   });
-
   const responseText = await res.text().catch(() => '');
   let responseBody = responseText;
   try {
@@ -73,7 +54,6 @@ const saveGrnImageToApi = async (payload) => {
   } catch {
     // keep as string
   }
-
   if (!res.ok) {
     console.error('[GRN grn-images/save] error response', {
       status: res.status,
@@ -84,20 +64,17 @@ const saveGrnImageToApi = async (payload) => {
       typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody);
     throw new Error(errMsg || `Save GRN image failed: ${res.status} ${res.statusText}`);
   }
-
-  console.log('[GRN grn-images/save] response', { status: res.status, body: responseBody });
   return responseBody;
 };
-
-const setGrnRequestSendStatus = async (purchaseOrderId, status) => {
-  const url = `${basePurchaseOrdersUrl}/${purchaseOrderId}/grn-request?status=${status ? 'true' : 'false'}`;
-  console.log('[GRN purchase_orders/grn-request] sending', { url, method: 'PATCH' });
-
+const fetchGrnImagesForPurchaseOrder = async (purchaseOrderId) => {
+  const url = `${GRN_IMAGES_BASE_URL}?purchaseOrderId=${purchaseOrderId}`;
   const res = await fetch(url, {
-    method: 'PATCH',
-    credentials: 'include'
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    }
   });
-
   const responseText = await res.text().catch(() => '');
   let responseBody = responseText;
   try {
@@ -105,7 +82,30 @@ const setGrnRequestSendStatus = async (purchaseOrderId, status) => {
   } catch {
     // keep as string
   }
-
+  if (!res.ok) {
+    console.error('[GRN grn-images/get] error response', {
+      status: res.status,
+      statusText: res.statusText,
+      body: responseBody
+    });
+    const errMsg = typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody);
+    throw new Error(errMsg || `Fetch GRN images failed: ${res.status} ${res.statusText}`);
+  }
+  return Array.isArray(responseBody) ? responseBody : [];
+};
+const setGrnRequestSendStatus = async (purchaseOrderId, status) => {
+  const url = `${basePurchaseOrdersUrl}/${purchaseOrderId}/grn-request?status=${status ? 'true' : 'false'}`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    credentials: 'include'
+  });
+  const responseText = await res.text().catch(() => '');
+  let responseBody = responseText;
+  try {
+    responseBody = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    // keep as string
+  }
   if (!res.ok) {
     console.error('[GRN purchase_orders/grn-request] error response', {
       status: res.status,
@@ -115,11 +115,8 @@ const setGrnRequestSendStatus = async (purchaseOrderId, status) => {
     const errMsg = typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody);
     throw new Error(errMsg || `Failed to update grn-request: ${res.status} ${res.statusText}`);
   }
-
-  console.log('[GRN purchase_orders/grn-request] response', { status: res.status, body: responseBody });
   return responseBody;
 };
-
 /** One POST /api/grn-images/save per URL (description and quantity per row). */
 const saveGrnRecordsFromSlots = async (urls, descriptions, { purchaseOrderId, isPoLevel, purchaseOrderTableId, quantityStr }) => {
   for (let i = 0; i < urls.length; i += 1) {
@@ -140,7 +137,6 @@ const saveGrnRecordsFromSlots = async (urls, descriptions, { purchaseOrderId, is
     await saveGrnImageToApi(payload);
   }
 };
-
 const buildGrnImageFileNamePrefix = ({ purchaseOrderId, purchaseOrderTableId, isPoLevel }) => {
   const safePart = (value) =>
     String(value ?? '')
@@ -148,49 +144,65 @@ const buildGrnImageFileNamePrefix = ({ purchaseOrderId, purchaseOrderTableId, is
       .replace(/\s+/g, '_')
       .replace(/[^a-zA-Z0-9_-]/g, '')
       .slice(0, 80);
-
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   const ts = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}_${pad(now.getHours())}:${pad(
     now.getMinutes()
   )}:${pad(now.getSeconds())}`;
-
   if (isPoLevel) {
     return `GRN_PO_${safePart(purchaseOrderId) || 'po'}_${ts}`;
   }
   return `GRN_${safePart(purchaseOrderId) || 'po'}_row_${safePart(purchaseOrderTableId) || 'line'}_${ts}`;
 };
-
 const findNameById = (dataArray, id, fieldNames = []) => {
   if (!id || !Array.isArray(dataArray)) return '';
   const idStr = String(id);
   const found = dataArray.find((item) => String(item?.id || item?._id || '') === idStr);
   if (!found) return '';
-
   for (const fieldName of fieldNames) {
     if (found?.[fieldName]) return found[fieldName];
   }
-
   return found?.name || found?.label || found?.value || '';
 };
-
 const formatCardTime = (value) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-
   return `${date.toLocaleDateString('en-GB')} - ${date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit'
   })}`;
 };
-
 const getGrnStatus = (purchaseOrder) => {
-  if (purchaseOrder?.grnCompleted || purchaseOrder?.grn_completed || purchaseOrder?.is_Grn_completed) return 'Completed';
+  if (
+    purchaseOrder?.grnCompleted ||
+    purchaseOrder?.grn_completed ||
+    purchaseOrder?.is_Grn_completed ||
+    purchaseOrder?.is_grn_completed
+  )
+    return 'Completed';
   if (purchaseOrder?.grnVerified || purchaseOrder?.grn_verified || purchaseOrder?.is_grn_verified) return 'Review';
+  // If GRN verification was rejected, keep it in Review (not Pending)
+  if (
+    purchaseOrder?.grnVerificationRejected ||
+    purchaseOrder?.grn_verification_rejected ||
+    purchaseOrder?.is_grn_verification_rejected ||
+    purchaseOrder?.isGrnVerificationRejected
+  )
+    return 'Review';
+  // If GRN request has been sent, it should move out of Pending into Review.
+  if (
+    purchaseOrder?.grnRequestSend ||
+    purchaseOrder?.grn_request_send ||
+    purchaseOrder?.grnRequestSent ||
+    purchaseOrder?.grn_request_sent ||
+    purchaseOrder?.is_grn_request_send ||
+    purchaseOrder?.is_grn_send_request ||
+    purchaseOrder?.isGrnSendRequest
+  )
+    return 'Review';
   return 'Pending';
 };
-
 const mapPurchaseOrderItems = (
   rows = [],
   poItemName = [],
@@ -222,7 +234,6 @@ const mapPurchaseOrderItems = (
       item?.typeName ||
       item?.typeColor ||
       findNameById(poType, item?.type_id || item?.typeId, ['typeColor', 'type', 'typeName']);
-
     const rawTableRowId = item?.id ?? item?.purchaseOrderTableId ?? item?.purchase_order_table_id;
     const numericTableRowId =
       rawTableRowId !== undefined && rawTableRowId !== null
@@ -231,6 +242,15 @@ const mapPurchaseOrderItems = (
     const purchaseOrderTableId =
       numericTableRowId !== null && Number.isFinite(numericTableRowId) ? numericTableRowId : null;
 
+    const rejectedReason = item?.rejectedReason ?? item?.rejected_reason ?? item?.rejectionReason ?? '';
+    const isRejected = Boolean(
+      item?.isRejected ??
+        item?.is_rejected ??
+        item?.rejected ??
+        item?.is_reject ??
+        item?.isRejectedItem ??
+        false
+    );
     return {
       id: item?.id || `item-${index}`,
       purchaseOrderTableId,
@@ -240,11 +260,12 @@ const mapPurchaseOrderItems = (
       category,
       orderedQuantity: quantity,
       quantity: `${quantity}/${quantity} Qty`,
+      isRejected,
+      rejectedReason: rejectedReason ? String(rejectedReason) : '',
       categoryColor: category.toLowerCase().includes('paint') ? 'text-[#1EBD9D]' : 'text-[#4F5DFF]',
       categoryBg: category.toLowerCase().includes('paint') ? 'bg-[#E4FFF8]' : 'bg-[#EEF0FF]'
     };
   });
-
 const mapPurchaseOrderToCard = (
   purchaseOrder,
   vendorNameOptions = [],
@@ -278,17 +299,16 @@ const mapPurchaseOrderToCard = (
     '';
   const items = mapPurchaseOrderItems(
     purchaseOrder?.purchaseOrderTable ||
-      purchaseOrder?.purchaseTable ||
-      purchaseOrder?.poTable ||
-      purchaseOrder?.items ||
-      [],
+    purchaseOrder?.purchaseTable ||
+    purchaseOrder?.poTable ||
+    purchaseOrder?.items ||
+    [],
     poItemName,
     poBrand,
     poModel,
     poType,
     categoryOptions
   );
-
   const mappedCard = {
     id: purchaseOrder?.id || purchaseOrder?._id || purchaseOrder?.eno,
     status: getGrnStatus(purchaseOrder),
@@ -300,18 +320,20 @@ const mapPurchaseOrderToCard = (
     ),
     engineerName: resolvedEngineer,
     contact: purchaseOrder?.contact || purchaseOrder?.site_incharge_mobile_number || '',
+    description: purchaseOrder?.description ?? '',
+    isGrnVerificationRejected: Boolean(
+      purchaseOrder?.grnVerificationRejected ??
+        purchaseOrder?.grn_verification_rejected ??
+        purchaseOrder?.is_grn_verification_rejected ??
+        purchaseOrder?.is_grn_verification_reject ??
+        purchaseOrder?.isGrnVerificationRejected ??
+        false
+    ),
     itemsCount: items.length,
     items
   };
-
-  console.log('GRN Create mapped purchase order card:', {
-    rawPurchaseOrder: purchaseOrder,
-    mappedCard
-  });
-
   return mappedCard;
 };
-
 const Create = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -349,6 +371,7 @@ const Create = ({ user, onLogout }) => {
   /** Server URLs from /api/files/upload (auto after picker); header Submit persists via /api/grn-images/save */
   const [grnUploadedImageUrls, setGrnUploadedImageUrls] = useState({});
   const [isUploadingGrn, setIsUploadingGrn] = useState(false);
+  const [infoPopup, setInfoPopup] = useState({ open: false, title: '', message: '' });
   const grnUploadedImageUrlsRef = useRef({});
   useEffect(() => {
     grnUploadedImageUrlsRef.current = grnUploadedImageUrls;
@@ -368,7 +391,6 @@ const Create = ({ user, onLogout }) => {
     if (!selectedInchargeId) {
       return [];
     }
-
     return purchaseOrders.map((purchaseOrder) =>
       mapPurchaseOrderToCard(
         purchaseOrder,
@@ -393,7 +415,6 @@ const Create = ({ user, onLogout }) => {
       }),
     [activeStatus, cards, selectedInchargeFilter, selectedVendorFilter]
   );
-
   useEffect(() => {
     const fetchVendorNames = async () => {
       try {
@@ -410,10 +431,10 @@ const Create = ({ user, onLogout }) => {
         const data = await response.json();
         const formattedData = Array.isArray(data)
           ? data.map((item) => ({
-              value: item.vendorName,
-              label: item.vendorName,
-              id: item.id
-            }))
+            value: item.vendorName,
+            label: item.vendorName,
+            id: item.id
+          }))
           : [];
         vendorCache.data = formattedData;
         setVendorNameOptions(formattedData);
@@ -421,10 +442,8 @@ const Create = ({ user, onLogout }) => {
         console.error('Error fetching vendor names:', error);
       }
     };
-
     fetchVendorNames();
   }, []);
-
   useEffect(() => {
     const fetchSites = async () => {
       try {
@@ -441,10 +460,10 @@ const Create = ({ user, onLogout }) => {
         const data = await response.json();
         const formattedData = Array.isArray(data)
           ? data.map((item) => ({
-              value: item.siteName || item.projectName || '',
-              label: item.siteName || item.projectName || '',
-              id: item.id
-            }))
+            value: item.siteName || item.projectName || '',
+            label: item.siteName || item.projectName || '',
+            id: item.id
+          }))
           : [];
         projectCache.data = formattedData;
         setSiteOptions(formattedData);
@@ -452,22 +471,20 @@ const Create = ({ user, onLogout }) => {
         console.error('Error fetching project names:', error);
       }
     };
-
     fetchSites();
   }, []);
-
   useEffect(() => {
     const fetchBothLists = async () => {
       try {
         const [employeeResponse, supportStaffResponse] = await Promise.all([
-          fetch('https://backendaab.in/aabuildersDash/api/employee_details/site_engineers', {
+          fetch('http://localhost:8082/api/employee_details/site_engineers', {
             method: 'GET',
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json'
             }
           }),
-          fetch('https://backendaab.in/aabuildersDash/api/support_staff/getAll', {
+          fetch('http://localhost:8082/api/support_staff/getAll', {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -475,14 +492,12 @@ const Create = ({ user, onLogout }) => {
             }
           })
         ]);
-
         if (employeeResponse.ok) {
           const employeeData = await employeeResponse.json();
           const employees = Array.isArray(employeeData) ? employeeData : [];
           siteEngineersCache.data = employees;
           setEmployeeList(employees);
         }
-
         if (supportStaffResponse.ok) {
           const supportStaffData = await supportStaffResponse.json();
           const staff = Array.isArray(supportStaffData) ? supportStaffData : [];
@@ -493,14 +508,12 @@ const Create = ({ user, onLogout }) => {
         console.error('Error fetching project incharge options:', error);
       }
     };
-
     fetchBothLists();
   }, []);
-
   useEffect(() => {
     const fetchPoItemName = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+        const response = await fetch('http://localhost:8082/api/po_itemNames/getAll');
         if (response.ok) {
           const data = await response.json();
           setPoItemName(Array.isArray(data) ? data : []);
@@ -509,10 +522,9 @@ const Create = ({ user, onLogout }) => {
         console.error('Error fetching PO item names:', error);
       }
     };
-
     const fetchPoBrand = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
+        const response = await fetch('http://localhost:8082/api/po_brand/getAll');
         if (response.ok) {
           const data = await response.json();
           setPoBrand(Array.isArray(data) ? data : []);
@@ -521,10 +533,9 @@ const Create = ({ user, onLogout }) => {
         console.error('Error fetching PO brands:', error);
       }
     };
-
     const fetchPoModel = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
+        const response = await fetch('http://localhost:8082/api/po_model/getAll');
         if (response.ok) {
           const data = await response.json();
           setPoModel(Array.isArray(data) ? data : []);
@@ -533,10 +544,9 @@ const Create = ({ user, onLogout }) => {
         console.error('Error fetching PO models:', error);
       }
     };
-
     const fetchPoType = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
+        const response = await fetch('http://localhost:8082/api/po_type/getAll');
         if (response.ok) {
           const data = await response.json();
           setPoType(Array.isArray(data) ? data : []);
@@ -545,10 +555,9 @@ const Create = ({ user, onLogout }) => {
         console.error('Error fetching PO types:', error);
       }
     };
-
     const fetchPoCategory = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
+        const response = await fetch('http://localhost:8082/api/po_category/getAll');
         if (response.ok) {
           const data = await response.json();
           setCategoryOptions(Array.isArray(data) ? data : []);
@@ -557,137 +566,147 @@ const Create = ({ user, onLogout }) => {
         console.error('Error fetching PO categories:', error);
       }
     };
-
     fetchPoItemName();
     fetchPoBrand();
     fetchPoModel();
     fetchPoType();
     fetchPoCategory();
   }, []);
-
   useEffect(() => {
     const username = user?.username ? String(user.username).trim().toLowerCase() : '';
     if (!username) return;
     if (selectedInchargeId || selectedInchargeFilter) return;
     if (!Array.isArray(employeeList) || employeeList.length === 0) return;
-
     const matchedEmployee = employeeList.find((employee) => {
       const employeeUsername = employee.user_name || employee.userName || employee.username || '';
       return String(employeeUsername).trim().toLowerCase() === username;
     });
-
     if (!matchedEmployee) return;
-
     const resolvedName =
       matchedEmployee.employeeName ||
       matchedEmployee.name ||
       matchedEmployee.fullName ||
       matchedEmployee.employee_name ||
       '';
-
     if (!resolvedName) return;
-
-    console.log('GRN Create auto-selected engineer from login:', {
-      username,
-      matchedEmployee
-    });
-
     setSelectedInchargeFilter(resolvedName);
     setSelectedInchargeId(matchedEmployee.id || null);
   }, [employeeList, selectedInchargeFilter, selectedInchargeId, user]);
-
   useEffect(() => {
     setSelectedCard(null);
     setSelectedItem(null);
   }, [activeStatus, selectedVendorFilter, selectedInchargeFilter]);
-
   useEffect(() => {
     setSelectedItem(null);
   }, [selectedCard?.id]);
 
-  useEffect(() => {
-    const fetchPurchaseOrdersByIncharge = async () => {
-      if (!selectedInchargeId) {
-        setPurchaseOrders([]);
-        return;
+  const refetchPurchaseOrdersByIncharge = useCallback(async () => {
+    if (!selectedInchargeId) {
+      setPurchaseOrders([]);
+      return;
+    }
+    try {
+      const response = await fetch(`${basePurchaseOrdersUrl}/site-incharge/${selectedInchargeId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`PO fetch failed: ${response.status}`);
       }
+      const data = await response.json();
+      setPurchaseOrders(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching purchase orders by site incharge:', error);
+      setPurchaseOrders([]);
+    }
+  }, [selectedInchargeId]);
 
+  // When a PO card is opened, preload already-saved GRN images (and their descriptions/quantities)
+  // from `grn_images_with_details` via GET /api/grn-images?purchaseOrderId=...
+  useEffect(() => {
+    const poId = selectedCard?.id != null ? Number(selectedCard.id) : null;
+    if (!poId || !Number.isFinite(poId)) return;
+
+    let cancelled = false;
+    (async () => {
       try {
-        console.log('GRN Create fetching purchase orders for site incharge:', {
-          selectedInchargeId,
-          selectedInchargeFilter
-        });
+        const rows = await fetchGrnImagesForPurchaseOrder(poId);
+        if (cancelled) return;
 
-        const response = await fetch(`${basePurchaseOrdersUrl}/site-incharge/${selectedInchargeId}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
+        const urlsByKey = {};
+        const descByKey = {};
+        const qtyByLineId = {};
+
+        const commonKey = `${GRN_PO_COMMON_ID_PREFIX}${poId}-common`;
+
+        rows.forEach((r) => {
+          const url = r?.image_url ?? r?.imageUrl ?? '';
+          if (!url) return;
+          const description = r?.description ?? '';
+          const qty = r?.quantity ?? '';
+          const tableIdRaw = r?.purchase_order_table_id ?? r?.purchaseOrderTableId ?? null;
+          const tableId = tableIdRaw != null && tableIdRaw !== '' ? Number(tableIdRaw) : null;
+
+          const key = tableId && Number.isFinite(tableId) ? `${tableId}-card` : commonKey;
+          if (!urlsByKey[key]) urlsByKey[key] = [];
+          if (!descByKey[key]) descByKey[key] = [];
+          const idx = urlsByKey[key].length;
+          urlsByKey[key].push(url);
+          descByKey[key][idx] = description;
+
+          if (tableId && Number.isFinite(tableId) && qty && qtyByLineId[tableId] == null) {
+            qtyByLineId[tableId] = String(qty);
           }
         });
 
-        if (!response.ok) {
-          throw new Error(`PO fetch failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('GRN Create site-incharge API response:', data);
-        setPurchaseOrders(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('Error fetching purchase orders by site incharge:', error);
-        setPurchaseOrders([]);
+        setGrnUploadedImageUrls((prev) => ({ ...prev, ...urlsByKey }));
+        grnUploadedImageUrlsRef.current = { ...grnUploadedImageUrlsRef.current, ...urlsByKey };
+        setItemImageDescriptions((prev) => ({ ...prev, ...descByKey }));
+        setReceivedQuantities((prev) => {
+          const next = { ...prev };
+          Object.entries(qtyByLineId).forEach(([tableId, qty]) => {
+            // Use the item id (which is the purchaseOrderTableId in this screen) for quantity mapping.
+            if (next[tableId] == null || String(next[tableId]).trim() === '') {
+              next[tableId] = qty;
+            }
+          });
+          return next;
+        });
+      } catch (e) {
+        console.error('Failed to preload GRN images for PO', poId, e);
       }
+    })();
+
+    return () => {
+      cancelled = true;
     };
-
-    fetchPurchaseOrdersByIncharge();
-  }, [selectedInchargeId]);
-
+  }, [selectedCard?.id]);
   useEffect(() => {
-    if (!selectedInchargeId) return;
-
-    console.log(
-      'GRN Create mapped cards state:',
-      purchaseOrders.map((purchaseOrder) =>
-        mapPurchaseOrderToCard(
-          purchaseOrder,
-          vendorNameOptions,
-          siteOptions,
-          employeeList,
-          poItemName,
-          poBrand,
-          poModel,
-          poType,
-          categoryOptions
-        )
-      )
-    );
-  }, [categoryOptions, employeeList, poBrand, poItemName, poModel, poType, purchaseOrders, selectedInchargeId, siteOptions, vendorNameOptions]);
-
+    refetchPurchaseOrdersByIncharge();
+  }, [refetchPurchaseOrdersByIncharge]);
   const getStatusBadgeStyles = (status) => {
     if (status === 'Review') return 'bg-[#FFF4E5] text-[#C98A1C]';
     if (status === 'Completed') return 'bg-[#E8F8EE] text-[#13A14B]';
     return 'bg-[#FFF0EA] text-[#F07A4A]';
   };
-
   const getStatusDotStyles = (status) => {
     if (status === 'Review') return 'bg-[#C98A1C]';
     if (status === 'Completed') return 'bg-[#13A14B]';
     return 'bg-[#F07A4A]';
   };
-
   const getStatusLabel = (status) => {
     if (status === 'Review') return 'In Review';
     return status;
   };
-
   const handleMenuClick = () => {
     setSidebarOpen(true);
   };
-
   const handleSidebarClose = () => {
     setSidebarOpen(false);
   };
-
   const handleNavigate = (page) => {
     if (page === 'request-for-quotation') {
       setCurrentPage('request-for-quotation');
@@ -715,7 +734,6 @@ const Create = ({ user, onLogout }) => {
       navigate('/loan');
     }
   };
-
   const openImagePickerSheet = (itemId) => {
     grnFilePickerTargetRef.current = { itemId, mode: selectedItemMode };
     setActiveImageItemId(itemId);
@@ -723,30 +741,25 @@ const Create = ({ user, onLogout }) => {
       galleryInputRef.current.click();
     }
   };
-
   const handleOpenItemDetails = (item, showQty = true, mode = 'card') => {
     setSelectedItem(item);
     setSelectedItemMode(mode);
     setShowQtyInput(showQty);
   };
-
   const handleCloseItemDetails = () => {
     setSelectedItem(null);
     setShowQtyInput(false);
     setSelectedItemMode('card');
   };
-
   const handleImageSelection = async (event) => {
     const files = Array.from(event.target.files || []);
     event.target.value = '';
     if (files.length === 0) return;
     if (!selectedCard?.id || !selectedItem) return;
-
     const picker = grnFilePickerTargetRef.current;
     const itemId = picker?.itemId ?? activeImageItemId;
     const mode = picker?.mode ?? selectedItemMode;
     if (!itemId) return;
-
     const imageKey = `${itemId}-${mode}`;
     const existingUrls = grnUploadedImageUrlsRef.current[imageKey] || [];
     const room = Math.max(0, 5 - existingUrls.length);
@@ -755,15 +768,12 @@ const Create = ({ user, onLogout }) => {
       window.alert('You can add at most 5 images per line.');
       return;
     }
-
     const purchaseOrderId = Number(selectedCard.id);
     if (!Number.isFinite(purchaseOrderId)) {
       window.alert('Invalid purchase order id.');
       return;
     }
-
     const isPoLevel = Boolean(selectedItem.isPoLevel);
-
     setIsUploadingGrn(true);
     try {
       const newUrls = await uploadGrnFilesToBackend(filesToUpload, {
@@ -777,11 +787,9 @@ const Create = ({ user, onLogout }) => {
       if (newUrls.length !== filesToUpload.length) {
         throw new Error('Upload did not return a URL for every file.');
       }
-
       const merged = [...existingUrls, ...newUrls];
       setGrnUploadedImageUrls((prev) => ({ ...prev, [imageKey]: merged }));
       grnUploadedImageUrlsRef.current = { ...grnUploadedImageUrlsRef.current, [imageKey]: merged };
-
       const previewIdx = merged.length - 1;
       setActivePreviewImageIndex((prev) => ({
         ...prev,
@@ -794,9 +802,7 @@ const Create = ({ user, onLogout }) => {
       setIsUploadingGrn(false);
     }
   };
-
   const currentImageKey = selectedItem ? `${selectedItem.id}-${selectedItemMode}` : null;
-
   const handleOpenPoCommonImages = () => {
     if (!selectedCard) return;
     const poLevelItem = {
@@ -810,33 +816,26 @@ const Create = ({ user, onLogout }) => {
     };
     handleOpenItemDetails(poLevelItem, false, 'common');
   };
-
   /** Item-detail header Submit: POST /api/grn-images/save for the open line only. */
   const handleSaveGrnImagesToBackend = async () => {
     if (!selectedCard?.id || !selectedItem || !currentImageKey) return;
-
     const urls = grnUploadedImageUrls[currentImageKey] || [];
-
     if (urls.length === 0) {
       window.alert('Add at least one image using + (images upload automatically).');
       return;
     }
-
     const isPoLevel = Boolean(selectedItem.isPoLevel);
     if (!isPoLevel && (selectedItem.purchaseOrderTableId == null || Number.isNaN(selectedItem.purchaseOrderTableId))) {
       window.alert('This line item has no table id from the server. Save is blocked until the PO row id is available.');
       return;
     }
-
     const purchaseOrderId = Number(selectedCard.id);
     if (!Number.isFinite(purchaseOrderId)) {
       window.alert('Invalid purchase order id.');
       return;
     }
-
     const descriptions = itemImageDescriptions[currentImageKey] || [];
     const quantityStr = isPoLevel ? '' : String(receivedQuantities[selectedItem.id] ?? '').trim();
-
     setIsSubmittingGrn(true);
     try {
       await saveGrnRecordsFromSlots(urls, descriptions, {
@@ -845,16 +844,16 @@ const Create = ({ user, onLogout }) => {
         purchaseOrderTableId: selectedItem.purchaseOrderTableId,
         quantityStr
       });
-
       // mark GRN request sent after successful save
       await setGrnRequestSendStatus(purchaseOrderId, true);
-
       setGrnUploadedImageUrls((prev) => ({ ...prev, [currentImageKey]: [] }));
       grnUploadedImageUrlsRef.current = { ...grnUploadedImageUrlsRef.current, [currentImageKey]: [] };
       setItemImageDescriptions((prev) => ({ ...prev, [currentImageKey]: [] }));
       setActivePreviewImageIndex((prev) => ({ ...prev, [currentImageKey]: 0 }));
       window.alert('Images saved successfully.');
       handleCloseItemDetails();
+      // refresh list so status/tabs update without page reload
+      refetchPurchaseOrdersByIncharge();
     } catch (error) {
       console.error('GRN image save error:', error);
       window.alert(error?.message || 'Failed to save images.');
@@ -862,20 +861,16 @@ const Create = ({ user, onLogout }) => {
       setIsSubmittingGrn(false);
     }
   };
-
   /** PO card view Submit: save every line (and common PO images) that has uploaded URLs. */
   const handleSubmitAllGrnForSelectedCard = async () => {
     if (!selectedCard?.id) return;
-
     const purchaseOrderId = Number(selectedCard.id);
     if (!Number.isFinite(purchaseOrderId)) {
       window.alert('Invalid purchase order id.');
       return;
     }
-
     const commonKey = `${GRN_PO_COMMON_ID_PREFIX}${selectedCard.id}-common`;
     const tasks = [];
-
     const commonUrls = grnUploadedImageUrls[commonKey] || [];
     if (commonUrls.length > 0) {
       tasks.push({
@@ -890,7 +885,6 @@ const Create = ({ user, onLogout }) => {
         }
       });
     }
-
     for (const item of selectedCard.items) {
       const key = `${item.id}-card`;
       const urls = grnUploadedImageUrls[key] || [];
@@ -912,12 +906,10 @@ const Create = ({ user, onLogout }) => {
         }
       });
     }
-
     if (tasks.length === 0) {
       window.alert('No uploaded images to save. Open Image on each item (or use the common upload) first.');
       return;
     }
-
     setIsSubmittingGrn(true);
     try {
       const keysToClear = [];
@@ -925,10 +917,8 @@ const Create = ({ user, onLogout }) => {
         await saveGrnRecordsFromSlots(t.urls, t.descriptions, t.opts);
         keysToClear.push(t.key);
       }
-
       // mark GRN request sent after successful batch save
       await setGrnRequestSendStatus(purchaseOrderId, true);
-
       setGrnUploadedImageUrls((prev) => {
         const next = { ...prev };
         keysToClear.forEach((k) => {
@@ -941,7 +931,6 @@ const Create = ({ user, onLogout }) => {
         refNext[k] = [];
       });
       grnUploadedImageUrlsRef.current = refNext;
-
       setItemImageDescriptions((prev) => {
         const next = { ...prev };
         keysToClear.forEach((k) => {
@@ -956,8 +945,9 @@ const Create = ({ user, onLogout }) => {
         });
         return next;
       });
-
       window.alert('All images saved successfully.');
+      // refresh list so status/tabs update without page reload
+      refetchPurchaseOrdersByIncharge();
     } catch (error) {
       console.error('GRN batch save error:', error);
       window.alert(error?.message || 'Failed to save images.');
@@ -965,7 +955,6 @@ const Create = ({ user, onLogout }) => {
       setIsSubmittingGrn(false);
     }
   };
-
   return (
     <div className="relative w-full h-[100vh] bg-white max-w-[360px] mx-auto overflow-hidden" style={{ fontFamily: "'Manrope', sans-serif" }}>
       <Sidebar
@@ -975,7 +964,6 @@ const Create = ({ user, onLogout }) => {
         currentPage={currentPage}
         userRoles={user?.userRoles || []}
       />
-
       <Header
         title="Goods Recieved Note"
         user={user}
@@ -992,6 +980,26 @@ const Create = ({ user, onLogout }) => {
         />
       </Header>
 
+      {infoPopup.open ? (
+        <div className="absolute inset-0 z-[9999] bg-black/40 flex items-center justify-center px-4">
+          <div className="w-full max-w-[320px] rounded-[10px] bg-white p-4">
+            <p className="text-[14px] font-semibold text-[#202020]">{infoPopup.title || 'Info'}</p>
+            <div className="mt-2 max-h-[220px] overflow-y-auto whitespace-pre-wrap text-[12px] text-[#3F3F3F]">
+              {infoPopup.message || ''}
+            </div>
+            <div className="mt-3 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setInfoPopup({ open: false, title: '', message: '' })}
+                className="text-[13px] font-semibold text-white bg-[#202020] px-3 py-2 rounded-[8px]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-[126px] h-[calc(100vh-126px-80px)] overflow-y-auto no-scrollbar bg-white">
         <div className="pb-[16px]">
           {selectedCard ? (
@@ -999,28 +1007,47 @@ const Create = ({ user, onLogout }) => {
               {selectedItem ? (
                 <>
                   <div className="flex items-center justify-between border-b border-[#E0E0E0] pb-[8px] mb-[8px]">
-                    <button
-                      type="button"
-                      onClick={handleCloseItemDetails}
+                    <button type="button" onClick={handleCloseItemDetails}
                       className="flex items-center gap-[6px] text-[12px] font-medium text-[#202020]"
                     >
                       <span className="text-[15px] leading-none">&larr;</span>
                       Back
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveGrnImagesToBackend}
-                      disabled={isSubmittingGrn}
-                      className="text-[12px] font-semibold text-[#202020] disabled:opacity-40"
-                    >
-                      {isSubmittingGrn ? 'Saving…' : 'Submit'}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {activeStatus !== 'Completed' ? (
+                        <button
+                          type="button"
+                          onClick={handleSaveGrnImagesToBackend}
+                          disabled={isSubmittingGrn}
+                          className="text-[12px] font-semibold text-[#202020] disabled:opacity-40"
+                        >
+                          {isSubmittingGrn ? 'Saving…' : 'Submit'}
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-
                   <div className="pb-[80px] text-left">
-                    <p className="text-[10px] font-semibold text-[#202020]">{selectedCard.vendorName}</p>
-                    <p className="mt-[2px] text-[10px] font-semibold text-[#202020]">{selectedCard.siteName}</p>
-
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold text-[#202020]">{selectedCard.vendorName}</p>
+                        <p className="mt-[2px] text-[10px] font-semibold text-[#202020]">{selectedCard.siteName}</p>
+                      </div>
+                      {selectedItem?.isRejected && String(selectedItem?.rejectedReason || '').trim() ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setInfoPopup({
+                              open: true,
+                              title: 'Rejection Reason',
+                              message: String(selectedItem?.rejectedReason || '')
+                            })
+                          }
+                          className="shrink-0 text-[12px] font-semibold text-[#E4572E] underline underline-offset-2"
+                        >
+                          View Reason
+                        </button>
+                      ) : null}
+                    </div>
                     <div className="mt-[10px] h-[270px] rounded-[2px] bg-[#F0F0F0] flex items-center justify-center overflow-hidden relative">
                       {isUploadingGrn && (
                         <div className="absolute inset-0 z-[1] flex items-center justify-center bg-black/20 text-[12px] font-semibold text-white">
@@ -1045,15 +1072,14 @@ const Create = ({ user, onLogout }) => {
                         );
                       })()}
                     </div>
-
                     <p className="mt-[5px] text-[10px] font-semibold text-[#202020]">
                       {[selectedItem.name, selectedItem.brand, selectedItem.type].filter(Boolean).join(' - ')}
                     </p>
-
                     {showQtyInput && (
                       <input
                         type="text"
                         value={receivedQuantities[selectedItem.id] || ''}
+                        readOnly={activeStatus === 'Completed'}
                         onChange={(e) =>
                           setReceivedQuantities((prev) => ({
                             ...prev,
@@ -1064,12 +1090,12 @@ const Create = ({ user, onLogout }) => {
                         className="mt-[6px] w-full h-[32px] rounded-[4px] border border-[#D0D0D0] px-[10px] text-[12px] font-medium text-[#202020] placeholder:text-[#A7A7A7] focus:outline-none"
                       />
                     )}
-
                     <div className="mt-[6px]">
                       <p className="text-[12px] font-semibold text-[#202020]">Description</p>
                       <textarea
                         value={itemImageDescriptions[currentImageKey]?.[activePreviewImageIndex[currentImageKey] || 0] || ''}
                         onChange={(e) => {
+                          if (activeStatus === 'Completed') return;
                           const currentImageIndex = activePreviewImageIndex[currentImageKey] || 0;
                           setItemImageDescriptions((prev) => {
                             const itemDescriptions = prev[currentImageKey] || [];
@@ -1083,10 +1109,10 @@ const Create = ({ user, onLogout }) => {
                         }}
                         placeholder="Enter Your Description"
                         rows={4}
+                        readOnly={activeStatus === 'Completed'}
                         className="mt-[6px] w-full rounded-[4px] border border-[#D0D0D0] px-[10px] py-[10px] text-[12px] font-medium text-[#202020] placeholder:text-[#A7A7A7] focus:outline-none resize-none"
                       />
                     </div>
-
                     <div className="mt-[8px] flex items-center gap-[6px] overflow-x-auto no-scrollbar">
                       {(grnUploadedImageUrls[currentImageKey] || []).map((url, index) => (
                         <button
@@ -1098,9 +1124,8 @@ const Create = ({ user, onLogout }) => {
                               [currentImageKey]: index
                             }))
                           }
-                          className={`w-[40px] h-[40px] bg-[#EFEFEF] border flex-shrink-0 overflow-hidden ${
-                            (activePreviewImageIndex[currentImageKey] || 0) === index ? 'border-[#4F5DFF]' : 'border-[#E2E2E2]'
-                          }`}
+                          className={`w-[40px] h-[40px] bg-[#EFEFEF] border flex-shrink-0 overflow-hidden ${(activePreviewImageIndex[currentImageKey] || 0) === index ? 'border-[#4F5DFF]' : 'border-[#E2E2E2]'
+                            }`}
                         >
                           <img src={url} alt={`${selectedItem.name} ${index + 1}`} className="w-full h-full object-cover" />
                         </button>
@@ -1109,7 +1134,9 @@ const Create = ({ user, onLogout }) => {
                         type="button"
                         onClick={() => openImagePickerSheet(selectedItem.id)}
                         disabled={
-                          isUploadingGrn || (grnUploadedImageUrls[currentImageKey] || []).length >= 5
+                          activeStatus === 'Completed' ||
+                          isUploadingGrn ||
+                          (grnUploadedImageUrls[currentImageKey] || []).length >= 5
                         }
                         className="w-[40px] h-[40px] bg-[#EFEFEF] flex items-center justify-center text-[#BEBEBE] text-[32px] leading-none flex-shrink-0 disabled:opacity-40"
                       >
@@ -1129,6 +1156,7 @@ const Create = ({ user, onLogout }) => {
                       <span className="text-[15px] leading-none">&larr;</span>
                       Back
                     </button>
+                  {activeStatus !== 'Completed' ? (
                     <button
                       type="button"
                       onClick={handleSubmitAllGrnForSelectedCard}
@@ -1137,23 +1165,21 @@ const Create = ({ user, onLogout }) => {
                     >
                       {isSubmittingGrn ? 'Saving…' : 'Submit'}
                     </button>
+                  ) : null}
                   </div>
-
                   <div className="mt-[8px] rounded-[6px] bg-[#F1F4F8] p-[4px] flex items-center gap-[6px]">
                     {statusTabs.map((tab) => (
                       <button
                         key={tab}
                         type="button"
                         onClick={() => setActiveStatus(tab)}
-                        className={`flex-1 h-[28px] rounded-[4px] text-[12px] font-medium ${
-                          activeStatus === tab ? 'bg-white text-[#202020] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]' : 'text-[#7D828B]'
-                        }`}
+                        className={`flex-1 h-[28px] rounded-[4px] text-[12px] font-medium ${activeStatus === tab ? 'bg-white text-[#202020] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]' : 'text-[#7D828B]'
+                          }`}
                       >
                         {tab}
                       </button>
                     ))}
                   </div>
-
                   <div className="mt-[10px] rounded-[10px] border border-[#A9A9A9] bg-white px-[12px] py-[10px]">
                     <div className="flex items-start mb-[8px]">
                       <p className="w-[110px] text-[12px] font-medium text-[#3F3F3F]">Vendor Name</p>
@@ -1176,14 +1202,27 @@ const Create = ({ user, onLogout }) => {
                       <p className="text-[12px] font-medium text-[#A6A6A6]">{selectedCard.contact}</p>
                     </div>
                   </div>
-
                   <div className="mt-[12px] mb-[10px] flex items-center gap-[8px] border-b border-[#E0E0E0] pb-[8px]">
                     <p className="text-[14px] font-medium text-black">Items</p>
                     <div className="w-[24px] h-[24px] rounded-full bg-[#E2E2E2] flex items-center justify-center text-[12px] font-semibold text-black">
                       {selectedCard.items.length}
                     </div>
+                    {selectedCard.isGrnVerificationRejected && String(selectedCard.description || '').trim() ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setInfoPopup({
+                            open: true,
+                            title: 'Rejection Reason',
+                            message: String(selectedCard.description || '')
+                          })
+                        }
+                        className="ml-auto text-[11px] font-semibold text-[#E4572E] underline underline-offset-2"
+                      >
+                        View Reason
+                      </button>
+                    ) : null}
                   </div>
-
                   <div className="space-y-[10px] pb-[70px]">
                     {selectedCard.items.map((item) => (
                       <div key={item.id} className="rounded-[16px] border border-[#EFE7DD] bg-white px-[12px] py-[10px] shadow-[0px_1px_8px_rgba(0,0,0,0.04)]">
@@ -1196,15 +1235,16 @@ const Create = ({ user, onLogout }) => {
                           </div>
                           <div className="flex items-center justify-between gap-[10px]">
                             <p className="text-[11px] font-medium text-[#202020]">{item.brand}</p>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenItemDetails(item, true, 'card')}
-                              className={`text-[11px] font-medium text-[#202020] ${
-                                grnUploadedImageUrls[`${item.id}-card`]?.length ? 'underline underline-offset-2' : ''
-                              }`}
-                            >
-                              Image
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenItemDetails(item, true, 'card')}
+                                className={`text-[11px] font-medium text-[#202020] ${grnUploadedImageUrls[`${item.id}-card`]?.length ? 'underline underline-offset-2' : ''
+                                  }`}
+                              >
+                                Image
+                              </button>
+                            </div>
                           </div>
                           <div className="flex items-center justify-between gap-[10px]">
                             <p className="text-[11px] font-medium text-[#202020]">{item.type}</p>
@@ -1220,10 +1260,7 @@ const Create = ({ user, onLogout }) => {
                       </div>
                     ))}
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleOpenPoCommonImages}
+                  <button type="button" onClick={handleOpenPoCommonImages}
                     className="fixed bottom-[106px] right-[18px] lg:right-[calc(50%-162px)] w-[48px] h-[48px] rounded-full bg-[#C89A43] text-white shadow-lg flex items-center justify-center"
                   >
                     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1237,87 +1274,81 @@ const Create = ({ user, onLogout }) => {
             </>
           ) : (
             <>
-          <div className="mt-[8px] rounded-[6px] bg-[#F1F4F8] p-[4px] flex items-center gap-[6px]">
-            {statusTabs.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveStatus(tab)}
-                className={`flex-1 h-[28px] rounded-[4px] text-[12px] font-medium ${
-                  activeStatus === tab ? 'bg-white text-[#202020] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]' : 'text-[#7D828B]'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex justify-between items-center gap-[4px] px-0 mt-[6px] mb-[8px] flex-shrink-0">
-            <div className="flex items-center gap-[4px] min-w-0">
-              <button type="button" className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0">
-                <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
-                <span className="text-[12px] font-medium text-black flex-shrink-0">Filter</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-[6px]">
-            {filteredCards.map((card) => (
-              <button
-                key={card.id}
-                type="button"
-                onClick={() => setSelectedCard(card)}
-                className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[16px] w-full max-w-full text-left"
-                style={{ marginBottom: '0px' }}
-              >
-                <div className="rounded-[16px] h-full px-3 py-[10px] cursor-pointer transition-all duration-300 ease-out select-none bg-white">
-                  <div className="flex items-start justify-between mb-[2px]">
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      <p className="text-[12px] font-semibold leading-snug truncate text-black">
-                        {card.poNo}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end flex-shrink-0 ml-2">
-                      <span className={`px-[8px] py-[2px] rounded-full text-[10px] font-medium flex items-center gap-[4px] ${getStatusBadgeStyles(card.status)}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${getStatusDotStyles(card.status)}`} />
-                        {getStatusLabel(card.status)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-start justify-between mb-[2px]">
-                    <p className="text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 text-black text-left">
-                      {card.vendorName}
-                    </p>
-                    <p className="text-[11px] leading-snug flex-shrink-0 ml-2 truncate max-w-[40%] text-black">
-                      {card.engineerName}
-                    </p>
-                  </div>
-                  <div className="flex items-start justify-between mb-[2px]">
-                    <p className="text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 text-[#777777] text-left">
-                      {card.siteName}
-                    </p>
-                    <p className="text-[11px] font-medium leading-snug text-black flex-shrink-0 ml-2">
-                      No. of Items: {card.itemsCount}
-                    </p>
-                  </div>
-                  <div className="flex items-start justify-between">
-                    <p className="flex items-center gap-[2px] text-[11px] leading-normal min-w-0 flex-1">
-                      <span className="font-bold text-black">{card.time.split(' - ')[0]}</span>
-                      <span className="font-semibold text-[#9E9E9E]"> - {card.time.split(' - ')[1]}</span>
-                    </p>
-                    <p className="text-[12px] font-medium leading-snug flex-shrink-0 ml-2 text-black">
-                      &nbsp;
-                    </p>
-                  </div>
+              <div className="mt-[8px] rounded-[6px] bg-[#F1F4F8] p-[4px] flex items-center gap-[6px]">
+                {statusTabs.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveStatus(tab)}
+                    className={`flex-1 h-[28px] rounded-[4px] text-[12px] font-medium ${activeStatus === tab ? 'bg-white text-[#202020] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]' : 'text-[#7D828B]'
+                      }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-between items-center gap-[4px] px-0 mt-[6px] mb-[8px] flex-shrink-0">
+                <div className="flex items-center gap-[4px] min-w-0">
+                  <button type="button" className="flex items-center gap-[4px] px-[6px] py-[2px] flex-shrink-0">
+                    <img src={Filter} alt="Filter" className="w-[13px] h-[11px]" />
+                    <span className="text-[12px] font-medium text-black flex-shrink-0">Filter</span>
+                  </button>
                 </div>
-              </button>
-            ))}
-          </div>
+              </div>
+              <div className="mt-[6px]">
+                {filteredCards.map((card) => (
+                  <button
+                    key={card.id} type="button" onClick={() => setSelectedCard(card)}
+                    className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[16px] w-full max-w-full text-left"
+                    style={{ marginBottom: '0px' }}
+                  >
+                    <div className="rounded-[16px] h-full px-3 py-[10px] cursor-pointer transition-all duration-300 ease-out select-none bg-white">
+                      <div className="flex items-start justify-between mb-[2px]">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <p className="text-[12px] font-semibold leading-snug truncate text-black">
+                            {card.poNo}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end flex-shrink-0 ml-2">
+                          <span className={`px-[8px] py-[2px] rounded-full text-[10px] font-medium flex items-center gap-[4px] ${getStatusBadgeStyles(card.status)}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${getStatusDotStyles(card.status)}`} />
+                            {getStatusLabel(card.status)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-start justify-between mb-[2px]">
+                        <p className="text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 text-black text-left">
+                          {card.vendorName}
+                        </p>
+                        <p className="text-[11px] leading-snug flex-shrink-0 ml-2 truncate max-w-[40%] text-black">
+                          {card.engineerName}
+                        </p>
+                      </div>
+                      <div className="flex items-start justify-between mb-[2px]">
+                        <p className="text-[11px] leading-snug font-semibold truncate flex-1 min-w-0 text-[#777777] text-left">
+                          {card.siteName}
+                        </p>
+                        <p className="text-[11px] font-medium leading-snug text-black flex-shrink-0 ml-2">
+                          No. of Items: {card.itemsCount}
+                        </p>
+                      </div>
+                      <div className="flex items-start justify-between">
+                        <p className="flex items-center gap-[2px] text-[11px] leading-normal min-w-0 flex-1">
+                          <span className="font-bold text-black">{card.time.split(' - ')[0]}</span>
+                          <span className="font-semibold text-[#9E9E9E]"> - {card.time.split(' - ')[1]}</span>
+                        </p>
+                        <p className="text-[12px] font-medium leading-snug flex-shrink-0 ml-2 text-black">
+                          &nbsp;
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </>
           )}
         </div>
       </div>
-
       <input
         ref={cameraInputRef}
         type="file"
@@ -1343,7 +1374,6 @@ const Create = ({ user, onLogout }) => {
         className="hidden"
         onChange={handleImageSelection}
       />
-
       <SelectVendorModal
         isOpen={showInchargeModal}
         onClose={() => setShowInchargeModal(false)}
@@ -1351,10 +1381,6 @@ const Create = ({ user, onLogout }) => {
           const selectedEmployee = employeeList.find((employee) => {
             const employeeName = employee.employeeName || employee.name || employee.fullName || employee.employee_name || '';
             return employeeName === value;
-          });
-          console.log('GRN Create selected engineer:', {
-            value,
-            selectedEmployee
           });
           setSelectedInchargeFilter(value);
           setSelectedInchargeId(selectedEmployee?.id || null);
@@ -1364,7 +1390,6 @@ const Create = ({ user, onLogout }) => {
         options={inchargeOptions}
         fieldName="Project Incharge"
       />
-
       <SelectVendorModal
         isOpen={showVendorModal}
         onClose={() => setShowVendorModal(false)}
@@ -1376,10 +1401,8 @@ const Create = ({ user, onLogout }) => {
         options={vendorOptions}
         fieldName="Vendor"
       />
-
       <BottomNav activeTab="home" />
     </div>
   );
 };
-
 export default Create;

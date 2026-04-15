@@ -774,6 +774,83 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                     }
                 }
             }
+            // For mapped-name flows (PurchaseOrder / Incoming): ALWAYS include mapped combinations
+            // from the nested master (`otherPOEntityList`) along with inventory-derived rows.
+            if (useMappedItemNameDisplay && !isFromUpdate) {
+                const data = getAvailableItems();
+                if (data.useNestedStructure && data.items && Array.isArray(data.items)) {
+                    for (const item of data.items) {
+                        if (results.length >= MAX_RESULTS) break;
+                        const itemName = item.itemName || '';
+                        const category = item.category || '';
+                        const otherPOEntityList = item.otherPOEntityList || [];
+                        const itemNameLower = itemName.toLowerCase();
+                        const categoryLower = category.toLowerCase();
+                        const itemNameMatches = searchTerms.every(term => (
+                            itemNameLower.includes(term) || categoryLower.includes(term)
+                        ));
+                        if (otherPOEntityList.length > 0) {
+                            for (const entity of otherPOEntityList) {
+                                if (results.length >= MAX_RESULTS) break;
+                                const brand = entity.brandName || '';
+                                const model = entity.modelName || '';
+                                const type = entity.typeColor || '';
+                                const brandLower = brand.toLowerCase();
+                                const modelLower = model.toLowerCase();
+                                const typeLower = type.toLowerCase();
+                                const matches = searchTerms.every(term => (
+                                    itemNameLower.includes(term) ||
+                                    categoryLower.includes(term) ||
+                                    brandLower.includes(term) ||
+                                    modelLower.includes(term) ||
+                                    typeLower.includes(term)
+                                ));
+                                if (matches) {
+                                    const itemKey = `${itemName}_${category}_${brand}_${model}_${type}`;
+                                    if (!seenKeys.has(itemKey)) {
+                                        seenKeys.add(itemKey);
+                                        results.push({
+                                            itemName,
+                                            brand,
+                                            model,
+                                            type,
+                                            category,
+                                            defaultQty: entity.defaultQty || '1',
+                                            minimumQty: entity.minimumQty || '1',
+                                            entityId: entity.id,
+                                            itemId: item.id || item.itemId || item._id || null,
+                                            categoryId: item.categoryId || item.category_id || null,
+                                            brandId: entity.brandId || entity.brand_id || null,
+                                            modelId: entity.modelId || entity.model_id || null,
+                                            typeId: entity.typeId || entity.type_id || null,
+                                        });
+                                    }
+                                }
+                            }
+                        } else if (itemNameMatches) {
+                            const itemKey = `${itemName}_${category}__`;
+                            if (!seenKeys.has(itemKey)) {
+                                seenKeys.add(itemKey);
+                                results.push({
+                                    itemName,
+                                    brand: '',
+                                    model: '',
+                                    type: '',
+                                    category,
+                                    defaultQty: '1',
+                                    minimumQty: '1',
+                                    entityId: null,
+                                    itemId: item.id || item.itemId || item._id || null,
+                                    categoryId: item.categoryId || item.category_id || null,
+                                    brandId: null,
+                                    modelId: null,
+                                    typeId: null,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
             // Only mapped-name flows (PO/Incoming) should fallback to getAvailableItems() when
             // inventory search temporarily returns no matches during async refresh.
             // Outgoing must stay inventory-only (previous behavior).
@@ -1156,11 +1233,11 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         const fetchPOData = async () => {
             try {
                 const [itemNamesRes, brandsRes, modelsRes, typesRes, categoriesRes] = await Promise.all([
-                    fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll'),
-                    fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll'),
-                    fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll'),
-                    fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll'),
-                    fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll')
+                    fetch('http://localhost:8082/api/po_itemNames/getAll'),
+                    fetch('http://localhost:8082/api/po_brand/getAll'),
+                    fetch('http://localhost:8082/api/po_model/getAll'),
+                    fetch('http://localhost:8082/api/po_type/getAll'),
+                    fetch('http://localhost:8082/api/po_category/getAll')
                 ]);
                 if (itemNamesRes.ok) {
                     const data = await itemNamesRes.json();
@@ -1247,7 +1324,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             }
             try {
                 // Fetch all inventory records to get complete data
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
+                const response = await fetch('http://localhost:8082/api/inventory/getAll');
                 if (!response.ok) {
                     console.error('Failed to fetch inventory data');
                     setStockQuantities({});
@@ -1672,7 +1749,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                 ) :
                 null;
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/save', {
+            const response = await fetch('http://localhost:8082/api/po_type/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1683,7 +1760,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             if (!response.ok) {
                 throw new Error('Failed to save type');
             }
-            const refreshResponse = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
+            const refreshResponse = await fetch('http://localhost:8082/api/po_type/getAll');
             if (refreshResponse.ok) {
                 const refreshed = await refreshResponse.json();
                 setPoTypes(refreshed);
@@ -1759,7 +1836,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         try {
             let eno = '';
             try {
-                const countRes = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
+                const countRes = await fetch(`http://localhost:8082/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
                 if (countRes.ok) {
                     const count = await countRes.json();
                     eno = String((count || 0) + 1);
@@ -1849,7 +1926,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         }
                     ]
                 };
-                const firstResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
+                const firstResponse = await fetch('http://localhost:8082/api/inventory/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(firstPayload)
@@ -1878,7 +1955,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                             }
                         ]
                     };
-                    const rowResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
+                    const rowResponse = await fetch('http://localhost:8082/api/inventory/save', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(rowPayload)
@@ -1920,7 +1997,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                             }
                         ]
                     };
-                    const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
+                    const response = await fetch('http://localhost:8082/api/inventory/save', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -2366,7 +2443,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                     // Get ENO
                                     let eno = '';
                                     try {
-                                        const countRes = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
+                                        const countRes = await fetch(`http://localhost:8082/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
                                         if (countRes.ok) {
                                             const count = await countRes.json();
                                             eno = String((count || 0) + 1);
@@ -2407,7 +2484,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                         inventoryItems: inventoryItems
                                     };
                                     // Send the payload
-                                    const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
+                                    const response = await fetch('http://localhost:8082/api/inventory/save', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json'

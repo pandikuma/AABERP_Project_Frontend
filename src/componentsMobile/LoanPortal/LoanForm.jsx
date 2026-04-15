@@ -84,7 +84,7 @@ const LoanForm = () => {
   useEffect(() => {
     const fetchEntryNo = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/loans/all');
+        const response = await fetch('http://localhost:8082/api/loans/all');
         if (response.ok) {
           const data = await response.json();
           if (data.length > 0) {
@@ -103,7 +103,7 @@ const LoanForm = () => {
   useEffect(() => {
     const fetchPurposeOptions = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/loan-purposes/getAll', {
+        const response = await fetch('http://localhost:8082/api/loan-purposes/getAll', {
           method: "GET",
           credentials: "include",
           headers: { "Content-Type": "application/json" }
@@ -181,7 +181,7 @@ const LoanForm = () => {
   useEffect(() => {
     const fetchEmployeeNames = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+        const response = await fetch("http://localhost:8082/api/employee_details/getAll", {
           method: "GET",
           credentials: "include",
           headers: { "Content-Type": "application/json" }
@@ -207,7 +207,7 @@ const LoanForm = () => {
   useEffect(() => {
     const fetchLabourNames = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuildersDash/api/labours-details/getAll", {
+        const response = await fetch("http://localhost:8082/api/labours-details/getAll", {
           method: "GET",
           credentials: "include",
           headers: { "Content-Type": "application/json" }
@@ -242,7 +242,7 @@ const LoanForm = () => {
     }
     const fetchLoanData = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/loans/all');
+        const response = await fetch('http://localhost:8082/api/loans/all');
         if (response.ok) {
           const data = await response.json();
           const total = data
@@ -377,7 +377,7 @@ const LoanForm = () => {
         formData.append('file', selectedLoanFile);
       }
 
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/loans/save', {
+      const response = await fetch('http://localhost:8082/api/loans/save', {
         method: 'POST',
         credentials: 'include',
         body: formData

@@ -28,7 +28,7 @@ const SelectPOModal = ({ isOpen, onClose, onSelect, selectedValue, vendorName, v
       if (data.length === 0 && onFetchPOs) {
         data = await onFetchPOs();
       } else if (data.length === 0) {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
+        const response = await fetch('http://localhost:8082/api/purchase_orders/getAll');
         if (response.ok) {
           data = await response.json();
         }

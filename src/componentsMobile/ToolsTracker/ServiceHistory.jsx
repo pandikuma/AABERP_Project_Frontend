@@ -8,15 +8,15 @@ import Search from '../Images/Search.png';
 import CloseIcon from '../Images/Close F.svg';
 import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 
-const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_management';
+const TOOLS_TRACKER_MANAGEMENT_BASE_URL = 'http://localhost:8082/api/tools_tracker_management';
 const PROJECT_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/project_Names';
 const VENDOR_NAMES_BASE_URL = 'https://backendaab.in/aabuilderDash/api/vendor_Names';
-const EMPLOYEE_DETAILS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/employee_details';
-const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
-const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
-const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
-const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
-const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
+const EMPLOYEE_DETAILS_BASE_URL = 'http://localhost:8082/api/employee_details';
+const TOOLS_ITEM_NAME_BASE_URL = 'http://localhost:8082/api/tools_item_name';
+const TOOLS_BRAND_BASE_URL = 'http://localhost:8082/api/tools_brand';
+const TOOLS_ITEM_ID_BASE_URL = 'http://localhost:8082/api/tools_item_id';
+const TOOLS_MACHINE_STATUS_BASE_URL = 'http://localhost:8082/api/tools-machine-status';
+const TOOLS_MACHINE_NUMBER_BASE_URL = 'http://localhost:8082/api/tools_machine_number';
 const EXPENSES_FORM_GET_URL = 'https://backendaab.in/aabuilderDash/expenses_form/get_form';
 
 const resolveActiveBranchId = () => {
@@ -1218,7 +1218,6 @@ const ServiceHistory = ({ user, onTabChange }) => {
           Download
         </button>
       </div>
-
       {/* Service Records List */}
       <div className="flex-1 overflow-y-auto pb-[16px] no-scrollbar scrollbar-none">
         {loading ? (
@@ -1245,7 +1244,6 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   return false;
                 }
               }
-
               // Filter by Item ID
               if (filterItemId) {
                 const itemIdName = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
@@ -1293,26 +1291,20 @@ const ServiceHistory = ({ user, onTabChange }) => {
               return true;
             }).map((entry) => {
               const { date, time } = formatDateTime(entry.createdDateTime);
-
               // For Service type: check serviceStoreId first (vendors), then toProjectId
               let shopName = getLocationName(entry.serviceStoreId, true);
               if (shopName === '-') {
                 shopName = getLocationName(entry.toProjectId, false);
               }
-
               const inchargeName = employeesMap[entry.projectInchargeId] || employeesMap[String(entry.projectInchargeId)] || '-';
               const itemName = itemNamesMap[entry.itemNameId] || itemNamesMap[String(entry.itemNameId)] || entry.itemNameId || '-';
-
               // Get item ID name (like "AA DM 01") from the map using item_ids_id
               const itemIdName = entry.itemIdsId ? (itemIdsMap[entry.itemIdsId] || itemIdsMap[String(entry.itemIdsId)] || '') : '';
               const canViewImages = Boolean(entry.itemTableId);
               const machineNumberText = resolveMachineNumberText(entry);
-
               // Get status display
               const statusDisplay = getStatusDisplay(entry.machineStatus);
-
               const serviceCost = computeServiceCostForEntry(entry);
-
               // Swipe state and offset calculation
               const entryId = entry.id;
               const swipeState = swipeStates[entryId];
@@ -1324,7 +1316,6 @@ const ServiceHistory = ({ user, onTabChange }) => {
                   : isExpanded
                     ? -buttonWidth
                     : 0;
-
               return (
                 <div key={entry.id} className="relative overflow-hidden shadow-lg border border-[#E0E0E0] border-opacity-30 bg-[#F8F8F8] rounded-[8px] h-[100px]">
                   {/* Card */}
@@ -1349,7 +1340,6 @@ const ServiceHistory = ({ user, onTabChange }) => {
                         #{entry.eno}, {itemName}
                       </p>
                     </div>
-
                     {/* Row 2: Machine Number | Person Name */}
                     <div className="flex items-start justify-between mb-1">
                       <p className="text-[12px] font-semibold text-black leading-snug truncate flex-1 min-w-0">
@@ -1359,7 +1349,6 @@ const ServiceHistory = ({ user, onTabChange }) => {
                         {inchargeName}
                       </p>
                     </div>
-
                     {/* Row 3: Shop Name | Status + Cost */}
                     <div className="flex items-start justify-between mb-1">
                       <p className="text-[11px] font-semibold leading-snug truncate flex-1 min-w-0 text-[#BF9853]">
@@ -1372,7 +1361,6 @@ const ServiceHistory = ({ user, onTabChange }) => {
                         <span className="text-[#4CAF50] font-medium">, Rs.{serviceCost}</span>
                       </p>
                     </div>
-
                     {/* Row 4: Date/Time | Item ID (green) */}
                     <div className="flex items-start justify-between">
                       <p className="text-[11px] text-[#848484] leading-snug truncate flex-1 min-w-0">
@@ -1393,7 +1381,6 @@ const ServiceHistory = ({ user, onTabChange }) => {
                       )}
                     </div>
                   </div>
-
                   {/* Action Buttons - Behind the card on the right, revealed on swipe */}
                   <div
                     className="absolute right-0 top-[0px] bottom-0 flex gap-[8px] flex-shrink-0 z-0"
@@ -1438,7 +1425,6 @@ const ServiceHistory = ({ user, onTabChange }) => {
           </div>
         )}
       </div>
-
       {/* Image Viewer Modal - Floating style */}
       {showImageViewer && (
         <div
