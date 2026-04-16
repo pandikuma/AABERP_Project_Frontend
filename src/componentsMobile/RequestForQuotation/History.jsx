@@ -182,7 +182,7 @@ const History = ({ user } = {}) => {
 
   const fetchAllEmployees = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/employee_details/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll');
       if (response.ok) {
         const data = await response.json();
         setAllEmployees(data); // Store full objects instead of just names
@@ -194,7 +194,7 @@ const History = ({ user } = {}) => {
 
   const fetchAllSupportStaff = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/support_staff/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/support_staff/getAll');
       if (response.ok) {
         const data = await response.json();
         setAllSupportStaff(data);
@@ -235,8 +235,8 @@ const History = ({ user } = {}) => {
     }
     try {
       const apiUrl = hasActiveFilters
-        ? 'http://localhost:8082/api/rfq/getAll'
-        : 'http://localhost:8082/api/rfq/get/latest';
+        ? 'https://backendaab.in/aabuildersDash/api/rfq/getAll'
+        : 'https://backendaab.in/aabuildersDash/api/rfq/get/latest';
 
       const response = await fetch(apiUrl);
       if (!response.ok) {
@@ -457,7 +457,7 @@ const History = ({ user } = {}) => {
           ? quickFetchJson(`https://backendaab.in/aabuilderDash/api/project_Names/get/${clientId}`)
           : Promise.resolve(null),
         inchargeId && (!inchargeType || inchargeType === 'employee')
-          ? quickFetchJson(`http://localhost:8082/api/employee_details/get/${inchargeId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/employee_details/get/${inchargeId}`)
           : Promise.resolve(null),
       ]);
 
@@ -499,19 +499,19 @@ const History = ({ user } = {}) => {
 
             const [itemObj, modelObj, brandObj, typeObj, categoryObj] = await Promise.all([
               itemId
-                ? quickFetchJson(`http://localhost:8082/api/po_itemNames/get/${itemId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_itemNames/get/${itemId}`)
                 : Promise.resolve(null),
               modelId
-                ? quickFetchJson(`http://localhost:8082/api/po_model/get/${modelId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_model/get/${modelId}`)
                 : Promise.resolve(null),
               brandId
-                ? quickFetchJson(`http://localhost:8082/api/po_brand/get/${brandId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_brand/get/${brandId}`)
                 : Promise.resolve(null),
               typeId
-                ? quickFetchJson(`http://localhost:8082/api/po_type/get/${typeId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_type/get/${typeId}`)
                 : Promise.resolve(null),
               categoryId
-                ? quickFetchJson(`http://localhost:8082/api/po_category/get/${categoryId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_category/get/${categoryId}`)
                 : Promise.resolve(null),
             ]);
 
@@ -625,7 +625,7 @@ const History = ({ user } = {}) => {
           ? quickFetchJson(`https://backendaab.in/aabuilderDash/api/project_Names/get/${clientId}`)
           : Promise.resolve(null),
         inchargeId && (!inchargeType || inchargeType === 'employee')
-          ? quickFetchJson(`http://localhost:8082/api/employee_details/get/${inchargeId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/employee_details/get/${inchargeId}`)
           : Promise.resolve(null),
       ]);
 
@@ -667,19 +667,19 @@ const History = ({ user } = {}) => {
 
             const [itemObj, modelObj, brandObj, typeObj, categoryObj] = await Promise.all([
               itemId
-                ? quickFetchJson(`http://localhost:8082/api/po_itemNames/get/${itemId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_itemNames/get/${itemId}`)
                 : Promise.resolve(null),
               modelId
-                ? quickFetchJson(`http://localhost:8082/api/po_model/get/${modelId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_model/get/${modelId}`)
                 : Promise.resolve(null),
               brandId
-                ? quickFetchJson(`http://localhost:8082/api/po_brand/get/${brandId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_brand/get/${brandId}`)
                 : Promise.resolve(null),
               typeId
-                ? quickFetchJson(`http://localhost:8082/api/po_type/get/${typeId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_type/get/${typeId}`)
                 : Promise.resolve(null),
               categoryId
-                ? quickFetchJson(`http://localhost:8082/api/po_category/get/${categoryId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_category/get/${categoryId}`)
                 : Promise.resolve(null),
             ]);
 
@@ -760,7 +760,7 @@ const History = ({ user } = {}) => {
   const fetchPurchaseOrderById = useCallback(
     async (poId) => {
       if (!poId) return null;
-      return await quickFetchJson(`http://localhost:8082/api/rfq/get/${poId}`);
+      return await quickFetchJson(`https://backendaab.in/aabuildersDash/api/rfq/get/${poId}`);
     },
     [quickFetchJson]
   );
@@ -831,7 +831,7 @@ const History = ({ user } = {}) => {
           : Promise.resolve(null),
         // Fast fetch for employee incharge (if it's an employee); support-staff stays best-effort via existing list
         inchargeId && (!inchargeType || inchargeType === 'employee')
-          ? quickFetchJson(`http://localhost:8082/api/employee_details/get/${inchargeId}`)
+          ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/employee_details/get/${inchargeId}`)
           : Promise.resolve(null),
       ]);
 
@@ -843,7 +843,7 @@ const History = ({ user } = {}) => {
 
         // Prefetch next PO number for this vendor in background (non-blocking)
         // Don't await - let it fetch in background while page opens
-        fetch('http://localhost:8082/api/rfq/getAll')
+        fetch('https://backendaab.in/aabuildersDash/api/rfq/getAll')
           .then(response => {
             if (response.ok) {
               return response.json();
@@ -920,19 +920,19 @@ const History = ({ user } = {}) => {
 
             const [itemObj, modelObj, brandObj, typeObj, categoryObj] = await Promise.all([
               itemId
-                ? quickFetchJson(`http://localhost:8082/api/po_itemNames/get/${itemId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_itemNames/get/${itemId}`)
                 : Promise.resolve(null),
               modelId
-                ? quickFetchJson(`http://localhost:8082/api/po_model/get/${modelId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_model/get/${modelId}`)
                 : Promise.resolve(null),
               brandId
-                ? quickFetchJson(`http://localhost:8082/api/po_brand/get/${brandId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_brand/get/${brandId}`)
                 : Promise.resolve(null),
               typeId
-                ? quickFetchJson(`http://localhost:8082/api/po_type/get/${typeId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_type/get/${typeId}`)
                 : Promise.resolve(null),
               categoryId
-                ? quickFetchJson(`http://localhost:8082/api/po_category/get/${categoryId}`)
+                ? quickFetchJson(`https://backendaab.in/aabuildersDash/api/po_category/get/${categoryId}`)
                 : Promise.resolve(null),
             ]);
 
@@ -1022,7 +1022,7 @@ const History = ({ user } = {}) => {
         const order = rfqs.find(r => r.id === poToDelete);
         if (order) {
           // Call API to mark PO as deleted - matching working example format
-          const apiUrl = `http://localhost:8082/api/rfq/markDeleted/${order.id}?deleteStatus=true`;
+          const apiUrl = `https://backendaab.in/aabuildersDash/api/rfq/markDeleted/${order.id}?deleteStatus=true`;
           const response = await fetch(apiUrl, {
             method: 'PUT',
           });

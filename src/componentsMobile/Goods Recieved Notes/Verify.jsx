@@ -12,9 +12,9 @@ const vendorCache = { data: null };
 const projectCache = { data: null };
 const siteEngineersCache = { data: null };
 const supportStaffCache = { data: null };
-const basePurchaseOrdersUrl = 'http://localhost:8082/api/purchase_orders';
-const GRN_IMAGES_BASE_URL = 'http://localhost:8082/api/grn-images';
-const baseLookupsUrl = 'http://localhost:8082/api';
+const basePurchaseOrdersUrl = 'https://backendaab.in/aabuildersDash/api/purchase_orders';
+const GRN_IMAGES_BASE_URL = 'https://backendaab.in/aabuildersDash/api/grn-images';
+const baseLookupsUrl = 'https://backendaab.in/aabuildersDash/api';
 
 const findNameById = (dataArray, id, fieldNames = []) => {
   if (!id || !Array.isArray(dataArray)) return '';
@@ -355,14 +355,14 @@ const Verify = ({ user, onLogout }) => {
     const fetchBothLists = async () => {
       try {
         const [employeeResponse, supportStaffResponse] = await Promise.all([
-          fetch('http://localhost:8082/api/employee_details/site_engineers', {
+          fetch('https://backendaab.in/aabuildersDash/api/employee_details/site_engineers', {
             method: 'GET',
             credentials: 'include',
             headers: {
               'Content-Type': 'application/json'
             }
           }),
-          fetch('http://localhost:8082/api/support_staff/getAll', {
+          fetch('https://backendaab.in/aabuildersDash/api/support_staff/getAll', {
             method: 'GET',
             credentials: 'include',
             headers: {

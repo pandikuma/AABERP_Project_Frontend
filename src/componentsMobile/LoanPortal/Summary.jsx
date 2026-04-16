@@ -43,7 +43,7 @@ const Summary = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('http://localhost:8082/api/loans/all');
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/loans/all');
         if (response.ok) {
           const data = await response.json();
           setLoanData(data);
@@ -96,7 +96,7 @@ const Summary = () => {
             return data.map((item) => ({ id: item.id, label: item.contractorName }));
           }),
           safe(async () => {
-            const res = await fetch('http://localhost:8082/api/employee_details/getAll', {
+            const res = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll', {
               method: 'GET',
               credentials: 'include',
               headers: { 'Content-Type': 'application/json' }
@@ -106,7 +106,7 @@ const Summary = () => {
             return data.map((item) => ({ id: item.id, label: item.employee_name }));
           }),
           safe(async () => {
-            const res = await fetch('http://localhost:8082/api/labours-details/getAll', {
+            const res = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll', {
               method: 'GET',
               credentials: 'include',
               headers: { 'Content-Type': 'application/json' }
@@ -116,7 +116,7 @@ const Summary = () => {
             return data.map((item) => ({ id: item.id, label: item.labour_name }));
           }),
           safe(async () => {
-            const res = await fetch('http://localhost:8082/api/loan-purposes/getAll', {
+            const res = await fetch('https://backendaab.in/aabuildersDash/api/loan-purposes/getAll', {
               method: 'GET',
               credentials: 'include',
               headers: { 'Content-Type': 'application/json' }

@@ -8,12 +8,12 @@ import Search from '../Images/Search.png';
 import CloseIcon from '../Images/Close F.svg';
 import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 const AddInput = ({ user }) => {
-  const TOOLS_ITEM_NAME_BASE_URL = 'http://localhost:8082/api/tools_item_name';
-  const TOOLS_BRAND_BASE_URL = 'http://localhost:8082/api/tools_brand';
-  const TOOLS_ITEM_ID_BASE_URL = 'http://localhost:8082/api/tools_item_id';
-  const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'http://localhost:8082/api/tools_tracker_stock_management';
-  const TOOLS_MACHINE_NUMBER_BASE_URL = 'http://localhost:8082/api/tools_machine_number';
-  const TOOLS_MACHINE_STATUS_BASE_URL = 'http://localhost:8082/api/tools-machine-status';
+  const TOOLS_ITEM_NAME_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_name';
+  const TOOLS_BRAND_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_brand';
+  const TOOLS_ITEM_ID_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_item_id';
+  const TOOLS_STOCK_MANAGEMENT_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_tracker_stock_management';
+  const TOOLS_MACHINE_NUMBER_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools_machine_number';
+  const TOOLS_MACHINE_STATUS_BASE_URL = 'https://backendaab.in/aabuildersDash/api/tools-machine-status';
   const GOOGLE_UPLOAD_URL = 'https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive';
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedItemName, setSelectedItemName] = useState(null);

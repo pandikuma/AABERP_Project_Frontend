@@ -73,7 +73,7 @@ const Summary = () => {
       return;
     }
     try {
-      const response = await fetch('http://localhost:8082/api/purchase_orders/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/purchase_orders/getAll');
       if (!response.ok) {
         throw new Error('Failed to fetch purchase orders');
       }

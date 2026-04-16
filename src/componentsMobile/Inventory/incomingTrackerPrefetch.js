@@ -32,7 +32,7 @@ export async function prefetchIncomingTrackerData({ vendorId } = {}) {
 
   inFlight = (async () => {
     const base8081 = 'https://backendaab.in/aabuilderDash/api';
-    const base8082 = 'http://localhost:8082/api';
+    const base8082 = 'https://backendaab.in/aabuildersDash/api';
 
     const requests = {
       vendors: fetch(`${base8081}/vendor_Names/getAll`).then((r) => (r.ok ? r.json() : null)).catch(() => null),

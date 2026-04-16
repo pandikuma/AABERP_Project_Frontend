@@ -75,7 +75,7 @@ const StatementRow = ({
 );
 
 const StatementMobile = () => {
-	const API_BASE = 'http://localhost:8082/api';
+	const API_BASE = 'https://backendaab.in/aabuildersDash/api';
 
 	const [query, setQuery] = useState('');
 	const [loading, setLoading] = useState(false);

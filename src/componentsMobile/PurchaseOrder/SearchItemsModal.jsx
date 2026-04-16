@@ -1233,11 +1233,11 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         const fetchPOData = async () => {
             try {
                 const [itemNamesRes, brandsRes, modelsRes, typesRes, categoriesRes] = await Promise.all([
-                    fetch('http://localhost:8082/api/po_itemNames/getAll'),
-                    fetch('http://localhost:8082/api/po_brand/getAll'),
-                    fetch('http://localhost:8082/api/po_model/getAll'),
-                    fetch('http://localhost:8082/api/po_type/getAll'),
-                    fetch('http://localhost:8082/api/po_category/getAll')
+                    fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll'),
+                    fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll'),
+                    fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll'),
+                    fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll'),
+                    fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll')
                 ]);
                 if (itemNamesRes.ok) {
                     const data = await itemNamesRes.json();
@@ -1324,7 +1324,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             }
             try {
                 // Fetch all inventory records to get complete data
-                const response = await fetch('http://localhost:8082/api/inventory/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/getAll');
                 if (!response.ok) {
                     console.error('Failed to fetch inventory data');
                     setStockQuantities({});
@@ -1749,7 +1749,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                 ) :
                 null;
         try {
-            const response = await fetch('http://localhost:8082/api/po_type/save', {
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1760,7 +1760,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
             if (!response.ok) {
                 throw new Error('Failed to save type');
             }
-            const refreshResponse = await fetch('http://localhost:8082/api/po_type/getAll');
+            const refreshResponse = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
             if (refreshResponse.ok) {
                 const refreshed = await refreshResponse.json();
                 setPoTypes(refreshed);
@@ -1836,7 +1836,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
         try {
             let eno = '';
             try {
-                const countRes = await fetch(`http://localhost:8082/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
+                const countRes = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
                 if (countRes.ok) {
                     const count = await countRes.json();
                     eno = String((count || 0) + 1);
@@ -1926,7 +1926,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                         }
                     ]
                 };
-                const firstResponse = await fetch('http://localhost:8082/api/inventory/save', {
+                const firstResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(firstPayload)
@@ -1955,7 +1955,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                             }
                         ]
                     };
-                    const rowResponse = await fetch('http://localhost:8082/api/inventory/save', {
+                    const rowResponse = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(rowPayload)
@@ -1997,7 +1997,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                             }
                         ]
                     };
-                    const response = await fetch('http://localhost:8082/api/inventory/save', {
+                    const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -2443,7 +2443,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                     // Get ENO
                                     let eno = '';
                                     try {
-                                        const countRes = await fetch(`http://localhost:8082/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
+                                        const countRes = await fetch(`https://backendaab.in/aabuildersDash/api/inventory/updateCount?stockingLocationId=${stockingLocationId}`);
                                         if (countRes.ok) {
                                             const count = await countRes.json();
                                             eno = String((count || 0) + 1);
@@ -2484,7 +2484,7 @@ const SearchItemsModal = ({ isOpen, onClose, onAdd, getAvailableItems, existingI
                                         inventoryItems: inventoryItems
                                     };
                                     // Send the payload
-                                    const response = await fetch('http://localhost:8082/api/inventory/save', {
+                                    const response = await fetch('https://backendaab.in/aabuildersDash/api/inventory/save', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json'

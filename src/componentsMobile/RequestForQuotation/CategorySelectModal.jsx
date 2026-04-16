@@ -63,7 +63,7 @@ const CategorySelectModal = ({ isOpen, onClose, onSelect, selectedCategory, cate
 
   const fetchGroupNameList = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/group_name/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/group_name/getAll');
       if (response.ok) {
         const data = await response.json();
         setGroupNameList(data);

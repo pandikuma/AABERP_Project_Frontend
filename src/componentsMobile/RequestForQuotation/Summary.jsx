@@ -72,7 +72,7 @@ const Summary = () => {
       return;
     }
     try {
-      const response = await fetch('http://localhost:8082/api/rfq/getAll');
+      const response = await fetch('https://backendaab.in/aabuildersDash/api/rfq/getAll');
       if (!response.ok) {
         throw new Error('Failed to fetch RFQs');
       }
