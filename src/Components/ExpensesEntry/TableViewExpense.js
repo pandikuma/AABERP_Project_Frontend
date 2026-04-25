@@ -10,6 +10,7 @@ import autoTable from "jspdf-autotable";
 import XL from '../Images/sheets.png'
 import Pdf from '../Images/pdf.png'
 Modal.setAppElement('#root');
+const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 // Date Range Picker Component
 const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChange }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -264,6 +265,7 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
     );
 };
 const TableViewExpense = ({ username, userRoles = [] }) => {
+    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
     const resolveActiveBranchId = useCallback(() => {
         try {
             const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -288,6 +290,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     const [contractorOptions, setContractorOptions] = useState([]);
     const [categoryOptions, setCategoryOptions] = useState([]);
     const [machineToolsOptions, setMachineToolsOptions] = useState([]);
+    const [machineToolsCatalog, setMachineToolsCatalog] = useState([]);
     const [branchOptions, setBranchOptions] = useState([]);
     const [laboursList, setLaboursList] = useState([]);
     const [employeeOptions, setEmployeeOptions] = useState([]);
@@ -434,7 +437,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountDetails = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setAccountDetails(data);
@@ -466,11 +469,119 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         utilityTypeNumber: '',
         utilityForTheMonth: '',
         utilityValidityDays: '',
+        utilityValidityType: '',
+        serviceStartingDate: '',
         projectId: '',
         vendorId: '',
         contractorId: ''
     });
+    const [projectData, setProjectData] = useState(null);
+    const [ebNumberOptions, setEbNumberOptions] = useState([]);
+    const [selectedEbNumber, setSelectedEbNumber] = useState(null);
     const [modalIsOpen, setModalIsOpen] = useState(false);
+    const fetchProjectData = async (projectId) => {
+        try {
+            if (!projectId) return null;
+            const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/get/${projectId}`);
+            if (!response.ok) return null;
+            const data = await response.json();
+            setProjectData(data);
+            return data;
+        } catch (error) {
+            console.error("Error fetching project data:", error);
+            return null;
+        }
+    };
+
+    const updateEbNumberOptions = async (utilityType, project) => {
+        if (!utilityType) {
+            setEbNumberOptions([]);
+            return;
+        }
+        if (utilityType === 'Telecom') {
+            const pid =
+                project?.id ??
+                project?.projectId ??
+                project?.project_id ??
+                formData?.projectId ??
+                null;
+            if (!pid) {
+                setEbNumberOptions([]);
+                return;
+            }
+            try {
+                const res = await axios.get(TELECOM_DIRECTORY_ENDPOINT);
+                const rows = Array.isArray(res.data) ? res.data : [];
+                const serviceNos = rows
+                    .filter(r => String(r?.project_id ?? r?.projectId ?? '') === String(pid))
+                    .map(r => r?.service_number ?? r?.serviceNumber ?? '')
+                    .map(v => String(v || '').trim())
+                    .filter(Boolean);
+                const unique = Array.from(new Set(serviceNos));
+                setEbNumberOptions(unique.map((no, idx) => ({ value: no, label: no, id: idx })));
+            } catch (e) {
+                console.error('Failed to fetch telecom service numbers', e);
+                setEbNumberOptions([]);
+            }
+            return;
+        }
+        if (!project || !project.propertyDetails) {
+            setEbNumberOptions([]);
+            return;
+        }
+        const options = [];
+        project.propertyDetails.forEach((property, index) => {
+            let optionValue = '';
+            switch (utilityType) {
+                case 'Electricity':
+                    optionValue = property.ebNo || '';
+                    break;
+                case 'Property':
+                    optionValue = property.propertyTaxNo || '';
+                    break;
+                case 'Water':
+                    optionValue = property.waterTaxNo || '';
+                    break;
+                default:
+                    return;
+            }
+            const v = String(optionValue || '').trim();
+            if (v) options.push({ value: v, label: v, id: index });
+        });
+        setEbNumberOptions(options);
+    };
+
+    useEffect(() => {
+        if (!modalIsOpen) return;
+        if (formData.accountType !== 'Utility Bills') return;
+        if (!formData.projectId) return;
+        fetchProjectData(formData.projectId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [modalIsOpen, formData.accountType, formData.projectId]);
+
+    useEffect(() => {
+        if (!modalIsOpen) return;
+        if (formData.accountType !== 'Utility Bills') return;
+        if (!formData.utilityType) {
+            setEbNumberOptions([]);
+            setSelectedEbNumber(null);
+            return;
+        }
+        if (projectData) updateEbNumberOptions(formData.utilityType, projectData);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [modalIsOpen, formData.accountType, formData.utilityType, projectData]);
+
+    useEffect(() => {
+        if (!modalIsOpen) return;
+        if (formData.accountType !== 'Utility Bills') return;
+        if (!formData.utilityTypeNumber) {
+            setSelectedEbNumber(null);
+            return;
+        }
+        const target = String(formData.utilityTypeNumber).trim();
+        const opt = ebNumberOptions.find(o => String(o.value).trim() === target || String(o.label).trim() === target);
+        if (opt) setSelectedEbNumber(opt);
+    }, [modalIsOpen, formData.accountType, formData.utilityTypeNumber, ebNumberOptions]);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentModalData, setPaymentModalData] = useState({
         chequeNo: '',
@@ -485,7 +596,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchUserRoles = async () => {
             try {
-                const response = await axios.get("https://backendaab.in/aabuilderDash/api/user_roles/all");
+                const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
                 const allRoles = response.data;
                 const userRoleNames = userRoles.map(r => r.roles);
                 const matchedRoles = allRoles.filter(role =>
@@ -518,7 +629,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     }, [resolveActiveBranchId]);
     useEffect(() => {
         axios
-            .get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
+            .get('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
                 params: activeBranchId ? { branchId: activeBranchId } : {},
             })
             .then((response) => {
@@ -531,7 +642,6 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                 setFilteredExpenses(sortedExpenses);
                 const uniqueEnos = [...new Set(response.data.map(expense => expense.eno))];
                 const uniqueAccountTypes = [...new Set(response.data.map(expense => expense.accountType))];
-                const uniqueMachineTools = [...new Set(response.data.map(expense => expense.machineTools))];
                 const uniqueProjectNames = [...new Set(response.data.map(expense => expense.siteName))];
                 const siteOptions = uniqueProjectNames.map(name => ({ value: name, label: name }));
                 const uniqueVendorOptions = [...new Set(response.data.map(expense => expense.vendor))];
@@ -542,7 +652,6 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                 const categoryOption = uniqueCategoryOptions.map(name => ({ value: name, label: name }));
                 setEnoOptions(uniqueEnos);
                 setAccountTypeOptions(uniqueAccountTypes);
-                setMachineToolsOptions(uniqueMachineTools.map(tool => ({ value: tool, label: tool })));
                 setSiteOptions(siteOptions);
                 setVendorOptions(vendorOptions);
                 setContractorOptions(contractorOption);
@@ -555,7 +664,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchSites = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -582,7 +691,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -609,7 +718,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchContractorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -636,7 +745,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -661,7 +770,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchMachinTools = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/machine_tools/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -684,9 +793,69 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         fetchMachinTools();
     }, []);
     useEffect(() => {
+        const fetchToolsItemIds = async () => {
+            try {
+                const response = await fetch(`${TOOLS_API_BASE}/api/tools_item_id/getAll`, {
+                    method: "GET",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error("Network response was not ok: " + response.statusText);
+                }
+                const data = await response.json();
+                const list = Array.isArray(data) ? data : [];
+                const formattedData = list
+                    .map((item) => {
+                        const rowId = item.id;
+                        const itemIdStr = item.item_id ?? item.itemId ?? "";
+                        const itemNameIdStr = item.item_name_id ?? item.itemNameId ?? "";
+                        const label =
+                            itemIdStr ||
+                            (rowId != null ? String(rowId) : "");
+                        return {
+                            value: rowId != null ? String(rowId) : itemIdStr,
+                            label,
+                            id: rowId,
+                            item_id: itemIdStr,
+                            item_name_id: itemNameIdStr,
+                        };
+                    })
+                    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+                setMachineToolsCatalog(formattedData);
+            } catch (error) {
+                console.error("Fetch error (tools_item_id): ", error);
+            }
+        };
+        fetchToolsItemIds();
+    }, []);
+    const machineToolsIdToLabel = useMemo(() => {
+        const map = {};
+        machineToolsCatalog.forEach((opt) => {
+            if (opt.id != null) {
+                const label = String(opt.label ?? opt.item_id ?? opt.id);
+                map[opt.id] = label;
+                map[String(opt.id)] = label;
+                map[Number(opt.id)] = label;
+            }
+        });
+        return map;
+    }, [machineToolsCatalog]);
+    const getMachineToolsItemIdDisplay = useCallback((val) => {
+        if (val == null || val === "") return "";
+        const resolved =
+            machineToolsIdToLabel[val] ??
+            machineToolsIdToLabel[String(val)] ??
+            machineToolsIdToLabel[Number(val)];
+        if (resolved != null && resolved !== "") return resolved;
+        return String(val);
+    }, [machineToolsIdToLabel]);
+    useEffect(() => {
         const fetchBranches = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/branch/getAll', {
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/branch/getAll', {
                     method: 'GET',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' }
@@ -704,7 +873,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountType = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/account_type/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/account_type/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -731,7 +900,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchLaboursList = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     const formattedData = data.map(item => ({
@@ -755,7 +924,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchEmployeeDetails = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/employee_details/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -804,7 +973,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                 exp.comments,
                 exp.category,
                 exp.accountType,
-                exp.machineTools,
+                getMachineToolsItemIdDisplay(exp.machineTools),
                 exp.eno
             ]),
             styles: {
@@ -841,7 +1010,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                 (selectedVendor ? expense.vendor === selectedVendor : true) &&
                 (selectedContractor ? expense.contractor === selectedContractor : true) &&
                 (selectedCategory ? expense.category === selectedCategory : true) &&
-                (selectedMachineTools ? expense.machineTools === selectedMachineTools : true) &&
+                (selectedMachineTools ? String(expense.machineTools ?? '') === String(selectedMachineTools) : true) &&
                 (selectedAccountType ?
                     (selectedAccountType === 'Unknown' ?
                         (!expense.accountType || expense.accountType === '') :
@@ -874,7 +1043,16 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         setVendorOptions(getOptions(filtered, "vendor"));
         setContractorOptions(getOptions(filtered, "contractor"));
         setCategoryOptions(getOptions(filtered, "category"));
-        setMachineToolsOptions(getOptions(filtered, "machineTools"));
+        const uniqueToolIds = [...new Set(filtered.map((item) => item.machineTools).filter((v) => v != null && v !== ''))];
+        setMachineToolsOptions(
+            uniqueToolIds.map((id) => ({
+                value: String(id),
+                label:
+                    machineToolsIdToLabel[id] ??
+                    machineToolsIdToLabel[String(id)] ??
+                    String(id),
+            }))
+        );
         setAccountTypeOptions(getOptions(filtered, "accountType"));
         setEnoOptions([...new Set(filtered.map(item => item.eno).filter(Boolean))]);
     }, [
@@ -887,11 +1065,22 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         startDate,
         endDate,
         selectedEno,
-        expenses
+        expenses,
+        machineToolsIdToLabel
     ]);
     const handleChange = (e) => {
         const { name, type, value, files } = e.target;
         if (name === "date" && value === "") {
+            return;
+        }
+        if (name === "utilityType") {
+            setSelectedEbNumber(null);
+            setEbNumberOptions([]);
+            setFormData({
+                ...formData,
+                utilityType: value,
+                utilityTypeNumber: "",
+            });
             return;
         }
         setFormData({
@@ -916,6 +1105,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         if (selectedFile) {
             try {
                 const uploadFormData = new FormData();
+
                 const now = new Date();
                 const timestamp = now.toLocaleString("en-GB", {
                     day: "2-digit",
@@ -923,25 +1113,41 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                     year: "numeric",
                     hour: "2-digit",
                     minute: "2-digit",
+                    second: "2-digit",
                     hour12: true
                 })
                     .replace(",", "")
                     .replace(/\s/g, "-");
-                const finalName = `${timestamp} - ${formData.siteName} - ${formData.vendor || formData.contractor} `;
-                uploadFormData.append('file', selectedFile);
-                uploadFormData.append('file_name', finalName);
-                const uploadResponse = await fetch("https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
+
+                const finalName = `${timestamp}-${formData.siteName}-${formData.vendor || formData.contractor}`;
+
+                // ✅ CHANGE 1: key must be "files"
+                uploadFormData.append("files", selectedFile);
+
+                // ✅ CHANGE 2: required folder
+                uploadFormData.append("folder", "FileUpload / Expenses_Entry_Files");
+
+                // ✅ CHANGE 3: optional filename
+                uploadFormData.append("fileName", finalName);
+
+                const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
                     method: "POST",
                     body: uploadFormData,
                 });
+
                 if (!uploadResponse.ok) {
-                    throw new Error('File upload failed');
+                    throw new Error("File upload failed");
                 }
+
                 const result = await uploadResponse.json();
-                updatedBillCopy = result.url;
+
+                // ✅ CHANGE 4: new response structure
+                updatedBillCopy = result.urls[0];
+
             } catch (error) {
-                console.error('Error uploading file:', error);
-                alert('Failed to upload file. Please try again.');
+                console.error("Error during file upload:", error);
+                alert("Error during file upload. Please try again.");
+                setIsSubmitting(false);
                 return;
             }
         }
@@ -952,7 +1158,9 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         };
         const isPaymentType = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
         const isNonCashPaymentMode = ['GPay', 'PhonePe', 'Net Banking', 'Cheque'].includes(updatedFormData.paymentMode);
-        if (isPaymentType && isNonCashPaymentMode) {
+        const previousPaymentMode = expenses.find(e => e.id === editId)?.paymentMode || '';
+        const isChangingFromCashToOnline = previousPaymentMode === 'Cash' && isNonCashPaymentMode;
+        if (isPaymentType && isNonCashPaymentMode && isChangingFromCashToOnline) {
             pendingUpdateFormDataRef.current = updatedFormData;
             setPaymentModalData({
                 chequeNo: '',
@@ -976,7 +1184,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         }
     };
     const performUpdateAndWeeklyBills = async (updatedFormData, modalPaymentData = null) => {
-        const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatedFormData)
@@ -1008,7 +1216,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                     transaction_number: (modalPaymentData && modalPaymentData.transactionNumber) || null,
                     account_number: (modalPaymentData && modalPaymentData.accountNumber) || null
                 };
-                const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
+                const weeklyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1128,6 +1336,9 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         } else if (sortField === 'eno') {
             aValue = parseInt(aValue) || 0;
             bValue = parseInt(bValue) || 0;
+        } else if (sortField === 'machineTools') {
+            aValue = String(getMachineToolsItemIdDisplay(a.machineTools) || '').toLowerCase();
+            bValue = String(getMachineToolsItemIdDisplay(b.machineTools) || '').toLowerCase();
         } else {
             aValue = String(aValue || '').toLowerCase();
             bValue = String(bValue || '').toLowerCase();
@@ -1277,6 +1488,8 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
             utilityTypeNumber: expense.utilityTypeNumber || '',
             utilityForTheMonth: expense.utilityForTheMonth || '',
             utilityValidityDays: expense.utilityValidityDays || '',
+            utilityValidityType: expense.utilityValidityType || '',
+            serviceStartingDate: expense.serviceStartingDate || '',
             projectId: expense.projectId || '',
             vendorId: expense.vendorId || '',
             contractorId: expense.contractorId || ''
@@ -1343,7 +1556,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
             expense.comments,
             expense.category,
             expense.accountType,
-            expense.machineTools,
+            getMachineToolsItemIdDisplay(expense.machineTools),
             expense.eno,
             expense.billCopy || ""
         ]);
@@ -1428,7 +1641,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                     {selectedMachineTools && (
                                         <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
                                             <span className="font-normal">Tools: </span>
-                                            <span className="font-bold">{selectedMachineTools}</span>
+                                            <span className="font-bold">{getMachineToolsItemIdDisplay(selectedMachineTools)}</span>
                                             <button onClick={() => setSelectedMachineTools('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
                                     )}
@@ -1442,7 +1655,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                             </button>
                             <div className=' text-left md:text-right md:items-center items-start cursor-default flex max-w-screen-2xl table-auto overflow-auto w-full'>
                                 <div className='flex items-center'>
-                                    <span className='text-[#E4572E] mr-4 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={generateFilteredPDF}><span className='text-black'>Export</span> PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
+                                    <span className='text-[#E4572E] mr-4 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={generateFilteredPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
                                     <span className='text-[#007233] mr-1 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportToCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
                                 </div>
                             </div>
@@ -1474,7 +1687,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                         <th className="px-0.5 w-[120px] font-bold text-left">Quantity</th>
                                         <th className="px-0.5 w-[120px] font-bold text-left">Amount</th>
                                         <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('comments')}>
-                                            Comments {sortField === 'comments' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                            Description {sortField === 'comments' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
                                         <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('category')}>
                                             Category {sortField === 'category' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -1568,7 +1781,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                 <Select
                                                     className="w-full"
                                                     options={machineToolsOptions}
-                                                    value={selectedMachineTools ? machineToolsOptions.find(opt => opt.value === selectedMachineTools) : null}
+                                                    value={selectedMachineTools ? machineToolsOptions.find(opt => opt.value === String(selectedMachineTools)) : null}
                                                     onChange={(selectedOption) => setSelectedMachineTools(selectedOption ? selectedOption.value : '')}
                                                     placeholder="Machine..."
                                                     menuPlacement="bottom"
@@ -1599,7 +1812,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                             <td className="text-sm text-left w-[120px] max-w-[120px] break-words overflow-hidden whitespace-normal px-1">{expense.comments || ''}</td>
                                             <td className=" text-sm text-left ">{expense.category}</td>
                                             <td className=" text-sm text-left ">{expense.accountType}</td>
-                                            <td className=" text-sm text-left ">{expense.machineTools}</td>
+                                            <td className=" text-sm text-left ">{getMachineToolsItemIdDisplay(expense.machineTools)}</td>
                                             <td className=" text-sm text-left ">{expense.source}</td>
                                             <td className=" text-sm text-left ">{getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}</td>
                                             <td className=" text-sm text-left pl-3 ">{expense.eno}</td>
@@ -1999,15 +2212,38 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                         formData.utilityType === 'Property' ? 'Property Tax Number' :
                                                             formData.utilityType === 'Water' ? 'Water Tax Number' : 'Number'}
                                                 </label>
-                                                <input
-                                                    type="text"
-                                                    name="utilityTypeNumber"
-                                                    value={formData.utilityTypeNumber}
-                                                    onChange={handleChange}
-                                                    placeholder={`Enter ${formData.utilityType === 'Electricity' ? 'EB Number' :
+                                                <Select
+                                                    options={ebNumberOptions}
+                                                    value={selectedEbNumber}
+                                                    onChange={(opt) => {
+                                                        setSelectedEbNumber(opt);
+                                                        setFormData((prev) => ({ ...prev, utilityTypeNumber: opt?.label || "" }));
+                                                    }}
+                                                    isClearable
+                                                    placeholder={`Select ${formData.utilityType === 'Electricity' ? 'EB Number' :
                                                         formData.utilityType === 'Property' ? 'Property Tax Number' :
                                                             formData.utilityType === 'Water' ? 'Water Tax Number' : 'Number'}...`}
-                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                                    styles={{
+                                                        control: (base) => ({
+                                                            ...base,
+                                                            borderColor: 'rgba(191, 152, 83, 0.2)',
+                                                            borderWidth: '2px',
+                                                            borderRadius: '0.5rem',
+                                                            padding: '0.25rem',
+                                                            textAlign: 'left',
+                                                        }),
+                                                        option: (provided, state) => ({
+                                                            ...provided,
+                                                            textAlign: 'left',
+                                                            fontWeight: 'normal',
+                                                            fontSize: '15px',
+                                                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+                                                            color: 'black',
+                                                        }),
+                                                        menu: (base) => ({ ...base, zIndex: 9999 }),
+                                                    }}
+                                                    menuPlacement="bottom"
+                                                    menuPosition="absolute"
                                                 />
                                             </div>
                                             <div>
@@ -2022,16 +2258,51 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                 />
                                             </div>
                                             {(formData.utilityType === 'Telecom' || formData.utilityType === 'Subscription') && (
-                                                <div>
-                                                    <label className="block text-gray-500 font-semibold text-left">Additional Input</label>
-                                                    <input
-                                                        type="text"
-                                                        name="utilityValidityDays"
-                                                        value={formData.utilityValidityDays}
-                                                        onChange={handleChange}
-                                                        placeholder="Enter additional information..."
-                                                        className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
-                                                    />
+                                                <div className="col-span-2 grid grid-cols-3 gap-4 w-full">
+
+                                                    {/* Validity */}
+                                                    <div>
+                                                        <label className="block text-gray-500 font-semibold text-left">Validity</label>
+                                                        <input
+                                                            type="text"
+                                                            name="utilityValidityDays"
+                                                            value={formData.utilityValidityDays}
+                                                            onChange={handleChange}
+                                                            placeholder="Enter validity..."
+                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                                        />
+                                                    </div>
+
+                                                    {/* Validity Type */}
+                                                    <div>
+                                                        <label className="block text-gray-500 font-semibold text-left">Validity Type</label>
+                                                        <select
+                                                            name="utilityValidityType"
+                                                            value={formData.utilityValidityType}
+                                                            onChange={handleChange}
+                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                                        >
+                                                            <option value="">--- Select ---</option>
+                                                            <option value="Days">Days</option>
+                                                            <option value="Month">Month</option>
+                                                            <option value="Year">Year</option>
+                                                        </select>
+                                                    </div>
+
+                                                    {/* Service Start Date */}
+                                                    {formData.utilityType === 'Telecom' && (
+                                                        <div>
+                                                            <label className="block text-gray-500 font-semibold text-left">Service Start Date</label>
+                                                            <input
+                                                                type="date"
+                                                                name="serviceStartingDate"
+                                                                value={formData.serviceStartingDate}
+                                                                onChange={handleChange}
+                                                                className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                                            />
+                                                        </div>
+                                                    )}
+
                                                 </div>
                                             )}
                                         </>

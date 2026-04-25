@@ -13,6 +13,50 @@ import QRCode from '../Images/AAB_QR_CODE.jpeg';
 import DownloadIcon from '../Images/download_icon.png';
 import Select from 'react-select';
 const MasterData = ({ username, userRoles = [] }) => {
+  // Normalize userRoles - supports both ['Create'] and [{roles: 'Create'}] formats
+  const roleNames = useMemo(() => (
+    (userRoles || []).map(r => (typeof r === 'string' ? r : r?.roles)).filter(Boolean)
+  ), [userRoles]);
+  const [userPermissions, setUserPermissions] = useState([]);
+  const moduleName = "Master Data";
+  // Permission helpers based on resolved module permissions
+  const hasCreatePermission = userPermissions.includes('Create');
+  const hasEditPermission = userPermissions.includes('Edit');
+  const hasDeletePermission = userPermissions.includes('Delete');
+
+  useEffect(() => {
+    const fetchUserPermissions = async () => {
+      try {
+        const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
+        const allRoles = response.data || [];
+        const matchedRoles = allRoles.filter(role =>
+          roleNames.includes(role.userRoles)
+        );
+        const models = matchedRoles.flatMap(role => role.userModels || []);
+        const matchedModel = models.find(model => model.models === moduleName);
+        const permissions = matchedModel?.permissions?.[0]?.userPermissions || [];
+        setUserPermissions(permissions);
+      } catch (error) {
+        console.error("Error fetching user role permissions:", error);
+        setUserPermissions([]);
+      }
+    };
+
+    if (roleNames.length > 0) {
+      fetchUserPermissions();
+    } else {
+      setUserPermissions([]);
+    }
+  }, [roleNames]);
+
+  const handleAddClick = (openFn) => {
+    if (hasCreatePermission) {
+      openFn();
+    } else {
+      alert("you don't have the permission to create new record");
+    }
+  };
+
   // State for Project Names (from ExpensesInputData)
   const [isSiteNamesOpen, setIsSiteNamesOpen] = useState(false);
   const [siteNameSearch, setSiteNameSearch] = useState("");
@@ -38,6 +82,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [vendorContactNumber, setVendorContactNumber] = useState('');
   const [vendorContactEmail, setVendorContactEmail] = useState('');
   const [vendorQrImage, setVendorQrImage] = useState(null);
+  const [vendorCategory, setVendorCategory] = useState('');
   const [vendorNames, setVendorNames] = useState([]);
   const [isVendorEditOpen, setIsVendorEditOpen] = useState(false);
   const [editVendorName, setEditVendorName] = useState('');
@@ -52,6 +97,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [editVendorContactEmail, setEditVendorContactEmail] = useState('');
   const [editVendorQrImage, setEditVendorQrImage] = useState(null);
   const [editVendorQrImagePreview, setEditVendorQrImagePreview] = useState(null);
+  const [editVendorCategory, setEditVendorCategory] = useState('');
   const [selectedVendorId, setSelectedVendorId] = useState(null);
   const [vendorBulkUploadFile, setVendorBulkUploadFile] = useState(null);
   const [isVendorBulkUploadOpen, setIsVendorBulkUploadOpen] = useState(false);
@@ -79,6 +125,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [contractorContactEmail, setContractorContactEmail] = useState('');
   const [contractorQrImage, setContractorQrImage] = useState(null);
   const [contractorQrImagePreview, setContractorQrImagePreview] = useState(null);
+  const [contractorCategory, setContractorCategory] = useState('');
   const [contractorNames, setContractorNames] = useState([]);
   const [isContractorEditOpen, setIsContractorEditOpen] = useState(false);
   const [editContractorName, setEditContractorName] = useState('');
@@ -93,6 +140,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [editContractorContactEmail, setEditContractorContactEmail] = useState('');
   const [editContractorQrImage, setEditContractorQrImage] = useState(null);
   const [editContractorQrImagePreview, setEditContractorQrImagePreview] = useState(null);
+  const [editContractorCategory, setEditContractorCategory] = useState('');
   const [selectedContractorId, setSelectedContractorId] = useState(null);
   const [isAccountDetailsOpen, setIsAccountDetailsOpen] = useState(false);
   const [accountDetailsSearch, setAccountDetailsSearch] = useState("");
@@ -155,6 +203,8 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [isEmployeeDataOpen, setIsEmployeeDataOpen] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [employeeName, setEmployeeName] = useState('');
+  const [usernamesOptions, setUsernamesOptions] = useState([]);
+  const [empUserName, setEmpUserName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [roleOfEmployee, setRoleOfEmployee] = useState('');
   const [empAccountHolderName, setEmpAccountHolderName] = useState('');
@@ -173,6 +223,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [isEditEmployeeDataOpen, setIsEditEmployeeDataOpen] = useState(false);
   const [selectedEmployeeDataId, setSelectedEmployeeDataId] = useState(null);
   const [editEmployeeName, setEditEmployeeName] = useState('');
+  const [editEmpUserName, setEditEmpUserName] = useState('');
   const [editEmployeeMobileNumber, setEditEmployeeMobileNumber] = useState('');
   const [editRoleOfEmployee, setEditRoleOfEmployee] = useState('');
   const [editEmpAccountHolderName, setEditEmpAccountHolderName] = useState('');
@@ -358,6 +409,15 @@ const MasterData = ({ username, userRoles = [] }) => {
       reader.readAsDataURL(file);
     }
   };
+
+  const expenseCategoryOptions = useMemo(() => (
+    (expensesCategory || [])
+      .map((item) => {
+        const value = item?.category ?? '';
+        return value ? { value, label: value } : null;
+      })
+      .filter(Boolean)
+  ), [expensesCategory]);
 
   // Function to get reordered table data (selected table first, others after)
   const getReorderedTableData = () => {
@@ -592,6 +652,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     fetchCategories();
     fetchMachinTools();
     fetchEmployeeList();
+    fetchUsernames();
     fetchLaboursList();
     fetchAccountDetails();
     fetchBankAccountTypes();
@@ -602,7 +663,7 @@ const MasterData = ({ username, userRoles = [] }) => {
 
   const fetchSiteNames = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/project_Names/getAll');
       if (response.ok) {
         const data = await response.json();
         setSiteNames(data);
@@ -613,7 +674,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const fetchVendorNames = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll');
       if (response.ok) {
         const data = await response.json();
         setVendorNames(data);
@@ -627,7 +688,7 @@ const MasterData = ({ username, userRoles = [] }) => {
 
   const fetchContractorNames = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/contractor_Names/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll');
       if (response.ok) {
         const data = await response.json();
         setContractorNames(data);
@@ -638,7 +699,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const fetchCategories = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/expenses_categories/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll');
       if (response.ok) {
         const data = await response.json();
         setExpensesCategory(data);
@@ -649,7 +710,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const fetchMachinTools = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/machine_tools/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll');
       if (response.ok) {
         const data = await response.json();
         setMachineToolsOptions(data);
@@ -660,7 +721,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const fetchEmployeeList = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/employee_details/getAll');
       if (response.ok) {
         const data = await response.json();
         setEmployeeList(data);
@@ -669,9 +730,44 @@ const MasterData = ({ username, userRoles = [] }) => {
       console.error('Error:', error);
     }
   };
+
+  const fetchUsernames = async () => {
+    try {
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/user/usernames');
+      if (!response.ok) {
+        console.error('Failed to fetch usernames:', response.status, response.statusText);
+        return;
+      }
+      const data = await response.json();
+
+      const raw =
+        Array.isArray(data)
+          ? data
+          : Array.isArray(data?.username)
+            ? data.username
+            : Array.isArray(data?.data)
+              ? data.data
+              : [];
+
+      const options = raw
+        .map((u) => {
+          if (typeof u === 'string') return u;
+          if (u && typeof u === 'object') {
+            return u.user_name || u.userName || u.username || u.name || u.employee_name || '';
+          }
+          return '';
+        })
+        .map((s) => String(s).trim())
+        .filter(Boolean);
+
+      setUsernamesOptions(Array.from(new Set(options)));
+    } catch (error) {
+      console.error('Error fetching usernames:', error);
+    }
+  };
   const fetchLaboursList = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/getAll');
       if (response.ok) {
         const data = await response.json();
         setLaboursList(data);
@@ -682,7 +778,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const fetchAccountDetails = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
       if (response.ok) {
         const data = await response.json();
         setAccountDetails(data);
@@ -693,7 +789,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const fetchBankAccountTypes = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/bank_type/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/bank_type/getAll');
       if (response.ok) {
         const data = await response.json();
         setBankAccountTypes(data);
@@ -704,7 +800,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const fetchEbServiceLinks = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/eb-service-no/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/eb-service-no/getAll');
       if (response.ok) {
         const data = await response.json();
         setEbServiceLinks(data);
@@ -715,7 +811,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const fetchSupportStaffNameList = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/support_staff/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/support_staff/getAll');
       if (response.ok) {
         const data = await response.json();
         setSupportStaffNameList(data);
@@ -726,7 +822,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const fetchProjects = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/projects/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/projects/getAll');
       if (response.ok) {
         const data = await response.json();
         setProjects(data);
@@ -880,7 +976,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     e.preventDefault();
     const newSiteNames = { siteName, siteNo };
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/save', {
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/project_Names/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSiteNames),
@@ -908,7 +1004,8 @@ const MasterData = ({ username, userRoles = [] }) => {
         gpay_number: vendorGpayNumber,
         upi_id: vendorUpiId,
         contact_number: vendorContactNumber,
-        contact_email: vendorContactEmail
+        contact_email: vendorContactEmail,
+        category: vendorCategory
       };
       // Create FormData object
       const formData = new FormData();
@@ -921,7 +1018,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       for (let [key, value] of formData.entries()) {
         console.log(key, value);
       }
-      const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/save", {
+      const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/save", {
         method: "POST",
         body: formData
       });
@@ -944,6 +1041,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       setVendorUpiId("");
       setVendorContactNumber("");
       setVendorContactEmail("");
+      setVendorCategory("");
       setVendorQrImageFile(null);
       setVendorQrImagePreview(null);
       closevendorNames();
@@ -967,7 +1065,8 @@ const MasterData = ({ username, userRoles = [] }) => {
       gpay_number: contractorGpayNumber,
       upi_id: contractorUpiId,
       contact_number: contractorContactNumber,
-      contact_email: contractorContactEmail
+      contact_email: contractorContactEmail,
+      category: contractorCategory
     };
     // Create a blob for the contractor data (like vendor implementation)
     const contractorBlob = new Blob([JSON.stringify(contractorData)], { type: 'application/json' });
@@ -977,7 +1076,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       formData.append('file', contractorQrImage);
     }
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/contractor_Names/save', {
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/contractor_Names/save', {
         method: 'POST',
         body: formData, // No Content-Type header needed, browser sets it automatically for FormData
       });
@@ -993,6 +1092,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setContractorUpiId('');
         setContractorContactNumber('');
         setContractorContactEmail('');
+        setContractorCategory('');
         setContractorQrImage(null);
         setContractorQrImagePreview(null);
         closeContractorNames();
@@ -1011,7 +1111,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     e.preventDefault();
     const newCategory = { category };
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/expenses_categories/save', {
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/expenses_categories/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newCategory),
@@ -1029,7 +1129,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     e.preventDefault();
     const newMachineTool = { machineTool };
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/machine_tools/save', {
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/machine_tools/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newMachineTool),
@@ -1056,7 +1156,7 @@ const MasterData = ({ username, userRoles = [] }) => {
 
       console.log('Uploading with filename:', finalName);
 
-      const uploadResponse = await fetch("https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
+      const uploadResponse = await fetch("https://backendaab.in/demoAabuilderDash/expenses/googleUploader/uploadToGoogleDrive", {
         method: "POST",
         body: formData,
       });
@@ -1112,6 +1212,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       employee_id: employeeId,
       employee_mobile_number: mobileNumber,
       role_of_employee: roleOfEmployee,
+      user_name: empUserName || username || '',
       account_holder_name: empAccountHolderName,
       account_number: empAccountNumber,
       bank_name: empBankName,
@@ -1136,7 +1237,7 @@ const MasterData = ({ username, userRoles = [] }) => {
 
     try {
       console.log('Sending save request to backend...');
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/employee_details/save', {
         method: 'POST',
         body: formData,
       });
@@ -1145,6 +1246,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setMessage('Employee Details saved successfully!');
         // Reset all form fields
         setEmployeeName('');
+        setEmpUserName('');
         setMobileNumber('');
         setRoleOfEmployee('');
         setEmpAccountHolderName('');
@@ -1174,7 +1276,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     e.preventDefault();
     const newLaboursList = { labour_name: labourName, labour_salary: labourSalary };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newLaboursList),
@@ -1209,7 +1311,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       upi_qr_image: qrImageBase64
     };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newAccountDetails),
@@ -1236,7 +1338,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     e.preventDefault();
     const newBankAccountType = { bank_account_type: bankAccountType };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/bank_type/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/bank_type/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newBankAccountType),
@@ -1259,7 +1361,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       eb_service_no: ebServiceNo
     };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/eb-service-no/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/eb-service-no/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newEbServiceLink),
@@ -1282,7 +1384,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       mobile_number: supportStaffMobileNumber
     };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/support_staff/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/support_staff/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSupportStaffName),
@@ -1314,7 +1416,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         propertyDetails: newProject.propertyDetailsList // map to backend
       };
 
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/projects/save', {
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/projects/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1334,7 +1436,7 @@ const MasterData = ({ username, userRoles = [] }) => {
 
           if (existingSiteName) {
             // Update existing Project Names record
-            const siteNameResponse = await fetch(`https://backendaab.in/aabuilderDash/api/project_Names/edit/${existingSiteName.id}`, {
+            const siteNameResponse = await fetch(`https://backendaab.in/demoAabuilderDash/api/project_Names/edit/${existingSiteName.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(siteNamePayload),
@@ -1345,7 +1447,7 @@ const MasterData = ({ username, userRoles = [] }) => {
             }
           } else {
             // Create new Project Names record
-            const siteNameResponse = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/save', {
+            const siteNameResponse = await fetch('https://backendaab.in/demoAabuilderDash/api/project_Names/save', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(siteNamePayload),
@@ -1392,6 +1494,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     setEditVendorUpiId(item.upi_id || '');
     setEditVendorContactNumber(item.contact_number || '');
     setEditVendorContactEmail(item.contact_email || '');
+    setEditVendorCategory(item.category || '');
     // Handle QR image from backend byte array
     let qrImagePreview = null;
     if (item.upi_qr_image) {
@@ -1424,6 +1527,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       upiId: item.upi_id || '',
       contactNumber: item.contact_number || '',
       contactEmail: item.contact_email || '',
+      category: item.category || '',
       qrImagePreview: qrImagePreview
     });
     setIsVendorEditOpen(true);
@@ -1440,6 +1544,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     setEditContractorUpiId(item.upi_id || '');
     setEditContractorContactNumber(item.contact_number || '');
     setEditContractorContactEmail(item.contact_email || '');
+    setEditContractorCategory(item.category || '');
     // Handle QR image from backend (like vendor implementation)
     let qrImagePreview = null;
     if (item.upi_qr_image) {
@@ -1472,6 +1577,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       upiId: item.upi_id || '',
       contactNumber: item.contact_number || '',
       contactEmail: item.contact_email || '',
+      category: item.category || '',
       qrImagePreview: qrImagePreview
     });
     setIsContractorEditOpen(true);
@@ -1492,6 +1598,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     setEditEmployeeId(item.employee_id || '');
     setEditEmployeeMobileNumber(item.employee_mobile_number);
     setEditRoleOfEmployee(item.role_of_employee);
+    setEditEmpUserName(item.user_name || item.userName || item.username || '');
     setEditEmpAccountHolderName(item.account_holder_name || '');
     setEditEmpAccountNumber(item.account_number || '');
     setEditEmpBankName(item.bank_name || '');
@@ -1643,7 +1750,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     if (window.confirm('Are you sure you want to delete this project?')) {
       try {
         const projectToDelete = projects.find(project => project.id === id);
-        const response = await fetch(`https://backendaab.in/aabuilderDash/api/projects/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -1653,7 +1760,7 @@ const MasterData = ({ username, userRoles = [] }) => {
               const existingSiteNameById = siteNames.find(site => site.id === id);
               const existingSiteName = existingSiteNameById || existingSiteNameBySiteNo;
               if (existingSiteName) {
-                const siteNameResponse = await fetch(`https://backendaab.in/aabuilderDash/api/project_Names/delete/${existingSiteName.id}`, {
+                const siteNameResponse = await fetch(`https://backendaab.in/demoAabuilderDash/api/project_Names/delete/${existingSiteName.id}`, {
                   method: 'DELETE',
                 });
                 if (siteNameResponse.ok) {
@@ -1688,7 +1795,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         ownerDetails: editProject.ownerDetailsList,       // mapped for backend
         propertyDetails: sortedPropertyDetails  // mapped for backend - sorted before submit
       };
-      const response = await fetch(`https://backendaab.in/aabuilderDash/api/projects/edit/${selectedProjectId}`, {
+      const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/edit/${selectedProjectId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1705,7 +1812,7 @@ const MasterData = ({ username, userRoles = [] }) => {
             branch: editProject.branch
           };
           if (existingSiteName) {
-            const siteNameResponse = await fetch(`https://backendaab.in/aabuilderDash/api/project_Names/edit/${existingSiteName.id}`, {
+            const siteNameResponse = await fetch(`https://backendaab.in/demoAabuilderDash/api/project_Names/edit/${existingSiteName.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(siteNamePayload),
@@ -1714,7 +1821,7 @@ const MasterData = ({ username, userRoles = [] }) => {
               fetchSiteNames(); // Refresh site names list
             }
           } else {
-            const siteNameResponse = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/save', {
+            const siteNameResponse = await fetch('https://backendaab.in/demoAabuilderDash/api/project_Names/save', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(siteNamePayload),
@@ -1751,6 +1858,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       setEditVendorUpiId(originalVendorData.upiId || '');
       setEditVendorContactNumber(originalVendorData.contactNumber || '');
       setEditVendorContactEmail(originalVendorData.contactEmail || '');
+      setEditVendorCategory(originalVendorData.category || '');
       setEditVendorQrImagePreview(originalVendorData.qrImagePreview || null);
       setEditVendorQrImage(null);
     }
@@ -1769,6 +1877,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       setEditContractorUpiId(originalContractorData.upiId || '');
       setEditContractorContactNumber(originalContractorData.contactNumber || '');
       setEditContractorContactEmail(originalContractorData.contactEmail || '');
+      setEditContractorCategory(originalContractorData.category || '');
       setEditContractorQrImagePreview(originalContractorData.qrImagePreview || null);
       setEditContractorQrImage(null);
     }
@@ -1799,7 +1908,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteSiteName = async (id) => {
     if (window.confirm('Are you sure you want to delete this site name?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuilderDash/api/project_Names/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/project_Names/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -1814,7 +1923,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteVendorName = async (id) => {
     if (window.confirm('Are you sure you want to delete this vendor name?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuilderDash/api/vendor_Names/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/vendor_Names/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -1829,7 +1938,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteAllVendorNames = async () => {
     if (window.confirm('Are you sure you want to delete ALL vendor names? This action cannot be undone.')) {
       try {
-        const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/deleteAll', {
+        const response = await fetch('https://backendaab.in/demoAabuilderDash/api/vendor_Names/deleteAll', {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -1850,7 +1959,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     const formData = new FormData();
     formData.append('file', vendorBulkUploadFile);
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/vendor_Names/bulk_upload', {
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/vendor_Names/bulk_upload', {
         method: 'POST',
         body: formData,
       });
@@ -1891,47 +2000,47 @@ const MasterData = ({ username, userRoles = [] }) => {
 
     switch (tableType) {
       case 'siteNames':
-        apiEndpoint = 'https://backendaab.in/aabuilderDash/api/project_Names/bulkUpload';
+        apiEndpoint = 'https://backendaab.in/demoAabuilderDash/api/project_Names/bulkUpload';
         refreshFunction = fetchSiteNames;
         break;
       case 'vendorNames':
-        apiEndpoint = 'https://backendaab.in/aabuilderDash/api/vendor_Names/bulkUpload';
+        apiEndpoint = 'https://backendaab.in/demoAabuilderDash/api/vendor_Names/bulkUpload';
         refreshFunction = fetchVendorNames;
         break;
       case 'contractorNames':
-        apiEndpoint = 'https://backendaab.in/aabuilderDash/api/contractor_Names/bulkUpload';
+        apiEndpoint = 'https://backendaab.in/demoAabuilderDash/api/contractor_Names/bulkUpload';
         refreshFunction = fetchContractorNames;
         break;
       case 'categories':
-        apiEndpoint = 'https://backendaab.in/aabuilderDash/api/expenses_categories/bulkUpload';
+        apiEndpoint = 'https://backendaab.in/demoAabuilderDash/api/expenses_categories/bulkUpload';
         refreshFunction = fetchCategories;
         break;
       case 'machineTools':
-        apiEndpoint = 'https://backendaab.in/aabuilderDash/api/machine_tools/bulkUpload';
+        apiEndpoint = 'https://backendaab.in/demoAabuilderDash/api/machine_tools/bulkUpload';
         refreshFunction = fetchMachinTools;
         break;
       case 'employeeDetails':
-        apiEndpoint = 'https://backendaab.in/aabuildersDash/api/employee_details/bulkUpload';
+        apiEndpoint = 'https://backendaab.in/demoAabuildersDash/api/employee_details/bulkUpload';
         refreshFunction = fetchEmployeeList;
         break;
       case 'labourDetails':
-        apiEndpoint = 'https://backendaab.in/aabuildersDash/api/labours-details/bulkUpload';
+        apiEndpoint = 'https://backendaab.in/demoAabuildersDash/api/labours-details/bulkUpload';
         refreshFunction = fetchLaboursList;
         break;
       case 'accountDetails':
-        apiEndpoint = 'https://backendaab.in/aabuildersDash/api/account-details/bulkUpload';
+        apiEndpoint = 'https://backendaab.in/demoAabuildersDash/api/account-details/bulkUpload';
         refreshFunction = fetchAccountDetails;
         break;
       case 'bankAccountType':
-        apiEndpoint = 'https://backendaab.in/aabuildersDash/api/bank_type/bulkUpload';
+        apiEndpoint = 'https://backendaab.in/demoAabuildersDash/api/bank_type/bulkUpload';
         refreshFunction = fetchBankAccountTypes;
         break;
       case 'ebServiceLink':
-        apiEndpoint = 'https://backendaab.in/aabuildersDash/api/eb-service-no/upload';
+        apiEndpoint = 'https://backendaab.in/demoAabuildersDash/api/eb-service-no/upload';
         refreshFunction = fetchEbServiceLinks;
         break;
       case 'projectManagement':
-        apiEndpoint = 'https://backendaab.in/aabuilderDash/api/projects/upload-sql';
+        apiEndpoint = 'https://backendaab.in/demoAabuilderDash/api/projects/upload-sql';
         refreshFunction = fetchProjects;
         break;
       default:
@@ -1972,7 +2081,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     formData.append('file', file);
 
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/projects/upload-sql', {
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/projects/upload-sql', {
         method: 'POST',
         body: formData,
       });
@@ -1996,7 +2105,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteContractorName = async (id) => {
     if (window.confirm('Are you sure you want to delete this contractor name?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuilderDash/api/contractor_Names/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/contractor_Names/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -2011,7 +2120,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteCategory = async (id) => {
     if (window.confirm('Are you sure you want to delete this category?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuilderDash/api/expenses_categories/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/expenses_categories/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -2026,7 +2135,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteMachineTool = async (id) => {
     if (window.confirm('Are you sure you want to delete this machine tool?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuilderDash/api/machine_tools/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/machine_tools/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -2041,7 +2150,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteEmployeeData = async (id) => {
     if (window.confirm('Are you sure you want to delete this employee data?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/employee_details/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/employee_details/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -2056,7 +2165,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteLabourData = async (id) => {
     if (window.confirm('Are you sure you want to delete this labour data?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/labours-details/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/labours-details/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -2071,7 +2180,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteAccountDetails = async (id) => {
     if (window.confirm('Are you sure you want to delete this account details?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/account-details/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/account-details/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -2086,7 +2195,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteBankAccountType = async (id) => {
     if (window.confirm('Are you sure you want to delete this bank account type?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/bank_type/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/bank_type/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -2102,7 +2211,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteEbServiceLink = async (id) => {
     if (window.confirm('Are you sure you want to delete this EB Service Link?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/eb-service-no/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/eb-service-no/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -2117,7 +2226,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleDeleteSupportStaffName = async (id) => {
     if (window.confirm('Are you sure you want to delete this support staff name?')) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/support_staff/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/support_staff/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -3141,7 +3250,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
                     <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]"
-                      onClick={openProjectManagement}>
+                      onClick={() => handleAddClick(openProjectManagement)}>
                       + Add
                     </button>
                   </div>
@@ -3203,12 +3312,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                               </td>
                               <td className="p-2 text-left font-semibold">
                                 <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <button onClick={() => handleEditProject(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-6 h-6" />
-                                  </button>
-                                  <button onClick={() => handleDeleteProject(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-6 h-6" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditProject(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-6 h-6" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteProject(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-6 h-6" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3233,7 +3346,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
                     <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]"
-                      onClick={openvendorNames}>
+                      onClick={() => handleAddClick(openvendorNames)}>
                       + Add
                     </button>
                   </div>
@@ -3280,12 +3393,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                                   <button onClick={() => handleVendorShare(item)}>
                                     <img src={share} alt='Share' className='w-4 h-4' />
                                   </button>
-                                  <button onClick={() => handleEditVendorName(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleDeleteVendorName(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditVendorName(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteVendorName(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3309,7 +3426,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={openContractorNames}>
+                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openContractorNames)}>
                       + Add
                     </button>
                   </div>
@@ -3354,12 +3471,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                                   <button onClick={() => handleContractorShare(item)}>
                                     <img src={share} alt='Share' className='w-4 h-4' />
                                   </button>
-                                  <button onClick={() => handleEditContractorName(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleDeleteContractorName(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditContractorName(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteContractorName(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3384,7 +3505,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
                     <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]"
-                      onClick={openCategory}>
+                      onClick={() => handleAddClick(openCategory)}>
                       + Add
                     </button>
                   </div>
@@ -3423,12 +3544,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                                   {item.category}
                                 </div>
                                 <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <button onClick={() => handleEditCategory(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleDeleteCategory(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditCategory(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteCategory(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3452,7 +3577,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={openMachineTools}>
+                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openMachineTools)}>
                       + Add
                     </button>
                   </div>
@@ -3491,12 +3616,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                                   {item.machineTool}
                                 </div>
                                 <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <button onClick={() => handleEditMachineTool(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleDeleteMachineTool(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditMachineTool(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteMachineTool(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3520,7 +3649,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={openEmployeeDetails}>
+                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openEmployeeDetails)}>
                       + Add
                     </button>
                   </div>
@@ -3567,12 +3696,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                                   <button onClick={() => handleEmployeeShare(item)}>
                                     <img src={share} alt='Share' className='w-4 h-4' />
                                   </button>
-                                  <button onClick={() => handleEditEmployeeData(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleDeleteEmployeeData(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditEmployeeData(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteEmployeeData(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3596,7 +3729,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={openLabourDetails}>
+                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openLabourDetails)}>
                       + Add
                     </button>
                   </div>
@@ -3635,12 +3768,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                                   {item.labour_name}
                                 </div>
                                 <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <button onClick={() => handleEditLabourData(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleDeleteLabourData(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditLabourData(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteLabourData(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3664,7 +3801,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={openAccountDetails}>
+                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openAccountDetails)}>
                       + Add
                     </button>
                   </div>
@@ -3690,7 +3827,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[250px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                       <table className="table-auto lg:w-[300px] w-full">
                         <tbody>
                           {filteredAccountDetails.map((item, index) => (
@@ -3706,12 +3843,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                                   <button onClick={() => handleAccountShare(item)}>
                                     <img src={share} alt='Share' className='w-4 h-4' />
                                   </button>
-                                  <button onClick={() => handleEditAccountDetails(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleDeleteAccountDetails(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditAccountDetails(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteAccountDetails(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3735,7 +3876,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={openBankAccountType}>
+                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openBankAccountType)}>
                       + Add
                     </button>
                   </div>
@@ -3774,12 +3915,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                                   {item.bank_account_type}
                                 </div>
                                 <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <button onClick={() => handleEditBankAccountType(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleDeleteBankAccountType(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditBankAccountType(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteBankAccountType(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3803,7 +3948,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={openSupportStaffName}>
+                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openSupportStaffName)}>
                       + Add
                     </button>
                   </div>
@@ -3835,12 +3980,16 @@ const MasterData = ({ username, userRoles = [] }) => {
                                   {item.support_staff_name || ''}
                                 </div>
                                 <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <button onClick={() => handleEditSupportStaffName(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                    <img src={edit} alt="Edit" className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleDeleteSupportStaffName(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                    <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
-                                  </button>
+                                  {hasEditPermission && (
+                                    <button onClick={() => handleEditSupportStaffName(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                      <img src={edit} alt="Edit" className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {hasDeletePermission && (
+                                    <button onClick={() => handleDeleteSupportStaffName(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                      <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -4051,6 +4200,18 @@ const MasterData = ({ username, userRoles = [] }) => {
                             Add QR
                           </button>
                         </div>
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold mb-1">Category</label>
+                          <Select
+                            value={expenseCategoryOptions.find(opt => opt.value === vendorCategory) ?? null}
+                            onChange={(opt) => setVendorCategory(opt?.value ?? '')}
+                            options={expenseCategoryOptions}
+                            placeholder="Select"
+                            isSearchable
+                            isClearable
+                            className="w-52"
+                          />
+                        </div>
                       </div>
                       <div className="flex space-x-2 justify-end mt-52 ml-5">
                         <button type="submit" className="btn bg-[#BF9853] text-white px-8 py-2 rounded-lg hover:bg-yellow-800 font-semibold">
@@ -4221,6 +4382,18 @@ const MasterData = ({ username, userRoles = [] }) => {
                             Add QR
                           </button>
                         </div>
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold mb-1">Category</label>
+                          <Select
+                            value={expenseCategoryOptions.find(opt => opt.value === contractorCategory) ?? null}
+                            onChange={(opt) => setContractorCategory(opt?.value ?? '')}
+                            options={expenseCategoryOptions}
+                            placeholder="Select"
+                            isSearchable
+                            isClearable
+                            className="w-52"
+                          />
+                        </div>
                       </div>
                       <div className="flex space-x-2 justify-end mt-52">
                         <button type="submit" className="btn bg-[#BF9853] text-white px-8 py-2 rounded-lg hover:bg-yellow-800 font-semibold">
@@ -4342,7 +4515,27 @@ const MasterData = ({ username, userRoles = [] }) => {
                           />
                         </div>
                       </div>
-                      <div className='flex gap-4'>
+                      <div className='flex gap-4 flex-wrap'>
+                        <div className="mb-4">
+                          <label className="block text-lg font-medium mb-2">User Name</label>
+                          <select
+                            className="w-96 border-2 border-[#BF9853] border-opacity-35 p-2 rounded-lg h-14 focus:outline-none"
+                            value={empUserName}
+                            onChange={(e) => setEmpUserName(e.target.value)}
+                          >
+                            <option value="">{usernamesOptions.length > 0 ? 'Select user' : 'Loading...'}</option>
+                            {usernamesOptions.map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                            {empUserName && !usernamesOptions.includes(empUserName) && (
+                              <option key={empUserName} value={empUserName}>
+                                {empUserName}
+                              </option>
+                            )}
+                          </select>
+                        </div>
                         <div className="mb-4">
                           <label className="block text-lg font-medium mb-2">Designation</label>
                           <input
@@ -4760,7 +4953,7 @@ const MasterData = ({ username, userRoles = [] }) => {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const response = await fetch(`https://backendaab.in/aabuilderDash/api/project_Names/edit/${selectedSiteId}`, {
+                  const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/project_Names/edit/${selectedSiteId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ siteName: editSiteName, siteNo: editSiteNo }),
@@ -4835,7 +5028,8 @@ const MasterData = ({ username, userRoles = [] }) => {
                         gpay_number: editVendorGpayNumber,
                         upi_id: editVendorUpiId,
                         contact_number: editVendorContactNumber,
-                        contact_email: editVendorContactEmail
+                        contact_email: editVendorContactEmail,
+                        category: editVendorCategory
                       };
                       const vendorBlob = new Blob([JSON.stringify(vendorData)], { type: 'application/json' });
                       formData.append('vendor', vendorBlob);
@@ -4846,7 +5040,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                         console.log(key, typeof value, value);
                       }
                       try {
-                        const response = await fetch(`https://backendaab.in/aabuilderDash/api/vendor_Names/edit/${selectedVendorId}`, {
+                        const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/vendor_Names/edit/${selectedVendorId}`, {
                           method: 'PUT',
                           body: formData,
                         });
@@ -5107,6 +5301,19 @@ const MasterData = ({ username, userRoles = [] }) => {
                                 {isVendorEditMode ? 'Disable Edit' : 'Edit Vendor Details'}
                               </button>
                             </div>
+                            <div className="mb-4">
+                              <label className="block text-sm font-semibold mb-1">Category</label>
+                              <Select
+                                value={expenseCategoryOptions.find(opt => opt.value === editVendorCategory) ?? null}
+                                onChange={(opt) => setEditVendorCategory(opt?.value ?? '')}
+                                options={expenseCategoryOptions}
+                                placeholder="Select"
+                                isSearchable
+                                isClearable
+                                className="w-52"
+                                isDisabled={!isVendorEditMode}
+                              />
+                            </div>
                           </div>
                           <div className="flex space-x-2 mt-40">
                             <button type="submit" className="btn bg-[#BF9853] text-white px-8 py-2 rounded-lg hover:bg-yellow-800 font-semibold">
@@ -5204,7 +5411,8 @@ const MasterData = ({ username, userRoles = [] }) => {
                         gpay_number: editContractorGpayNumber,
                         upi_id: editContractorUpiId,
                         contact_number: editContractorContactNumber,
-                        contact_email: editContractorContactEmail
+                        contact_email: editContractorContactEmail,
+                        category: editContractorCategory
                       };
                       const contractorBlob = new Blob([JSON.stringify(contractorData)], { type: 'application/json' });
                       formData.append('contractor', contractorBlob);
@@ -5213,7 +5421,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                         formData.append('file', editContractorQrImage);
                       }
                       try {
-                        const response = await fetch(`https://backendaab.in/aabuilderDash/api/contractor_Names/edit/${selectedContractorId}`, {
+                        const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/contractor_Names/edit/${selectedContractorId}`, {
                           method: 'PUT',
                           body: formData,
                         });
@@ -5482,6 +5690,19 @@ const MasterData = ({ username, userRoles = [] }) => {
                                 {isContractorEditMode ? 'Disable Edit' : 'Edit Contractor Details'}
                               </button>
                             </div>
+                            <div className="mb-4">
+                              <label className="block text-sm font-semibold mb-1">Category</label>
+                              <Select
+                                value={expenseCategoryOptions.find(opt => opt.value === editContractorCategory) ?? null}
+                                onChange={(opt) => setEditContractorCategory(opt?.value ?? '')}
+                                options={expenseCategoryOptions}
+                                placeholder="Select"
+                                isSearchable
+                                isClearable
+                                className="w-52"
+                                isDisabled={!isContractorEditMode}
+                              />
+                            </div>
                           </div>
                           <div className="flex space-x-2 justify-end mt-40">
                             <button type="submit" className="btn bg-[#BF9853] text-white px-8 py-2 rounded-lg hover:bg-yellow-800 font-semibold">
@@ -5513,7 +5734,7 @@ const MasterData = ({ username, userRoles = [] }) => {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const response = await fetch(`https://backendaab.in/aabuilderDash/api/expenses_categories/update/${selectedCategoryId}`, {
+                  const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/expenses_categories/update/${selectedCategoryId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ category: editCategory }),
@@ -5563,7 +5784,7 @@ const MasterData = ({ username, userRoles = [] }) => {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const response = await fetch(`https://backendaab.in/aabuilderDash/api/machine_tools/update/${selectedMachineId}`, {
+                  const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/machine_tools/update/${selectedMachineId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ machineTool: editMachineTool }),
@@ -5646,7 +5867,7 @@ const MasterData = ({ username, userRoles = [] }) => {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const response = await fetch(`https://backendaab.in/aabuildersDash/api/bank_type/edit/${selectedBankAccountTypeId}`, {
+                  const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/bank_type/edit/${selectedBankAccountTypeId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ bank_account_type: editBankAccountType }),
@@ -5758,7 +5979,7 @@ const MasterData = ({ username, userRoles = [] }) => {
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const response = await fetch(`https://backendaab.in/aabuildersDash/api/eb-service-no/update/${selectedEbServiceLinkId}`, {
+                  const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/eb-service-no/update/${selectedEbServiceLinkId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -5880,7 +6101,7 @@ const MasterData = ({ username, userRoles = [] }) => {
             <form onSubmit={async (e) => {
               e.preventDefault();
               try {
-                const response = await fetch(`https://backendaab.in/aabuildersDash/api/support_staff/edit/${selectedSupportStaffNameId}`, {
+                const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/support_staff/edit/${selectedSupportStaffNameId}`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ support_staff_name: editSupportStaffName, mobile_number: editSupportStaffMobileNumber }),
@@ -6558,6 +6779,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     employee_id: editEmployeeId,
                     employee_mobile_number: editEmployeeMobileNumber,
                     role_of_employee: editRoleOfEmployee,
+                    user_name: editEmpUserName || '',
                     account_holder_name: editEmpAccountHolderName,
                     account_number: editEmpAccountNumber,
                     bank_name: editEmpBankName,
@@ -6598,7 +6820,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     }
                   }
                   try {
-                    const response = await fetch(`https://backendaab.in/aabuildersDash/api/employee_details/edit/${selectedEmployeeDataId}`, {
+                    const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/employee_details/edit/${selectedEmployeeDataId}`, {
                       method: 'PUT',
                       body: formData,
                     });
@@ -6641,7 +6863,28 @@ const MasterData = ({ username, userRoles = [] }) => {
                           />
                         </div>
                       </div>
-                      <div className='flex gap-4'>
+                      <div className='flex gap-4 flex-wrap'>
+                        <div className="mb-4">
+                          <label className="block text-lg font-medium mb-2">User Name</label>
+                          <select
+                            className="w-96 border-2 border-[#BF9853] border-opacity-35 p-2 rounded-lg h-14 focus:outline-none"
+                            value={editEmpUserName}
+                            onChange={(e) => setEditEmpUserName(e.target.value)}
+                            disabled={!isEmployeeEditMode}
+                          >
+                            <option value="">{usernamesOptions.length > 0 ? 'Select user' : 'Loading...'}</option>
+                            {usernamesOptions.map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                            {editEmpUserName && !usernamesOptions.includes(editEmpUserName) && (
+                              <option key={editEmpUserName} value={editEmpUserName}>
+                                {editEmpUserName}
+                              </option>
+                            )}
+                          </select>
+                        </div>
                         <div className="mb-4">
                           <label className="block text-lg font-medium mb-2">Designation</label>
                           <input
@@ -7016,7 +7259,7 @@ const MasterData = ({ username, userRoles = [] }) => {
             <form onSubmit={async (e) => {
               e.preventDefault();
               try {
-                const response = await fetch(`https://backendaab.in/aabuildersDash/api/labours-details/edit/${selectedLabourDataId}`, {
+                const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/labours-details/edit/${selectedLabourDataId}`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -7097,7 +7340,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                       upi_qr_image: qrImageBase64
                     };
                     try {
-                      const response = await fetch(`https://backendaab.in/aabuildersDash/api/account-details/update/${selectedAccountId}`, {
+                      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/account-details/update/${selectedAccountId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(updateData),

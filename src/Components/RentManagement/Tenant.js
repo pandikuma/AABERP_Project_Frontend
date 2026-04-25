@@ -128,7 +128,7 @@ const Tenant = () => {
   }, []);
   const fetchAgreements = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/agreements/all');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/agreements/all');
       if (response.ok) {
         const data = await response.json();
         setFullAgreementData(data);
@@ -143,7 +143,7 @@ const Tenant = () => {
   useEffect(() => {
     const fetchTenants = async () => {
       try {
-        const response = await axios.get('https://backendaab.in/aabuildersDash/api/tenant-groups/all');
+        const response = await axios.get('https://backendaab.in/demoAabuildersDash/api/tenant-groups/all');
         const updatedTenants = response.data.map((tenant) => {
           if (tenant.aadhaarFile) {
             return {
@@ -195,17 +195,18 @@ const Tenant = () => {
     let confirmedAgreementUrl = "";
     const filename = `${selectedPropertyName}_${selectedDoorNo}_${selectedTenantName}`;
     const formData = new FormData();
-    formData.append("file", selectedAgreementFile);
-    formData.append("file_name", filename);
-    const uploadResponse = await fetch("https://backendaab.in/aabuilderDash/agreement/googleUploader/uploadToGoogleDrive", {
+    formData.append("files", selectedAgreementFile);
+    formData.append("folder", "FileUpload / Rental_Agreements");
+    formData.append("fileName", filename);    
+    const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
       method: "POST",
       body: formData,
     });
     if (!uploadResponse.ok) throw new Error("PDF upload failed");
     const uploadResult = await uploadResponse.json();
-    confirmedAgreementUrl = uploadResult.url;
+    confirmedAgreementUrl = uploadResult.urls[0] || '';
     try {
-      const res = await fetch(`https://backendaab.in/aabuildersDash/api/agreements/updateConfirmedUrl/${selectedId}`, {
+      const res = await fetch(`https://backendaab.in/demoAabuildersDash/api/agreements/updateConfirmedUrl/${selectedId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -225,7 +226,7 @@ const Tenant = () => {
       return;
     }
     try {
-      await axios.delete(`https://backendaab.in/aabuildersDash/api/agreements/delete/${id}`);
+      await axios.delete(`https://backendaab.in/demoAabuildersDash/api/agreements/delete/${id}`);
       alert("Agreement deleted successfully!");
       fetchAgreements();
     } catch (error) {

@@ -139,7 +139,7 @@ const Table = () => {
     // Fetch projects for allShops
     const fetchProjects = async () => {
         try {
-            const response = await fetch('https://backendaab.in/aabuilderDash/api/projects/getAll');
+            const response = await fetch('https://backendaab.in/demoAabuilderDash/api/projects/getAll');
             if (response.ok) {
                 const data = await response.json();
                 // Filter for "own project" category
@@ -184,7 +184,7 @@ const Table = () => {
     // Fetch tenant link data
     const fetchTenants = async () => {
         try {
-            const response = await fetch('https://backendaab.in/aabuildersDash/api/tenant_link_shop/getAll');
+            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/tenant_link_shop/getAll');
             if (response.ok) {
                 const data = await response.json();
                 setTenantShopData(data);
@@ -624,7 +624,7 @@ const Table = () => {
     };
     useEffect(() => {
         axios
-            .get('https://backendaab.in/aabuildersDash/api/rental_forms/getAll')
+            .get('https://backendaab.in/demoAabuildersDash/api/rental_forms/getAll')
             .then((response) => {
                 const sortedExpenses = response.data.sort((a, b) => {
                     const enoA = parseInt(a.id, 10);
@@ -780,7 +780,7 @@ const Table = () => {
     useEffect(() => {
         const fetchPaymentModes = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/payment_mode/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     const formattedOptions = data.map(mode => ({
@@ -800,7 +800,7 @@ const Table = () => {
     useEffect(() => {
         const fetchAccountDetails = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setAccountDetails(data);
@@ -857,7 +857,7 @@ const Table = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         // Check if payment mode requires bank details
-        if (["GPay", "PhonePe", "Net Banking", "Cheque","Gpay"].includes(rentFormData.paymentMode)) {
+        if (["GPay", "PhonePe", "Net Banking", "Cheque", "Gpay"].includes(rentFormData.paymentMode)) {
             // Show payment modal if not already shown
             if (!showPaymentModal) {
                 setPaymentModalData({
@@ -905,7 +905,7 @@ const Table = () => {
         };
         setIsSubmitting(true);
         try {
-            const response = await fetch(`https://backendaab.in/aabuildersDash/api/rental_forms/update/${editId}`, {
+            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/rental_forms/update/${editId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -992,7 +992,7 @@ const Table = () => {
             };
 
             // Update rental form first
-            const updateResponse = await fetch(`https://backendaab.in/aabuildersDash/api/rental_forms/update/${editId}`, {
+            const updateResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/rental_forms/update/${editId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1035,7 +1035,7 @@ const Table = () => {
                 tenant_complex_name: projectReferenceName || null
             };
 
-            const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
+            const weeklyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -1069,9 +1069,9 @@ const Table = () => {
                         >
                             Export pdf
                         </span>
-                        <span
-                            className='text-[#007233] font-semibold hover:underline cursor-pointer text-sm sm:text-base'
-                            onClick={handleExportExcel} >
+                        <span className='text-[#007233] font-semibold hover:underline cursor-pointer text-sm sm:text-base'
+                            onClick={handleExportExcel}
+                        >
                             Export XL
                         </span>
                         <span className='text-[#BF9853] font-semibold hover:underline text-sm sm:text-base'>Print</span>
@@ -1596,8 +1596,8 @@ const Table = () => {
                                                     onClick={() => handleEditClick(rent)}
                                                     disabled={rent.formType === 'Shop Closure' || rent.formType === 'Refund'}
                                                     className={`rounded-full transition duration-200 ml-2 mr-3 ${rent.formType === 'Shop Closure' || rent.formType === 'Refund'
-                                                            ? 'opacity-50 cursor-not-allowed'
-                                                            : ''
+                                                        ? 'opacity-50 cursor-not-allowed'
+                                                        : ''
                                                         }`}
                                                     title={rent.formType === 'Shop Closure' || rent.formType === 'Refund'
                                                         ? 'Cannot edit Shop Closure or Refund forms'
@@ -1607,8 +1607,8 @@ const Table = () => {
                                                         src={edit}
                                                         alt="Edit"
                                                         className={`w-4 h-6 transition duration-200 ${rent.formType === 'Shop Closure' || rent.formType === 'Refund'
-                                                                ? ''
-                                                                : ''
+                                                            ? ''
+                                                            : ''
                                                             }`}
                                                     />
                                                 </button>
@@ -1777,7 +1777,7 @@ const Table = () => {
                                                 const newPaymentMode = selectedOption?.value || '';
                                                 setRentFormData({ ...rentFormData, paymentMode: newPaymentMode });
                                                 // Check if payment mode requires bank details
-                                                if (["GPay", "PhonePe", "Net Banking", "Cheque","Gpay"].includes(newPaymentMode)) {
+                                                if (["GPay", "PhonePe", "Net Banking", "Cheque", "Gpay"].includes(newPaymentMode)) {
                                                     setPaymentModalData({
                                                         date: rentFormData.paidOnDate || new Date().toISOString().split('T')[0],
                                                         amount: rentFormData.amount || "",

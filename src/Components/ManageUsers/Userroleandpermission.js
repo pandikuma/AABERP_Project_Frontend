@@ -98,96 +98,100 @@ const Userroleandpermission = () => {
       level: "Level 2",
     },
     {
-      id: 19,
+      id: 18,
       name: "Tools Tracker",
       level: "Level 2",
     },
     {
-      id: 20,
+      id: 19,
       name: "Tile Calculator",
       level: "level 3",
     },
     {
-      id: 21,
+      id: 20,
       name: "Paint Calculator",
       level: "Level 2",
     },
     {
-      id: 22,
+      id: 21,
       name: "Bath Fixtures Matrix",
       level: "Level 1",
     },
     {
-      id: 23,
+      id: 22,
       name: "RCC Calculation",
       level: "Level 2",
     },
     {
-      id: 24,
+      id: 23,
       name: "Switch Matrix",
       level: "level 3",
     },
     {
-      id: 25,
+      id: 24,
       name: "Masonary Calculator",
       level: "Level 1",
     },
     {
-      id: 26,
+      id: 25,
       name: "Carpentry Calculator",
       level: "Level 2",
     },
     {
-      id: 27,
+      id: 26,
       name: "Onboarding",
       level: "Level 1",
     },
     {
-      id: 28,
+      id: 27,
       name: "Attendance",
       level: "Level 2",
     },
     {
-      id: 29,
+      id: 28,
       name: "Staff Advance",
       level: "level 3",
     },
     {
-      id: 30,
+      id: 29,
       name: "Manage User",
       level: "Level 1",
     },
     {
-      id: 31,
+      id: 30,
       name: "Loan Portal",
       level: "Level 1",
     },
     {
-      id: 32,
+      id: 31,
       name: "Bank Register",
       level: "Level 1",
     },
     {
-      id: 33,
+      id: 32,
       name: "Bank Reconciliation",
       level: "level 1",
     },
     {
-      id: 34,
+      id: 33,
       name: "Master Data",
       level: "Level 1",
     },
     {
-      id: 35,
+      id: 34,
       name: "Dashboard",
       level: "Level 1",
     },
     {
-      id: 36,
+      id: 35,
       name: "Directory",
       level: "Level 1",
+    },
+    {
+      id: 36,
+      name: "RFQ",
+      level: "Level 1",
     }
-
   ];
   const [availableModules, setAvailableModules] = useState(modules);
   const [selectedModuleToAdd, setSelectedModuleToAdd] = useState(""); // module selected in dropdown
@@ -227,7 +231,7 @@ const Userroleandpermission = () => {
   const handleRoleChange = async (role) => {
     setSelectedRole(role);
     try {
-      const response = await fetch("https://backendaab.in/aabuilderDash/api/user_roles/all");
+      const response = await fetch("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
       const allRoles = await response.json();
       console.log('All roles from backend:', allRoles);
       const existingRole = allRoles.find((r) => r.userRoles === role);
@@ -329,17 +333,17 @@ const Userroleandpermission = () => {
         })),
     };
     try {
-      const response = await fetch("https://backendaab.in/aabuilderDash/api/user_roles/all");
+      const response = await fetch("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
       const allRoles = await response.json();
       const existingRole = allRoles.find((r) => r.userRoles === selectedRole);
       if (existingRole) {
-        await fetch(`https://backendaab.in/aabuilderDash/api/user_roles/edit/${existingRole.id}`, {
+        await fetch(`https://backendaab.in/demoAabuilderDash/api/user_roles/edit/${existingRole.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formattedData),
         });
       } else {
-        await fetch("https://backendaab.in/aabuilderDash/api/user_roles/save", {
+        await fetch("https://backendaab.in/demoAabuilderDash/api/user_roles/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formattedData),
@@ -389,7 +393,7 @@ const Userroleandpermission = () => {
   const handleSubmitRoleName = async () => {
     const newRoleName = { roleName };
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/roles/save', {
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/roles/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -409,7 +413,7 @@ const Userroleandpermission = () => {
   };
   const fetchRoleNames = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuilderDash/api/roles/all');
+      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/roles/all');
       if (response.ok) {
         const data = await response.json();
         setAllRoles(data);
@@ -425,21 +429,21 @@ const Userroleandpermission = () => {
     fetchRoleNames();
   }, []);
   return (
-    <div className="p-6 w-[1750px] bg-white ml-8">
-      <div className="p-6 min-h-screen">
-        <div className="flex gap-4 mb-4 overflow-hidden">
-          <div className="flex gap-4 text-left">
-            <div>
+    <div className="p-4 sm:p-6 w-full max-w-[1750px] bg-white ml-0 md:ml-8 box-border">
+      <div className="p-4 sm:p-6 min-h-screen">
+        <div className="flex flex-wrap gap-4 mb-4 overflow-hidden">
+          <div className="flex flex-wrap gap-4 text-left flex-1">
+            <div className="w-full sm:w-auto min-w-[200px]">
               <label className="block mb-3 font-semibold">Branch Name</label>
-              <select className="w-[252px] h-[45px] border-2 border-[#BF9853] border-opacity-20 rounded-lg focus:outline-none">
+              <select className="w-full sm:w-[252px] h-[45px] border-2 border-[#BF9853] border-opacity-20 rounded-lg focus:outline-none">
                 <option>Select Branch</option>
                 <option>Option 1</option>
               </select>
             </div>
-            <div>
+            <div className="w-full sm:w-auto min-w-[200px]">
               <label className="block mb-3 font-semibold">Role</label>
               <select
-                className="w-[257px] h-[45px] border-2 border-[#BF9853] border-opacity-20 rounded-lg focus:outline-none"
+                className="w-full sm:w-[257px] h-[45px] border-2 border-[#BF9853] border-opacity-20 rounded-lg focus:outline-none"
                 value={selectedRole}
                 onChange={(e) => handleRoleChange(e.target.value)}
               >
@@ -451,45 +455,46 @@ const Userroleandpermission = () => {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="w-full sm:w-auto min-w-[140px]">
               <label className="block mb-3 font-semibold">Level</label>
-              <select className="w-[147px] h-[45px] border-2 border-[#BF9853] border-opacity-20 rounded-lg focus:outline-none">
+              <select className="w-full sm:w-[147px] h-[45px] border-2 border-[#BF9853] border-opacity-20 rounded-lg focus:outline-none">
                 <option>Select Level</option>
                 <option>Option 1</option>
               </select>
             </div>
-            <div>
+            <div className="w-full sm:w-auto">
               <button
-                className=" w-36 mt-[2.38rem] p-2 border bg-[#BF9853] text-white font-semibold rounded"
+                className="w-full sm:w-36 mt-0 sm:mt-[2.38rem] p-2 border bg-[#BF9853] text-white font-semibold rounded"
                 onClick={() => setIsModuleSelectedOpen(true)}>
                 + Add Modules
               </button>
             </div>
           </div>
-          <div>
+          <div className="w-full sm:w-auto">
             <button
-              className="w-[132px] h-[38px] mr-96 bg-[#BF9853] text-white font-semibold rounded mt-14 ml-[600px]"
+              className="w-full sm:w-[132px] h-[38px] bg-[#BF9853] text-white font-semibold rounded sm:ml-auto"
               onClick={() => setShowRoleCreationModal(true)}
             >
               + New Role
             </button>
           </div>
         </div>
-        <table className="w-full table-fixed border-collapse bg-white rounded-xl shadow-md">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <table className="w-full min-w-[700px] table-auto sm:table-fixed border-collapse bg-white rounded-xl shadow-md">
           <thead>
-            <tr className="bg-[#F5F5F5] text-left text-[16px] font-semibold ">
-              <th className="px-4 py-3 w-[120px]">S.No</th>
-              <th className="px-4 py-3 w-[300px]">Module</th>
-              <th className="px-4 py-3 w-[320px]">Levels</th>
-              <th className="px-4 py-3 w-full">Permissions</th>
+            <tr className="bg-[#F5F5F5] text-left text-sm sm:text-[16px] font-semibold ">
+              <th className="px-2 sm:px-4 py-3 min-w-[60px] sm:w-[120px]">S.No</th>
+              <th className="px-2 sm:px-4 py-3 min-w-[150px] sm:w-[300px]">Module</th>
+              <th className="px-2 sm:px-4 py-3 min-w-[80px] sm:w-[320px]">Levels</th>
+              <th className="px-2 sm:px-4 py-3">Permissions</th>
             </tr>
           </thead>
           {selectedRole && (
             <tbody>
               {activeModules.map((module, index) => (
-                <tr key={module.name} className="border-t text-[14px] align-top">
-                  <td className="px-4 py-4 text-[#2E2E2E] text-left">{index + 1}</td>
-                  <td className="px-4 py-4">
+                <tr key={module.name} className="border-t text-sm sm:text-[14px] align-top">
+                  <td className="px-2 sm:px-4 py-4 text-[#2E2E2E] text-left">{index + 1}</td>
+                  <td className="px-2 sm:px-4 py-4">
                     <div className="flex items-center font-semibold text-base gap-2 mb-2">
                       <input
                         type="checkbox"
@@ -499,7 +504,7 @@ const Userroleandpermission = () => {
                       />
                       {module.name}
                     </div>
-                    <div className="mr-36 items-center">
+                    <div className="mr-0 sm:mr-36 items-center">
                       <label className="text-[14px] text-[#6B7280] items-center font-medium">
                         <input
                           type="checkbox"
@@ -512,9 +517,9 @@ const Userroleandpermission = () => {
                       </label>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-base font-semibold text-left">{module.level}</td>
-                  <td className="px-4 py-4">
-                    <div className="grid grid-cols-5 gap-y-8 max-w-[900px]">
+                  <td className="px-2 sm:px-4 py-4 text-base font-semibold text-left">{module.level}</td>
+                  <td className="px-2 sm:px-4 py-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-y-4 sm:gap-y-8 gap-x-2 max-w-[900px]">
                       {permissions.map((perm) => (
                         <label
                           key={perm}
@@ -537,10 +542,11 @@ const Userroleandpermission = () => {
             </tbody>
           )}
         </table>
+        </div>
       </div>
       {showRoleCreationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-          <div className="bg-white w-[448px] h-[255px] shadow-lg p-6 relative">
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50 p-4">
+          <div className="bg-white w-full max-w-[448px] min-h-[255px] shadow-lg p-6 relative max-h-[90vh] overflow-y-auto">
             <button
               className="absolute top-2 right-3 text-red-500 font-bold text-base"
               onClick={() => setShowRoleCreationModal(false)}
@@ -555,7 +561,7 @@ const Userroleandpermission = () => {
                 placeholder="Enter New Role Name"
                 value={roleName}
                 onChange={(e) => setRoleName(e.target.value)}
-                className="w-[360px] h-[45px] px-3 border-2 border-[#BF9853] border-opacity-25 rounded-md mb-4 focus:outline-none"
+                className="w-full max-w-[360px] h-[45px] px-3 border-2 border-[#BF9853] border-opacity-25 rounded-md mb-4 focus:outline-none"
               />
             </div>
             <div className="flex justify-end mr-6 gap-3">
@@ -583,15 +589,15 @@ const Userroleandpermission = () => {
         </div>
       )}
       {isModuleSelectedOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50" >
-          <div className="bg-white w-[448px] h-[100px] shadow-lg p-6 relative" >
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50 p-4" >
+          <div className="bg-white w-full max-w-[448px] min-h-[100px] shadow-lg p-6 relative" >
             <button className="absolute top-2 right-3 text-red-500 font-bold text-base"
               onClick={() => setIsModuleSelectedOpen(false)}>
               ✕
             </button>
-            <div className="mb-4 flex items-center gap-4">
+            <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
               <Select
-                className="w-[320px] border border-[#FAF6ED] border-r-[0.20rem] border-l-[0.20rem] border-b-[0.20rem] border-t-[0.20rem] rounded-lg"
+                className="w-full max-w-[320px] border border-[#FAF6ED] border-r-[0.20rem] border-l-[0.20rem] border-b-[0.20rem] border-t-[0.20rem] rounded-lg"
                 options={moduleOptions}
                 isClearable
                 value={moduleOptions.find((option) => option.value === selectedModuleToAdd) || null}

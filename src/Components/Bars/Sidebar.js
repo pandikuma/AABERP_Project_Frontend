@@ -27,7 +27,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
   useEffect(() => {
     const fetchUserRoles = async () => {
       try {
-        const response = await axios.get("https://backendaab.in/aabuilderDash/api/user_roles/all");
+        const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
         const allRoles = response.data;
         const userRoleNames = userRoles.map(r => r.roles);
         const matchedRoles = allRoles.filter(role =>
@@ -77,11 +77,8 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
 
       // Procurement routes
       '/purchaseorder': { menu: 'procurement', submenu: 'Purchase Order' },
-      '/grn/create': { menu: 'procurement', submenu: 'GRN' },
-      '/grn/verify': { menu: 'procurement', submenu: 'GRN' },
       '/inventory': { menu: 'procurement', submenu: 'Inventory' },
       '/toolsTracker': { menu: 'procurement', submenu: 'Tools Tracker' },
-      '/testpurchaseorder': { menu: 'procurement', submenu: 'Test PurchaseOrder' },
 
       // Design Tools routes
       '/designtool/tileCalculate': { menu: 'designtools', submenu: 'Tile Calculator' },
@@ -136,7 +133,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
   };
   return (
     <aside ref={sidebarRef}
-      className={`fixed  h-screen w-[250px] bg-[#FFFFFF] mt-14 z-20 overflow-y-auto transition-transform duration-1000 ease-in-out transform ${isVisible ? 'translate-x-0' : '-translate-x-full'
+      className={`fixed h-screen w-[250px] bg-[#FFFFFF] mt-14 z-40 overflow-y-auto transition-transform duration-1000 ease-in-out transform ${isVisible ? 'translate-x-0' : '-translate-x-full'
         }`}>
       <nav className="h-full flex flex-col">
         <Link
@@ -287,7 +284,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
               }}>
               <p className="text-sm cursor-pointer"><li>Vendor Payments Tracker</li></p>
             </Link>
-            <Link to={hasAccessToModel('Advance Portal') ? 'portal/advancePortal' : '#'}
+            <Link to={hasAccessToModel('Advance Portal') ? '/portal/advancePortal' : '#'}
               className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Advance Portal' ? 'text-red-500' : ''}`}
               onClick={(e) => {
                 if (!hasAccessToModel('Advance Portal')) {
@@ -300,7 +297,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
               }}>
               <p className="text-sm cursor-pointer"><li>Advance Portal</li></p>
             </Link>
-            <Link to={hasAccessToModel('Loan Portal') ? 'loan/loanportal' : '#'}
+            <Link to={hasAccessToModel('Loan Portal') ? '/loan/loanportal' : '#'}
               className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Loan Portal' ? 'text-red-500' : ''}`}
               onClick={(e) => {
                 if (!hasAccessToModel('Loan Portal')) {
@@ -434,19 +431,6 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
         </div>
         {activeMenu === 'procurement' && (
           <div className="ml-6">
-            <Link to={hasAccessToModel('Purchase Order') ? '/requestforquotation' : '#'} className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Request For Quotation' ? 'text-red-500' : ''
-              }`}
-              onClick={(e) => {
-                if (!hasAccessToModel('Purchase Order')) {
-                  e.preventDefault();
-                  alert("No permissions for this page");
-                  return;
-                }
-                handleSubmenuItemClick('Request For Quotation');
-                if (onCloseSidebar) onCloseSidebar();
-              }}>
-              <p className="text-sm cursor-pointer"><li>Request For Quotation</li></p>
-            </Link>
             <Link to={hasAccessToModel('Purchase Order') ? '/purchaseorder' : '#'} className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Purchase Order' ? 'text-red-500' : ''
               }`}
               onClick={(e) => {
@@ -459,17 +443,6 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
                 if (onCloseSidebar) onCloseSidebar();
               }}>
               <p className="text-sm cursor-pointer"><li>Purchase Order</li></p>
-            </Link>
-            <Link
-              to="/grn/create"
-              className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'GRN' ? 'text-red-500' : ''
-                }`}
-              onClick={() => {
-                handleSubmenuItemClick('GRN');
-                if (onCloseSidebar) onCloseSidebar();
-              }}
-            >
-              <p className="text-sm cursor-pointer"><li>GRN</li></p>
             </Link>
             <Link to={hasAccessToModel('Inventory') ? '/inventory' : '#'} className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Inventory' ? 'text-red-500' : ''
               }`} onClick={(e) => {
@@ -494,30 +467,6 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
                 if (onCloseSidebar) onCloseSidebar();
               }}>
               <p className="text-sm cursor-pointer"><li>Tools Tracker</li></p>
-            </Link>
-            <Link to={hasAccessToModel('Test Tools Tracker') ? '/testtoolsTracker' : '#'} className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Test Tools Tracker' ? 'text-red-500' : ''
-              }`} onClick={(e) => {
-                if (!hasAccessToModel('Test Tools Tracker')) {
-                  e.preventDefault();
-                  alert("No permissions for this page");
-                  return;
-                }
-                handleSubmenuItemClick('Test Tools Tracker');
-                if (onCloseSidebar) onCloseSidebar();
-              }}>
-              <p className="text-sm cursor-pointer"><li>Test Tools Tracker</li></p>
-            </Link>
-            <Link to={hasAccessToModel('Test PurchaseOrder') ? '/testpurchaseorder' : '#'} className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Test PurchaseOrder' ? 'text-red-500' : ''
-              }`} onClick={(e) => {
-                if (!hasAccessToModel('Test PurchaseOrder')) {
-                  e.preventDefault();
-                  alert("No permissions for this page");
-                  return;
-                }
-                handleSubmenuItemClick('Test PurchaseOrder');
-                if (onCloseSidebar) onCloseSidebar();
-              }}>
-              <p className="text-sm cursor-pointer"><li>Test PurchaseOrder</li></p>
             </Link>
           </div>
         )}

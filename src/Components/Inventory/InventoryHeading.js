@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
 import Incoming from "./Incoming";
 import MobileInventory from "../../componentsMobile/Inventory/Inventory";
+import { isMobileViewportWidth } from '../../constants/mobileBreakpoint';
 
 const InventoryHeading = ({ username, userRoles = [] }) => {
 
-    const [isMobile, setIsMobile] = useState(() => {
-        return window.innerWidth <= 768;
-    });
+    const [isMobile, setIsMobile] = useState(() => isMobileViewportWidth());
 
     useEffect(() => {
         const handleResize = () => {
-            setIsMobile(window.innerWidth <= 768);
+            setIsMobile(isMobileViewportWidth());
         };
         window.addEventListener('resize', handleResize);
         return () => {
@@ -34,7 +33,13 @@ const InventoryHeading = ({ username, userRoles = [] }) => {
 
     if (isMobile) {
         const storedUser = localStorage.getItem('user');
-        const user = storedUser ? JSON.parse(storedUser) : { username, userRoles};
+        const storedUserParsed = storedUser ? JSON.parse(storedUser) : {};
+        const user = {
+            ...storedUserParsed,
+            username,
+            // Prefer roles provided from `App.js` props; fall back to localStorage if missing.
+            userRoles: Array.isArray(userRoles) && userRoles.length > 0 ? userRoles : (storedUserParsed?.userRoles ?? []),
+        };
         return (
             <div style={{textAlign: 'left'}}>
                 <MobileInventory user={user} onLogout={() => {}}/>;

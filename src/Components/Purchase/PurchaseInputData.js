@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import CreatableSelect from 'react-select/creatable';
 import search from '../Images/search.png';
 import imports from '../Images/Import.svg';
@@ -367,7 +367,7 @@ const PurchaseInputData = () => {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const response = await fetch("https://backendaab.in/aabuildersDash/api/po_model/model_bulkUpload", {
+      const response = await fetch("https://backendaab.in/demoAabuildersDash/api/po_model/model_bulkUpload", {
         method: "POST",
         body: formData,
       });
@@ -387,7 +387,7 @@ const PurchaseInputData = () => {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const response = await fetch("https://backendaab.in/aabuildersDash/api/po_brand/bulkUpload", {
+      const response = await fetch("https://backendaab.in/demoAabuildersDash/api/po_brand/bulkUpload", {
         method: "POST",
         body: formData,
       });
@@ -407,7 +407,7 @@ const PurchaseInputData = () => {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const response = await fetch("https://backendaab.in/aabuildersDash/api/po_type/bulkUpload", {
+      const response = await fetch("https://backendaab.in/demoAabuildersDash/api/po_type/bulkUpload", {
         method: "POST",
         body: formData,
       });
@@ -427,7 +427,7 @@ const PurchaseInputData = () => {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const response = await fetch("https://backendaab.in/aabuildersDash/api/po_itemNames/upload/csv", {
+      const response = await fetch("https://backendaab.in/demoAabuildersDash/api/po_itemNames/upload/csv", {
         method: "POST",
         body: formData,
       });
@@ -442,7 +442,7 @@ const PurchaseInputData = () => {
   const handleSubmitEditCategory = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_category/edit/${selectedCategoryId}`, {
+      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_category/edit/${selectedCategoryId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -462,7 +462,7 @@ const PurchaseInputData = () => {
   useEffect(() => {
     const fetchSites = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+        const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -488,7 +488,7 @@ const PurchaseInputData = () => {
   const handleSubmitEditModel = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_model/edit/${selectedModelId}`, {
+      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_model/edit/${selectedModelId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -511,7 +511,7 @@ const PurchaseInputData = () => {
   const handleSubmitEditBrand = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_brand/edit/${selectedBrandId}`, {
+      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_brand/edit/${selectedBrandId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -531,7 +531,7 @@ const PurchaseInputData = () => {
   const handleSubmitEditType = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_type/edit/${selectedTypeId}`, {
+      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_type/edit/${selectedTypeId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -551,7 +551,7 @@ const PurchaseInputData = () => {
   const handleSubmitEditItemName = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_itemNames/edit/${poItemNameId}`, {
+      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_itemNames/edit/${poItemNameId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -573,7 +573,7 @@ const PurchaseInputData = () => {
   const handleSubmitEditSiteIncharge = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`https://backendaab.in/aabuildersDash/api/site_incharge/edit/${siteInchargeId}`, {
+      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/site_incharge/edit/${siteInchargeId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -595,7 +595,7 @@ const PurchaseInputData = () => {
   const handleSubmitEditGroupName = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`https://backendaab.in/aabuildersDash/api/group_name/edit/${groupNameId}`, {
+      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/group_name/edit/${groupNameId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -616,7 +616,7 @@ const PurchaseInputData = () => {
     const confirmed = window.confirm("Are you sure you want to delete This Category?");
     if (confirmed) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_category/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_category/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -638,7 +638,7 @@ const PurchaseInputData = () => {
     const confirmed = window.confirm("Are you sure you want to delete This Model?");
     if (confirmed) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_model/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_model/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -660,7 +660,7 @@ const PurchaseInputData = () => {
     const confirmed = window.confirm("Are you sure you want to delete This Item Name?");
     if (confirmed) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_itemNames/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_itemNames/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -682,7 +682,7 @@ const PurchaseInputData = () => {
     const confirmed = window.confirm("Are you sure you want to delete This Brand?");
     if (confirmed) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_brand/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_brand/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -704,7 +704,7 @@ const PurchaseInputData = () => {
     const confirmed = window.confirm("Are you sure you want to delete This Type?");
     if (confirmed) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/po_type/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/po_type/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -726,7 +726,7 @@ const PurchaseInputData = () => {
     const confirmed = window.confirm("Are you sure you want to delete This Type?");
     if (confirmed) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/group_name/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/group_name/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -749,7 +749,7 @@ const PurchaseInputData = () => {
     const confirmed = window.confirm("Are you sure you want to delete This Site Incharge?");
     if (confirmed) {
       try {
-        const response = await fetch(`https://backendaab.in/aabuildersDash/api/site_incharge/delete/${id}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/site_incharge/delete/${id}`, {
           method: 'DELETE',
         });
         if (response.ok) {
@@ -772,7 +772,7 @@ const PurchaseInputData = () => {
     e.preventDefault();
     const newAccountType = { category };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_category/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -798,7 +798,7 @@ const PurchaseInputData = () => {
       category: selectedModelCategory?.value || null,
     };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_model/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -821,7 +821,7 @@ const PurchaseInputData = () => {
     e.preventDefault();
     const newBrandData = { brand, category: selectedBrandcategory?.value || null };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_brand/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -844,7 +844,7 @@ const PurchaseInputData = () => {
     e.preventDefault();
     const newTypeData = { typeColor, category: selectedTypeCategory?.value || null };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_type/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -867,7 +867,7 @@ const PurchaseInputData = () => {
     e.preventDefault();
     const newAccountType = { groupName };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/group_name/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/group_name/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -891,7 +891,7 @@ const PurchaseInputData = () => {
   }, []);
   const fetchPoCategory = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_category/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_category/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoCategory(data);
@@ -913,7 +913,7 @@ const PurchaseInputData = () => {
   }, []);
   const fetchPoModel = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_model/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoModel(data);
@@ -931,7 +931,7 @@ const PurchaseInputData = () => {
   }, []);
   const fetchPoBrand = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_brand/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoBrand(data);
@@ -948,7 +948,7 @@ const PurchaseInputData = () => {
   }, []);
   const fetchPoType = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_type/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoType(data);
@@ -965,7 +965,7 @@ const PurchaseInputData = () => {
   }, []);
   const fetchPoItemName = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_itemNames/getAll');
       if (response.ok) {
         const data = await response.json();
         setPoItemName(data);
@@ -982,7 +982,7 @@ const PurchaseInputData = () => {
   }, []);
   const fetchSiteIncharge = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/site_incharge/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/site_incharge/getAll');
       if (response.ok) {
         const data = await response.json();
         setSiteIncharge(data);
@@ -999,7 +999,7 @@ const PurchaseInputData = () => {
   }, []);
   const fetchGroupNameList = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/group_name/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/group_name/getAll');
       if (response.ok) {
         const data = await response.json();
         setGroupNameList(data);
@@ -1076,33 +1076,95 @@ const PurchaseInputData = () => {
     updatedFields.splice(index, 1);
     setFields(updatedFields);
   };
-  const filteredPocategory = poCategory.filter((item) =>
-    item.category.toLowerCase().includes(poCategorySearch.toLowerCase())
-  );
-  const filteredPoModel = poModel.filter((item) =>
-    item.model.toLowerCase().includes(poModelSearch.toLowerCase())
-  );
-  const filteredPoBrand = poBrand.filter((item) =>
-    item.brand.toLowerCase().includes(poBrandSearch.toLowerCase())
-  );
-  const filteredPoTypeColor = poType.filter((item) =>
-    (item.typeColor ?? '').toLowerCase().includes((poTypeSearch ?? '').toLowerCase())
-  );
-  const filteredPoItemName = poItemName.filter((item) =>
-    (item.itemName ?? '').toLowerCase().includes((poItemNameSearch ?? '').toLowerCase()) &&
-    (!selectedCategory || item.category === selectedCategory.value)
-  );
-  const filteredSiteIncharge = siteIncharge.filter((item) =>
-    item.siteEngineer.toLowerCase().includes(siteInchargeSearch.toLowerCase())
-  );
-  const filteredGroupName = groupNameList.filter((item) =>
-    item.groupName.toLowerCase().includes(groupNameSearch.toLowerCase())
-  );
-  const getItemNamesForModel = (modelName) => {
-    return poItemName
-      .filter(item => item.otherPOEntityList?.some(entry => entry.modelName === modelName))
-      .map(item => item.itemName);
-  };
+  // Performance: avoid O(n^2) work during table renders by memoizing derived data.
+  const filteredPocategory = useMemo(() => {
+    const q = (poCategorySearch ?? '').toLowerCase();
+    if (!q) return poCategory;
+    return poCategory.filter((item) => (item.category ?? '').toLowerCase().includes(q));
+  }, [poCategory, poCategorySearch]);
+
+  const filteredPoModel = useMemo(() => {
+    const q = (poModelSearch ?? '').toLowerCase();
+    if (!q) return poModel;
+    return poModel.filter((item) => (item.model ?? '').toLowerCase().includes(q));
+  }, [poModel, poModelSearch]);
+
+  const filteredPoBrand = useMemo(() => {
+    const q = (poBrandSearch ?? '').toLowerCase();
+    if (!q) return poBrand;
+    return poBrand.filter((item) => (item.brand ?? '').toLowerCase().includes(q));
+  }, [poBrand, poBrandSearch]);
+
+  const filteredPoTypeColor = useMemo(() => {
+    const q = (poTypeSearch ?? '').toLowerCase();
+    if (!q) return poType;
+    return poType.filter((item) => (item.typeColor ?? '').toLowerCase().includes(q));
+  }, [poType, poTypeSearch]);
+
+  const filteredPoItemName = useMemo(() => {
+    const q = (poItemNameSearch ?? '').toLowerCase();
+    const selectedCat = selectedCategory?.value;
+    return poItemName.filter((item) => {
+      const nameOk = (item.itemName ?? '').toLowerCase().includes(q);
+      const catOk = !selectedCat || item.category === selectedCat;
+      return nameOk && catOk;
+    });
+  }, [poItemName, poItemNameSearch, selectedCategory]);
+
+  const filteredSiteIncharge = useMemo(() => {
+    const q = (siteInchargeSearch ?? '').toLowerCase();
+    if (!q) return siteIncharge;
+    return siteIncharge.filter((item) => (item.siteEngineer ?? '').toLowerCase().includes(q));
+  }, [siteIncharge, siteInchargeSearch]);
+
+  const filteredGroupName = useMemo(() => {
+    const q = (groupNameSearch ?? '').toLowerCase();
+    if (!q) return groupNameList;
+    return groupNameList.filter((item) => (item.groupName ?? '').toLowerCase().includes(q));
+  }, [groupNameList, groupNameSearch]);
+
+  const sNoByPoItemNameId = useMemo(() => {
+    const map = new Map();
+    for (let i = 0; i < poItemName.length; i++) map.set(poItemName[i]?.id, i + 1);
+    return map;
+  }, [poItemName]);
+
+  const sNoByPoModelId = useMemo(() => {
+    const map = new Map();
+    for (let i = 0; i < poModel.length; i++) map.set(poModel[i]?.id, i + 1);
+    return map;
+  }, [poModel]);
+
+  const sNoByPoBrandId = useMemo(() => {
+    const map = new Map();
+    for (let i = 0; i < poBrand.length; i++) map.set(poBrand[i]?.id, i + 1);
+    return map;
+  }, [poBrand]);
+
+  const sNoByPoTypeId = useMemo(() => {
+    const map = new Map();
+    for (let i = 0; i < poType.length; i++) map.set(poType[i]?.id, i + 1);
+    return map;
+  }, [poType]);
+
+  // Build once: modelName -> [itemName, ...] for quick hover popover.
+  const itemNamesByModelName = useMemo(() => {
+    const map = new Map();
+    for (const item of poItemName) {
+      const itemName = item?.itemName;
+      if (!itemName) continue;
+      const list = item?.otherPOEntityList;
+      if (!Array.isArray(list) || list.length === 0) continue;
+      for (const entry of list) {
+        const modelName = entry?.modelName;
+        if (!modelName) continue;
+        const existing = map.get(modelName);
+        if (existing) existing.push(itemName);
+        else map.set(modelName, [itemName]);
+      }
+    }
+    return map;
+  }, [poItemName]);
 
   const handleSubmitSiteIncharge = async () => {
     // Basic validation
@@ -1111,7 +1173,7 @@ const PurchaseInputData = () => {
       return;
     }
     try {
-      const response = await fetch("https://backendaab.in/aabuildersDash/api/site_incharge/save", {
+      const response = await fetch("https://backendaab.in/demoAabuildersDash/api/site_incharge/save", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1152,7 +1214,7 @@ const PurchaseInputData = () => {
       otherPOEntityList: poItemList.otherPOEntityList,
     };
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/po_itemNames/save', {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_itemNames/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1192,7 +1254,7 @@ const PurchaseInputData = () => {
   };
   const fetchMappedCategories = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/mapped/category/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/mapped/category/getAll');
       if (response.ok) {
         const data = await response.json();
         const selected = data.map(d => d.mappedCategory);
@@ -1217,7 +1279,7 @@ const PurchaseInputData = () => {
     try {
       // 1️⃣ Add new selections
       for (const category of toAdd) {
-        const response = await fetch("https://backendaab.in/aabuildersDash/api/mapped/category/save", {
+        const response = await fetch("https://backendaab.in/demoAabuildersDash/api/mapped/category/save", {
           method: "POST",
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mappedCategory: category }),
@@ -1232,7 +1294,7 @@ const PurchaseInputData = () => {
       for (const category of toRemove) {
         const id = mappedCategoryMap[category];
         if (id) {
-          const deleteResponse = await fetch(`https://backendaab.in/aabuildersDash/api/mapped/category/delete/${id}`, {
+          const deleteResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/mapped/category/delete/${id}`, {
             method: "DELETE",
           });
           if (!deleteResponse.ok) {
@@ -1397,7 +1459,9 @@ const PurchaseInputData = () => {
                 <tbody>
                   {filteredPoItemName.map((item, index) => (
                     <tr className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                      <td className="p-2 text-left font-semibold lg:table-cell hidden">{(poItemName.findIndex(acc => acc.id === item.id) + 1).toString().padStart(2, '0')}</td>
+                      <td className="p-2 text-left font-semibold lg:table-cell hidden">
+                        {(sNoByPoItemNameId.get(item.id) ?? 0).toString().padStart(2, '0')}
+                      </td>
                       <td className="p-2 group flex justify-between items-center font-semibold">
                         {item.itemName}
                         <div className="flex flex-grow">
@@ -1510,7 +1574,7 @@ const PurchaseInputData = () => {
               <table className="table-auto w-full">
                 <tbody>
                   {filteredPoModel.map((modelItem, index) => {
-                    const itemNamesForThisModel = getItemNamesForModel(modelItem.model);
+                    const itemNamesForThisModel = itemNamesByModelName.get(modelItem.model) || [];
                     return (
                       <tr
                         key={modelItem.id}
@@ -1519,7 +1583,7 @@ const PurchaseInputData = () => {
                         onMouseLeave={() => setHoveredModelName(null)}
                       >
                         <td className="p-2 text-left font-semibold lg:table-cell hidden">
-                          {(poModel.findIndex(acc => acc.id === modelItem.id) + 1).toString().padStart(2, '0')}
+                          {(sNoByPoModelId.get(modelItem.id) ?? 0).toString().padStart(2, '0')}
                         </td>
                         <td className="p-2 text-left group flex font-semibold relative">
                           <div className="flex flex-grow">{modelItem.model}</div>
@@ -1664,7 +1728,9 @@ const PurchaseInputData = () => {
                 <tbody>
                   {filteredPoBrand.map((item, index) => (
                     <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                      <td className="p-2 text-left font-semibold lg:table-cell hidden">{(poBrand.findIndex(acc => acc.id === item.id) + 1).toString().padStart(2, '0')}</td>
+                      <td className="p-2 text-left font-semibold lg:table-cell hidden">
+                        {(sNoByPoBrandId.get(item.id) ?? 0).toString().padStart(2, '0')}
+                      </td>
                       <td className="p-2 text-left group flex font-semibold">
                         <div className="flex flex-grow">
                           {item.brand}
@@ -1800,7 +1866,9 @@ const PurchaseInputData = () => {
                 <tbody>
                   {filteredPoTypeColor.map((item, index) => (
                     <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                      <td className="p-2 text-left font-semibold lg:table-cell hidden">{(poType.findIndex(acc => acc.id === item.id) + 1).toString().padStart(2, '0')}</td>
+                      <td className="p-2 text-left font-semibold lg:table-cell hidden">
+                        {(sNoByPoTypeId.get(item.id) ?? 0).toString().padStart(2, '0')}
+                      </td>
                       <td className="p-2 text-left group flex font-semibold">
                         <div className="flex flex-grow">
                           {item.typeColor}
@@ -2419,7 +2487,7 @@ const PurchaseInputData = () => {
                           };
 
                           try {
-                            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_model/save', {
+                            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_model/save', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify(newModelData),
@@ -2467,7 +2535,7 @@ const PurchaseInputData = () => {
                           };
 
                           try {
-                            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_brand/save', {
+                            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_brand/save', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify(newBrand),
@@ -2512,7 +2580,7 @@ const PurchaseInputData = () => {
                           };
 
                           try {
-                            const response = await fetch('https://backendaab.in/aabuildersDash/api/po_type/save', {
+                            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/po_type/save', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify(newTypeColor),
