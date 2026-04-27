@@ -15,6 +15,8 @@ import FilterUp from '../Images/FilterUp.svg'
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import SideArrow from '../Images/chevron-down (1).svg'
 import Share from '../Images/Mask group.svg'
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const masterDataItems = [
   'Project Name',
@@ -1160,6 +1162,26 @@ const MasterData = ({ user, onLogout }) => {
   ]);
 
   useEffect(() => {
+    if (projectFormMode === 'new') setExpandedProjectSection('project-image');
+    if (vendorFormMode === 'new') setExpandedVendorSection('vendor-image');
+    if (contractorFormMode === 'new') setExpandedContractorSection('contractor-image');
+    if (categoryFormMode === 'new') setExpandedCategorySection('category-image');
+    if (machineFormMode === 'new') setExpandedMachineSection('machine-image');
+    if (employeeFormMode === 'new') setExpandedEmployeeSection('employee-image');
+    if (accountFormMode === 'new') setExpandedAccountSection('account-image');
+    if (labourFormMode === 'new') setExpandedLabourSection('labour-image');
+  }, [
+    projectFormMode,
+    vendorFormMode,
+    contractorFormMode,
+    categoryFormMode,
+    machineFormMode,
+    employeeFormMode,
+    accountFormMode,
+    labourFormMode
+  ]);
+
+  useEffect(() => {
     if (selectedItem !== 'Project Name' || !isAddProjectViewOpen) {
       setIsProjectViewOnly(false);
     }
@@ -1512,14 +1534,14 @@ const MasterData = ({ user, onLogout }) => {
 
   useEffect(() => {
     setIsAddVendorViewOpen(false);
-    setExpandedVendorSection('vendor-details');
+    setExpandedVendorSection('vendor-image');
     setIsVendorQrModalOpen(false);
     setVendorQrPreview('');
     setVendorQrFile(null);
     setVendorPictureFile(null);
     setVendorFormMode('new');
     setIsAddContractorViewOpen(false);
-    setExpandedContractorSection('contractor-details');
+    setExpandedContractorSection('contractor-image');
     setIsContractorQrModalOpen(false);
     setIsContractorPictureModalOpen(false);
     setContractorPictureDraft('');
@@ -1528,15 +1550,15 @@ const MasterData = ({ user, onLogout }) => {
     setContractorPictureFile(null);
     setContractorFormMode('new');
     setIsAddCategoryViewOpen(false);
-    setExpandedCategorySection('category-details');
+    setExpandedCategorySection('category-image');
     setCategoryFormMode('new');
     setCategoryForm({ categoryId: '', categoryName: '' });
     setIsAddMachineViewOpen(false);
-    setExpandedMachineSection('machine-details');
+    setExpandedMachineSection('machine-image');
     setMachineFormMode('new');
     setMachineForm({ machineId: '', machineName: '' });
     setIsAddEmployeeViewOpen(false);
-    setExpandedEmployeeSection('employee-details');
+    setExpandedEmployeeSection('employee-image');
     setIsEmployeeQrModalOpen(false);
     setEmployeeQrPreview('');
     setIsEmployeeAadhaarModalOpen(false);
@@ -1561,7 +1583,7 @@ const MasterData = ({ user, onLogout }) => {
       upiId: ''
     });
     setIsAddLabourViewOpen(false);
-    setExpandedLabourSection('wage-details');
+    setExpandedLabourSection('labour-image');
     setIsLabourQrModalOpen(false);
     setLabourQrPreview('');
     setLabourFormMode('new');
@@ -1586,7 +1608,7 @@ const MasterData = ({ user, onLogout }) => {
       upiId: ''
     });
     setIsAddAccountViewOpen(false);
-    setExpandedAccountSection('account-details');
+    setExpandedAccountSection('account-image');
     setIsAccountQrModalOpen(false);
     setAccountQrPreview('');
     setAccountFormMode('new');
@@ -1833,6 +1855,8 @@ const MasterData = ({ user, onLogout }) => {
     };
   };
 
+  const pickImageValue = (...vals) => vals.find((v) => typeof v === 'string' && v.trim() !== '') || '';
+
   const handleNavigate = (page) => {
     if (page === 'request-for-quotation') {
       setCurrentPage('request-for-quotation');
@@ -1926,6 +1950,7 @@ const MasterData = ({ user, onLogout }) => {
   };
 
   const toggleProjectSection = (sectionId) => {
+    if (projectFormMode === 'new' && sectionId !== 'project-image') return;
     setExpandedProjectSection((current) => (current === sectionId ? null : sectionId));
   };
 
@@ -2249,22 +2274,390 @@ const MasterData = ({ user, onLogout }) => {
     );
   };
 
+  const shouldKeepImageAccordionOpen = (formMode, sectionId) => formMode === 'new' && String(sectionId).endsWith('-image');
+
   const renderProjectAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedProjectSection === sectionId;
+    const isExpanded = expandedProjectSection === sectionId || shouldKeepImageAccordionOpen(projectFormMode, sectionId);
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <button
           type="button"
           onClick={() => toggleProjectSection(sectionId)}
-          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
-          <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
+          <span className="flex items-center gap-[8px] text-[#2B2B2B]">
+            {projectFormMode === 'edit' ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Share project details"
+                className="inline-flex h-[16px] w-[16px] cursor-pointer items-center justify-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleProjectShare(sectionId, title);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleProjectShare(sectionId, title);
+                }}
+              >
+                <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
+              </span>
+            ) : null}
+            {renderChevron(isExpanded)}
+          </span>
         </button>
         {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
       </div>
     );
+  };
+
+  const getPdfValue = (value) => {
+    if (value === null || value === undefined) return 'N/A';
+    const text = String(value).trim();
+    return text || 'N/A';
+  };
+
+  const normalizeQrForPdf = (value) => {
+    if (!value || typeof value !== 'string') return '';
+    const qrImageData = value.trim().replace(/\s/g, '');
+    if (!qrImageData) return '';
+    if (qrImageData.startsWith('data:')) return qrImageData;
+    if (qrImageData.startsWith('/9j/') || qrImageData.startsWith('/9j4')) return `data:image/jpeg;base64,${qrImageData}`;
+    if (qrImageData.startsWith('iVBORw0KGgo')) return `data:image/png;base64,${qrImageData}`;
+    return '';
+  };
+
+  const downloadDetailsPdf = ({ title, sectionTitle, rows, fileName, qrImage }) => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.setTextColor(191, 152, 83);
+    doc.text(title, 105, 20, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text(sectionTitle, 14, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.autoTable({
+      startY: 35,
+      body: rows,
+      theme: 'grid',
+      styles: {
+        fontSize: 10,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: {
+          fontStyle: 'bold',
+          textColor: [0, 0, 0],
+          font: 'helvetica',
+          fontSize: 11
+        },
+        1: {
+          textColor: [50, 50, 50]
+        }
+      },
+      headStyles: { fillColor: [191, 152, 83] }
+    });
+
+    const normalizedQrImage = normalizeQrForPdf(qrImage);
+    if (normalizedQrImage) {
+      try {
+        doc.addImage(normalizedQrImage, 'JPEG', 80, doc.lastAutoTable.finalY + 20, 50, 50);
+        doc.setFontSize(10);
+        doc.text('Scan to Pay', 105, doc.lastAutoTable.finalY + 75, { align: 'center' });
+      } catch (error) {
+        console.error('Failed to add QR image to PDF:', error);
+      }
+    }
+
+    doc.save(fileName);
+  };
+
+  const makePdfFileName = (entity, name, sectionId) => {
+    const safeEntity = String(entity || 'Details').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'Details';
+    const safeName = getPdfValue(name).replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'Record';
+    const safeSection = String(sectionId || 'details').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'details';
+    return `${safeEntity}_${safeName}_${safeSection}.pdf`;
+  };
+
+  const fallbackPdfRows = (rows) => (Array.isArray(rows) && rows.length ? rows : [['Details', 'N/A']]);
+
+  const handleProjectShare = (sectionId, sectionTitle) => {
+    let rows = [];
+    let qrImage = '';
+
+    if (sectionId === 'project-image') {
+      rows = [
+        ['Project Name', getPdfValue(projectForm.projectName)],
+        ['Image Uploaded', projectForm.projectPicture ? 'Yes' : 'No']
+      ];
+    } else if (sectionId === 'project-details') {
+      rows = [
+        ['Project Name', getPdfValue(projectForm.projectName)],
+        ['Project ID', getPdfValue(projectForm.projectId)],
+        ['Project Category', getPdfValue(projectForm.projectCategory)],
+        ['Reference Name', getPdfValue(projectForm.referenceName)],
+        ['Branch', getPdfValue(projectForm.branch)],
+        ['Project Address', getPdfValue(projectForm.projectAddress)],
+        ['Latitude & Longitude', getPdfValue(projectForm.latitudeLongitude)]
+      ];
+    } else if (sectionId === 'client-details') {
+      rows = [
+        ['Client Name', getPdfValue(projectForm.clientName)],
+        ['Father Name', getPdfValue(projectForm.fatherName)],
+        ['Mobile Number', getPdfValue(projectForm.mobileNumber)],
+        ['Age', getPdfValue(projectForm.age)],
+        ['Email ID', getPdfValue(projectForm.emailId)],
+        ['Client Address', getPdfValue(projectForm.clientAddress)]
+      ];
+    } else if (sectionId === 'account-details') {
+      rows = [
+        ['Account Holder Name', getPdfValue(projectForm.accountHolderName)],
+        ['Account Number', getPdfValue(projectForm.accountNumber)],
+        ['Bank Name', getPdfValue(projectForm.bankName)],
+        ['IFSC Code', getPdfValue(projectForm.ifscCode)],
+        ['Bank Branch', getPdfValue(projectForm.accountBranch)],
+        ['UPI Phone Number', getPdfValue(projectForm.upiPhoneNumber)],
+        ['UPI ID', getPdfValue(projectForm.upiId)]
+      ];
+      qrImage = projectForm.qrCode || projectQrPreview;
+    } else if (sectionId === 'project-information') {
+      rows = [];
+      projectPropertyDetails.forEach((item, index) => {
+        const n = index + 1;
+        rows.push([`Entry ${n} - Project Type`, getPdfValue(item?.projectType)]);
+        rows.push([`Entry ${n} - Floor Name`, getPdfValue(item?.floorName)]);
+        rows.push([`Entry ${n} - Shop No`, getPdfValue(item?.shopNo)]);
+        rows.push([`Entry ${n} - Door No`, getPdfValue(item?.doorNo)]);
+        rows.push([`Entry ${n} - Area`, getPdfValue(item?.area)]);
+        rows.push([`Entry ${n} - EB No`, getPdfValue(item?.ebNo)]);
+        rows.push([`Entry ${n} - EB Phase`, getPdfValue(item?.ebNoPhase)]);
+        rows.push([`Entry ${n} - Property Tax No`, getPdfValue(item?.propertyTaxNo)]);
+        rows.push([`Entry ${n} - Water Tax No`, getPdfValue(item?.waterTaxNo)]);
+      });
+    }
+
+    const projectPdfTitle =
+      sectionId === 'project-details'
+        ? 'Project Information'
+        : (getPdfValue(projectForm.projectName) === 'N/A' ? 'Project Information' : getPdfValue(projectForm.projectName));
+
+    downloadDetailsPdf({
+      title: projectPdfTitle,
+      sectionTitle: 'Project Details',
+      rows: fallbackPdfRows(rows),
+      fileName: makePdfFileName('Project', projectForm.projectName, sectionId),
+      qrImage
+    });
+  };
+
+  const handleVendorShare = (sectionId, sectionTitle) => {
+    let rows = [];
+    let qrImage = '';
+
+    if (sectionId === 'vendor-image') {
+      rows = [
+        ['Vendor Name', getPdfValue(vendorForm.vendorName)],
+        ['Image Uploaded', vendorForm.vendorPicture ? 'Yes' : 'No']
+      ];
+    } else if (sectionId === 'vendor-details') {
+      rows = [
+        ['Vendor Name', getPdfValue(vendorForm.vendorName)],
+        ['Vendor Category', getPdfValue(vendorForm.vendorCategory)],
+        ['Vendor ID', getPdfValue(vendorForm.vendorId)],
+        ['Contact Number', getPdfValue(vendorForm.contactNumber)],
+        ['Reference Name', getPdfValue(vendorForm.referenceName)],
+        ['Branch', getPdfValue(vendorForm.branch)],
+        ['Email ID', getPdfValue(vendorForm.emailId)],
+        ['Vendor Address', getPdfValue(vendorForm.vendorAddress)],
+        ['Latitude & Longitude', getPdfValue(vendorForm.latitudeLongitude)]
+      ];
+    } else if (sectionId === 'account-details') {
+      rows = [
+        ['Account Holder Name', getPdfValue(vendorForm.accountHolderName)],
+        ['Account Number', getPdfValue(vendorForm.accountNumber)],
+        ['Bank Name', getPdfValue(vendorForm.bankName)],
+        ['IFSC Code', getPdfValue(vendorForm.ifscCode)],
+        ['Branch', getPdfValue(vendorForm.location)],
+        ['UPI Phone Number', getPdfValue(vendorForm.upiPhoneNumber)],
+        ['UPI ID', getPdfValue(vendorForm.upiId)]
+      ];
+      qrImage = vendorForm.qrCode || vendorQrPreview;
+    }
+
+    downloadDetailsPdf({
+      title: 'Vendor Information',
+      sectionTitle: sectionTitle || 'Vendor Details',
+      rows: fallbackPdfRows(rows),
+      fileName: makePdfFileName('Vendor', vendorForm.vendorName, sectionId),
+      qrImage
+    });
+  };
+
+  const handleContractorShare = (sectionId, sectionTitle) => {
+    let rows = [];
+    let qrImage = '';
+
+    if (sectionId === 'contractor-image') {
+      rows = [
+        ['Contractor Name', getPdfValue(contractorForm.contractorName)],
+        ['Image Uploaded', contractorForm.contractorProfileUrl ? 'Yes' : 'No']
+      ];
+    } else if (sectionId === 'contractor-details') {
+      rows = [
+        ['Contractor Name', getPdfValue(contractorForm.contractorName)],
+        ['Contractor Category', getPdfValue(contractorForm.contractorCategory)],
+        ['Contractor ID', getPdfValue(contractorForm.contractorId)],
+        ['Contractor Number', getPdfValue(contractorForm.contractorNumber)],
+        ['Reference Name', getPdfValue(contractorForm.referenceName)],
+        ['Branch', getPdfValue(contractorForm.branch)],
+        ['Email ID', getPdfValue(contractorForm.emailId)],
+        ['Contractor Address', getPdfValue(contractorForm.contractorAddress)]
+      ];
+    } else if (sectionId === 'account-details') {
+      rows = [
+        ['Account Holder Name', getPdfValue(contractorForm.accountHolderName)],
+        ['Account Number', getPdfValue(contractorForm.accountNumber)],
+        ['Bank Name', getPdfValue(contractorForm.bankName)],
+        ['IFSC Code', getPdfValue(contractorForm.ifscCode)],
+        ['Branch', getPdfValue(contractorForm.location)],
+        ['UPI Phone Number', getPdfValue(contractorForm.upiPhoneNumber)],
+        ['UPI ID', getPdfValue(contractorForm.upiId)]
+      ];
+      qrImage = contractorForm.qrCode || contractorQrPreview;
+    }
+
+    downloadDetailsPdf({
+      title: 'Contractor Information',
+      sectionTitle: sectionTitle || 'Contractor Details',
+      rows: fallbackPdfRows(rows),
+      fileName: makePdfFileName('Contractor', contractorForm.contractorName, sectionId),
+      qrImage
+    });
+  };
+
+  const handleEmployeeShare = (sectionId, sectionTitle) => {
+    let rows = [];
+    let qrImage = '';
+
+    if (sectionId === 'employee-image') {
+      rows = [
+        ['Employee Name', getPdfValue(employeeForm.employeeName)],
+        ['Image Uploaded', employeeImage ? 'Yes' : 'No']
+      ];
+    } else if (sectionId === 'employee-details') {
+      rows = [
+        ['Employee Name', getPdfValue(employeeForm.employeeName)],
+        ['Employee ID', getPdfValue(employeeForm.employeeId)],
+        ['Designation', getPdfValue(employeeForm.designation)],
+        ['User Name', getPdfValue(employeeForm.userName)],
+        ['Mobile Number', getPdfValue(employeeForm.mobileNumber)],
+        ['Email ID', getPdfValue(employeeForm.emailId)],
+        ['Employee Address', getPdfValue(employeeForm.employeeAddress)]
+      ];
+    } else if (sectionId === 'account-details') {
+      rows = [
+        ['Account Holder Name', getPdfValue(employeeForm.accountHolderName)],
+        ['Account Number', getPdfValue(employeeForm.accountNumber)],
+        ['Bank Name', getPdfValue(employeeForm.bankName)],
+        ['IFSC Code', getPdfValue(employeeForm.ifscCode)],
+        ['Branch', getPdfValue(employeeForm.branch)],
+        ['UPI Phone Number', getPdfValue(employeeForm.upiPhoneNumber)],
+        ['UPI ID', getPdfValue(employeeForm.upiId)]
+      ];
+      qrImage = employeeForm.qrCode || employeeQrPreview;
+    }
+
+    downloadDetailsPdf({
+      title: 'Employee Information',
+      sectionTitle: sectionTitle || 'Employee Details',
+      rows: fallbackPdfRows(rows),
+      fileName: makePdfFileName('Employee', employeeForm.employeeName, sectionId),
+      qrImage
+    });
+  };
+
+  const handleAccountShare = (sectionId, sectionTitle) => {
+    let rows = [];
+    let qrImage = '';
+
+    if (sectionId === 'account-image') {
+      rows = [
+        ['Account Holder Name', getPdfValue(accountForm.accountHolderName)],
+        ['Image Uploaded', accountImage ? 'Yes' : 'No']
+      ];
+    } else if (sectionId === 'account-details') {
+      rows = [
+        ['Account Holder Name', getPdfValue(accountForm.accountHolderName)],
+        ['Account Number', getPdfValue(accountForm.accountNumber)],
+        ['Bank Name', getPdfValue(accountForm.bankName)],
+        ['IFSC Code', getPdfValue(accountForm.ifscCode)],
+        ['Branch', getPdfValue(accountForm.branch)],
+        ['UPI Phone Number', getPdfValue(accountForm.upiPhoneNumber)],
+        ['UPI ID', getPdfValue(accountForm.upiId)],
+        ['Account Type', getPdfValue(accountForm.accountType)]
+      ];
+      qrImage = accountForm.qrCode || accountQrPreview;
+    }
+
+    downloadDetailsPdf({
+      title: 'Account Information',
+      sectionTitle: sectionTitle || 'Account Details',
+      rows: fallbackPdfRows(rows),
+      fileName: makePdfFileName('Account', accountForm.accountHolderName, sectionId),
+      qrImage
+    });
+  };
+
+  const handleLabourShare = (sectionId, sectionTitle) => {
+    let rows = [];
+    let qrImage = '';
+
+    if (sectionId === 'labour-image') {
+      rows = [
+        ['Labour Name', getPdfValue(labourForm.labourName)],
+        ['Image Uploaded', labourImage ? 'Yes' : 'No']
+      ];
+    } else if (sectionId === 'labour-details') {
+      rows = [
+        ['Labour Name', getPdfValue(labourForm.labourName)],
+        ['Labour Category', getPdfValue(labourForm.labourCategory)],
+        ['Labour ID', getPdfValue(labourForm.labourId)],
+        ['Labour Number', getPdfValue(labourForm.labourNumber)],
+        ['Reference Name', getPdfValue(labourForm.referenceName)],
+        ['Branch', getPdfValue(labourForm.branch)],
+        ['Labour Address', getPdfValue(labourForm.labourAddress)]
+      ];
+    } else if (sectionId === 'wage-details') {
+      rows = [
+        ['Wage Type', getPdfValue(labourForm.wageType)],
+        ['Salary', getPdfValue(labourForm.labourSalary)]
+      ];
+    } else if (sectionId === 'account-details') {
+      rows = [
+        ['Account Holder Name', getPdfValue(labourForm.accountHolderName)],
+        ['Account Number', getPdfValue(labourForm.accountNumber)],
+        ['Bank Name', getPdfValue(labourForm.bankName)],
+        ['IFSC Code', getPdfValue(labourForm.ifscCode)],
+        ['Branch', getPdfValue(labourForm.accountBranch)],
+        ['UPI Phone Number', getPdfValue(labourForm.upiPhoneNumber)],
+        ['UPI ID', getPdfValue(labourForm.upiId)]
+      ];
+      qrImage = labourForm.qrCode || labourQrPreview;
+    }
+
+    downloadDetailsPdf({
+      title: 'Labour Information',
+      sectionTitle: sectionTitle || 'Labour Details',
+      rows: fallbackPdfRows(rows),
+      fileName: makePdfFileName('Labour', labourForm.labourName, sectionId),
+      qrImage
+    });
   };
 
   const toggleBankDetailsSection = (sectionId) => {
@@ -2277,7 +2670,7 @@ const MasterData = ({ user, onLogout }) => {
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <div
-          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${
             isExpanded ? 'border-b border-[#EFEFEF] bg-[#FAFAFA]' : 'bg-white'
           }`}
         >
@@ -2308,7 +2701,7 @@ const MasterData = ({ user, onLogout }) => {
 
   const renderStaticBankDetailsCard = (title, content) => (
     <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
-      <div className="flex h-[36px] w-full items-center justify-between bg-[#FAFAFA] px-[14px] text-left">
+      <div className="flex h-[40px] w-full items-center justify-between bg-[#FAFAFA] px-[14px] text-left">
         <span className="text-[12px] font-medium text-black">{title}</span>
         <span className="text-[#2B2B2B]">{renderChevron(true)}</span>
       </div>
@@ -2522,22 +2915,42 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleVendorSection = (sectionId) => {
+    if (vendorFormMode === 'new' && sectionId !== 'vendor-image') return;
     setExpandedVendorSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderVendorAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedVendorSection === sectionId;
+    const isExpanded = expandedVendorSection === sectionId || shouldKeepImageAccordionOpen(vendorFormMode, sectionId);
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <button
           type="button"
           onClick={() => toggleVendorSection(sectionId)}
-          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
-            {vendorFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
+            {vendorFormMode === 'edit' ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Share vendor details"
+                className="inline-flex h-[16px] w-[16px] cursor-pointer items-center justify-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleVendorShare(sectionId, title);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleVendorShare(sectionId, title);
+                }}
+              >
+                <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
+              </span>
+            ) : null}
             {renderChevron(isExpanded)}
           </span>
         </button>
@@ -2547,22 +2960,42 @@ const MasterData = ({ user, onLogout }) => {
   };
 
   const toggleContractorSection = (sectionId) => {
+    if (contractorFormMode === 'new' && sectionId !== 'contractor-image') return;
     setExpandedContractorSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderContractorAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedContractorSection === sectionId;
+    const isExpanded = expandedContractorSection === sectionId || shouldKeepImageAccordionOpen(contractorFormMode, sectionId);
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <button
           type="button"
           onClick={() => toggleContractorSection(sectionId)}
-          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
-            {contractorFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
+            {contractorFormMode === 'edit' ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Share contractor details"
+                className="inline-flex h-[16px] w-[16px] cursor-pointer items-center justify-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleContractorShare(sectionId, title);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleContractorShare(sectionId, title);
+                }}
+              >
+                <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
+              </span>
+            ) : null}
             {renderChevron(isExpanded)}
           </span>
         </button>
@@ -2887,18 +3320,19 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleCategorySection = (sectionId) => {
+    if (categoryFormMode === 'new' && sectionId !== 'category-image') return;
     setExpandedCategorySection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderCategoryAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedCategorySection === sectionId;
+    const isExpanded = expandedCategorySection === sectionId || shouldKeepImageAccordionOpen(categoryFormMode, sectionId);
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <button
           type="button"
           onClick={() => toggleCategorySection(sectionId)}
-          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
@@ -2955,18 +3389,19 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleMachineSection = (sectionId) => {
+    if (machineFormMode === 'new' && sectionId !== 'machine-image') return;
     setExpandedMachineSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderMachineAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedMachineSection === sectionId;
+    const isExpanded = expandedMachineSection === sectionId || shouldKeepImageAccordionOpen(machineFormMode, sectionId);
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <button
           type="button"
           onClick={() => toggleMachineSection(sectionId)}
-          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
@@ -3023,22 +3458,42 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleEmployeeSection = (sectionId) => {
+    if (employeeFormMode === 'new' && sectionId !== 'employee-image') return;
     setExpandedEmployeeSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderEmployeeAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedEmployeeSection === sectionId;
+    const isExpanded = expandedEmployeeSection === sectionId || shouldKeepImageAccordionOpen(employeeFormMode, sectionId);
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <button
           type="button"
           onClick={() => toggleEmployeeSection(sectionId)}
-          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
-            {employeeFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
+            {employeeFormMode === 'edit' ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Share employee details"
+                className="inline-flex h-[16px] w-[16px] cursor-pointer items-center justify-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEmployeeShare(sectionId, title);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleEmployeeShare(sectionId, title);
+                }}
+              >
+                <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
+              </span>
+            ) : null}
             {renderChevron(isExpanded)}
           </span>
         </button>
@@ -3396,22 +3851,42 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleAccountSection = (sectionId) => {
+    if (accountFormMode === 'new' && sectionId !== 'account-image') return;
     setExpandedAccountSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderAccountAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedAccountSection === sectionId;
+    const isExpanded = expandedAccountSection === sectionId || shouldKeepImageAccordionOpen(accountFormMode, sectionId);
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <button
           type="button"
           onClick={() => toggleAccountSection(sectionId)}
-          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
-            {accountFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
+            {accountFormMode === 'edit' ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Share account details"
+                className="inline-flex h-[16px] w-[16px] cursor-pointer items-center justify-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAccountShare(sectionId, title);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleAccountShare(sectionId, title);
+                }}
+              >
+                <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
+              </span>
+            ) : null}
             {renderChevron(isExpanded)}
           </span>
         </button>
@@ -3545,22 +4020,42 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleLabourSection = (sectionId) => {
+    if (labourFormMode === 'new' && sectionId !== 'labour-image') return;
     setExpandedLabourSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderLabourAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedLabourSection === sectionId;
+    const isExpanded = expandedLabourSection === sectionId || shouldKeepImageAccordionOpen(labourFormMode, sectionId);
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <button
           type="button"
           onClick={() => toggleLabourSection(sectionId)}
-          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
-            {labourFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
+            {labourFormMode === 'edit' ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Share labour details"
+                className="inline-flex h-[16px] w-[16px] cursor-pointer items-center justify-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLabourShare(sectionId, title);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleLabourShare(sectionId, title);
+                }}
+              >
+                <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
+              </span>
+            ) : null}
             {renderChevron(isExpanded)}
           </span>
         </button>
@@ -4603,23 +5098,24 @@ const MasterData = ({ user, onLogout }) => {
               </div>
 
               {hasProjectInformationData ? (
-                <div className="max-h-[210px] space-y-[8px] overflow-y-auto scrollbar-none no-scrollbar pr-[2px]">
+                <div className="max-h-[260px] space-y-[8px] overflow-y-auto scrollbar-none no-scrollbar pr-[2px]">
                   {filteredProjectInformationPreview.map((preview) => {
                     const sourceIndex = Number(preview?.sourceIndex);
                     const cardId = `project-information-card-${sourceIndex}`;
+                    const canSwipeProjectInfoCard = !isProjectViewOnly && canEditMasterData && uploadFileRowShowsSaveIcon;
                     return (
                       <div
                         key={cardId}
                         className="relative w-full overflow-hidden rounded-[12px] border border-[#E8E8E8] bg-[#F8F8F8] shadow-[0px_1px_4px_rgba(0,0,0,0.06)] select-none"
                         style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
-                        onTouchStart={handleProjectTouchStart}
-                        onTouchEnd={(event) => handleProjectTouchEnd(event, cardId)}
-                        onMouseDown={handleProjectMouseDown}
-                        onMouseUp={(event) => handleProjectMouseUp(event, cardId)}
-                        onMouseLeave={(event) => handleProjectMouseUp(event, cardId)}
+                        onTouchStart={canSwipeProjectInfoCard ? handleProjectTouchStart : undefined}
+                        onTouchEnd={canSwipeProjectInfoCard ? (event) => handleProjectTouchEnd(event, cardId) : undefined}
+                        onMouseDown={canSwipeProjectInfoCard ? handleProjectMouseDown : undefined}
+                        onMouseUp={canSwipeProjectInfoCard ? (event) => handleProjectMouseUp(event, cardId) : undefined}
+                        onMouseLeave={canSwipeProjectInfoCard ? (event) => handleProjectMouseUp(event, cardId) : undefined}
                       >
                         <div className="absolute right-[3px] top-[4px] bottom-[4px] z-0 flex gap-[8px]">
-                          {isProjectViewOnly && (
+                          {!isProjectViewOnly && (
                             <button
                               type="button"
                               className="flex w-[48px] shrink-0 self-stretch items-center justify-center rounded-[6px] bg-[#007233] text-white shadow-sm transition-colors hover:bg-[#22a882]"
@@ -4643,7 +5139,7 @@ const MasterData = ({ user, onLogout }) => {
 
                         <div
                           className={`relative z-[1] rounded-[12px] border border-[#E8E8E8] bg-white px-[16px] pr-[20px] py-[10px] transition-transform duration-200 ${
-                            swipedProjectId === cardId ? '-translate-x-[110px]' : 'translate-x-0'
+                            canSwipeProjectInfoCard && swipedProjectId === cardId ? '-translate-x-[110px]' : 'translate-x-0'
                           }`}
                         >
                           <div className="space-y-[2px] text-[11px] font-semibold leading-[1.35] text-[#111111]">
@@ -4996,7 +5492,7 @@ const MasterData = ({ user, onLogout }) => {
                 })}
               </div>
 
-              <div className="grid grid-cols-[110px_113px_minmax(0,1fr)] gap-[8px]">
+              <div className="grid grid-cols-[70px_80px_minmax(0,1fr)] gap-[8px]">
                 {renderInput({
                   label: 'Shop No',
                   required: true,
@@ -5374,7 +5870,7 @@ const MasterData = ({ user, onLogout }) => {
                 setVendorFormMode('new');
                 setIsVendorViewOnly(false);
                 setIsAddVendorViewOpen(true);
-                setExpandedVendorSection('vendor-details');
+                setExpandedVendorSection('vendor-image');
                 setVendorQrPreview('');
                 setVendorQrFile(null);
                 setVendorPictureFile(null);
@@ -5402,7 +5898,7 @@ const MasterData = ({ user, onLogout }) => {
                 setContractorFormMode('new');
                 setIsContractorViewOnly(false);
                 setIsAddContractorViewOpen(true);
-                setExpandedContractorSection('contractor-details');
+                setExpandedContractorSection('contractor-image');
                 setContractorQrPreview('');
                 setContractorQrFile(null);
                 setContractorPictureDraft('');
@@ -5430,19 +5926,19 @@ const MasterData = ({ user, onLogout }) => {
                 setCategoryFormMode('new');
                 setIsCategoryViewOnly(false);
                 setIsAddCategoryViewOpen(true);
-                setExpandedCategorySection('category-details');
+                setExpandedCategorySection('category-image');
                 setCategoryForm({ categoryName: '' });
               } else if (selectedItem === 'Machine tools') {
                 setMachineFormMode('new');
                 setIsMachineViewOnly(false);
                 setIsAddMachineViewOpen(true);
-                setExpandedMachineSection('machine-details');
+                setExpandedMachineSection('machine-image');
                 setMachineForm({ machineName: '' });
               } else if (selectedItem === 'Employee Details') {
                 setEmployeeFormMode('new');
                 setIsEmployeeViewOnly(false);
                 setIsAddEmployeeViewOpen(true);
-                setExpandedEmployeeSection('employee-details');
+                setExpandedEmployeeSection('employee-image');
                 setIsEmployeeQrModalOpen(false);
                 setEmployeeQrPreview('');
                 setIsEmployeeAadhaarModalOpen(false);
@@ -5469,7 +5965,7 @@ const MasterData = ({ user, onLogout }) => {
                 setAccountFormMode('new');
                 setIsAccountViewOnly(false);
                 setIsAddAccountViewOpen(true);
-                setExpandedAccountSection('account-details');
+                setExpandedAccountSection('account-image');
                 setIsAccountQrModalOpen(false);
                 setAccountQrPreview('');
                 setAccountForm({
@@ -5487,7 +5983,7 @@ const MasterData = ({ user, onLogout }) => {
                 setLabourFormMode('new');
                 setIsLabourViewOnly(false);
                 setIsAddLabourViewOpen(true);
-                setExpandedLabourSection('wage-details');
+                setExpandedLabourSection('labour-image');
                 setIsLabourQrModalOpen(false);
                 setLabourQrPreview('');
                 setLabourForm({
@@ -5579,7 +6075,7 @@ const MasterData = ({ user, onLogout }) => {
                             setVendorQrPreview(next.qrCode || '');
                             setVendorQrFile(null);
                             setVendorPictureFile(null);
-                            setExpandedVendorSection(hasImageFile(next.vendorPicture) ? null : 'vendor-details');
+                            setExpandedVendorSection(hasImageFile(next.vendorPicture) ? 'vendor-image' : 'vendor-details');
                             setIsAddVendorViewOpen(true);
                             return;
                           }
@@ -5593,62 +6089,118 @@ const MasterData = ({ user, onLogout }) => {
                             setContractorQrFile(null);
                             setContractorPictureDraft(next.contractorProfileUrl || '');
                             setContractorPictureFile(null);
-                            setExpandedContractorSection(hasImageFile(next.contractorProfileUrl) ? null : 'contractor-details');
+                            setExpandedContractorSection(hasImageFile(next.contractorProfileUrl) ? 'contractor-image' : 'contractor-details');
                             setIsAddContractorViewOpen(true);
                             return;
                           }
 
                           if (selectedItem === 'Categories') {
                             const next = normalizeCategoryForForm(item);
+                            const nextCategoryImage = pickImageValue(
+                              item?.categoryImage,
+                              item?.category_image,
+                              item?.image,
+                              item?.imageUrl,
+                              item?.image_url,
+                              item?.categoryProfileUrl,
+                              item?.category_profile_url
+                            );
                             setCategoryFormMode('edit');
                             setIsCategoryViewOnly(false);
                             setCategoryForm(next);
-                            setExpandedCategorySection('category-details');
+                            setCategoryImage(nextCategoryImage);
+                            setExpandedCategorySection(hasImageFile(nextCategoryImage) ? 'category-image' : 'category-details');
                             setIsAddCategoryViewOpen(true);
                             return;
                           }
 
                           if (selectedItem === 'Machine tools') {
                             const next = normalizeMachineForForm(item);
+                            const nextMachineImage = pickImageValue(
+                              item?.machineImage,
+                              item?.machine_image,
+                              item?.image,
+                              item?.imageUrl,
+                              item?.image_url,
+                              item?.machineProfileUrl,
+                              item?.machine_profile_url
+                            );
                             setMachineFormMode('edit');
                             setIsMachineViewOnly(false);
                             setMachineForm(next);
-                            setExpandedMachineSection('machine-details');
+                            setMachineImage(nextMachineImage);
+                            setExpandedMachineSection(hasImageFile(nextMachineImage) ? 'machine-image' : 'machine-details');
                             setIsAddMachineViewOpen(true);
                             return;
                           }
 
                           if (selectedItem === 'Employee Details') {
                             const next = normalizeEmployeeForForm(item);
+                            const nextEmployeeImage = pickImageValue(
+                              item?.employeeImage,
+                              item?.employee_image,
+                              item?.employeeProfileUrl,
+                              item?.employee_profile_url,
+                              item?.profileUrl,
+                              item?.profile_url,
+                              item?.image,
+                              item?.imageUrl,
+                              item?.image_url
+                            );
                             setEmployeeFormMode('edit');
                             setIsEmployeeViewOnly(false);
                             setEmployeeForm(next);
                             setEmployeeQrPreview(next.qrCode || '');
                             setIsEmployeeAadhaarModalOpen(false);
                             setEmployeeAadhaarFile(null);
-                            setExpandedEmployeeSection('employee-details');
+                            setEmployeeImage(nextEmployeeImage);
+                            setExpandedEmployeeSection(hasImageFile(nextEmployeeImage) ? 'employee-image' : 'employee-details');
                             setIsAddEmployeeViewOpen(true);
                             return;
                           }
 
                           if (selectedItem === 'Account Details') {
                             const next = normalizeAccountForForm(item);
+                            const nextAccountImage = pickImageValue(
+                              item?.accountImage,
+                              item?.account_image,
+                              item?.accountProfileUrl,
+                              item?.account_profile_url,
+                              item?.profileUrl,
+                              item?.profile_url,
+                              item?.image,
+                              item?.imageUrl,
+                              item?.image_url
+                            );
                             setAccountFormMode('edit');
                             setIsAccountViewOnly(false);
                             setAccountForm(next);
                             setAccountQrPreview(next.qrCode || '');
-                            setExpandedAccountSection('account-details');
+                            setAccountImage(nextAccountImage);
+                            setExpandedAccountSection(hasImageFile(nextAccountImage) ? 'account-image' : 'account-details');
                             setIsAddAccountViewOpen(true);
                             return;
                           }
 
                           if (selectedItem === 'Company Labour') {
                             const next = normalizeLabourForForm(item);
+                            const nextLabourImage = pickImageValue(
+                              item?.labourImage,
+                              item?.labour_image,
+                              item?.labourProfileUrl,
+                              item?.labour_profile_url,
+                              item?.profileUrl,
+                              item?.profile_url,
+                              item?.image,
+                              item?.imageUrl,
+                              item?.image_url
+                            );
                             setLabourFormMode('edit');
                             setIsLabourViewOnly(false);
                             setLabourForm(next);
                             setLabourQrPreview(next.qrCode || '');
-                            setExpandedLabourSection('wage-details');
+                            setLabourImage(nextLabourImage);
+                            setExpandedLabourSection(hasImageFile(nextLabourImage) ? 'labour-image' : 'labour-details');
                             setIsAddLabourViewOpen(true);
                           }
                         }}
@@ -5686,7 +6238,7 @@ const MasterData = ({ user, onLogout }) => {
                               setVendorQrPreview(next.qrCode || '');
                               setVendorQrFile(null);
                               setVendorPictureFile(null);
-                              setExpandedVendorSection(hasImageFile(next.vendorPicture) ? null : 'vendor-details');
+                              setExpandedVendorSection(hasImageFile(next.vendorPicture) ? 'vendor-image' : 'vendor-details');
                               setIsAddVendorViewOpen(true);
                               return;
                             }
@@ -5699,57 +6251,113 @@ const MasterData = ({ user, onLogout }) => {
                               setContractorQrFile(null);
                               setContractorPictureDraft(next.contractorProfileUrl || '');
                               setContractorPictureFile(null);
-                              setExpandedContractorSection(hasImageFile(next.contractorProfileUrl) ? null : 'contractor-details');
+                              setExpandedContractorSection(hasImageFile(next.contractorProfileUrl) ? 'contractor-image' : 'contractor-details');
                               setIsAddContractorViewOpen(true);
                               return;
                             }
                             if (selectedItem === 'Categories') {
                               const next = normalizeCategoryForForm(item);
+                              const nextCategoryImage = pickImageValue(
+                                item?.categoryImage,
+                                item?.category_image,
+                                item?.image,
+                                item?.imageUrl,
+                                item?.image_url,
+                                item?.categoryProfileUrl,
+                                item?.category_profile_url
+                              );
                               setCategoryFormMode('edit');
                               setIsCategoryViewOnly(true);
                               setCategoryForm(next);
-                              setExpandedCategorySection('category-details');
+                              setCategoryImage(nextCategoryImage);
+                              setExpandedCategorySection(hasImageFile(nextCategoryImage) ? 'category-image' : 'category-details');
                               setIsAddCategoryViewOpen(true);
                               return;
                             }
                             if (selectedItem === 'Machine tools') {
                               const next = normalizeMachineForForm(item);
+                              const nextMachineImage = pickImageValue(
+                                item?.machineImage,
+                                item?.machine_image,
+                                item?.image,
+                                item?.imageUrl,
+                                item?.image_url,
+                                item?.machineProfileUrl,
+                                item?.machine_profile_url
+                              );
                               setMachineFormMode('edit');
                               setIsMachineViewOnly(true);
                               setMachineForm(next);
-                              setExpandedMachineSection('machine-details');
+                              setMachineImage(nextMachineImage);
+                              setExpandedMachineSection(hasImageFile(nextMachineImage) ? 'machine-image' : 'machine-details');
                               setIsAddMachineViewOpen(true);
                               return;
                             }
                             if (selectedItem === 'Employee Details') {
                               const next = normalizeEmployeeForForm(item);
+                              const nextEmployeeImage = pickImageValue(
+                                item?.employeeImage,
+                                item?.employee_image,
+                                item?.employeeProfileUrl,
+                                item?.employee_profile_url,
+                                item?.profileUrl,
+                                item?.profile_url,
+                                item?.image,
+                                item?.imageUrl,
+                                item?.image_url
+                              );
                               setEmployeeFormMode('edit');
                               setIsEmployeeViewOnly(true);
                               setEmployeeForm(next);
                               setEmployeeQrPreview(next.qrCode || '');
                               setIsEmployeeAadhaarModalOpen(false);
                               setEmployeeAadhaarFile(null);
-                              setExpandedEmployeeSection('employee-details');
+                              setEmployeeImage(nextEmployeeImage);
+                              setExpandedEmployeeSection(hasImageFile(nextEmployeeImage) ? 'employee-image' : 'employee-details');
                               setIsAddEmployeeViewOpen(true);
                               return;
                             }
                             if (selectedItem === 'Account Details') {
                               const next = normalizeAccountForForm(item);
+                              const nextAccountImage = pickImageValue(
+                                item?.accountImage,
+                                item?.account_image,
+                                item?.accountProfileUrl,
+                                item?.account_profile_url,
+                                item?.profileUrl,
+                                item?.profile_url,
+                                item?.image,
+                                item?.imageUrl,
+                                item?.image_url
+                              );
                               setAccountFormMode('edit');
                               setIsAccountViewOnly(true);
                               setAccountForm(next);
                               setAccountQrPreview(next.qrCode || '');
-                              setExpandedAccountSection('account-details');
+                              setAccountImage(nextAccountImage);
+                              setExpandedAccountSection(hasImageFile(nextAccountImage) ? 'account-image' : 'account-details');
                               setIsAddAccountViewOpen(true);
                               return;
                             }
                             if (selectedItem === 'Company Labour') {
                               const next = normalizeLabourForForm(item);
+                              const nextLabourImage = pickImageValue(
+                                item?.labourImage,
+                                item?.labour_image,
+                                item?.labourProfileUrl,
+                                item?.labour_profile_url,
+                                item?.profileUrl,
+                                item?.profile_url,
+                                item?.image,
+                                item?.imageUrl,
+                                item?.image_url
+                              );
                               setLabourFormMode('edit');
                               setIsLabourViewOnly(true);
                               setLabourForm(next);
                               setLabourQrPreview(next.qrCode || '');
-                              setExpandedLabourSection('wage-details');
+                              setLabourImage(nextLabourImage);
+                              setExpandedLabourSection(hasImageFile(nextLabourImage) ? 'labour-image' : 'labour-details');
                               setIsAddLabourViewOpen(true);
                             }
                           }}
@@ -5856,7 +6464,7 @@ const MasterData = ({ user, onLogout }) => {
                 projectPicture: ''
               });
               setIsAddProjectViewOpen(true);
-              setExpandedProjectSection('project-details');
+              setExpandedProjectSection('project-image');
             }}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5928,7 +6536,7 @@ const MasterData = ({ user, onLogout }) => {
                           setProjectQrPreview(next.qrCode || '');
                           setIsProjectViewOnly(false);
                           setIsAddProjectViewOpen(true);
-                          setExpandedProjectSection(hasImageFile(next.projectPicture) ? null : 'project-details');
+                          setExpandedProjectSection(hasImageFile(next.projectPicture) ? 'project-image' : 'project-details');
                         }}
                       >
                         <img src={editIcon} alt="Edit" className="w-[18px] h-[18px]" />
@@ -5968,7 +6576,7 @@ const MasterData = ({ user, onLogout }) => {
                             setUploadFileRowShowsSaveIcon(false);
                             setIsProjectViewOnly(true);
                             setIsAddProjectViewOpen(true);
-                            setExpandedProjectSection(hasImageFile(next.projectPicture) ? null : 'project-details');
+                            setExpandedProjectSection(hasImageFile(next.projectPicture) ? 'project-image' : 'project-details');
                           }}
                         >
                           {item.projectName || ''}
