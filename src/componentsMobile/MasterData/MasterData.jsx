@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import MasterDataHeader from './MasterDataHeader';
 import Sidebar from '../Bars/Sidebar';
-import editblack from '../Images/edit.png';
+import editblack from '../Images/Vector.svg';
 import Save from '../Images/Save.svg';
 import BottomNav from '../ProjectAdvance/BottomNav';
 import editIcon from '../Images/Edit.svg';
@@ -99,6 +99,7 @@ const MasterData = ({ user, onLogout }) => {
   const [itemSearch, setItemSearch] = useState('');
   const [masterTableSortReversed, setMasterTableSortReversed] = useState(false);
   const [uploadFileRowShowsSaveIcon, setUploadFileRowShowsSaveIcon] = useState(false);
+  const [hasFormChanges, setHasFormChanges] = useState(false);
   const [isProjectsLoading, setIsProjectsLoading] = useState(false);
   const [isListLoading, setIsListLoading] = useState(false);
   const listDataCacheRef = useRef({});
@@ -673,6 +674,7 @@ const MasterData = ({ user, onLogout }) => {
   const [isProjectEbPhaseModalOpen, setIsProjectEbPhaseModalOpen] = useState(false);
   const [projectQrPreview, setProjectQrPreview] = useState('');
   const [projectPictureDraft, setProjectPictureDraft] = useState('');
+  const [projectInformationSearch, setProjectInformationSearch] = useState('');
   const [addOnBillForm, setAddOnBillForm] = useState({ ...EMPTY_PROJECT_PROPERTY });
   const [projectPropertyDetails, setProjectPropertyDetails] = useState([]);
   const [editingProjectPropertyIndex, setEditingProjectPropertyIndex] = useState(null);
@@ -848,6 +850,14 @@ const MasterData = ({ user, onLogout }) => {
     upiId: '',
     qrCode: ''
   });
+  const [bankNameImage, setBankNameImage] = useState('');
+  const [bankTypeImage, setBankTypeImage] = useState('');
+  const [bankLocationImage, setBankLocationImage] = useState('');
+  const [categoryImage, setCategoryImage] = useState('');
+  const [machineImage, setMachineImage] = useState('');
+  const [employeeImage, setEmployeeImage] = useState('');
+  const [labourImage, setLabourImage] = useState('');
+  const [accountImage, setAccountImage] = useState('');
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1034,8 +1044,25 @@ const MasterData = ({ user, onLogout }) => {
       const propertyTaxNo = clean(detail?.propertyTaxNo);
       const waterTaxNo = clean(detail?.waterTaxNo);
       const serial = String(index + 1).padStart(2, '0');
+      const searchText = [
+        serial,
+        doorNo,
+        area,
+        projectType,
+        shopNo,
+        floorName,
+        propertyTaxNo,
+        ebNo,
+        ebNoPhase,
+        waterTaxNo
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
 
       return {
+        sourceIndex: index,
+        searchText,
         row1Left: `SL - ${serial} - ${doorNo || '-'}`,
         row1Right: area ? `${area} Sqft` : '-',
         row2Left: projectType || '-',
@@ -1047,6 +1074,12 @@ const MasterData = ({ user, onLogout }) => {
       };
     });
   }, [projectPropertyDetails]);
+
+  const filteredProjectInformationPreview = useMemo(() => {
+    const query = String(projectInformationSearch || '').trim().toLowerCase();
+    if (!query) return projectInformationPreview;
+    return projectInformationPreview.filter((preview) => String(preview?.searchText || '').includes(query));
+  }, [projectInformationPreview, projectInformationSearch]);
 
   useEffect(() => {
     setMasterTableSortReversed(false);
@@ -1073,6 +1106,57 @@ const MasterData = ({ user, onLogout }) => {
     employeeFormMode,
     labourFormMode,
     accountFormMode
+  ]);
+
+  useEffect(() => {
+    const shouldEnableDirectEdit =
+      (isBankNameFormOpen && bankNameFormMode === 'edit') ||
+      (isBankTypeFormOpen && bankTypeFormMode === 'edit') ||
+      (isBankLocationFormOpen && bankLocationFormMode === 'edit') ||
+      (isAddProjectViewOpen && projectFormMode === 'edit' && !isProjectViewOnly) ||
+      (isAddVendorViewOpen && vendorFormMode === 'edit' && !isVendorViewOnly) ||
+      (isAddContractorViewOpen && contractorFormMode === 'edit' && !isContractorViewOnly) ||
+      (isAddCategoryViewOpen && categoryFormMode === 'edit' && !isCategoryViewOnly) ||
+      (isAddMachineViewOpen && machineFormMode === 'edit' && !isMachineViewOnly) ||
+      (isAddEmployeeViewOpen && employeeFormMode === 'edit' && !isEmployeeViewOnly) ||
+      (isAddAccountViewOpen && accountFormMode === 'edit' && !isAccountViewOnly) ||
+      (isAddLabourViewOpen && labourFormMode === 'edit' && !isLabourViewOnly);
+
+    if (shouldEnableDirectEdit && !uploadFileRowShowsSaveIcon) {
+      setUploadFileRowShowsSaveIcon(true);
+    }
+  }, [
+    isBankNameFormOpen,
+    bankNameFormMode,
+    isBankTypeFormOpen,
+    bankTypeFormMode,
+    isBankLocationFormOpen,
+    bankLocationFormMode,
+    isAddProjectViewOpen,
+    projectFormMode,
+    isProjectViewOnly,
+    isAddVendorViewOpen,
+    vendorFormMode,
+    isVendorViewOnly,
+    isAddContractorViewOpen,
+    contractorFormMode,
+    isContractorViewOnly,
+    isAddCategoryViewOpen,
+    categoryFormMode,
+    isCategoryViewOnly,
+    isAddMachineViewOpen,
+    machineFormMode,
+    isMachineViewOnly,
+    isAddEmployeeViewOpen,
+    employeeFormMode,
+    isEmployeeViewOnly,
+    isAddAccountViewOpen,
+    accountFormMode,
+    isAccountViewOnly,
+    isAddLabourViewOpen,
+    labourFormMode,
+    isLabourViewOnly,
+    uploadFileRowShowsSaveIcon
   ]);
 
   useEffect(() => {
@@ -1263,6 +1347,57 @@ const MasterData = ({ user, onLogout }) => {
     }
   }, [currentPage]);
 
+  useEffect(() => {
+    setSwipedProjectId(null);
+  }, [
+    currentPage,
+    selectedItem,
+    isAddProjectViewOpen,
+    isAddVendorViewOpen,
+    isAddContractorViewOpen,
+    isAddCategoryViewOpen,
+    isAddMachineViewOpen,
+    isAddEmployeeViewOpen,
+    isAddAccountViewOpen,
+    isAddLabourViewOpen,
+    isBankNameFormOpen,
+    isBankTypeFormOpen,
+    isBankLocationFormOpen
+  ]);
+
+  useEffect(() => {
+    setHasFormChanges(false);
+  }, [
+    selectedItem,
+    isAddProjectViewOpen,
+    isAddVendorViewOpen,
+    isAddContractorViewOpen,
+    isAddCategoryViewOpen,
+    isAddMachineViewOpen,
+    isAddEmployeeViewOpen,
+    isAddAccountViewOpen,
+    isAddLabourViewOpen,
+    isBankNameFormOpen,
+    isBankTypeFormOpen,
+    isBankLocationFormOpen,
+    projectFormMode,
+    vendorFormMode,
+    contractorFormMode,
+    categoryFormMode,
+    machineFormMode,
+    employeeFormMode,
+    accountFormMode,
+    labourFormMode,
+    isProjectViewOnly,
+    isVendorViewOnly,
+    isContractorViewOnly,
+    isCategoryViewOnly,
+    isMachineViewOnly,
+    isEmployeeViewOnly,
+    isAccountViewOnly,
+    isLabourViewOnly
+  ]);
+
   const normalizeProjectForForm = (item) => {
     const valueOr = (...vals) => vals.find((v) => v !== undefined && v !== null && String(v).trim() !== '') || '';
     const owner = Array.isArray(item?.ownerDetails) ? item.ownerDetails[0] || {} : {};
@@ -1321,9 +1456,13 @@ const MasterData = ({ user, onLogout }) => {
   };
 
   const openProjectInformationEditSheet = (index) => {
-    if (!isProjectOptionSelectionEnabled) return;
+    if (!canEditMasterData) return;
     const current = Array.isArray(projectPropertyDetails) ? projectPropertyDetails[index] : null;
     if (!current) return;
+    if (isProjectViewOnly) {
+      setIsProjectViewOnly(false);
+      setUploadFileRowShowsSaveIcon(true);
+    }
     setEditingProjectPropertyIndex(index);
     setAddOnBillForm({
       ...EMPTY_PROJECT_PROPERTY,
@@ -1336,6 +1475,7 @@ const MasterData = ({ user, onLogout }) => {
   const handleProjectInformationDelete = (index) => {
     if (!isProjectOptionSelectionEnabled) return;
     setProjectPropertyDetails((prev) => prev.filter((_, idx) => idx !== index));
+    setHasFormChanges(true);
     setSwipedProjectId(null);
   };
 
@@ -1364,6 +1504,7 @@ const MasterData = ({ user, onLogout }) => {
       }
       return prev.map((item, idx) => (idx === editingProjectPropertyIndex ? normalized : item));
     });
+    setHasFormChanges(true);
     setEditingProjectPropertyIndex(null);
     setAddOnBillForm({ ...EMPTY_PROJECT_PROPERTY });
     setIsAddOnSheetOpen(false);
@@ -1470,6 +1611,14 @@ const MasterData = ({ user, onLogout }) => {
     setIsBankLocationFormOpen(false);
     setBankLocationFormMode('new');
     setBankLocationForm({ branchName: '' });
+    setBankNameImage('');
+    setBankTypeImage('');
+    setBankLocationImage('');
+    setCategoryImage('');
+    setMachineImage('');
+    setEmployeeImage('');
+    setLabourImage('');
+    setAccountImage('');
   }, [selectedItem]);
 
   const formatFileSize = (bytes) => {
@@ -1812,6 +1961,7 @@ const MasterData = ({ user, onLogout }) => {
     rightIconInteractive = false,
     copyButtonId,
     copyFieldName,
+    copyButtonClassName,
     labelRight,
     listId,
     datalistOptions,
@@ -1840,7 +1990,11 @@ const MasterData = ({ user, onLogout }) => {
           <select
             value={value || ''}
             disabled={readOnly}
-            onChange={onChange}
+            onChange={(e) => {
+              if (!onChange) return;
+              setHasFormChanges(true);
+              onChange(e);
+            }}
             className={`h-[32px] w-full rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none placeholder:text-[#B0B0B0] ${
               copyButtonId || rightIcon ? 'pr-12' : ''
             }`}
@@ -1856,7 +2010,11 @@ const MasterData = ({ user, onLogout }) => {
           <textarea
             value={value || ''}
             readOnly={readOnly}
-            onChange={onChange}
+            onChange={(e) => {
+              if (!onChange) return;
+              setHasFormChanges(true);
+              onChange(e);
+            }}
             placeholder={placeholder}
             rows={3}
             className="w-full resize-none rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] py-[10px] text-[12px] text-black outline-none placeholder:text-[#B0B0B0]"
@@ -1867,6 +2025,7 @@ const MasterData = ({ user, onLogout }) => {
             readOnly={readOnly}
             onChange={(e) => {
               if (!onChange) return;
+              setHasFormChanges(true);
               if (!numericOnly) {
                 onChange(e);
                 return;
@@ -1895,7 +2054,7 @@ const MasterData = ({ user, onLogout }) => {
           </datalist>
         )}
         {copyButtonId && (
-          <MasterDataCopyButton text={value} fieldName={copyFieldName} buttonId={copyButtonId} />
+          <MasterDataCopyButton text={value} fieldName={copyFieldName} buttonId={copyButtonId} className={copyButtonClassName} />
         )}
         {rightIcon && !copyButtonId &&
           (rightIconInteractive ? (
@@ -1940,6 +2099,7 @@ const MasterData = ({ user, onLogout }) => {
   }) => {
     const shouldShowCopy =
       formMode === 'edit' && (isViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon);
+    const hasFieldValue = (value) => String(value ?? '').trim() !== '';
 
     return (
       <div className="space-y-[10px]">
@@ -1955,16 +2115,20 @@ const MasterData = ({ user, onLogout }) => {
           <div className="relative">
             <input
               value={form.accountHolderName || ''}
-              onChange={(e) => setForm((s) => ({ ...s, accountHolderName: e.target.value }))}
+              onChange={(e) => {
+                setHasFormChanges(true);
+                setForm((s) => ({ ...s, accountHolderName: e.target.value }));
+              }}
               placeholder={accountHolderPlaceholder}
               readOnly={fieldReadOnly}
               className="h-[32px] w-full rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] pr-12 text-[12px] text-black outline-none placeholder:text-[#B0B0B0]"
             />
-            {shouldShowCopy ? (
+            {shouldShowCopy && hasFieldValue(form.accountHolderName) ? (
               <MasterDataCopyButton
                 text={form.accountHolderName}
                 fieldName="Account Holder Name"
                 buttonId={`${copyPrefix}-account-holder`}
+                className="right-[4px]"
               />
             ) : null}
           </div>
@@ -1979,7 +2143,10 @@ const MasterData = ({ user, onLogout }) => {
               type="button"
               onClick={() => {
                 if (typeof onOpenBankNamePicker === 'function') {
-                  onOpenBankNamePicker((value) => setForm((s) => ({ ...s, bankName: value || '' })));
+                  onOpenBankNamePicker((value) => {
+                    setHasFormChanges(true);
+                    setForm((s) => ({ ...s, bankName: value || '' }));
+                  });
                 }
               }}
               disabled={fieldReadOnly}
@@ -1991,20 +2158,22 @@ const MasterData = ({ user, onLogout }) => {
           <div className="relative">
             <input
               value={form.accountNumber || ''}
-              onChange={(e) =>
-                setForm((s) => ({ ...s, accountNumber: String(e.target.value || '').replace(/\D+/g, '') }))
-              }
+              onChange={(e) => {
+                setHasFormChanges(true);
+                setForm((s) => ({ ...s, accountNumber: String(e.target.value || '').replace(/\D+/g, '') }));
+              }}
               placeholder={accountNumberPlaceholder}
               readOnly={fieldReadOnly}
               inputMode="numeric"
               pattern="[0-9]*"
               className="h-[32px] w-full rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] pr-12 text-[12px] text-black outline-none placeholder:text-[#B0B0B0]"
             />
-            {shouldShowCopy ? (
+            {shouldShowCopy && hasFieldValue(form.accountNumber) ? (
               <MasterDataCopyButton
                 text={form.accountNumber}
                 fieldName="Account Number"
                 buttonId={`${copyPrefix}-account-number`}
+                className="right-[4px]"
               />
             ) : null}
           </div>
@@ -2018,18 +2187,22 @@ const MasterData = ({ user, onLogout }) => {
             value: form.ifscCode,
             readOnly: fieldReadOnly,
             onChange: (e) => setForm((s) => ({ ...s, ifscCode: e.target.value })),
-            copyButtonId: shouldShowCopy ? `${copyPrefix}-ifsc` : undefined,
-            copyFieldName: 'IFSC Code'
+            copyButtonId: shouldShowCopy && hasFieldValue(form.ifscCode) ? `${copyPrefix}-ifsc` : undefined,
+            copyFieldName: 'IFSC Code',
+            copyButtonClassName: 'right-[4px]'
           })}
           {renderInput({
             label: 'Branch',
             required: true,
             placeholder: branchPlaceholder,
             value: form[branchKey],
+            asSelect: true,
+            selectOptions: ['Srivilliputhur', 'Madurai'],
             readOnly: fieldReadOnly,
             onChange: (e) => setForm((s) => ({ ...s, [branchKey]: e.target.value })),
-            copyButtonId: shouldShowCopy ? `${copyPrefix}-branch` : undefined,
-            copyFieldName: 'Branch'
+            copyButtonId: shouldShowCopy && hasFieldValue(form[branchKey]) ? `${copyPrefix}-branch` : undefined,
+            copyFieldName: 'Branch',
+            copyButtonClassName: 'right-[4px]'
           })}
         </div>
 
@@ -2041,8 +2214,9 @@ const MasterData = ({ user, onLogout }) => {
               value: form[accountTypeKey],
               readOnly: fieldReadOnly,
               onChange: (e) => setForm((s) => ({ ...s, [accountTypeKey]: e.target.value })),
-              copyButtonId: shouldShowCopy ? `${copyPrefix}-type` : undefined,
-              copyFieldName: 'Account Type'
+              copyButtonId: shouldShowCopy && hasFieldValue(form[accountTypeKey]) ? `${copyPrefix}-type` : undefined,
+              copyFieldName: 'Account Type',
+              copyButtonClassName: 'right-[4px]'
             })
           : null}
 
@@ -2055,8 +2229,9 @@ const MasterData = ({ user, onLogout }) => {
             readOnly: fieldReadOnly,
             onChange: (e) => setForm((s) => ({ ...s, upiPhoneNumber: e.target.value })),
             numericOnly: true,
-            copyButtonId: shouldShowCopy ? `${copyPrefix}-upi-phone` : undefined,
-            copyFieldName: 'UPI Phone Number'
+            copyButtonId: shouldShowCopy && hasFieldValue(form.upiPhoneNumber) ? `${copyPrefix}-upi-phone` : undefined,
+            copyFieldName: 'UPI Phone Number',
+            copyButtonClassName: 'right-[4px]'
           })}
           {renderInput({
             label: 'UPI ID',
@@ -2065,8 +2240,9 @@ const MasterData = ({ user, onLogout }) => {
             value: form.upiId,
             readOnly: fieldReadOnly,
             onChange: (e) => setForm((s) => ({ ...s, upiId: e.target.value })),
-            copyButtonId: shouldShowCopy ? `${copyPrefix}-upi-id` : undefined,
-            copyFieldName: 'UPI ID'
+            copyButtonId: shouldShowCopy && hasFieldValue(form.upiId) ? `${copyPrefix}-upi-id` : undefined,
+            copyFieldName: 'UPI ID',
+            copyButtonClassName: 'right-[4px]'
           })}
         </div>
       </div>
@@ -2081,9 +2257,9 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleProjectSection(sectionId)}
-          className="flex w-full items-center justify-between px-[14px] py-[13px] text-left"
+          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
-          <span className="text-[14px] font-medium text-black">{title}</span>
+          <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
         </button>
         {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
@@ -2101,8 +2277,8 @@ const MasterData = ({ user, onLogout }) => {
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <div
-          className={`flex h-[32px] w-full items-center justify-between px-[14px] text-left ${
-            isExpanded ? 'border-b border-[#EFEFEF] bg-[#F8F8F8]' : 'bg-white'
+          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${
+            isExpanded ? 'border-b border-[#EFEFEF] bg-[#FAFAFA]' : 'bg-white'
           }`}
         >
           <button type="button" onClick={() => toggleBankDetailsSection(sectionId)} className="flex min-w-0 flex-1 items-center gap-[6px]">
@@ -2132,8 +2308,8 @@ const MasterData = ({ user, onLogout }) => {
 
   const renderStaticBankDetailsCard = (title, content) => (
     <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
-      <div className="flex h-[32px] w-full items-center justify-between px-[14px] text-left">
-        <span className="text-[14px] font-medium text-black">{title}</span>
+      <div className="flex h-[36px] w-full items-center justify-between bg-[#FAFAFA] px-[14px] text-left">
+        <span className="text-[12px] font-medium text-black">{title}</span>
         <span className="text-[#2B2B2B]">{renderChevron(true)}</span>
       </div>
       <div className="border-t border-[#F2F2F2]">{content}</div>
@@ -2142,30 +2318,75 @@ const MasterData = ({ user, onLogout }) => {
 
   const hasImageFile = (value) => typeof value === 'string' && value.trim() !== '';
 
-  const renderBankNameFormView = () => (
-    <>
-      <div className="bg-white">
-        <div className="text-right">
-          {bankNameFormMode === 'edit' ? (
-            <div className="inline-flex items-center gap-[10px]">
-              <button type="button" className="text-[12px] font-medium text-black">
-                View File
-              </button>
-              <button
-                type="button"
-                aria-label="Toggle edit mode"
-                className="inline-flex items-center justify-center"
-                onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-              >
-                <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-              </button>
-            </div>
-          ) : (
-            <button type="button" className="text-[12px] font-medium text-black">
-              Upload File
+  const renderImageUploadContent = ({ formMode, isViewOnly = false, nameText, imageValue, inputId, onImageChange }) => (
+    <div className="">
+      {formMode === 'edit' ? (
+        <div className="mb-[8px] flex items-center justify-between">
+          <span className="truncate pr-[8px] text-[12px] font-medium text-black">{nameText || 'Name'}</span>
+          {hasImageFile(imageValue) && (
+            <button
+              type="button"
+              className="inline-flex items-center justify-center p-[4px]"
+              aria-label="Edit image"
+              onClick={() => {
+                if (!canEditMasterData || !isViewOnly) return;
+                document.getElementById(inputId)?.click();
+              }}
+            >
+              <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
             </button>
           )}
         </div>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => {
+          const canUploadInNewMode = formMode === 'new';
+          const canUploadInEditMode = formMode === 'edit' && !isViewOnly && canEditMasterData;
+          if (!canUploadInNewMode && !canUploadInEditMode) return;
+          document.getElementById(inputId)?.click();
+        }}
+        className={`block w-full ${imageValue ? 'rounded-[10px] border border-[#DEDEDE] bg-[#FAFAFA] p-[6px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]' : ''}`}
+      >
+        <div className={`${imageValue ? 'relative flex h-[196px] w-full flex-col items-center justify-center gap-[4px] overflow-hidden rounded-[8px] border-[2px] border-[#CFCFCF] bg-[#E8E8E8] shadow-[inset_0_3px_10px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.65)]' : 'relative flex h-[196px] w-full items-center justify-center'}`}>
+          {imageValue ? (
+            <img src={imageValue} alt="" className="h-full w-full object-contain" />
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-transparent transition-colors">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="#E4572E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M5 16.5V18C5 19.1 5.9 20 7 20H17C18.1 20 19 19.1 19 18V16.5" stroke="#E4572E" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              <p className="mt-[4px] text-[14px] font-medium text-[#E4572E]">Click to Upload</p>
+            </div>
+          )}
+        </div>
+      </button>
+      <input
+        type="file"
+        accept="image/*"
+        id={inputId}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = typeof reader.result === 'string' ? reader.result : '';
+            setHasFormChanges(true);
+            onImageChange(result);
+          };
+          reader.readAsDataURL(file);
+          e.target.value = '';
+        }}
+      />
+    </div>
+  );
+
+  const renderBankNameFormView = () => (
+    <>
+      <div className="bg-white">
+        <div className="text-right" />
       </div>
 
       <div
@@ -2176,6 +2397,20 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="">
+          {renderStaticBankDetailsCard(
+            'Image',
+            <div className="px-[14px] py-[12px]">
+              {renderImageUploadContent({
+                formMode: bankNameFormMode,
+                isViewOnly: bankNameFormMode === 'edit',
+                nameText: bankNameForm.bankName || 'Bank Name',
+                imageValue: bankNameImage,
+                inputId: 'bankNameImageInput',
+                onImageChange: (value) => setBankNameImage(value)
+              })}
+            </div>
+          )}
+
           {renderStaticBankDetailsCard(
             'Bank Name Details',
             <div className="px-[14px] py-[12px]">
@@ -2197,27 +2432,7 @@ const MasterData = ({ user, onLogout }) => {
   const renderBankTypeFormView = () => (
     <>
       <div className="bg-white">
-        <div className="text-right">
-          {bankTypeFormMode === 'edit' ? (
-            <div className="inline-flex items-center gap-[10px]">
-              <button type="button" className="text-[12px] font-medium text-black">
-                View File
-              </button>
-              <button
-                type="button"
-                aria-label="Toggle edit mode"
-                className="inline-flex items-center justify-center"
-                onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-              >
-                <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-              </button>
-            </div>
-          ) : (
-            <button type="button" className="text-[12px] font-medium text-black">
-              Upload File
-            </button>
-          )}
-        </div>
+        <div className="text-right" />
       </div>
 
       <div
@@ -2228,6 +2443,20 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="">
+          {renderStaticBankDetailsCard(
+            'Image',
+            <div className="px-[14px] py-[12px]">
+              {renderImageUploadContent({
+                formMode: bankTypeFormMode,
+                isViewOnly: bankTypeFormMode === 'edit',
+                nameText: bankTypeForm.accountType || 'Account Type',
+                imageValue: bankTypeImage,
+                inputId: 'bankTypeImageInput',
+                onImageChange: (value) => setBankTypeImage(value)
+              })}
+            </div>
+          )}
+
           {renderStaticBankDetailsCard(
             'Account Type Details',
             <div className="px-[14px] py-[12px]">
@@ -2249,27 +2478,7 @@ const MasterData = ({ user, onLogout }) => {
   const renderBankLocationFormView = () => (
     <>
       <div className="bg-white">
-        <div className="text-right">
-          {bankLocationFormMode === 'edit' ? (
-            <div className="inline-flex items-center gap-[10px]">
-              <button type="button" className="text-[12px] font-medium text-black">
-                View File
-              </button>
-              <button
-                type="button"
-                aria-label="Toggle edit mode"
-                className="inline-flex items-center justify-center"
-                onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-              >
-                <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-              </button>
-            </div>
-          ) : (
-            <button type="button" className="text-[12px] font-medium text-black">
-              Upload File
-            </button>
-          )}
-        </div>
+        <div className="text-right" />
       </div>
 
       <div
@@ -2280,6 +2489,20 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="">
+          {renderStaticBankDetailsCard(
+            'Image',
+            <div className="px-[14px] py-[12px]">
+              {renderImageUploadContent({
+                formMode: bankLocationFormMode,
+                isViewOnly: bankLocationFormMode === 'edit',
+                nameText: bankLocationForm.branchName || 'Branch Name',
+                imageValue: bankLocationImage,
+                inputId: 'bankLocationImageInput',
+                onImageChange: (value) => setBankLocationImage(value)
+              })}
+            </div>
+          )}
+
           {renderStaticBankDetailsCard(
             'Branch Name Details',
             <div className="px-[14px] py-[12px]">
@@ -2310,9 +2533,9 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleVendorSection(sectionId)}
-          className="flex w-full items-center justify-between px-[14px] py-[13px] text-left"
+          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
-          <span className="text-[14px] font-medium text-black">{title}</span>
+          <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
             {vendorFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
             {renderChevron(isExpanded)}
@@ -2335,9 +2558,9 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleContractorSection(sectionId)}
-          className="flex w-full items-center justify-between px-[14px] py-[13px] text-left"
+          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
-          <span className="text-[14px] font-medium text-black">{title}</span>
+          <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
             {contractorFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
             {renderChevron(isExpanded)}
@@ -2351,54 +2574,8 @@ const MasterData = ({ user, onLogout }) => {
   const renderAddContractorView = () => (
     <>
       <div className="bg-white">
-        <div className="text-right">
-          {contractorFormMode === 'edit' ? (
-            hasImageFile(contractorForm.contractorProfileUrl) && expandedContractorSection === null ? null : (
-              <div className="inline-flex items-center gap-[10px]">
-                <button
-                  type="button"
-                  className="text-[12px] font-medium text-black"
-                  onClick={() => {
-                    setContractorPictureDraft(contractorForm.contractorProfileUrl || '');
-                    setIsContractorPictureModalOpen(true);
-                  }}
-                >
-                  View File
-                </button>
-                {canEditMasterData && !isContractorViewOnly && (
-                  <button
-                    type="button"
-                    aria-label="Toggle edit mode"
-                    className="inline-flex items-center justify-center p-[4px]"
-                    onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-                  >
-                    <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-                  </button>
-                )}
-              </div>
-            )
-          ) : (
-            <button
-              type="button"
-              className="text-[12px] font-medium text-black"
-              onClick={() => {
-                setContractorPictureDraft(contractorForm.contractorProfileUrl || '');
-                setIsContractorPictureModalOpen(true);
-              }}
-            >
-              Upload File
-            </button>
-          )}
-        </div>
+        <div className="text-right" />
       </div>
-
-      {contractorFormMode === 'edit' && hasImageFile(contractorForm.contractorProfileUrl) && expandedContractorSection === null ? (
-        <div className="pb-[8px] pt-[4px]">
-          <div className="mx-auto h-[108px] w-[108px] overflow-hidden rounded-[10px] border border-[#E5E5E5] bg-white">
-            <img src={contractorForm.contractorProfileUrl} alt="" className="h-full w-full object-cover" />
-          </div>
-        </div>
-      ) : null}
 
       <div
         className={`w-full px-0 pt-0 pb-[18px] ${
@@ -2408,6 +2585,22 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="">
+          {renderContractorAccordion(
+            'contractor-image',
+            'Image',
+            renderImageUploadContent({
+              formMode: contractorFormMode,
+              isViewOnly: isContractorViewOnly,
+              nameText: contractorForm.contractorName || 'Contractor Name',
+              imageValue: contractorForm.contractorProfileUrl,
+              inputId: 'contractorNewPictureInput',
+              onImageChange: (value) => {
+                setContractorPictureDraft(value);
+                setContractorForm((s) => ({ ...s, contractorProfileUrl: value }));
+              }
+            })
+          )}
+
           {renderContractorAccordion(
             'contractor-details',
             'Contractor Details',
@@ -2705,9 +2898,9 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleCategorySection(sectionId)}
-          className="flex w-full items-center justify-between px-[14px] py-[13px] text-left"
+          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
-          <span className="text-[14px] font-medium text-black">{title}</span>
+          <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
         </button>
         {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
@@ -2718,29 +2911,7 @@ const MasterData = ({ user, onLogout }) => {
   const renderAddCategoryView = () => (
     <>
       <div className="bg-white">
-        <div className="text-right">
-          {categoryFormMode === 'edit' ? (
-            <div className="inline-flex items-center gap-[10px]">
-              <button type="button" className="text-[12px] font-medium text-black">
-                View File
-              </button>
-              {canEditMasterData && !isCategoryViewOnly && (
-                <button
-                  type="button"
-                  aria-label="Toggle edit mode"
-                  className="inline-flex items-center justify-center p-[4px]"
-                  onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-                >
-                  <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-                </button>
-              )}
-            </div>
-          ) : (
-            <button type="button" className="text-[12px] font-medium text-black">
-              Upload File
-            </button>
-          )}
-        </div>
+        <div className="text-right" />
       </div>
 
       <div
@@ -2751,6 +2922,19 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="">
+          {renderCategoryAccordion(
+            'category-image',
+            'Image',
+            renderImageUploadContent({
+              formMode: categoryFormMode,
+              isViewOnly: isCategoryViewOnly,
+              nameText: categoryForm.categoryName || 'Category Name',
+              imageValue: categoryImage,
+              inputId: 'categoryImageInput',
+              onImageChange: (value) => setCategoryImage(value)
+            })
+          )}
+
           {renderCategoryAccordion(
             'category-details',
             'Category Details',
@@ -2782,9 +2966,9 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleMachineSection(sectionId)}
-          className="flex w-full items-center justify-between px-[14px] py-[13px] text-left"
+          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
-          <span className="text-[14px] font-medium text-black">{title}</span>
+          <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
         </button>
         {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
@@ -2795,29 +2979,7 @@ const MasterData = ({ user, onLogout }) => {
   const renderAddMachineView = () => (
     <>
       <div className="bg-white">
-        <div className="text-right">
-          {machineFormMode === 'edit' ? (
-            <div className="inline-flex items-center gap-[10px]">
-              <button type="button" className="text-[12px] font-medium text-black">
-                View File
-              </button>
-              {canEditMasterData && !isMachineViewOnly && (
-                <button
-                  type="button"
-                  aria-label="Toggle edit mode"
-                  className="inline-flex items-center justify-center p-[4px]"
-                  onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-                >
-                  <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-                </button>
-              )}
-            </div>
-          ) : (
-            <button type="button" className="text-[12px] font-medium text-black">
-              Upload File
-            </button>
-          )}
-        </div>
+        <div className="text-right" />
       </div>
 
       <div
@@ -2828,6 +2990,19 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="">
+          {renderMachineAccordion(
+            'machine-image',
+            'Image',
+            renderImageUploadContent({
+              formMode: machineFormMode,
+              isViewOnly: isMachineViewOnly,
+              nameText: machineForm.machineName || 'Machine Name',
+              imageValue: machineImage,
+              inputId: 'machineImageInput',
+              onImageChange: (value) => setMachineImage(value)
+            })
+          )}
+
           {renderMachineAccordion(
             'machine-details',
             'Machine Details',
@@ -2859,9 +3034,9 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleEmployeeSection(sectionId)}
-          className="flex w-full items-center justify-between px-[14px] py-[13px] text-left"
+          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
-          <span className="text-[14px] font-medium text-black">{title}</span>
+          <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
             {employeeFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
             {renderChevron(isExpanded)}
@@ -2879,23 +3054,7 @@ const MasterData = ({ user, onLogout }) => {
           <button type="button" onClick={() => setIsEmployeeAadhaarModalOpen(true)}>
             Aadhaar Upload
           </button>
-          {employeeFormMode === 'edit' ? (
-            <div className="inline-flex items-center gap-[10px]">
-              <button type="button">View File</button>
-              {canEditMasterData && !isEmployeeViewOnly && (
-                <button
-                  type="button"
-                  aria-label="Toggle edit mode"
-                  className="inline-flex items-center justify-center p-[4px]"
-                  onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-                >
-                  <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-                </button>
-              )}
-            </div>
-          ) : (
-            <button type="button">Upload File</button>
-          )}
+          <span />
         </div>
       </div>
 
@@ -2907,6 +3066,19 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="">
+          {renderEmployeeAccordion(
+            'employee-image',
+            'Image',
+            renderImageUploadContent({
+              formMode: employeeFormMode,
+              isViewOnly: isEmployeeViewOnly,
+              nameText: employeeForm.employeeName || 'Employee Name',
+              imageValue: employeeImage,
+              inputId: 'employeeImageInput',
+              onImageChange: (value) => setEmployeeImage(value)
+            })
+          )}
+
           {renderEmployeeAccordion(
             'employee-details',
             'Employee Details',
@@ -2987,11 +3159,6 @@ const MasterData = ({ user, onLogout }) => {
                     ? {
                         listId: 'm-employee-mobile-options',
                         datalistOptions: employeeMobileOptions,
-                        rightIcon: (
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )
                       }
                     : {})
                 })}
@@ -3240,9 +3407,9 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleAccountSection(sectionId)}
-          className="flex w-full items-center justify-between px-[14px] py-[13px] text-left"
+          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
-          <span className="text-[14px] font-medium text-black">{title}</span>
+          <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
             {accountFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
             {renderChevron(isExpanded)}
@@ -3256,29 +3423,7 @@ const MasterData = ({ user, onLogout }) => {
   const renderAddAccountView = () => (
     <>
       <div className="bg-white">
-        <div className="pt-0 pb-[2px] text-right">
-          {accountFormMode === 'edit' ? (
-            <div className="inline-flex items-center gap-[10px]">
-              <button type="button" className="text-[12px] font-medium text-black">
-                View File
-              </button>
-              {canEditMasterData && !isAccountViewOnly && (
-                <button
-                  type="button"
-                  aria-label="Toggle edit mode"
-                  className="inline-flex items-center justify-center p-[4px]"
-                  onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-                >
-                  <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-                </button>
-              )}
-            </div>
-          ) : (
-            <button type="button" className="text-[12px] font-medium text-black">
-              Upload File
-            </button>
-          )}
-        </div>
+        <div className="pt-0 pb-[2px] text-right" />
       </div>
 
       <div
@@ -3289,6 +3434,19 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="">
+          {renderAccountAccordion(
+            'account-image',
+            'Image',
+            renderImageUploadContent({
+              formMode: accountFormMode,
+              isViewOnly: isAccountViewOnly,
+              nameText: accountForm.accountHolderName || 'Account Holder Name',
+              imageValue: accountImage,
+              inputId: 'accountImageInput',
+              onImageChange: (value) => setAccountImage(value)
+            })
+          )}
+
           {renderAccountAccordion(
             'account-details',
             'Account Details',
@@ -3398,9 +3556,9 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleLabourSection(sectionId)}
-          className="flex w-full items-center justify-between px-[14px] py-[13px] text-left"
+          className={`flex h-[36px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
-          <span className="text-[14px] font-medium text-black">{title}</span>
+          <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
             {labourFormMode === 'edit' ? <img src={Share} alt="Share" className="h-[12px] w-[12px]" /> : null}
             {renderChevron(isExpanded)}
@@ -3416,27 +3574,7 @@ const MasterData = ({ user, onLogout }) => {
       <div className="bg-white">
         <div className="flex items-center justify-between pt-0 pb-[2px] text-[12px] font-medium text-black">
           <span />
-          {labourFormMode === 'edit' ? (
-            <div className="inline-flex items-center gap-[10px] text-[#2B2B2B]">
-              <button type="button" className="text-[#2B2B2B]">
-                View File
-              </button>
-              {canEditMasterData && !isLabourViewOnly && (
-                <button
-                  type="button"
-                  aria-label="Toggle edit mode"
-                  className="inline-flex items-center justify-center p-[4px]"
-                  onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-                >
-                  <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-                </button>
-              )}
-            </div>
-          ) : (
-            <button type="button" className="text-[#2B2B2B]">
-              Upload File
-            </button>
-          )}
+          <span />
         </div>
       </div>
 
@@ -3448,6 +3586,19 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="flex flex-col ">
+          {renderLabourAccordion(
+            'labour-image',
+            'Image',
+            renderImageUploadContent({
+              formMode: labourFormMode,
+              isViewOnly: isLabourViewOnly,
+              nameText: labourForm.labourName || 'Labour Name',
+              imageValue: labourImage,
+              inputId: 'labourImageInput',
+              onImageChange: (value) => setLabourImage(value)
+            })
+          )}
+
           {renderLabourAccordion(
             'labour-details',
             'Labour Details',
@@ -3712,54 +3863,8 @@ const MasterData = ({ user, onLogout }) => {
   const renderAddVendorView = () => (
     <>
       <div className="bg-white">
-        <div className="pt-0 pb-[2px] text-right">
-          {vendorFormMode === 'edit' ? (
-            hasImageFile(vendorForm.vendorPicture) && expandedVendorSection === null ? null : (
-              <div className="inline-flex items-center gap-[10px]">
-                <button
-                  type="button"
-                  className="text-[12px] font-medium text-black"
-                  onClick={() => {
-                    setVendorPictureDraft(vendorForm.vendorPicture || '');
-                    setIsVendorPictureModalOpen(true);
-                  }}
-                >
-                  View File
-                </button>
-                {canEditMasterData && !isVendorViewOnly && (
-                  <button
-                    type="button"
-                    aria-label="Toggle edit mode"
-                    className="inline-flex items-center justify-center p-[4px]"
-                    onClick={() => setUploadFileRowShowsSaveIcon((s) => !s)}
-                  >
-                    <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-                  </button>
-                )}
-              </div>
-            )
-          ) : (
-            <button
-              type="button"
-              className="text-[12px] font-medium text-black"
-              onClick={() => {
-                setVendorPictureDraft(vendorForm.vendorPicture || '');
-                setIsVendorPictureModalOpen(true);
-              }}
-            >
-              Upload File
-            </button>
-          )}
-        </div>
+        <div className="pt-0 pb-[2px] text-right" />
       </div>
-
-      {vendorFormMode === 'edit' && hasImageFile(vendorForm.vendorPicture) && expandedVendorSection === null ? (
-        <div className="pb-[8px] pt-[4px]">
-          <div className="mx-auto h-[108px] w-[108px] overflow-hidden rounded-[10px] border border-[#E5E5E5] bg-white">
-            <img src={vendorForm.vendorPicture} alt="" className="h-full w-full object-cover" />
-          </div>
-        </div>
-      ) : null}
 
       <div
         className={`w-full px-0 pt-0 pb-[18px] ${
@@ -3769,6 +3874,22 @@ const MasterData = ({ user, onLogout }) => {
         }`}
       >
         <div className="">
+          {renderVendorAccordion(
+            'vendor-image',
+            'Image',
+            renderImageUploadContent({
+              formMode: vendorFormMode,
+              isViewOnly: isVendorViewOnly,
+              nameText: vendorForm.vendorName || 'Vendor Name',
+              imageValue: vendorForm.vendorPicture,
+              inputId: 'vendorNewPictureInput',
+              onImageChange: (value) => {
+                setVendorPictureDraft(value);
+                setVendorForm((s) => ({ ...s, vendorPicture: value }));
+              }
+            })
+          )}
+
           {renderVendorAccordion(
             'vendor-details',
             'Vendor Details',
@@ -4133,63 +4254,95 @@ const MasterData = ({ user, onLogout }) => {
       <div className="bg-white">
         <div className=" text-right">
           {projectFormMode === 'edit' ? (
-            hasImageFile(projectForm.projectPicture) && expandedProjectSection === null ? null : (
-              <div className="inline-flex items-center gap-[10px]">
-                <button
-                  type="button"
-                  className="text-[12px] font-medium text-black"
-                  onClick={() => {
-                    setProjectPictureDraft(projectForm.projectPicture || '');
-                    setIsProjectPictureModalOpen(true);
-                  }}
-                >
-                  View File
-                </button>
-                {canEditMasterData && !isProjectViewOnly && (
-                  <button
-                    type="button"
-                    aria-label="Toggle edit mode"
-                    className="inline-flex items-center justify-center p-[4px]"
-                    onClick={() => {
-                      setUploadFileRowShowsSaveIcon((s) => !s);
-                    }}
-                  >
-                    <img src={uploadFileRowShowsSaveIcon ? Save : editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-                  </button>
-                )}
-              </div>
-            )
+            isProjectViewOnly ? (
+              null
+            ) : null
           ) : (
-            <button
-              type="button"
-              className="text-[12px] font-medium text-black"
-              onClick={() => {
-                setProjectPictureDraft(projectForm.projectPicture || '');
-                setIsProjectPictureModalOpen(true);
-              }}
-            >
-              Upload File
-            </button>
+            null
           )}
         </div>
       </div>
 
-      {projectFormMode === 'edit' && hasImageFile(projectForm.projectPicture) && expandedProjectSection === null ? (
-        <div className="pb-[8px] pt-[4px]">
-          <div className="mx-auto h-[108px] w-[108px] overflow-hidden rounded-[10px] border border-[#E5E5E5] bg-white">
-            <img src={projectForm.projectPicture} alt="" className="h-full w-full object-cover" />
-          </div>
-        </div>
-      ) : null}
-
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
+        className={`w-full px-0 pt-0 ${
           projectFormMode === 'edit' && (isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
             ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
             : ''
         }`}
       >
         <div className="">
+          {(projectFormMode === 'new' || projectFormMode === 'edit')
+            ? renderProjectAccordion(
+                'project-image',
+                'Image',
+                <div className="">
+                  {projectFormMode === 'edit' ? (
+                    <div className="mb-[8px] flex items-center justify-between">
+                      <span className="truncate pr-[8px] text-[12px] font-medium text-black">{projectForm.projectName || 'Project Name'}</span>
+                      {hasImageFile(projectForm.projectPicture) && (
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center p-[4px]"
+                          aria-label="Edit image"
+                          onClick={() => {
+                            if (!canEditMasterData || !isProjectViewOnly) return;
+                            document.getElementById('projectNewPictureInput')?.click();
+                          }}
+                        >
+                          <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const canUploadInNewMode = projectFormMode === 'new';
+                      const canUploadInEditMode =
+                        projectFormMode === 'edit' &&
+                        !isProjectViewOnly &&
+                        canEditMasterData;
+                      if (!canUploadInNewMode && !canUploadInEditMode) return;
+                      document.getElementById('projectNewPictureInput')?.click();
+                    }}
+                    className={`block w-full ${projectForm.projectPicture ? 'rounded-[10px] border border-[#DEDEDE] bg-[#FAFAFA] p-[6px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]' : ''}`}
+                  >
+                    <div className={`${projectForm.projectPicture ? 'relative flex h-[196px] w-full flex-col items-center justify-center gap-[4px] overflow-hidden rounded-[8px] border-[2px] border-[#CFCFCF] bg-[#E8E8E8] shadow-[inset_0_3px_10px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.65)]' : 'relative flex h-[196px] w-full items-center justify-center'}`}>
+                      {projectForm.projectPicture ? (
+                        <img src={projectForm.projectPicture} alt="" className="h-full w-full object-contain" />
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-transparent transition-colors">
+                          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                            <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="#E4572E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M5 16.5V18C5 19.1 5.9 20 7 20H17C18.1 20 19 19.1 19 18V16.5" stroke="#E4572E" strokeWidth="1.8" strokeLinecap="round" />
+                          </svg>
+                          <p className="mt-[4px] text-[14px] font-medium text-[#E4572E]">Click to Upload</p>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id="projectNewPictureInput"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const result = typeof reader.result === 'string' ? reader.result : '';
+                        setProjectPictureDraft(result);
+                        setProjectForm((s) => ({ ...s, projectPicture: result }));
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+              )
+            : null}
+
           {renderProjectAccordion(
             'project-details',
             'Project Details',
@@ -4330,7 +4483,7 @@ const MasterData = ({ user, onLogout }) => {
                 {renderInput({
                   label: 'Father Name',
                   required: true,
-                  placeholder: 'Enter Age',
+                  placeholder: 'Enter Name',
                   value: projectForm.fatherName,
                   readOnly:
                     projectFormMode === 'edit'
@@ -4416,9 +4569,9 @@ const MasterData = ({ user, onLogout }) => {
           {renderProjectAccordion(
             'project-information',
             'Project Information',
-            <div className="space-y-[12px] ">
-              {hasProjectInformationData ? (
-                <div className="relative mt-[8px]">
+            <div className="space-y-[8px] ">
+              <div className="mt-[8px] flex items-center gap-[10px]">
+                <div className="relative flex-1">
                   <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <circle cx="8" cy="8" r="5.75" stroke="currentColor" strokeWidth="1.5" />
@@ -4427,17 +4580,33 @@ const MasterData = ({ user, onLogout }) => {
                   </span>
                   <input
                     type="text"
-                    readOnly
+                    value={projectInformationSearch}
+                    onChange={(event) => setProjectInformationSearch(event.target.value)}
                     placeholder="Search"
                     className="h-[36px] w-full rounded-full border border-[#D2D2D2] bg-white pl-[38px] pr-[14px] text-[14px] text-black outline-none placeholder:text-[#8F8F8F]"
                   />
                 </div>
-              ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    openProjectInformationAddSheet();
+                  }}
+                  disabled={!isProjectOptionSelectionEnabled}
+                  className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-black text-white disabled:opacity-60"
+                  aria-label="Add"
+                >
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M3 9H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
 
               {hasProjectInformationData ? (
-                <div className="max-h-[230px] space-y-[8px] overflow-y-auto scrollbar-none no-scrollbar pr-[2px]">
-                  {projectInformationPreview.map((preview, index) => {
-                    const cardId = `project-information-card-${index}`;
+                <div className="max-h-[210px] space-y-[8px] overflow-y-auto scrollbar-none no-scrollbar pr-[2px]">
+                  {filteredProjectInformationPreview.map((preview) => {
+                    const sourceIndex = Number(preview?.sourceIndex);
+                    const cardId = `project-information-card-${sourceIndex}`;
                     return (
                       <div
                         key={cardId}
@@ -4449,34 +4618,38 @@ const MasterData = ({ user, onLogout }) => {
                         onMouseUp={(event) => handleProjectMouseUp(event, cardId)}
                         onMouseLeave={(event) => handleProjectMouseUp(event, cardId)}
                       >
-                        <div className="absolute right-0 top-0 bottom-0 z-0 flex gap-[8px]">
-                          <button
-                            type="button"
-                            className="flex w-[48px] shrink-0 self-stretch items-center justify-center rounded-[6px] bg-[#007233] text-white shadow-sm transition-colors hover:bg-[#22a882]"
-                            aria-label="Edit"
-                            onClick={() => openProjectInformationEditSheet(index)}
-                          >
-                            <img src={editIconHistory} alt="Edit" className="w-[18px] h-[18px]" />
-                          </button>
-                          <button
-                            type="button"
-                            className="flex w-[48px] shrink-0 self-stretch items-center justify-center rounded-[6px] bg-[#E4572E] text-white shadow-sm transition-colors hover:bg-[#cc4d26]"
-                            aria-label="Delete"
-                            onClick={() => handleProjectInformationDelete(index)}
-                          >
-                            <img src={deleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
-                          </button>
+                        <div className="absolute right-[3px] top-[4px] bottom-[4px] z-0 flex gap-[8px]">
+                          {isProjectViewOnly && (
+                            <button
+                              type="button"
+                              className="flex w-[48px] shrink-0 self-stretch items-center justify-center rounded-[6px] bg-[#007233] text-white shadow-sm transition-colors hover:bg-[#22a882]"
+                              aria-label="Edit"
+                              onClick={() => openProjectInformationEditSheet(sourceIndex)}
+                            >
+                              <img src={editIconHistory} alt="Edit" className="w-[18px] h-[18px]" />
+                            </button>
+                          )}
+                          {!isProjectViewOnly && (
+                            <button
+                              type="button"
+                              className="flex w-[48px] shrink-0 self-stretch items-center justify-center rounded-[6px] bg-[#E4572E] text-white shadow-sm transition-colors hover:bg-[#cc4d26]"
+                              aria-label="Delete"
+                              onClick={() => handleProjectInformationDelete(sourceIndex)}
+                            >
+                              <img src={deleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
+                            </button>
+                          )}
                         </div>
 
                         <div
-                          className={`relative z-[1] rounded-[12px] border border-[#E8E8E8] bg-white px-[16px] pr-[20px] py-[8px] transition-transform duration-200 ${
+                          className={`relative z-[1] rounded-[12px] border border-[#E8E8E8] bg-white px-[16px] pr-[20px] py-[10px] transition-transform duration-200 ${
                             swipedProjectId === cardId ? '-translate-x-[110px]' : 'translate-x-0'
                           }`}
                         >
-                          <div className="space-y-[4px] text-[14px] leading-[1.35] text-[#111111]">
+                          <div className="space-y-[2px] text-[11px] font-semibold leading-[1.35] text-[#111111]">
                             <div className="flex items-center justify-between gap-[10px]">
-                              <span className="font-medium">{preview.row1Left}</span>
-                              <span className="font-medium">{preview.row1Right}</span>
+                              <span className="">{preview.row1Left}</span>
+                              <span className="">{preview.row1Right}</span>
                             </div>
                             <div className="flex items-center justify-between gap-[10px]">
                               <span>{preview.row2Left}</span>
@@ -4498,17 +4671,6 @@ const MasterData = ({ user, onLogout }) => {
                 </div>
               ) : null}
 
-              <button
-                type="button"
-                onClick={() => {
-                  openProjectInformationAddSheet();
-                }}
-                disabled={!isProjectOptionSelectionEnabled}
-                className="flex h-[34px] w-full items-center justify-center gap-[8px] rounded-[4px] border border-[#BEBEBE] bg-white text-[14px] font-medium text-black"
-              >
-                <span className="text-[20px] leading-none">+</span>
-                <span>Add on</span>
-              </button>
             </div>
           )}
         </div>
@@ -5182,8 +5344,11 @@ const MasterData = ({ user, onLogout }) => {
     }
 
     return (
-      <>
-      <div className="px-[2px] pt-[8px]">
+      <div
+        className="flex flex-col overflow-hidden"
+        style={{ height: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))' }}
+      >
+      <div className="shrink-0 px-[2px] pt-[8px]">
         <div className="flex items-center gap-[10px]">
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -5356,8 +5521,8 @@ const MasterData = ({ user, onLogout }) => {
         </div>
       </div>
 
-      <div className="px-[2px] pt-[12px]">
-        <div className="mb-[8px] overflow-hidden rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
+      <div className="flex min-h-0 flex-1 items-start px-[2px] pt-[12px] pb-[4px]">
+        <div className="flex max-h-full w-full flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
           <div className="h-[32px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px]">
             <div className="flex items-center">
               <span className="w-[28px]" />
@@ -5375,7 +5540,7 @@ const MasterData = ({ user, onLogout }) => {
             </div>
           </div>
 
-          <div className="max-h-[520px] overflow-y-auto scrollbar-none no-scrollbar">
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none no-scrollbar">
             {isListLoading ? (
               <div className="px-[16px] py-[24px] text-center text-[13px] text-[#7A7A7A]">
                 Loading...
@@ -5627,13 +5792,16 @@ const MasterData = ({ user, onLogout }) => {
           </div>
         </div>
       </div>
-      </>
+      </div>
     );
   };
 
   const renderProjectNameView = () => (
-    <>
-      <div className="px-[2px] pt-[8px]">
+    <div
+      className="flex flex-col overflow-hidden"
+      style={{ height: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))' }}
+    >
+      <div className="shrink-0 px-[2px] pt-[8px]">
         <div className="flex items-center gap-[10px]">
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -5699,8 +5867,8 @@ const MasterData = ({ user, onLogout }) => {
         </div>
       </div>
 
-      <div className="px-[2px] pt-[12px]">
-        <div className="mb-[8px] overflow-hidden rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
+      <div className="flex min-h-0 flex-1 items-start px-[2px] pt-[12px] pb-[4px]">
+        <div className="flex max-h-full w-full flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
           <div className="h-[32px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px]">
             <div className="flex items-center">
               <span className="w-[28px]" />
@@ -5718,7 +5886,7 @@ const MasterData = ({ user, onLogout }) => {
             </div>
           </div>
 
-          <div className="max-h-[520px] overflow-y-auto scrollbar-none no-scrollbar">
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none no-scrollbar">
             {isProjectsLoading ? (
               <div className="px-[16px] py-[24px] text-center text-[13px] text-[#7A7A7A]">
                 Loading...
@@ -5829,8 +5997,10 @@ const MasterData = ({ user, onLogout }) => {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
+
+  const updateActionTextClass = hasFormChanges ? 'text-black' : 'text-[#9A9A9A]';
 
   const addEditFormHeaderSubRow =
     selectedItem === 'Bank Details' && isBankNameFormOpen ? (
@@ -5943,9 +6113,35 @@ const MasterData = ({ user, onLogout }) => {
             {projectFormMode === 'edit' ? (isProjectViewOnly ? 'View' : 'Edit') : 'New'}
           </span>
         </div>
-        <button type="button" onClick={handleHeaderSubmit} className="shrink-0 text-[12px] font-medium text-black">
-          Submit
-        </button>
+        {projectFormMode === 'edit' && isProjectViewOnly ? (
+          <div className="shrink-0 inline-flex items-center gap-[8px]">
+            <button
+              type="button"
+              onClick={handleHeaderSubmit}
+              className={`text-[12px] font-semibold ${updateActionTextClass}`}
+            >
+              Update
+            </button>
+            {canEditMasterData && (
+              <button
+                type="button"
+                aria-label="Edit"
+                className="inline-flex items-center justify-center p-[2px]"
+                onClick={() => setIsProjectViewOnly(false)}
+              >
+                <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleHeaderSubmit}
+            className={`shrink-0 text-[12px] font-medium ${projectFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+          >
+            {projectFormMode === 'edit' ? 'Update' : 'Submit'}
+          </button>
+        )}
       </>
     ) : selectedItem === 'Vendor Name' && isAddVendorViewOpen ? (
       <>
@@ -5973,9 +6169,26 @@ const MasterData = ({ user, onLogout }) => {
             {vendorFormMode === 'edit' ? (isVendorViewOnly ? 'View' : 'Edit') : 'NEW'}
           </span>
         </div>
-        <button type="button" onClick={handleHeaderSubmit} className="shrink-0 text-[12px] font-medium text-black">
-          {vendorFormMode === 'edit' ? 'Update' : 'Save'}
-        </button>
+        {vendorFormMode === 'edit' && isVendorViewOnly ? (
+          <div className="shrink-0 inline-flex items-center gap-[8px]">
+            <button type="button" onClick={handleHeaderSubmit} className={`text-[12px] font-medium ${updateActionTextClass}`}>
+              Update
+            </button>
+            {canEditMasterData && (
+              <button type="button" aria-label="Edit" className="inline-flex items-center justify-center p-[2px]" onClick={() => setIsVendorViewOnly(false)}>
+                <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleHeaderSubmit}
+            className={`shrink-0 text-[12px] font-medium ${vendorFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+          >
+            {vendorFormMode === 'edit' ? 'Update' : 'Save'}
+          </button>
+        )}
       </>
     ) : (selectedItem === 'Contractor Name' || selectedItem === 'Support Associate Name') && isAddContractorViewOpen ? (
       <>
@@ -6003,9 +6216,26 @@ const MasterData = ({ user, onLogout }) => {
             {contractorFormMode === 'edit' ? (isContractorViewOnly ? 'View' : 'Edit') : 'NEW'}
           </span>
         </div>
-        <button type="button" onClick={handleHeaderSubmit} className="shrink-0 text-[12px] font-medium text-black">
-          {contractorFormMode === 'edit' ? 'Update' : 'Save'}
-        </button>
+        {contractorFormMode === 'edit' && isContractorViewOnly ? (
+          <div className="shrink-0 inline-flex items-center gap-[8px]">
+            <button type="button" onClick={handleHeaderSubmit} className={`text-[12px] font-medium ${updateActionTextClass}`}>
+              Update
+            </button>
+            {canEditMasterData && (
+              <button type="button" aria-label="Edit" className="inline-flex items-center justify-center p-[2px]" onClick={() => setIsContractorViewOnly(false)}>
+                <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleHeaderSubmit}
+            className={`shrink-0 text-[12px] font-medium ${contractorFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+          >
+            {contractorFormMode === 'edit' ? 'Update' : 'Save'}
+          </button>
+        )}
       </>
     ) : selectedItem === 'Categories' && isAddCategoryViewOpen ? (
       <>
@@ -6029,9 +6259,26 @@ const MasterData = ({ user, onLogout }) => {
             {categoryFormMode === 'edit' ? (isCategoryViewOnly ? 'View' : 'Edit') : 'New'}
           </span>
         </div>
-        <button type="button" onClick={handleHeaderSubmit} className="shrink-0 text-[12px] font-medium text-black">
-          {categoryFormMode === 'edit' ? 'Update' : 'Add'}
-        </button>
+        {categoryFormMode === 'edit' && isCategoryViewOnly ? (
+          <div className="shrink-0 inline-flex items-center gap-[8px]">
+            <button type="button" onClick={handleHeaderSubmit} className={`text-[12px] font-medium ${updateActionTextClass}`}>
+              Update
+            </button>
+            {canEditMasterData && (
+              <button type="button" aria-label="Edit" className="inline-flex items-center justify-center p-[2px]" onClick={() => setIsCategoryViewOnly(false)}>
+                <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleHeaderSubmit}
+            className={`shrink-0 text-[12px] font-medium ${categoryFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+          >
+            {categoryFormMode === 'edit' ? 'Update' : 'Add'}
+          </button>
+        )}
       </>
     ) : selectedItem === 'Machine tools' && isAddMachineViewOpen ? (
       <>
@@ -6059,9 +6306,26 @@ const MasterData = ({ user, onLogout }) => {
             {machineFormMode === 'edit' ? (isMachineViewOnly ? 'View' : 'Edit') : 'New'}
           </span>
         </div>
-        <button type="button" onClick={handleHeaderSubmit} className="shrink-0 text-[12px] font-medium text-black">
-          Update
-        </button>
+        {machineFormMode === 'edit' && isMachineViewOnly ? (
+          <div className="shrink-0 inline-flex items-center gap-[8px]">
+            <button type="button" onClick={handleHeaderSubmit} className={`text-[12px] font-medium ${updateActionTextClass}`}>
+              Update
+            </button>
+            {canEditMasterData && (
+              <button type="button" aria-label="Edit" className="inline-flex items-center justify-center p-[2px]" onClick={() => setIsMachineViewOnly(false)}>
+                <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleHeaderSubmit}
+            className={`shrink-0 text-[12px] font-medium ${updateActionTextClass}`}
+          >
+            Update
+          </button>
+        )}
       </>
     ) : selectedItem === 'Employee Details' && isAddEmployeeViewOpen ? (
       <>
@@ -6085,9 +6349,23 @@ const MasterData = ({ user, onLogout }) => {
             {employeeFormMode === 'edit' ? (isEmployeeViewOnly ? 'View' : 'Edit') : 'New'}
           </span>
         </div>
-        <button type="button" className="shrink-0 text-[12px] font-medium text-black">
-          {employeeFormMode === 'edit' ? 'Update' : 'Submit'}
-        </button>
+        {employeeFormMode === 'edit' && isEmployeeViewOnly ? (
+          <div className="shrink-0 inline-flex items-center gap-[8px]">
+            <button type="button" className={`text-[12px] font-medium ${updateActionTextClass}`}>Update</button>
+            {canEditMasterData && (
+              <button type="button" aria-label="Edit" className="inline-flex items-center justify-center p-[2px]" onClick={() => setIsEmployeeViewOnly(false)}>
+                <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={`shrink-0 text-[12px] font-medium ${employeeFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+          >
+            {employeeFormMode === 'edit' ? 'Update' : 'Submit'}
+          </button>
+        )}
       </>
     ) : selectedItem === 'Account Details' && isAddAccountViewOpen ? (
       <>
@@ -6111,9 +6389,23 @@ const MasterData = ({ user, onLogout }) => {
             {accountFormMode === 'edit' ? (isAccountViewOnly ? 'View' : 'Edit') : 'New'}
           </span>
         </div>
-        <button type="button" className="shrink-0 text-[12px] font-medium text-black">
-          {accountFormMode === 'edit' ? 'Update' : 'Submit'}
-        </button>
+        {accountFormMode === 'edit' && isAccountViewOnly ? (
+          <div className="shrink-0 inline-flex items-center gap-[8px]">
+            <button type="button" className={`text-[12px] font-medium ${updateActionTextClass}`}>Update</button>
+            {canEditMasterData && (
+              <button type="button" aria-label="Edit" className="inline-flex items-center justify-center p-[2px]" onClick={() => setIsAccountViewOnly(false)}>
+                <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={`shrink-0 text-[12px] font-medium ${accountFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+          >
+            {accountFormMode === 'edit' ? 'Update' : 'Submit'}
+          </button>
+        )}
       </>
     ) : selectedItem === 'Company Labour' && isAddLabourViewOpen ? (
       <>
@@ -6137,13 +6429,30 @@ const MasterData = ({ user, onLogout }) => {
             {labourFormMode === 'edit' ? (isLabourViewOnly ? 'View' : 'Edit') : 'New'}
           </span>
         </div>
-        <button
-          type="button"
-          className="shrink-0 text-[12px] font-medium text-[#F26B3A]"
-          aria-label={labourFormMode === 'edit' ? 'Update labour' : 'Submit labour'}
-        >
-          Submit
-        </button>
+        {labourFormMode === 'edit' && isLabourViewOnly ? (
+          <div className="shrink-0 inline-flex items-center gap-[8px]">
+            <button
+              type="button"
+              className={`text-[12px] font-medium ${updateActionTextClass}`}
+              aria-label="Update labour"
+            >
+              Update
+            </button>
+            {canEditMasterData && (
+              <button type="button" aria-label="Edit" className="inline-flex items-center justify-center p-[2px]" onClick={() => setIsLabourViewOnly(false)}>
+                <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={`shrink-0 text-[12px] font-medium ${labourFormMode === 'edit' ? updateActionTextClass : 'text-[#F26B3A]'}`}
+            aria-label={labourFormMode === 'edit' ? 'Update labour' : 'Submit labour'}
+          >
+            {labourFormMode === 'edit' ? 'Update' : 'Submit'}
+          </button>
+        )}
       </>
     ) : null;
 
