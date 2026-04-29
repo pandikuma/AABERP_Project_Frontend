@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import Edit from '../Images/Edit.svg';
 import Delete from '../Images/Delete.svg';
@@ -15,6 +15,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { i } from 'mathjs';
 import ExpenseEntryForm from '../ExpensesEntry/Form';
+import AdvancePortalForm from '../Advance Portal/AdvancePortal';
+import restore from '../Images/data-recovery.png';
 function cleanUrl(url) {
     if (!url) return url;
     let cleanedUrl = url.replace(/^["']|["']$/g, '');
@@ -30,9 +32,10 @@ function cleanUrl(url) {
     }
     return cleanedUrl;
 }
-const History = ({ username, userRoles = [] }) => {
+const History = ({ username, userRoles = [], viewMode = 'default' }) => {
     const normalizedUsername = username?.trim();
     const canEditDelete = normalizedUsername === 'Admin' || normalizedUsername === 'Mahalingam M';
+    const isExpensesEntryUploadOnly = viewMode === 'expenses-entry-upload';
     const resolveActiveBranchId = () => {
         try {
             const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -137,6 +140,20 @@ const History = ({ username, userRoles = [] }) => {
     const [year, setYear] = useState(getCurrentWeekYear().toString());
     const [weeklyTypes, setWeeklyTypes] = useState([]);
     const [weeklyReceivedTypes, setWeeklyReceivedTypes] = useState([]);
+    const getWeeklyExpenseTypeId = useCallback((typeLabel) => {
+        if (typeLabel === null || typeLabel === undefined || String(typeLabel).trim() === "") return null;
+        const found = weeklyTypes.find((t) => t && t.type === typeLabel);
+        if (!found) return null;
+        const id = found.id;
+        return id !== undefined && id !== null && !Number.isNaN(Number(id)) ? Number(id) : null;
+    }, [weeklyTypes]);
+    const getWeeklyReceivedTypeId = useCallback((receivedLabel) => {
+        if (receivedLabel === null || receivedLabel === undefined || String(receivedLabel).trim() === "") return null;
+        const found = weeklyReceivedTypes.find((t) => t && t.received_type === receivedLabel);
+        if (!found) return null;
+        const id = found.id;
+        return id !== undefined && id !== null && !Number.isNaN(Number(id)) ? Number(id) : null;
+    }, [weeklyReceivedTypes]);
     const currentYear = new Date().getFullYear();
     const startYear = 2000;
     const years = Array.from({ length: currentYear - startYear + 1 }, (_, i) => startYear + i);
@@ -157,9 +174,11 @@ const History = ({ username, userRoles = [] }) => {
     const [accountDetails, setAccountDetails] = useState([]);
     const [fileUploadPopup, setFileUploadPopup] = useState(false);
     const [showBillExpenseEntryModal, setShowBillExpenseEntryModal] = useState(false);
+    const [showBillSettlementAdvanceModal, setShowBillSettlementAdvanceModal] = useState(false);
     const [expenseEntryRefreshNonce, setExpenseEntryRefreshNonce] = useState(0);
     const [currentFileRow, setCurrentFileRow] = useState(null);
     const [selectedFileForPopup, setSelectedFileForPopup] = useState(null);
+    const [removedBillCopyRows, setRemovedBillCopyRows] = useState({});
     const [showCategoryPopup, setShowCategoryPopup] = useState(false);
     const [categoryOptions, setCategoryOptions] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState(null);
@@ -371,7 +390,7 @@ const History = ({ username, userRoles = [] }) => {
     }, []);
     const fetchLaboursList = async () => {
         try {
-            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/getAll');
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
             if (response.ok) {
                 const data = await response.json();
                 const formattedData = data.map(item => ({
@@ -432,7 +451,7 @@ const History = ({ username, userRoles = [] }) => {
     }, []);
     const fetchWeeklyType = async () => {
         try {
-            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly_types/getAll');
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/weekly_types/getAll');
             if (response.ok) {
                 const data = await response.json();
                 setWeeklyTypes(data);
@@ -445,7 +464,7 @@ const History = ({ username, userRoles = [] }) => {
     };
     const fetchWeeklyReceivedType = async () => {
         try {
-            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly_received_types/getAll');
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/weekly_received_types/getAll');
             if (response.ok) {
                 const data = await response.json();
                 setWeeklyReceivedTypes(data);
@@ -458,7 +477,7 @@ const History = ({ username, userRoles = [] }) => {
     };
     const fetchAccountDetails = async () => {
         try {
-            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
             if (response.ok) {
                 const data = await response.json();
                 setAccountDetails(data);
@@ -471,7 +490,7 @@ const History = ({ username, userRoles = [] }) => {
     };
     const fetchCategories = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
+            const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -494,7 +513,7 @@ const History = ({ username, userRoles = [] }) => {
     };
     const fetchPurposeOptions = async () => {
         try {
-            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/loan-purposes/getAll', {
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/loan-purposes/getAll', {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -518,7 +537,7 @@ const History = ({ username, userRoles = [] }) => {
         }
     };
     const handleFileUploadClick = (row) => {
-        if (row.type === 'Bill') {
+        if (row.type === 'Bill Payment') {
             const project = siteOptions.find((opt) => Number(opt.id) === Number(row.project_id));
             const resolvedSiteName = project?.label ?? '';
             const isSummaryBillProject = String(resolvedSiteName).trim() === "Summary Bill";
@@ -569,9 +588,77 @@ const History = ({ username, userRoles = [] }) => {
             setShowBillExpenseEntryModal(true);
             return;
         }
+        if (row.type === 'Bill Settlement') {
+            const project = siteOptions.find((opt) => Number(opt.id) === Number(row.project_id));
+            let dateStr = '';
+            if (row.date) {
+                const d = String(row.date);
+                dateStr = d.includes('T') ? d.split('T')[0] : d;
+            }
+            const rawVid = row.vendor_id ?? row.vendorId;
+            const rawCid = row.contractor_id ?? row.contractorId;
+            const vendorName =
+                row.vendor ??
+                row.vendor_name ??
+                row.vendorName ??
+                (rawVid != null && !Number.isNaN(Number(rawVid)) ? getVendorName(Number(rawVid)) : "") ??
+                "";
+            const contractorName =
+                row.contractor ??
+                row.contractor_name ??
+                row.contractorName ??
+                (rawCid != null && !Number.isNaN(Number(rawCid)) ? getContractorName(Number(rawCid)) : "") ??
+                "";
+            const selectedOptionPrefill =
+                rawVid != null && String(rawVid).trim() !== "" && !Number.isNaN(Number(rawVid))
+                    ? { id: Number(rawVid), value: vendorName, label: vendorName, type: "Vendor" }
+                    : rawCid != null && String(rawCid).trim() !== "" && !Number.isNaN(Number(rawCid))
+                        ? { id: Number(rawCid), value: contractorName, label: contractorName, type: "Contractor" }
+                        : null;
+            const selectedSitePrefill = project
+                ? {
+                    id: Number(project.id),
+                    value: project.value ?? project.label,
+                    label: project.label,
+                    sNo: project.sNo,
+                }
+                : null;
+            try {
+                sessionStorage.setItem("selectedType", JSON.stringify("Bill Settlement"));
+                if (selectedOptionPrefill) sessionStorage.setItem("selectedOption", JSON.stringify(selectedOptionPrefill));
+                else sessionStorage.removeItem("selectedOption");
+                if (selectedSitePrefill) sessionStorage.setItem("selectedSite", JSON.stringify(selectedSitePrefill));
+                else sessionStorage.removeItem("selectedSite");
+                if (row.amount != null && row.amount !== "") sessionStorage.setItem("advanceAmount", JSON.stringify(String(row.amount)));
+                else sessionStorage.removeItem("advanceAmount");
+                sessionStorage.removeItem("billAmount");
+                sessionStorage.setItem("paymentMode", JSON.stringify("Cash"));
+                sessionStorage.removeItem("description");
+                if (dateStr) sessionStorage.setItem("cashRegisterBillSettlementDate", JSON.stringify(dateStr));
+            } catch {
+                // ignore
+            }
+            setShowBillSettlementAdvanceModal(true);
+            return;
+        }
         setCurrentFileRow(row);
         setSelectedFileForPopup(null);
         setFileUploadPopup(true);
+    };
+    const canCloseExpenseEntryModal = () => {
+        try {
+            const raw = localStorage.getItem('expenseEntryPrefill');
+            if (!raw) return true;
+            const parsed = JSON.parse(raw);
+            const total = Number(parsed?.summaryBillTotal ?? parsed?.summary_bill_total ?? 0);
+            if (Number.isFinite(total) && total > 0) {
+                alert('Please complete the full Summary Bill amount before closing this popup.');
+                return false;
+            }
+            return true;
+        } catch {
+            return true;
+        }
     };
     const handleFileSelectInPopup = (e) => {
         const file = e.target.files[0];
@@ -617,7 +704,7 @@ const History = ({ username, userRoles = [] }) => {
             uploadFormData.append("fileName", finalName);
 
             const uploadResponse = await fetch(
-                "https://backendaab.in/demoAabuildersDash/api/files/upload",
+                "https://backendaab.in/aabuildersDash/api/files/upload",
                 {
                     method: "POST",
                     body: uploadFormData,
@@ -633,7 +720,7 @@ const History = ({ username, userRoles = [] }) => {
             // ✅ CHANGE 4: new response format
             const pdfUrl = uploadResult.urls[0];
 
-            const updateResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/${currentFileRow.id}/bill-copy-url`, {
+            const updateResponse = await fetch(`https://backendaab.in/aabuildersDash/api/weekly-expenses/${currentFileRow.id}/bill-copy-url`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -646,6 +733,11 @@ const History = ({ username, userRoles = [] }) => {
             setExpenses((prev) =>
                 prev.map((exp) => (exp.id === currentFileRow.id ? { ...exp, bill_copy_url: pdfUrl } : exp))
             );
+            setRemovedBillCopyRows((prev) => {
+                const next = { ...prev };
+                delete next[currentFileRow.id];
+                return next;
+            });
             setFileUploadPopup(false);
             setCurrentFileRow(null);
             setSelectedFileForPopup(null);
@@ -665,9 +757,86 @@ const History = ({ username, userRoles = [] }) => {
             });
         }
     };
+    const handleRemoveBillCopyUrl = async (row) => {
+        if (!row?.id) return;
+        const shouldRemove = window.confirm('Remove attached bill file?');
+        if (!shouldRemove) return;
+        try {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/weekly-expenses/${row.id}/remove-bill`, {
+                method: 'PUT',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(username || ''),
+            });
+            if (!response.ok) {
+                throw new Error("Failed to remove bill copy URL");
+            }
+            setExpenses((prev) =>
+                prev.map((exp) => (exp.id === row.id ? { ...exp, bill_copy_url: null } : exp))
+            );
+            setRemovedBillCopyRows((prev) => ({ ...prev, [row.id]: true }));
+            setPopup({
+                show: true,
+                message: "Bill file removed successfully!",
+                type: "success",
+                dateStr: new Date().toLocaleDateString('en-GB')
+            });
+        } catch (error) {
+            console.error("Error removing bill file:", error);
+            setPopup({
+                show: true,
+                message: "Failed to remove bill file. Please try again.",
+                type: "error",
+                dateStr: new Date().toLocaleDateString('en-GB')
+            });
+        }
+    };
+    const handleRestoreBillCopyUrl = async (row) => {
+        if (!row?.id) return;
+        try {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/weekly-expenses/${row.id}/restore-bill`, {
+                method: 'PUT',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error("Failed to restore bill copy URL");
+            }
+            const restored = await response.json().catch(() => null);
+            const restoredUrl = restored?.bill_copy_url ?? restored?.billCopyUrl ?? null;
+            setExpenses((prev) =>
+                prev.map((exp) =>
+                    exp.id === row.id ? { ...exp, bill_copy_url: restoredUrl || exp.bill_copy_url } : exp
+                )
+            );
+            setRemovedBillCopyRows((prev) => {
+                const next = { ...prev };
+                delete next[row.id];
+                return next;
+            });
+            setPopup({
+                show: true,
+                message: "Bill file restored successfully!",
+                type: "success",
+                dateStr: new Date().toLocaleDateString('en-GB')
+            });
+        } catch (error) {
+            console.error("Error restoring bill file:", error);
+            setPopup({
+                show: true,
+                message: "Failed to restore bill file. Please try again.",
+                type: "error",
+                dateStr: new Date().toLocaleDateString('en-GB')
+            });
+        }
+    };
     const fetchWeeklyPaymentBills = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/all", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/weekly-payment-bills/all", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -715,7 +884,7 @@ const History = ({ username, userRoles = [] }) => {
             }
             try {
                 const response = await axios.get(
-                    `https://backendaab.in/demoAabuildersDash/api/payments-received/week/${nextWeekNumber}`,
+                    `https://backendaab.in/aabuildersDash/api/payments-received/week/${nextWeekNumber}`,
                     withBranchParams()
                 );
                 const allNextWeekPayments = Array.isArray(response.data) ? response.data : [];
@@ -751,7 +920,7 @@ const History = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -778,7 +947,7 @@ const History = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchEmployeeDetails = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/employee_details/basic/getAll", {
+                const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/basic/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -805,7 +974,7 @@ const History = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchContractorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -852,7 +1021,7 @@ const History = ({ username, userRoles = [] }) => {
         ];
         const fetchSites = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/projects/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/projects/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -951,7 +1120,7 @@ const History = ({ username, userRoles = [] }) => {
                 // Fetch all payments to determine which weeks have data (branch-scoped rows only)
                 let weeksWithData = new Set();
                 try {
-                    const paymentsResponse = await axios.get('https://backendaab.in/demoAabuildersDash/api/payments-received/getAll', withBranchParams());
+                    const paymentsResponse = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/getAll', withBranchParams());
                     paymentsResponse.data.forEach(payment => {
                         if (!isRowForActiveBranch(payment)) return;
                         if (payment.status !== true) return;
@@ -1027,7 +1196,7 @@ const History = ({ username, userRoles = [] }) => {
                 const now = new Date();
                 const currentWeekNumber = getISOWeekNumber(now);
                 const currentWeekYear = getWeekYear(now);
-                const paymentsResponse = await axios.get('https://backendaab.in/demoAabuildersDash/api/payments-received/getAll', withBranchParams());
+                const paymentsResponse = await axios.get('https://backendaab.in/aabuildersDash/api/payments-received/getAll', withBranchParams());
                 const data = (Array.isArray(paymentsResponse.data) ? paymentsResponse.data : []).filter(isRowForActiveBranch);
                 const hasCurrentWeekTrue = data.some((payment) => {
                     if (payment?.status !== true) return false;
@@ -1072,8 +1241,8 @@ const History = ({ username, userRoles = [] }) => {
             if (!selectedWeek) return;
             try {
                 const [expensesRes, paymentsRes] = await Promise.all([
-                    axios.get(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
-                    axios.get(`https://backendaab.in/demoAabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
+                    axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
+                    axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
                 ]);
 
                 const selectedYear = parseInt(year, 10);
@@ -1108,7 +1277,7 @@ const History = ({ username, userRoles = [] }) => {
                 for (const row of projectAdvanceRows) {
                     try {
                         const res = await fetch(
-                            `https://backendaab.in/demoAabuildersDash/api/advance_portal/get/${row.advance_portal_id}`
+                            `https://backendaab.in/aabuildersDash/api/advance_portal/get/${row.advance_portal_id}`
                         );
                         if (res.ok) {
                             const data = await res.json();
@@ -1333,7 +1502,7 @@ const History = ({ username, userRoles = [] }) => {
             branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
-            `https://backendaab.in/demoAabuildersDash/api/loans/${loanPortalId}?editedBy=${encodeURIComponent(username)}`,
+            `https://backendaab.in/aabuildersDash/api/loans/${loanPortalId}?editedBy=${encodeURIComponent(username)}`,
             {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -1366,7 +1535,7 @@ const History = ({ username, userRoles = [] }) => {
             branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
-            `https://backendaab.in/demoAabuildersDash/api/loans/${loanPortalId}?editedBy=${encodeURIComponent(username)}`,
+            `https://backendaab.in/aabuildersDash/api/loans/${loanPortalId}?editedBy=${encodeURIComponent(username)}`,
             {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -1398,7 +1567,7 @@ const History = ({ username, userRoles = [] }) => {
             branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
-            "https://backendaab.in/demoAabuildersDash/api/loans/save",
+            "https://backendaab.in/aabuildersDash/api/loans/save",
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -1438,7 +1607,7 @@ const History = ({ username, userRoles = [] }) => {
                 enteredBy: username,
             };
 
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/weekly-expenses/update/save", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/weekly-expenses/update/save", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -1582,7 +1751,7 @@ const History = ({ username, userRoles = [] }) => {
             branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
-            `https://backendaab.in/demoAabuildersDash/api/advance_portal/edit/${advancePortalId}?editedBy=${encodeURIComponent(username)}`,
+            `https://backendaab.in/aabuildersDash/api/advance_portal/edit/${advancePortalId}?editedBy=${encodeURIComponent(username)}`,
             {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -1614,7 +1783,7 @@ const History = ({ username, userRoles = [] }) => {
             branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
-            `https://backendaab.in/demoAabuildersDash/api/advance_portal/edit/${advancePortalId}?editedBy=${encodeURIComponent(username)}`,
+            `https://backendaab.in/aabuildersDash/api/advance_portal/edit/${advancePortalId}?editedBy=${encodeURIComponent(username)}`,
             {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -1643,7 +1812,7 @@ const History = ({ username, userRoles = [] }) => {
             branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
-            `https://backendaab.in/demoAabuildersDash/api/staff-advance/${staffAdvancePortalId}?editedBy=${encodeURIComponent(username)}`,
+            `https://backendaab.in/aabuildersDash/api/staff-advance/${staffAdvancePortalId}?editedBy=${encodeURIComponent(username)}`,
             {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -1672,7 +1841,7 @@ const History = ({ username, userRoles = [] }) => {
             branch_id: activeBranchId ?? null,
         };
         const response = await fetch(
-            `https://backendaab.in/demoAabuildersDash/api/staff-advance/${staffAdvancePortalId}?editedBy=${encodeURIComponent(username)}`,
+            `https://backendaab.in/aabuildersDash/api/staff-advance/${staffAdvancePortalId}?editedBy=${encodeURIComponent(username)}`,
             {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -1685,7 +1854,7 @@ const History = ({ username, userRoles = [] }) => {
         return response.json();
     };
     const createAdvancePortalEntry = async ({ date, amount, vendorId, contractorId, projectId }) => {
-        const response = await fetch("https://backendaab.in/demoAabuildersDash/api/advance_portal/getAll");
+        const response = await fetch("https://backendaab.in/aabuildersDash/api/advance_portal/getAll");
         if (!response.ok) {
             throw new Error("Failed to fetch advance portal entry numbers");
         }
@@ -1711,7 +1880,7 @@ const History = ({ username, userRoles = [] }) => {
             branch_id: activeBranchId ?? null,
             enteredBy: username,
         };
-        const saveResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/advance_portal/save", {
+        const saveResponse = await fetch("https://backendaab.in/aabuildersDash/api/advance_portal/save", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -1792,6 +1961,7 @@ const History = ({ username, userRoles = [] }) => {
             client_name: selectedClient?.label || newExpense.client_name || null,
             client_id: selectedClient?.id || newExpense.client_id || null,
             type: newExpense.type,
+            type_id: getWeeklyExpenseTypeId(newExpense.type),
             amount: Number(newExpense.amount),
             status: true,
             weekly_number: Number(selectedWeek),
@@ -1836,7 +2006,7 @@ const History = ({ username, userRoles = [] }) => {
             }
             if (newExpense.type === "Staff Advance") {
                 try {
-                    const staffAdvanceRes = await fetch("https://backendaab.in/demoAabuildersDash/api/staff-advance/all");
+                    const staffAdvanceRes = await fetch("https://backendaab.in/aabuildersDash/api/staff-advance/all");
                     if (!staffAdvanceRes.ok) throw new Error("Failed to fetch staff advance entry numbers");
                     const staffAdvanceData = await staffAdvanceRes.json();
                     const maxEntryNo = staffAdvanceData.length > 0
@@ -1861,7 +2031,7 @@ const History = ({ username, userRoles = [] }) => {
                         enteredBy: username,
                     };
                     const staffAdvanceResponse = await fetch(
-                        "https://backendaab.in/demoAabuildersDash/api/staff-advance/save",
+                        "https://backendaab.in/aabuildersDash/api/staff-advance/save",
                         {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -1877,7 +2047,7 @@ const History = ({ username, userRoles = [] }) => {
                     console.error("Error creating staff advance portal entry:", staffAdvanceError);
                 }
             }
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/weekly-expenses/update/save", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/weekly-expenses/update/save", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -1924,6 +2094,7 @@ const History = ({ username, userRoles = [] }) => {
                 date: newPayment.date,
                 amount: parseFloat(newPayment.amount),
                 type: newPayment.type,
+                type_id: getWeeklyReceivedTypeId(newPayment.type),
                 status: true,
                 weekly_number: Number(selectedWeek),
                 period_start_date: new Date().toISOString().split("T")[0],
@@ -1932,7 +2103,7 @@ const History = ({ username, userRoles = [] }) => {
                 enteredBy: username,
             };
             try {
-                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/payments-received/update/save", {
+                const response = await fetch("https://backendaab.in/aabuildersDash/api/payments-received/update/save", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -2113,9 +2284,9 @@ const History = ({ username, userRoles = [] }) => {
         let loanPortalData = [];
         try {
             const [advanceRes, staffAdvanceRes, loanRes] = await Promise.all([
-                fetch("https://backendaab.in/demoAabuildersDash/api/advance_portal/getAll").catch(() => null),
-                fetch("https://backendaab.in/demoAabuildersDash/api/staff-advance/all").catch(() => null),
-                fetch("https://backendaab.in/demoAabuildersDash/api/loans/all").catch(() => null)
+                fetch("https://backendaab.in/aabuildersDash/api/advance_portal/getAll").catch(() => null),
+                fetch("https://backendaab.in/aabuildersDash/api/staff-advance/all").catch(() => null),
+                fetch("https://backendaab.in/aabuildersDash/api/loans/all").catch(() => null)
             ]);
             if (advanceRes && advanceRes.ok) {
                 advancePortalData = await advanceRes.json();
@@ -2192,7 +2363,7 @@ const History = ({ username, userRoles = [] }) => {
         };
         drawHeader(doc, "WEEKLY PAYMENT REPORT");
         const expensesHeaders = [["SNO", "Date", "Party", "Project Name", "Type", "Amount", "AC", "C", ""]];
-        const pdfFilteredExpenses = expenses.filter(row => row.type === "Bill" || row.type === "Wage");
+        const pdfFilteredExpenses = expenses.filter(row => row.type === "Bill Payment" || row.type === "Wage");
         const expensesData = pdfFilteredExpenses.map((row, idx) => [
             String(idx + 1 || ""),
             String(row.date ? formatDateOnly(row.date) : ""),
@@ -2578,7 +2749,7 @@ const History = ({ username, userRoles = [] }) => {
             });
             newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
         }
-        const excludedTypes = ["Bill", "Wage", "Project Advance", "Staff Advance", "Staff Salary", "Daily", "Diwali Bonus"];
+        const excludedTypes = ["Bill Payment", "Wage", "Project Advance", "Staff Advance", "Staff Salary", "Daily", "Diwali Bonus"];
         const otherExpenseTypes = [...new Set(expenses.map(e => e.type).filter(type => type && !excludedTypes.includes(type)))];
         otherExpenseTypes.forEach((expenseType) => {
             const typeEntries = expenses.filter(e => e.type === expenseType);
@@ -2695,7 +2866,7 @@ const History = ({ username, userRoles = [] }) => {
     };
     const updateDescription = async (id, description) => {
         try {
-            const res = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/update/${id}`, {
+            const res = await fetch(`https://backendaab.in/aabuildersDash/api/advance_portal/update/${id}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -2855,7 +3026,7 @@ const History = ({ username, userRoles = [] }) => {
                     await updateStaffAdvancePortalEntry(row.staff_advance_portal_id, staffAdvancePayload);
                 } else {
                     try {
-                        const staffAdvanceRes = await fetch("https://backendaab.in/demoAabuildersDash/api/staff-advance/all");
+                        const staffAdvanceRes = await fetch("https://backendaab.in/aabuildersDash/api/staff-advance/all");
                         if (!staffAdvanceRes.ok) throw new Error("Failed to fetch staff advance entry numbers");
                         const staffAdvanceData = await staffAdvanceRes.json();
                         const maxEntryNo = staffAdvanceData.length > 0
@@ -2880,7 +3051,7 @@ const History = ({ username, userRoles = [] }) => {
                             enteredBy: username,
                         };
                         const staffAdvanceResponse = await fetch(
-                            "https://backendaab.in/demoAabuildersDash/api/staff-advance/save",
+                            "https://backendaab.in/aabuildersDash/api/staff-advance/save",
                             {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -2907,8 +3078,9 @@ const History = ({ username, userRoles = [] }) => {
             const expensePayload = {
                 ...row,
                 branch_id: row.branch_id ?? row.branchId ?? activeBranchId ?? null,
+                type_id: getWeeklyExpenseTypeId(row.type),
             };
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/edit/${row.id}?username=${encodeURIComponent(
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/weekly-expenses/edit/${row.id}?username=${encodeURIComponent(
                 username
             )}`,
                 {
@@ -2984,8 +3156,9 @@ const History = ({ username, userRoles = [] }) => {
             const paymentPayload = {
                 ...row,
                 branch_id: row.branch_id ?? row.branchId ?? activeBranchId ?? null,
+                type_id: getWeeklyReceivedTypeId(row.type),
             };
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/payments-received/update/${row.id}?username=${encodeURIComponent(username)}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/payments-received/update/${row.id}?username=${encodeURIComponent(username)}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -3018,7 +3191,7 @@ const History = ({ username, userRoles = [] }) => {
     }, [weeks, year, lastWeekWithData]);
     const fetchAuditDetailsForExpense = async (expensesId) => {
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/weekly_payment_audit/expenses/${expensesId}`);
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/weekly_payment_audit/expenses/${expensesId}`);
             const data = await response.json();
             setWeeklyPaymentExpensesAudits(data);
             setShowWeeklyPaymentExpensesModal(true);
@@ -3028,7 +3201,7 @@ const History = ({ username, userRoles = [] }) => {
     };
     const fetchAuditDetailsForPaymentReceived = async (receivedId) => {
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/weekly_payment_audit/payments/${receivedId}`);
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/weekly_payment_audit/payments/${receivedId}`);
             const data = await response.json();
             setWeeklyPaymentReceivedAudits(data);
             setShowWeeklyPaymentReceivedModal(true);
@@ -3068,7 +3241,7 @@ const History = ({ username, userRoles = [] }) => {
                         return;
                     }
                 }
-                const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/delete/${id}`, {
+                const response = await fetch(`https://backendaab.in/aabuildersDash/api/weekly-expenses/delete/${id}`, {
                     method: 'DELETE',
                 });
                 if (response.ok) {
@@ -3090,7 +3263,7 @@ const History = ({ username, userRoles = [] }) => {
         const confirmed = window.confirm("Are you sure you want to delete This Expense Data?");
         if (confirmed) {
             try {
-                const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/payments-received/delete/${id}`, {
+                const response = await fetch(`https://backendaab.in/aabuildersDash/api/payments-received/delete/${id}`, {
                     method: 'DELETE',
                 });
                 if (response.ok) {
@@ -3145,23 +3318,27 @@ const History = ({ username, userRoles = [] }) => {
                         </select>
                     </div>
                 </div>
-                <div className='flex justify-end mb-20 mr-6'>
-                    <button className="font-semibold text-lg cursor-pointer flex items-center gap-2" onClick={generatePDF}>
-                        Report
-                        <img className='w-6 h-5' src={download} alt="Download" />
-                    </button>
+                {!isExpensesEntryUploadOnly && (
+                    <div className='flex justify-end mb-20 mr-6'>
+                        <button className="font-semibold text-lg cursor-pointer flex items-center gap-2" onClick={generatePDF}>
+                            Report
+                            <img className='w-6 h-5' src={download} alt="Download" />
+                        </button>
+                    </div>
+                )}
+            </div>
+            {!isExpensesEntryUploadOnly && (
+                <div className="flex justify-end mr-6 mt-2">
+                    <h1 className="font-bold text-xl">
+                        Balance: <span style={{ color: "#E4572E" }} className="inline-block text-right min-w-[120px]">
+                            {(
+                                payments.reduce((total, row) => total + Number(row.amount || 0), 0) -
+                                filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0)
+                            ).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2, })}
+                        </span>
+                    </h1>
                 </div>
-            </div>
-            <div className="flex justify-end mr-6 mt-2">
-                <h1 className="font-bold text-xl">
-                    Balance: <span style={{ color: "#E4572E" }} className="inline-block text-right min-w-[120px]">
-                        {(
-                            payments.reduce((total, row) => total + Number(row.amount || 0), 0) -
-                            filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0)
-                        ).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2, })}
-                    </span>
-                </h1>
-            </div>
+            )}
             <div className="mx-auto w-auto p-3 sm:p-6 border-collapse bg-[#FFFFFF] ml-[15px] sm:ml-[30px] mr-3 sm:mr-6 rounded-md">
                 <div className="text-left mb-4 flex justify-between ">
                     <button onClick={() => setShowFilters(!showFilters)}>
@@ -3171,7 +3348,7 @@ const History = ({ username, userRoles = [] }) => {
                             className="w-7 h-7 border border-[#BF9853] rounded-md"
                         />
                     </button>
-                    {nextWeekDiscountInfo && (
+                    {!isExpensesEntryUploadOnly && nextWeekDiscountInfo && (
                         <div className="flex justify-end -mr-6 -mt-7">
                             <h2 className="font-semibold text-base">
                                 Discount :{" "}
@@ -3186,7 +3363,7 @@ const History = ({ username, userRoles = [] }) => {
                     )}
                 </div>
                 <div className="flex flex-col xl:flex-row gap-6">
-                    <div className="w-full xl:flex-[6] xl:min-w-0">
+                    <div className={`w-full ${isExpensesEntryUploadOnly ? '' : 'xl:flex-[6] xl:min-w-0'}`}>
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
                             <h1 className="font-bold text-xl">PS: <span style={{ color: "#E4572E" }}>{selectedWeek}</span> </h1>
                             <h1 className="font-bold text-base">
@@ -3207,7 +3384,7 @@ const History = ({ username, userRoles = [] }) => {
                                 onMouseUp={() => handleMouseUp(scrollRef)} onMouseLeave={() => handleMouseUp(scrollRef)}
                                 onWheel={(e) => e.stopPropagation()}
                             >
-                                <table className="w-[1320px] border-collapse text-left">
+                                <table className={`border-collapse text-left ${isExpensesEntryUploadOnly ? 'w-[1200px]' : 'w-[1320px]'}`}>
                                     <thead className="sticky top-0 z-10 bg-white">
                                         <tr className="bg-[#FAF6ED]">
                                             <th className="pt-2 pl-2 w-[60px] font-bold text-left">Sl.No</th>
@@ -3218,7 +3395,9 @@ const History = ({ username, userRoles = [] }) => {
                                             <th className="pt-2 w-[200px] font-bold text-left">Project Name</th>
                                             <th className="pt-2 w-[100px] font-bold text-left">Type</th>
                                             <th className="pt-2 w-[110px] font-bold text-left">Amount</th>
-                                            <th className="pt-2 w-[120px] font-bold text-left">Activity</th>
+                                            <th className="pt-2 w-[120px] font-bold text-left">
+                                                {isExpensesEntryUploadOnly ? 'File' : 'Activity'}
+                                            </th>
                                         </tr>
                                         {showFilters && (
                                             <tr className="bg-[#FAF6ED] border-b border-gray-200">
@@ -3417,7 +3596,7 @@ const History = ({ username, userRoles = [] }) => {
                                         )}
                                     </thead>
                                     <tbody>
-                                        {canEditSelectedWeek ? (
+                                        {!isExpensesEntryUploadOnly && canEditSelectedWeek ? (
                                             <tr className="">
                                                 <td className="px-4 py-2 font-bold">{filteredExpenses.length + 1}.</td>
                                                 <td className="px-4 py-2">
@@ -3845,27 +4024,29 @@ const History = ({ username, userRoles = [] }) => {
                                                             <div className="flex items-center gap-2">
                                                                 <span className={row.type === "Claim" && !row.send_to_expenses_entry ? "text-red-500" : ""}>{row.type}</span>
 
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setCurrentProjectAdvanceRow(row);
-                                                                        setPaymentPopupData({
-                                                                            date: new Date().toISOString().split('T')[0],
-                                                                            amount: "",
-                                                                            paymentMode: "",
-                                                                            chequeNo: "",
-                                                                            chequeDate: "",
-                                                                            transactionNumber: "",
-                                                                            accountNumber: ""
-                                                                        });
-                                                                        const previousPaymentsForExpense = getPaymentsByExpenseId(row.id);
-                                                                        setPreviousPayments(previousPaymentsForExpense);
-                                                                        setShowPaymentPopup(true);
-                                                                    }}
-                                                                    className="bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-green-600 transition-colors text-xs"
-                                                                    title="Add Payment"
-                                                                >
-                                                                    +
-                                                                </button>
+                                                                {!isExpensesEntryUploadOnly && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setCurrentProjectAdvanceRow(row);
+                                                                            setPaymentPopupData({
+                                                                                date: new Date().toISOString().split('T')[0],
+                                                                                amount: "",
+                                                                                paymentMode: "",
+                                                                                chequeNo: "",
+                                                                                chequeDate: "",
+                                                                                transactionNumber: "",
+                                                                                accountNumber: ""
+                                                                            });
+                                                                            const previousPaymentsForExpense = getPaymentsByExpenseId(row.id);
+                                                                            setPreviousPayments(previousPaymentsForExpense);
+                                                                            setShowPaymentPopup(true);
+                                                                        }}
+                                                                        className="bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-green-600 transition-colors text-xs"
+                                                                        title="Add Payment"
+                                                                    >
+                                                                        +
+                                                                    </button>
+                                                                )}
 
                                                             </div>
                                                             {(() => {
@@ -3919,7 +4100,8 @@ const History = ({ username, userRoles = [] }) => {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <div className="mr-6 flex items-center gap-3">
+                                                        {!isExpensesEntryUploadOnly && (
+                                                            <div className="mr-6 flex items-center gap-3">
                                                             {row.type === "Project Advance" ? (
                                                                 <button
                                                                     onClick={async () => {
@@ -3927,7 +4109,7 @@ const History = ({ username, userRoles = [] }) => {
                                                                         if (row.advance_portal_id) {
                                                                             try {
                                                                                 const res = await fetch(
-                                                                                    `https://backendaab.in/demoAabuildersDash/api/advance_portal/get/${row.advance_portal_id}`
+                                                                                    `https://backendaab.in/aabuildersDash/api/advance_portal/get/${row.advance_portal_id}`
                                                                                 );
                                                                                 if (!res.ok) throw new Error("Failed to fetch advance portal data");
                                                                                 const data = await res.json();
@@ -3959,19 +4141,85 @@ const History = ({ username, userRoles = [] }) => {
                                                                 </button>
                                                             )}
                                                             {row.bill_copy_url ? (
+                                                                <div className="ml-3 flex items-center gap-2">
+                                                                    <a
+                                                                        href={cleanUrl(row.bill_copy_url)}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="cursor-pointer"
+                                                                        title="View File"
+                                                                    >
+                                                                        <img src={file} className="w-4 h-4" alt="Open File" />
+                                                                    </a>
+                                                                    {canEditDelete && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRemoveBillCopyUrl(row)}
+                                                                            className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-[#E4572E] text-[22px] font-bold leading-none hover:bg-[#fff1ee]"
+                                                                            title="Remove File"
+                                                                        >
+                                                                            ×
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="ml-3 flex items-center gap-2">
+                                                                    <button
+                                                                        onClick={() => handleFileUploadClick(row)}
+                                                                        className="cursor-pointer"
+                                                                        title="Upload File"
+                                                                    >
+                                                                        <img
+                                                                            src={fileUpload}
+                                                                            className="w-4 h-4 opacity-70 hover:opacity-100"
+                                                                            alt="Upload File"
+                                                                        />
+                                                                    </button>
+                                                                    {canEditDelete && removedBillCopyRows[row.id] && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRestoreBillCopyUrl(row)}
+                                                                            className="rounded-md border border-[#007233] px-2 py-[1px] text-[10px] font-semibold text-[#007233] hover:bg-[#e9f8f0]"
+                                                                            title="Restore Removed File"
+                                                                        >
+                                                                            Restore
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="text-sm text-left pl-2 w-[120px] font-semibold">
+                                                    {isExpensesEntryUploadOnly ? (
+                                                        row.bill_copy_url ? (
+                                                            <div className="flex items-center gap-2">
                                                                 <a
                                                                     href={cleanUrl(row.bill_copy_url)}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="cursor-pointer ml-3"
+                                                                    className="cursor-pointer"
                                                                     title="View File"
                                                                 >
                                                                     <img src={file} className="w-4 h-4" alt="Open File" />
                                                                 </a>
-                                                            ) : (
+                                                                {canEditDelete && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveBillCopyUrl(row)}
+                                                                        className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-[#E4572E] text-[22px] font-bold leading-none hover:bg-[#fff1ee]"
+                                                                        title="Remove File"
+                                                                    >
+                                                                        ×
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2">
                                                                 <button
                                                                     onClick={() => handleFileUploadClick(row)}
-                                                                    className="cursor-pointer ml-3"
+                                                                    className="cursor-pointer"
                                                                     title="Upload File"
                                                                 >
                                                                     <img
@@ -3980,12 +4228,20 @@ const History = ({ username, userRoles = [] }) => {
                                                                         alt="Upload File"
                                                                     />
                                                                 </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="text-sm text-left pl-2 w-[120px] font-semibold">
-                                                    {canEditSelectedWeek && (
+                                                                {canEditDelete && removedBillCopyRows[row.id] && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRestoreBillCopyUrl(row)}
+                                                                        className="rounded-md border border-[#007233] px-2 py-[1px] text-[10px] font-semibold text-[#007233] hover:bg-[#e9f8f0]"
+                                                                        title="Restore Removed File"
+                                                                    >
+                                                                        Restore
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )
+                                                    ) : (
+                                                        canEditSelectedWeek && (
                                                         <div className="flex gap-2">
                                                             {editingRowId === row.id ? (
                                                                 <button className="text-green-600 font-bold text-lg relative z-10" onClick={() => saveEditedExpense(row)}>
@@ -4034,6 +4290,7 @@ const History = ({ username, userRoles = [] }) => {
                                                                 </button>
                                                             )}
                                                         </div>
+                                                        )
                                                     )}
                                                 </td>
                                             </tr>
@@ -4043,6 +4300,7 @@ const History = ({ username, userRoles = [] }) => {
                             </div>
                         </div>
                     </div>
+                    {!isExpensesEntryUploadOnly && (
                     <div className="w-full xl:flex-[2] xl:min-w-[300px]">
                         <div className="block">
                             <div className="flex flex-col sm:flex-row justify-between mb-4 gap-2">
@@ -4281,6 +4539,7 @@ const History = ({ username, userRoles = [] }) => {
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
                 <AuditModal show={showWeeklyPaymentExpensesModal} onClose={() => setShowWeeklyPaymentExpensesModal(false)} audits={weeklyPaymentExpensesAudits} vendorOptions={vendorOptions} contractorOptions={contractorOptions}
                     siteOptions={siteOptions} />
@@ -4527,7 +4786,7 @@ const History = ({ username, userRoles = [] }) => {
                                                 let staffAdvancePortalId = null;
                                                 if (currentProjectAdvanceRow.type === "Project Advance" && currentProjectAdvanceRow.advance_portal_id) {
                                                     try {
-                                                        const res = await fetch("https://backendaab.in/demoAabuildersDash/api/advance_portal/getAll");
+                                                        const res = await fetch("https://backendaab.in/aabuildersDash/api/advance_portal/getAll");
                                                         if (!res.ok) throw new Error("Failed to fetch entry numbers");
                                                         const allData = await res.json();
                                                         const maxEntryNo =
@@ -4559,7 +4818,7 @@ const History = ({ username, userRoles = [] }) => {
                                                             enteredBy: username,
                                                         };
                                                         const advanceResponse = await fetch(
-                                                            "https://backendaab.in/demoAabuildersDash/api/advance_portal/save",
+                                                            "https://backendaab.in/aabuildersDash/api/advance_portal/save",
                                                             {
                                                                 method: "POST",
                                                                 headers: { "Content-Type": "application/json" },
@@ -4578,7 +4837,7 @@ const History = ({ username, userRoles = [] }) => {
                                                 }
                                                 if (currentProjectAdvanceRow.type === "Staff Advance") {
                                                     try {
-                                                        const staffAdvanceRes = await fetch("https://backendaab.in/demoAabuildersDash/api/staff-advance/all");
+                                                        const staffAdvanceRes = await fetch("https://backendaab.in/aabuildersDash/api/staff-advance/all");
                                                         if (!staffAdvanceRes.ok) throw new Error("Failed to fetch staff advance entry numbers");
                                                         const staffAdvanceData = await staffAdvanceRes.json();
                                                         const maxEntryNo =
@@ -4608,7 +4867,7 @@ const History = ({ username, userRoles = [] }) => {
                                                             enteredBy: username,
                                                         };
                                                         const staffAdvanceResponse = await fetch(
-                                                            "https://backendaab.in/demoAabuildersDash/api/staff-advance/save",
+                                                            "https://backendaab.in/aabuildersDash/api/staff-advance/save",
                                                             {
                                                                 method: "POST",
                                                                 headers: { "Content-Type": "application/json" },
@@ -4647,7 +4906,7 @@ const History = ({ username, userRoles = [] }) => {
                                                     branch_id: activeBranchId ?? null,
                                                     enteredBy: username,
                                                 };
-                                                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save", {
+                                                const response = await fetch("https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save", {
                                                     method: "POST",
                                                     headers: { "Content-Type": "application/json" },
                                                     body: JSON.stringify(paymentData)
@@ -4656,8 +4915,8 @@ const History = ({ username, userRoles = [] }) => {
                                                     throw new Error("Failed to save payment");
                                                 }
                                                 const [expensesRes, paymentsRes] = await Promise.all([
-                                                    axios.get(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
-                                                    axios.get(`https://backendaab.in/demoAabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
+                                                    axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
+                                                    axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
                                                 ]);
                                                 setExpenses(expensesRes.data);
                                                 const filteredPayments = paymentsRes.data.filter(
@@ -4701,7 +4960,7 @@ const History = ({ username, userRoles = [] }) => {
                     </div>
                 </div>
             )}
-            {showPopups && (currentRow?.type === "Project Advance" || currentRow?.type === "Bill") && (
+            {showPopups && (currentRow?.type === "Project Advance" || currentRow?.type === "Bill Payment") && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
                     <div className="bg-white rounded-xl shadow-lg p-6 w-[400px]">
                         <label className="block mb-3 text-left">
@@ -4742,6 +5001,7 @@ const History = ({ username, userRoles = [] }) => {
                             <button
                                 type="button"
                                 onClick={() => {
+                                    if (!canCloseExpenseEntryModal()) return;
                                     setShowBillExpenseEntryModal(false);
                                     localStorage.removeItem('expenseEntryPrefill');
                                 }}
@@ -4758,6 +5018,59 @@ const History = ({ username, userRoles = [] }) => {
                                 onSuccess={() => {
                                     setShowBillExpenseEntryModal(false);
                                     localStorage.removeItem('expenseEntryPrefill');
+                                    setExpenseEntryRefreshNonce((n) => n + 1);
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+            {showBillSettlementAdvanceModal ? (
+                <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg w-full max-w-[1824px] max-h-[92vh] overflow-y-auto shadow-lg relative">
+                        <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+                            <p className="text-sm font-semibold text-[#202020]">Advance Portal</p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowBillSettlementAdvanceModal(false);
+                                    try {
+                                        sessionStorage.removeItem("selectedType");
+                                        sessionStorage.removeItem("selectedOption");
+                                        sessionStorage.removeItem("selectedSite");
+                                        sessionStorage.removeItem("advanceAmount");
+                                        sessionStorage.removeItem("billAmount");
+                                        sessionStorage.removeItem("paymentMode");
+                                        sessionStorage.removeItem("description");
+                                        sessionStorage.removeItem("cashRegisterBillSettlementDate");
+                                    } catch {
+                                        /* ignore */
+                                    }
+                                }}
+                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors duration-200 text-gray-500 text-xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="p-3">
+                            <AdvancePortalForm
+                                username={username}
+                                userRoles={userRoles}
+                                embedded
+                                onSuccess={() => {
+                                    setShowBillSettlementAdvanceModal(false);
+                                    try {
+                                        sessionStorage.removeItem("selectedType");
+                                        sessionStorage.removeItem("selectedOption");
+                                        sessionStorage.removeItem("selectedSite");
+                                        sessionStorage.removeItem("advanceAmount");
+                                        sessionStorage.removeItem("billAmount");
+                                        sessionStorage.removeItem("paymentMode");
+                                        sessionStorage.removeItem("description");
+                                        sessionStorage.removeItem("cashRegisterBillSettlementDate");
+                                    } catch {
+                                        /* ignore */
+                                    }
                                     setExpenseEntryRefreshNonce((n) => n + 1);
                                 }}
                             />
@@ -4950,7 +5263,7 @@ const History = ({ username, userRoles = [] }) => {
                                     setIsConfirmingCategory(true);
                                     setShowCategoryPopup(false);
                                     try {
-                                        const enoResponse = await fetch('https://backendaab.in/demoAabuilderDash/expenses_form/get_form');
+                                        const enoResponse = await fetch('https://backendaab.in/aabuilderDash/expenses_form/get_form');
                                         if (!enoResponse.ok) {
                                             throw new Error('Failed to fetch ENo');
                                         }
@@ -4973,7 +5286,7 @@ const History = ({ username, userRoles = [] }) => {
                                             branchId: activeBranchId ?? null,
                                             enteredBy: username,
                                         };
-                                        const expensesFormResponse = await fetch('https://backendaab.in/demoAabuilderDash/expenses_form/save', {
+                                        const expensesFormResponse = await fetch('https://backendaab.in/aabuilderDash/expenses_form/save', {
                                             method: 'POST',
                                             headers: {
                                                 'Content-Type': 'application/json',
@@ -4983,7 +5296,7 @@ const History = ({ username, userRoles = [] }) => {
                                         if (!expensesFormResponse.ok) {
                                             throw new Error('Failed to save to expenses form');
                                         }
-                                        const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/${currentProjectAdvanceRow.id}/send-to-expenses`, {
+                                        const response = await fetch(`https://backendaab.in/aabuildersDash/api/weekly-expenses/${currentProjectAdvanceRow.id}/send-to-expenses`, {
                                             method: 'PUT',
                                             headers: {
                                                 'Content-Type': 'application/json',
@@ -4991,8 +5304,8 @@ const History = ({ username, userRoles = [] }) => {
                                         });
                                         if (response.ok) {
                                             const [expensesRes, paymentsRes] = await Promise.all([
-                                                axios.get(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
-                                                axios.get(`https://backendaab.in/demoAabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
+                                                axios.get(`https://backendaab.in/aabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
+                                                axios.get(`https://backendaab.in/aabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams())
                                             ]);
                                             setExpenses(expensesRes.data);
                                             const filteredPayments = paymentsRes.data.filter(
