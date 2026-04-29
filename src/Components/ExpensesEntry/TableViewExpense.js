@@ -9,6 +9,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import XL from '../Images/sheets.png'
 import Pdf from '../Images/pdf.png'
+import CustomDateField from './CustomDateField';
 Modal.setAppElement('#root');
 const TOOLS_API_BASE = 'https://backendaab.in/aabuildersDash';
 // Date Range Picker Component
@@ -17,6 +18,7 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [tempStartDate, setTempStartDate] = useState(null);
     const [tempEndDate, setTempEndDate] = useState(null);
+    const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
     const datePickerRef = useRef(null);
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -90,7 +92,10 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         }
     };
     const handleDone = () => {
-        if (tempStartDate) {
+        if (showMonthYearPicker) {
+            onStartDateChange(formatDateToString(currentMonth.getFullYear(), currentMonth.getMonth(), 1));
+            onEndDateChange(formatDateToString(currentMonth.getFullYear(), currentMonth.getMonth(), getDaysInMonth(currentMonth)));
+        } else if (tempStartDate) {
             onStartDateChange(tempStartDate);
             if (tempEndDate) {
                 onEndDateChange(tempEndDate);
@@ -168,8 +173,11 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
         if (isOpen) {
             setTempStartDate(startDate || null);
             setTempEndDate(endDate || null);
+            setShowMonthYearPicker(false);
         }
     }, [isOpen, startDate, endDate]);
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 61 }, (_, index) => currentYear - 30 + index);
     return (
         <div className="relative" ref={datePickerRef}>
             <input
@@ -190,9 +198,13 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
                         >
                             <span className="text-lg">‹</span>
                         </button>
-                        <h3 className="font-semibold text-base">
+                        <button
+                            type="button"
+                            onClick={() => setShowMonthYearPicker(!showMonthYearPicker)}
+                            className="font-semibold text-base px-2 py-1 rounded hover:bg-gray-100"
+                        >
                             {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                        </h3>
+                        </button>
                         <button
                             onClick={nextMonth}
                             className="p-1 hover:bg-gray-100 rounded"
@@ -201,39 +213,70 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
                             <span className="text-lg">›</span>
                         </button>
                     </div>
-                    <div className="grid grid-cols-7 gap-1 mb-2">
-                        {dayNames.map((day, idx) => (
-                            <div key={idx} className="text-center text-xs font-medium text-gray-600 py-1">
-                                {day}
+                    {showMonthYearPicker ? (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-3 gap-1">
+                                {monthNames.map((month, index) => (
+                                    <button
+                                        key={month}
+                                        type="button"
+                                        onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), index, 1))}
+                                        className={`h-8 text-sm rounded ${currentMonth.getMonth() === index ? 'bg-black text-white' : 'hover:bg-gray-100 text-gray-800'}`}
+                                    >
+                                        {month.slice(0, 3)}
+                                    </button>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1">
-                        {days.map((dateObj, idx) => {
-                            const { day, isCurrentMonth } = dateObj;
-                            const inRange = isDateInRange(day, isCurrentMonth);
-                            const isStart = isStartDate(day, isCurrentMonth);
-                            const isEnd = isEndDate(day, isCurrentMonth);
+                            <div className="grid grid-cols-3 gap-1 max-h-[132px] overflow-y-auto">
+                                {years.map((year) => (
+                                    <button
+                                        key={year}
+                                        type="button"
+                                        onClick={() => setCurrentMonth(new Date(year, currentMonth.getMonth(), 1))}
+                                        className={`h-8 text-sm rounded ${currentMonth.getFullYear() === year ? 'bg-black text-white' : 'hover:bg-gray-100 text-gray-800'}`}
+                                    >
+                                        {year}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-7 gap-1 mb-2">
+                                {dayNames.map((day, idx) => (
+                                    <div key={idx} className="text-center text-xs font-medium text-gray-600 py-1">
+                                        {day}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-7 gap-1">
+                                {days.map((dateObj, idx) => {
+                                    const { day, isCurrentMonth } = dateObj;
+                                    const inRange = isDateInRange(day, isCurrentMonth);
+                                    const isStart = isStartDate(day, isCurrentMonth);
+                                    const isEnd = isEndDate(day, isCurrentMonth);
 
-                            return (
-                                <button
-                                    key={idx}
-                                    type="button"
-                                    onClick={() => handleDateClick(day, isCurrentMonth)}
-                                    disabled={!isCurrentMonth}
-                                    className={`
-                                        py-2 text-sm rounded
-                                        ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100'}
-                                        ${isStart || isEnd ? 'bg-black text-white font-semibold' : ''}
-                                        ${inRange && !isStart && !isEnd ? 'bg-gray-200' : ''}
-                                        ${isCurrentMonth && !inRange && !isStart && !isEnd ? 'text-black' : ''}
-                                    `}
-                                >
-                                    {day}
-                                </button>
-                            );
-                        })}
-                    </div>
+                                    return (
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => handleDateClick(day, isCurrentMonth)}
+                                            disabled={!isCurrentMonth}
+                                            className={`
+                                                py-2 text-sm rounded
+                                                ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100'}
+                                                ${isStart || isEnd ? 'bg-black text-white font-semibold' : ''}
+                                                ${inRange && !isStart && !isEnd ? 'bg-gray-200' : ''}
+                                                ${isCurrentMonth && !inRange && !isStart && !isEnd ? 'text-black' : ''}
+                                            `}
+                                        >
+                                            {day}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
                     <div className="flex justify-between mt-4 pt-4 border-t">
                         <button
                             onClick={handleClear}
@@ -292,6 +335,8 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     const [machineToolsOptions, setMachineToolsOptions] = useState([]);
     const [machineToolsCatalog, setMachineToolsCatalog] = useState([]);
     const [branchOptions, setBranchOptions] = useState([]);
+    const [sourceOptions, setSourceOptions] = useState([]);
+    const [branchFilterOptions, setBranchFilterOptions] = useState([]);
     const [laboursList, setLaboursList] = useState([]);
     const [employeeOptions, setEmployeeOptions] = useState([]);
     const [selectedSiteName, setSelectedSiteName] = useState(() => {
@@ -323,6 +368,12 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     });
     const [selectedAccountType, setSelectedAccountType] = useState(() => {
         return localStorage.getItem('expenseFilter_accountType') || '';
+    });
+    const [selectedSource, setSelectedSource] = useState(() => {
+        return localStorage.getItem('expenseFilter_source') || '';
+    });
+    const [selectedBranch, setSelectedBranch] = useState(() => {
+        return localStorage.getItem('expenseFilter_branch') || '';
     });
     const [accountTypeOption, setAccountTypeOption] = useState([]);
     const [editAccountTypeOptions, setEditAccountTypeOptions] = useState([]);
@@ -451,6 +502,12 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         localStorage.setItem('expenseFilter_eno', selectedEno);
     }, [selectedEno]);
+    useEffect(() => {
+        localStorage.setItem('expenseFilter_source', selectedSource);
+    }, [selectedSource]);
+    useEffect(() => {
+        localStorage.setItem('expenseFilter_branch', selectedBranch);
+    }, [selectedBranch]);
     const [formData, setFormData] = useState({
         accountType: '',
         date: '',
@@ -1011,6 +1068,8 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                 (selectedContractor ? expense.contractor === selectedContractor : true) &&
                 (selectedCategory ? expense.category === selectedCategory : true) &&
                 (selectedMachineTools ? String(expense.machineTools ?? '') === String(selectedMachineTools) : true) &&
+                (selectedSource ? expense.source === selectedSource : true) &&
+                (selectedBranch ? String(expense.branch_id ?? expense.branchId ?? '') === String(selectedBranch) : true) &&
                 (selectedAccountType ?
                     (selectedAccountType === 'Unknown' ?
                         (!expense.accountType || expense.accountType === '') :
@@ -1027,6 +1086,8 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
             selectedContractor,
             selectedCategory,
             selectedMachineTools,
+            selectedSource,
+            selectedBranch,
             selectedAccountType,
             startDate,
             endDate,
@@ -1043,6 +1104,14 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         setVendorOptions(getOptions(filtered, "vendor"));
         setContractorOptions(getOptions(filtered, "contractor"));
         setCategoryOptions(getOptions(filtered, "category"));
+        setSourceOptions(getOptions(filtered, "source"));
+        const uniqueBranchIds = [...new Set(filtered.map(item => item.branch_id ?? item.branchId).filter(Boolean))];
+        setBranchFilterOptions(
+            uniqueBranchIds.map(id => ({
+                value: String(id),
+                label: branchOptions.find(branch => String(branch.id) === String(id))?.branch || String(id)
+            }))
+        );
         const uniqueToolIds = [...new Set(filtered.map((item) => item.machineTools).filter((v) => v != null && v !== ''))];
         setMachineToolsOptions(
             uniqueToolIds.map((id) => ({
@@ -1061,12 +1130,15 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         selectedContractor,
         selectedCategory,
         selectedMachineTools,
+        selectedSource,
+        selectedBranch,
         selectedAccountType,
         startDate,
         endDate,
         selectedEno,
         expenses,
-        machineToolsIdToLabel
+        machineToolsIdToLabel,
+        branchOptions
     ]);
     const handleChange = (e) => {
         const { name, type, value, files } = e.target;
@@ -1177,7 +1249,6 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
             setModalIsOpen(false);
             setIsSubmitting(false);
             alert('Updated successfully!');
-            window.location.reload();
         } catch (error) {
             console.error('Error updating expense:', error);
             alert('Failed to update expense');
@@ -1246,7 +1317,6 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
             setModalIsOpen(false);
             setIsSubmitting(false);
             alert('Updated successfully!');
-            window.location.reload();
         } catch (error) {
             console.error('Error updating expense:', error);
             alert('Failed to update expense');
@@ -1507,6 +1577,8 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         setSelectedCategory('');
         setSelectedMachineTools('');
         setSelectedAccountType('');
+        setSelectedSource('');
+        setSelectedBranch('');
         setStartDate('');
         setEndDate('');
         setSelectedEno('');
@@ -1520,6 +1592,8 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         localStorage.removeItem('expenseFilter_category');
         localStorage.removeItem('expenseFilter_machineTools');
         localStorage.removeItem('expenseFilter_accountType');
+        localStorage.removeItem('expenseFilter_source');
+        localStorage.removeItem('expenseFilter_branch');
         localStorage.removeItem('expenseFilter_date');
         localStorage.removeItem('expenseFilter_startDate');
         localStorage.removeItem('expenseFilter_endDate');
@@ -1577,7 +1651,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
             <div>
 
                 <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg overflow-x-auto">
-                    <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || startDate || endDate
+                    <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate
                         ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-3 gap-2`}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
                             <button className='pl-2' onClick={() => setShowFilters(!showFilters)}>
@@ -1587,22 +1661,29 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                     className="w-7 h-7 border border-[#BF9853] rounded-md"
                                 />
                             </button>
-                            {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || startDate || endDate) && (
+                            {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate) && (
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
-                                    {startDate && (
+                                    {startDate && endDate ? (
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
+                                            <span className="font-normal">start date: </span>
+                                            <span className="font-bold">{startDate}</span>
+                                            <span className="font-normal">, end date: </span>
+                                            <span className="font-bold">{endDate}</span>
+                                            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        </span>
+                                    ) : startDate ? (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">Start Date: </span>
                                             <span className="font-bold">{startDate}</span>
                                             <button onClick={() => setStartDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
-                                    )}
-                                    {endDate && (
+                                    ) : endDate ? (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">End Date: </span>
                                             <span className="font-bold">{endDate}</span>
                                             <button onClick={() => setEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
-                                    )}
+                                    ) : null}
                                     {selectedSiteName && (
                                         <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
                                             <span className="font-normal">Site Name: </span>
@@ -1643,6 +1724,20 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                             <span className="font-normal">Tools: </span>
                                             <span className="font-bold">{getMachineToolsItemIdDisplay(selectedMachineTools)}</span>
                                             <button onClick={() => setSelectedMachineTools('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        </span>
+                                    )}
+                                    {selectedSource && (
+                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                                            <span className="font-normal">Source From: </span>
+                                            <span className="font-bold">{selectedSource}</span>
+                                            <button onClick={() => setSelectedSource('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        </span>
+                                    )}
+                                    {selectedBranch && (
+                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                                            <span className="font-normal">Branch: </span>
+                                            <span className="font-bold">{getBranchName(selectedBranch) || selectedBranch}</span>
+                                            <button onClick={() => setSelectedBranch('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
                                     )}
                                 </div>
@@ -1722,7 +1817,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                     options={siteOptions}
                                                     value={selectedSiteName ? { value: selectedSiteName, label: selectedSiteName } : null}
                                                     onChange={(selectedOption) => setSelectedSiteName(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Search Site..."
+                                                    placeholder="Project Name"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
@@ -1733,7 +1828,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                     options={vendorOptions}
                                                     value={selectedVendor ? { value: selectedVendor, label: selectedVendor } : null}
                                                     onChange={(selectedOption) => setSelectedVendor(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Search Vendor"
+                                                    placeholder="Vendor"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
@@ -1744,7 +1839,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                     options={contractorOptions}
                                                     value={selectedContractor ? { value: selectedContractor, label: selectedContractor } : null}
                                                     onChange={(selectedOption) => setSelectedContractor(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Search Contractor"
+                                                    placeholder="Contractor"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
@@ -1761,7 +1856,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                     options={categoryOptions}
                                                     value={selectedCategory ? { value: selectedCategory, label: selectedCategory } : null}
                                                     onChange={(selectedOption) => setSelectedCategory(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Category..."
+                                                    placeholder="Category"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
@@ -1783,13 +1878,32 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                     options={machineToolsOptions}
                                                     value={selectedMachineTools ? machineToolsOptions.find(opt => opt.value === String(selectedMachineTools)) : null}
                                                     onChange={(selectedOption) => setSelectedMachineTools(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Machine..."
+                                                    placeholder="Machine Tools"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th></th>
-                                            <th>
+                                            <th className="py-3">
+                                                <Select
+                                                    className="w-full"
+                                                    options={sourceOptions}
+                                                    value={selectedSource ? { value: selectedSource, label: selectedSource } : null}
+                                                    onChange={(selectedOption) => setSelectedSource(selectedOption ? selectedOption.value : '')}
+                                                    placeholder="Source From"
+                                                    menuPlacement="bottom"
+                                                    styles={customStyles}
+                                                />
+                                            </th>
+                                            <th className="py-3">
+                                                <Select
+                                                    className="w-full"
+                                                    options={branchFilterOptions}
+                                                    value={selectedBranch ? branchFilterOptions.find(opt => opt.value === String(selectedBranch)) : null}
+                                                    onChange={(selectedOption) => setSelectedBranch(selectedOption ? selectedOption.value : '')}
+                                                    placeholder="Branch"
+                                                    menuPlacement="bottom"
+                                                    styles={customStyles}
+                                                />
                                             </th>
                                             <th></th>
                                             <th></th>
@@ -1924,14 +2038,16 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                 <form className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-gray-500 font-semibold text-left">Date</label>
-                                        <input
-                                            type="date"
-                                            name="date"
-                                            value={formData.date}
-                                            onChange={handleChange}
-                                            required
-                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
-                                        />
+                                        <div className="mt-1">
+                                            <CustomDateField
+                                                value={formData.date}
+                                                onChange={(v) => {
+                                                    if (!v) return;
+                                                    setFormData((prev) => ({ ...prev, date: v }));
+                                                }}
+                                                placeholder="Select date"
+                                            />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-gray-500 font-semibold text-left">Account Type *</label>
@@ -2293,13 +2409,13 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                     {formData.utilityType === 'Telecom' && (
                                                         <div>
                                                             <label className="block text-gray-500 font-semibold text-left">Service Start Date</label>
-                                                            <input
-                                                                type="date"
-                                                                name="serviceStartingDate"
-                                                                value={formData.serviceStartingDate}
-                                                                onChange={handleChange}
-                                                                className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
-                                                            />
+                                                            <div className="mt-1">
+                                                                <CustomDateField
+                                                                    value={formData.serviceStartingDate}
+                                                                    onChange={(v) => setFormData((prev) => ({ ...prev, serviceStartingDate: v }))}
+                                                                    placeholder="Service start date"
+                                                                />
+                                                            </div>
                                                         </div>
                                                     )}
 
@@ -2329,11 +2445,11 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                 <div className="grid grid-cols-3 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                                                        <input
-                                                            type="date"
+                                                        <CustomDateField
                                                             value={(pendingUpdateFormDataRef.current && pendingUpdateFormDataRef.current.date) || ''}
-                                                            readOnly
-                                                            className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full bg-gray-100"
+                                                            onChange={() => { }}
+                                                            disabled
+                                                            placeholder="Date"
                                                         />
                                                     </div>
                                                     <div>
@@ -2373,11 +2489,10 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                                 </div>
                                                                 <div>
                                                                     <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Date <span className="text-red-500">*</span></label>
-                                                                    <input
-                                                                        type="date"
+                                                                    <CustomDateField
                                                                         value={paymentModalData.chequeDate}
-                                                                        onChange={(e) => setPaymentModalData(prev => ({ ...prev, chequeDate: e.target.value }))}
-                                                                        className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none"
+                                                                        onChange={(v) => setPaymentModalData(prev => ({ ...prev, chequeDate: v }))}
+                                                                        placeholder="Cheque date"
                                                                     />
                                                                 </div>
                                                             </div>

@@ -3,6 +3,7 @@ import { Calendar } from 'lucide-react';
 import axios from 'axios';
 import Modal from 'react-modal';
 import DateRangePicker from './DateRangePicker';
+import CustomDateField from './CustomDateField';
 import edit from '../Images/Edit.svg';
 import history from '../Images/History.svg';
 import remove from '../Images/Delete.svg';
@@ -54,6 +55,9 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     const [laboursList, setLaboursList] = useState([]);
     const [employeeOptions, setEmployeeOptions] = useState([]);
     const [branchOptions, setBranchOptions] = useState([]);
+    const [sourceOptions, setSourceOptions] = useState([]);
+    const [branchFilterOptions, setBranchFilterOptions] = useState([]);
+    const [enteredByOptions, setEnteredByOptions] = useState([]);
     // Initialize filter states from localStorage or defaults
     const [selectedSiteName, setSelectedSiteName] = useState(() => {
         return localStorage.getItem('expenseFilter_siteName') || '';
@@ -93,6 +97,15 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     });
     const [selectedAccountType, setSelectedAccountType] = useState(() => {
         return localStorage.getItem('expenseFilter_accountType') || '';
+    });
+    const [selectedSource, setSelectedSource] = useState(() => {
+        return localStorage.getItem('expenseFilter_source') || '';
+    });
+    const [selectedBranch, setSelectedBranch] = useState(() => {
+        return localStorage.getItem('expenseFilter_branch') || '';
+    });
+    const [selectedEnteredBy, setSelectedEnteredBy] = useState(() => {
+        return localStorage.getItem('expenseFilter_enteredBy') || '';
     });
     const [showFilters, setShowFilters] = useState(false);
     const [showDateRangePicker, setShowDateRangePicker] = useState(false);
@@ -243,6 +256,15 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         localStorage.setItem('expenseFilter_eno', selectedEno);
     }, [selectedEno]);
+    useEffect(() => {
+        localStorage.setItem('expenseFilter_source', selectedSource);
+    }, [selectedSource]);
+    useEffect(() => {
+        localStorage.setItem('expenseFilter_branch', selectedBranch);
+    }, [selectedBranch]);
+    useEffect(() => {
+        localStorage.setItem('expenseFilter_enteredBy', selectedEnteredBy);
+    }, [selectedEnteredBy]);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentModalData, setPaymentModalData] = useState({
         chequeNo: '',
@@ -885,6 +907,9 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 (selectedContractor ? expense.contractor === selectedContractor : true) &&
                 (selectedCategory ? expense.category === selectedCategory : true) &&
                 (selectedMachineTools ? String(expense.machineTools ?? '') === String(selectedMachineTools) : true) &&
+                (selectedSource ? expense.source === selectedSource : true) &&
+                (selectedBranch ? String(expense.branch_id ?? expense.branchId ?? '') === String(selectedBranch) : true) &&
+                (selectedEnteredBy ? (expense.enteredBy || 'Sivaprakasm') === selectedEnteredBy : true) &&
                 (selectedAccountType ?
                     (selectedAccountType === 'Unknown' ?
                         (!expense.accountType || expense.accountType === '') :
@@ -908,6 +933,15 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         setVendorOptions(getOptions(filtered, "vendor"));
         setContractorOptions(getOptions(filtered, "contractor"));
         setCategoryOptions(getOptions(filtered, "category"));
+        setSourceOptions(getOptions(filtered, "source"));
+        const uniqueBranchIds = [...new Set(filtered.map(item => item.branch_id ?? item.branchId).filter(Boolean))];
+        setBranchFilterOptions(
+            uniqueBranchIds.map(id => ({
+                value: String(id),
+                label: branchOptions.find(branch => String(branch.id) === String(id))?.branch || String(id)
+            }))
+        );
+        setEnteredByOptions([...new Set(filtered.map(item => item.enteredBy || 'Sivaprakasm').filter(Boolean))].map(val => ({ value: val, label: val })));
         const uniqueToolIds = [...new Set(filtered.map((item) => item.machineTools).filter((v) => v != null && v !== ''))];
         setMachineToolsOptions(
             uniqueToolIds.map((id) => ({
@@ -921,7 +955,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         setAccountTypeOptions(getOptions(filtered, "accountType"));
         setEnoOptions([...new Set(filtered.map(item => item.eno).filter(Boolean))]);
 
-    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedAccountType, selectedDate, startDate, endDate, timestampStartDate, timestampEndDate, selectedEno, expenses, machineToolsIdToLabel]);
+    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedSource, selectedBranch, selectedEnteredBy, selectedAccountType, selectedDate, startDate, endDate, timestampStartDate, timestampEndDate, selectedEno, expenses, machineToolsIdToLabel, branchOptions]);
     const handleChange = (e) => {
         const { name, type, value, files } = e.target;
         // Prevent clearing the date field
@@ -1318,6 +1352,9 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         setSelectedCategory('');
         setSelectedMachineTools('');
         setSelectedAccountType('');
+        setSelectedSource('');
+        setSelectedBranch('');
+        setSelectedEnteredBy('');
         setSelectedDate('');
         setStartDate('');
         setEndDate('');
@@ -1335,6 +1372,9 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         localStorage.removeItem('expenseFilter_category');
         localStorage.removeItem('expenseFilter_machineTools');
         localStorage.removeItem('expenseFilter_accountType');
+        localStorage.removeItem('expenseFilter_source');
+        localStorage.removeItem('expenseFilter_branch');
+        localStorage.removeItem('expenseFilter_enteredBy');
         localStorage.removeItem('expenseFilter_date');
         localStorage.removeItem('expenseFilter_startDate');
         localStorage.removeItem('expenseFilter_endDate');
@@ -1429,26 +1469,22 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                         <div className="flex flex-wrap gap-5 items-end">
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
-                                <div className="relative w-[168px]">
-                                    <input
-                                        type="date"
+                                <div className="w-[168px]">
+                                    <CustomDateField
                                         value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2 pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                        onChange={setStartDate}
+                                        placeholder="Start date"
                                     />
-                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                 </div>
                             </div>
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">End Date</label>
-                                <div className="relative w-[168px]">
-                                    <input
-                                        type="date"
+                                <div className="w-[168px]">
+                                    <CustomDateField
                                         value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2 pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                        onChange={setEndDate}
+                                        placeholder="End date"
                                     />
-                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                 </div>
                             </div>
                             {Object.entries(accountTypeSummary)
@@ -1482,30 +1518,26 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                     </div>
                 )}
                 {Object.keys(accountTypeSummary).length === 0 && (
-                    <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg mb-4">
-                        <div className="flex flex-wrap gap-5 items-end">
-                            <div>
+                    <div className="w-full max-w-[1860px] mx-auto p-4 bg-white text-left shadow-lg mb-4">
+                        <div className="flex flex-wrap gap-5 items-end text-left">
+                            <div className=''>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
-                                <div className="relative w-[168px]">
-                                    <input
-                                        type="date"
+                                <div className="w-[168px]">
+                                    <CustomDateField
                                         value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2 pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                        onChange={setStartDate}
+                                        placeholder="Start date"
                                     />
-                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                 </div>
                             </div>
-                            <div>
+                            <div className=''>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">End Date</label>
-                                <div className="relative w-[168px]">
-                                    <input
-                                        type="date"
+                                <div className="w-[168px]">
+                                    <CustomDateField
                                         value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2 pr-9 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                        onChange={setEndDate}
+                                        placeholder="End date"
                                     />
-                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                 </div>
                             </div>
                         </div>
@@ -1513,7 +1545,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 )}
                 <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg overflow-x-auto">
                     <div
-                        className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || startDate || endDate || timestampStartDate || timestampEndDate
+                        className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate
                             ? 'flex-col sm:flex-row sm:justify-between'
                             : 'flex-row justify-between items-center'
                             } mb-3 gap-2`}>
@@ -1525,7 +1557,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     className="w-7 h-7 border border-[#BF9853] rounded-md"
                                 />
                             </button>
-                            {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || startDate || endDate || timestampStartDate || timestampEndDate) && (
+                            {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate) && (
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
                                     {timestampStartDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
@@ -1604,6 +1636,27 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             <button onClick={() => setSelectedMachineTools('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                                         </span>
                                     )}
+                                    {selectedSource && (
+                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                                            <span className="font-normal">Source From: </span>
+                                            <span className="font-bold">{selectedSource}</span>
+                                            <button onClick={() => setSelectedSource('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                                        </span>
+                                    )}
+                                    {selectedBranch && (
+                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                                            <span className="font-normal">Branch: </span>
+                                            <span className="font-bold">{getBranchName(selectedBranch) || selectedBranch}</span>
+                                            <button onClick={() => setSelectedBranch('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                                        </span>
+                                    )}
+                                    {selectedEnteredBy && (
+                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                                            <span className="font-normal">Entered By: </span>
+                                            <span className="font-bold">{selectedEnteredBy}</span>
+                                            <button onClick={() => setSelectedEnteredBy('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                                        </span>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1633,7 +1686,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         <th className="px-3 w-44 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('timestamp')}>
                                             Time stamp {sortField === 'timestamp' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="pt-2 w-32 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('date')}>
+                                        <th className="pt-2 w-36 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('date')}>
                                             Date {sortField === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
                                         <th className="px-0.5 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('siteName')}>
@@ -1673,28 +1726,36 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     </tr>
                                     {showFilters && (
                                         <tr className="bg-[#FAF6ED]">
-                                            <th className="py-3 px-2">
+                                            <th className="py-3 px-2 relative">
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowDateRangePicker(true)}
                                                     className="w-full min-w-[140px] px-2 py-2 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200 hover:bg-[#FAF6ED] text-left flex items-center justify-between"
                                                 >
                                                     <span className="text-gray-700 truncate">
-                                                        {timestampStartDate ? (timestampEndDate ? `${timestampStartDate} – ${timestampEndDate}` : `From ${timestampStartDate}`) : 'Timestamp...'}
+                                                        {timestampStartDate ? (timestampEndDate ? `${timestampStartDate} – ${timestampEndDate}` : `From ${timestampStartDate}`) : 'Time stamp'}
                                                     </span>
                                                     <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
                                                 </button>
+                                                <DateRangePicker
+                                                    isOpen={showDateRangePicker}
+                                                    onClose={() => setShowDateRangePicker(false)}
+                                                    startDate={timestampStartDate}
+                                                    endDate={timestampEndDate}
+                                                    variant="dropdown"
+                                                    onApply={(from, to) => {
+                                                        setTimestampStartDate(from);
+                                                        setTimestampEndDate(to);
+                                                    }}
+                                                />
                                             </th>
                                             <th className="py-3">
-                                                <div className="relative">
-                                                    <input
-                                                        type="date"
+                                                <div className="min-w-[100px]">
+                                                    <CustomDateField
                                                         value={selectedDate}
-                                                        onChange={(e) => setSelectedDate(e.target.value)}
-                                                        className="w-full px-1.5 py-2 pr-8 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                                                        placeholder="Search Date..."
+                                                        onChange={setSelectedDate}
+                                                        placeholder="Date"
                                                     />
-                                                    <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                                 </div>
                                             </th>
                                             <th className="py-3">
@@ -1703,7 +1764,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     options={siteOptions}
                                                     value={selectedSiteName ? { value: selectedSiteName, label: selectedSiteName } : null}
                                                     onChange={(selectedOption) => setSelectedSiteName(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Site..."
+                                                    placeholder="Project Name"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
@@ -1742,7 +1803,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     options={categoryOptions}
                                                     value={selectedCategory ? { value: selectedCategory, label: selectedCategory } : null}
                                                     onChange={(selectedOption) => setSelectedCategory(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Category..."
+                                                    placeholder="Category"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
@@ -1753,7 +1814,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     options={accountTypeOptions}
                                                     value={selectedAccountType ? { value: selectedAccountType, label: selectedAccountType } : null}
                                                     onChange={(selectedOption) => setSelectedAccountType(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="A/CType"
+                                                    placeholder="A/C Type"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
@@ -1764,15 +1825,44 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     options={machineToolsOptions}
                                                     value={selectedMachineTools ? machineToolsOptions.find(opt => opt.value === String(selectedMachineTools)) : null}
                                                     onChange={(selectedOption) => setSelectedMachineTools(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Machine..."
+                                                    placeholder="Machine Tools"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th></th>
-                                            <th>
+                                            <th className="py-3">
+                                                <Select
+                                                    className="w-full"
+                                                    options={sourceOptions}
+                                                    value={selectedSource ? { value: selectedSource, label: selectedSource } : null}
+                                                    onChange={(selectedOption) => setSelectedSource(selectedOption ? selectedOption.value : '')}
+                                                    placeholder="Source From"
+                                                    menuPlacement="bottom"
+                                                    styles={customStyles}
+                                                />
                                             </th>
-                                            <th></th>
+                                            <th className="py-3">
+                                                <Select
+                                                    className="w-full"
+                                                    options={branchFilterOptions}
+                                                    value={selectedBranch ? branchFilterOptions.find(opt => opt.value === String(selectedBranch)) : null}
+                                                    onChange={(selectedOption) => setSelectedBranch(selectedOption ? selectedOption.value : '')}
+                                                    placeholder="Branch"
+                                                    menuPlacement="bottom"
+                                                    styles={customStyles}
+                                                />
+                                            </th>
+                                            <th className="py-3">
+                                                <Select
+                                                    className="w-full"
+                                                    options={enteredByOptions}
+                                                    value={selectedEnteredBy ? { value: selectedEnteredBy, label: selectedEnteredBy } : null}
+                                                    onChange={(selectedOption) => setSelectedEnteredBy(selectedOption ? selectedOption.value : '')}
+                                                    placeholder="Entered By"
+                                                    menuPlacement="bottom"
+                                                    styles={customStyles}
+                                                />
+                                            </th>
                                             <th></th>
                                             <th></th>
                                             <th></th>
@@ -1915,12 +2005,16 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                 <form className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-gray-500 font-semibold text-left">Date</label>
-                                        <div className="relative mt-1">
-                                            <input type="date" name="date" value={formData.date} onChange={handleChange}
-                                                required
-                                                className="block w-full p-2 pr-9 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                        <div className="mt-1">
+                                            <CustomDateField
+                                                value={formData.date}
+                                                onChange={(v) => {
+                                                    // Keep existing behavior: prevent clearing the main date field
+                                                    if (!v) return;
+                                                    setFormData((prev) => ({ ...prev, date: v }));
+                                                }}
+                                                placeholder="Select date"
                                             />
-                                            <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                         </div>
                                     </div>
                                     <div>
@@ -2246,13 +2340,13 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     {formData.utilityType === 'Telecom' && (
                                                         <div>
                                                             <label className="block text-gray-500 font-semibold text-left">Service Start Date</label>
-                                                            <input
-                                                                type="date"
-                                                                name="serviceStartingDate"
-                                                                value={formData.serviceStartingDate}
-                                                                onChange={handleChange}
-                                                                className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
-                                                            />
+                                                            <div className="mt-1">
+                                                                <CustomDateField
+                                                                    value={formData.serviceStartingDate}
+                                                                    onChange={(v) => setFormData((prev) => ({ ...prev, serviceStartingDate: v }))}
+                                                                    placeholder="Service start date"
+                                                                />
+                                                            </div>
                                                         </div>
                                                     )}
 
@@ -2283,15 +2377,12 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 <div className="grid grid-cols-3 gap-4">
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                                                        <div className="relative">
-                                                            <input
-                                                                type="date"
-                                                                value={(pendingUpdateFormDataRef.current && pendingUpdateFormDataRef.current.date) || ''}
-                                                                readOnly
-                                                                className="border-2 border-[#BF9853] border-opacity-25 p-2 pr-9 rounded-lg w-full bg-gray-100 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                                                            />
-                                                            <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                                        </div>
+                                                        <CustomDateField
+                                                            value={(pendingUpdateFormDataRef.current && pendingUpdateFormDataRef.current.date) || ''}
+                                                            onChange={() => { }}
+                                                            disabled
+                                                            placeholder="Date"
+                                                        />
                                                     </div>
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
@@ -2330,15 +2421,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                                 </div>
                                                                 <div>
                                                                     <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Date <span className="text-red-500">*</span></label>
-                                                                    <div className="relative">
-                                                                        <input
-                                                                            type="date"
-                                                                            value={paymentModalData.chequeDate}
-                                                                            onChange={(e) => setPaymentModalData(prev => ({ ...prev, chequeDate: e.target.value }))}
-                                                                            className="border-2 border-[#BF9853] border-opacity-25 p-2 pr-9 rounded-lg w-full focus:outline-none [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                                                                        />
-                                                                        <Calendar className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                                                    </div>
+                                                                    <CustomDateField
+                                                                        value={paymentModalData.chequeDate}
+                                                                        onChange={(v) => setPaymentModalData(prev => ({ ...prev, chequeDate: v }))}
+                                                                        placeholder="Cheque date"
+                                                                    />
                                                                 </div>
                                                             </div>
                                                         )}
@@ -2397,16 +2484,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                     </div>
                 </div>
             </div>
-            <DateRangePicker
-                isOpen={showDateRangePicker}
-                onClose={() => setShowDateRangePicker(false)}
-                startDate={timestampStartDate}
-                endDate={timestampEndDate}
-                onApply={(from, to) => {
-                    setTimestampStartDate(from);
-                    setTimestampEndDate(to);
-                }}
-            />
         </body>
     );
 };

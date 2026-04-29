@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     format,
     startOfMonth,
@@ -14,10 +14,11 @@ import {
     parseISO,
 } from 'date-fns';
 
-const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply }) => {
+const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant = "modal" }) => {
     const [viewDate, setViewDate] = useState(() => startDate ? parseISO(startDate) : new Date());
     const [tempFrom, setTempFrom] = useState(startDate ? parseISO(startDate) : null);
     const [tempTo, setTempTo] = useState(endDate ? parseISO(endDate) : null);
+    const containerRef = useRef(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -85,10 +86,39 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply }) => {
         onClose();
     };
 
+    // In dropdown mode: close when clicking outside the picker.
+    // (Behaves like native date picker popover, without a full-screen overlay.)
+    useEffect(() => {
+        if (!isOpen || variant !== "dropdown") return;
+        const onMouseDown = (e) => {
+            if (!containerRef.current) return;
+            if (!containerRef.current.contains(e.target)) {
+                onClose();
+            }
+        };
+        window.addEventListener("mousedown", onMouseDown);
+        return () => window.removeEventListener("mousedown", onMouseDown);
+    }, [isOpen, variant, onClose]);
+
     if (!isOpen) return null;
 
+    const Wrapper = ({ children }) => {
+        if (variant === "dropdown") {
+            return (
+                <div className="absolute left-0 top-full mt-2 z-[9999]" ref={containerRef}>
+                    {children}
+                </div>
+            );
+        }
+        return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-40">
+                <div ref={containerRef}>{children}</div>
+            </div>
+        );
+    };
+
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-40">
+        <Wrapper>
             <div className="bg-white rounded-lg shadow-xl p-4 w-[320px]">
                 {/* Header: Month/Year with arrows */}
                 <div className="flex items-center justify-between mb-4">
@@ -174,7 +204,7 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply }) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </Wrapper>
     );
 };
 
