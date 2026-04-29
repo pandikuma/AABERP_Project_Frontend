@@ -23,7 +23,6 @@ const masterDataItems = [
   'Vendor Name',
   'Contractor Name',
   'Categories',
-  'Machine tools',
   'Employee Details',
   'Company Labour',
   'Account Details',
@@ -107,6 +106,7 @@ const MasterData = ({ user, onLogout }) => {
   const listDataCacheRef = useRef({});
   const [swipedProjectId, setSwipedProjectId] = useState(null);
   const [expandedBankDetailsSection, setExpandedBankDetailsSection] = useState('bank-name');
+  const [expandedBankFormSection, setExpandedBankFormSection] = useState('bank-form-image');
   const [bankDetailsSortReversed, setBankDetailsSortReversed] = useState(false);
   const [bankAccountTypes, setBankAccountTypes] = useState([]);
   const [isBankTypesLoading, setIsBankTypesLoading] = useState(false);
@@ -308,23 +308,134 @@ const MasterData = ({ user, onLogout }) => {
     }
   };
 
+  const submitEmployeeToBackend = async () => {
+    let employeeProfileUrl = '';
+    if (typeof employeeImage === 'string' && employeeImage.startsWith('data:')) {
+      const profileBlob = dataUrlToBlob(employeeImage);
+      if (profileBlob) {
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[:.]/g, '-');
+        const safeEmployeeName = String(employeeForm.employeeName || 'Employee').replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Employee';
+        const finalName = `${timestamp}_${safeEmployeeName}_Employee_Profile`;
+
+        employeeProfileUrl = await uploadMasterDataFileAndGetUrl(profileBlob, finalName);
+      }
+    } else if (typeof employeeImage === 'string' && employeeImage.startsWith('http')) {
+      employeeProfileUrl = employeeImage;
+    }
+
+    let upiQrImageUrl = '';
+    if (typeof employeeForm.qrCode === 'string' && employeeForm.qrCode.startsWith('data:')) {
+      const qrBlob = dataUrlToBlob(employeeForm.qrCode);
+      if (qrBlob) {
+        const now = new Date();
+        const timestamp = now.toISOString().replace(/[:.]/g, '-');
+        const safeEmployeeName = String(employeeForm.employeeName || 'Employee').replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Employee';
+        const finalName = `${timestamp}_${safeEmployeeName}_Employee_QR`;
+        upiQrImageUrl = await uploadMasterDataFileAndGetUrl(qrBlob, finalName);
+      }
+    } else if (typeof employeeForm.qrCode === 'string' && employeeForm.qrCode.startsWith('http')) {
+      upiQrImageUrl = employeeForm.qrCode;
+    }
+
+    let aadhaarImageUrl = employeeForm.aadhaarImageUrl || '';
+    if (employeeAadhaarFile) {
+      const now = new Date();
+      const timestamp = now.toISOString().replace(/[:.]/g, '-');
+      const safeEmployeeName = String(employeeForm.employeeName || 'Employee').replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'Employee';
+      const finalName = `${timestamp}_${safeEmployeeName}_Aadhaar`;
+      aadhaarImageUrl = await uploadMasterDataFileAndGetUrl(employeeAadhaarFile, finalName);
+    }
+
+    const employeeDetails = {
+      employee_name: employeeForm.employeeName || '',
+      employee_id: employeeForm.employeeId || '',
+      employee_mobile_number: employeeForm.mobileNumber || '',
+      role_of_employee: employeeForm.designation || '',
+      account_holder_name: employeeForm.accountHolderName || '',
+      account_number: employeeForm.accountNumber || '',
+      bank_name: employeeForm.bankName || '',
+      ifsc_code: employeeForm.ifscCode || '',
+      branch: employeeForm.branch || '',
+      upi_id: employeeForm.upiId || '',
+      gpay_number: employeeForm.upiPhoneNumber || '',
+      contact_email: employeeForm.emailId || '',
+      aadhaar_image_url: aadhaarImageUrl || '',
+      is_site_engineer: String(employeeForm.designation || '').trim().toLowerCase() === 'site engineer',
+      user_name: employeeForm.userName || '',
+      employeeProfileUrl: employeeProfileUrl || '',
+      employeeAddress: employeeForm.employeeAddress || '',
+      location: employeeForm.location || '',
+      upiQrImageUrl: upiQrImageUrl || ''
+    };
+
+    const formData = new FormData();
+    formData.append('employeeDetails', new Blob([JSON.stringify(employeeDetails)], { type: 'application/json' }));
+
+    const isEdit = employeeFormMode === 'edit' && String(employeeForm.employeeDbId || '').trim() !== '';
+    const url = isEdit
+      ? `https://backendaab.in/demoAabuildersDash/api/employee_details/edit/${employeeForm.employeeDbId}`
+      : 'https://backendaab.in/demoAabuildersDash/api/employee_details/save';
+
+    const res = await fetch(url, {
+      method: isEdit ? 'PUT' : 'POST',
+      credentials: 'include',
+      body: formData
+    });
+    if (!res.ok) {
+      const msg = await res.text().catch(() => '');
+      throw new Error(msg || `Request failed (${res.status})`);
+    }
+  };
+
   const uploadMasterDataFileAndGetUrl = async (selectedFile, finalName) => {
     const formData = new FormData();
-    formData.append("files", selectedFile);
-    formData.append("folder", "FileUpload / Master_Data_Files");
-    formData.append("fileName", finalName);
-    const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
+
+    let fileToSend = selectedFile;
+
+    // ✅ FIX STARTS HERE
+    const extension = selectedFile.type?.split("/")[1] || "jpg";
+
+    // remove dots from filename
+    const safeFinalName = finalName.replace(/\./g, "_");
+
+    // convert Blob → File with proper name
+    if (!(selectedFile instanceof File)) {
+      fileToSend = new File(
+        [selectedFile],
+        `${safeFinalName}.${extension}`,
+        { type: selectedFile.type || "image/jpeg" }
+      );
+    } else {
+      // even if it's already a File, clean the name
+      fileToSend = new File(
+        [selectedFile],
+        `${safeFinalName}.${extension}`,
+        { type: selectedFile.type }
+      );
+    }
+    // ✅ FIX ENDS HERE
+
+    formData.append("files", fileToSend);  // 👈 USE UPDATED FILE
+    formData.append("folder", "FileUpload/Master_Data_Files");
+    formData.append("fileName", safeFinalName);
+
+    const uploadResponse = await fetch("http://localhost:8083/api/files/upload", {
       method: "POST",
       body: formData,
     });
+
     if (!uploadResponse.ok) {
       throw new Error("File upload failed");
     }
+
     const result = await uploadResponse.json();
     const uploadedUrl = Array.isArray(result?.urls) ? result.urls[0] : '';
+
     if (!uploadedUrl) {
       throw new Error("File upload URL missing");
     }
+
     return uploadedUrl;
   };
 
@@ -357,13 +468,13 @@ const MasterData = ({ user, onLogout }) => {
     })).filter((detail) =>
       Boolean(
         detail.projectType ||
-          detail.floorName ||
-          detail.shopNo ||
-          detail.doorNo ||
-          detail.area ||
-          detail.ebNo ||
-          detail.propertyTaxNo ||
-          detail.waterTaxNo
+        detail.floorName ||
+        detail.shopNo ||
+        detail.doorNo ||
+        detail.area ||
+        detail.ebNo ||
+        detail.propertyTaxNo ||
+        detail.waterTaxNo
       )
     );
 
@@ -510,6 +621,14 @@ const MasterData = ({ user, onLogout }) => {
       ) return;
       if (selectedItem === 'Categories' && isAddCategoryViewOpen && categoryFormMode === 'edit' && isCategoryViewOnly) return;
       if (selectedItem === 'Machine tools' && isAddMachineViewOpen && machineFormMode === 'edit' && isMachineViewOnly) return;
+      if (isHeaderActionDisabled) return;
+
+      const validationMessage = getActiveFormValidationMessage();
+      if (validationMessage) {
+        alert(validationMessage);
+        return;
+      }
+
       if (selectedItem === 'Project Name' && isAddProjectViewOpen) {
         await submitProjectToBackend();
         await fetchProjectsData();
@@ -552,6 +671,14 @@ const MasterData = ({ user, onLogout }) => {
         setUploadFileRowShowsSaveIcon(false);
         setIsMachineViewOnly(true);
         setIsAddMachineViewOpen(false);
+        setSelectedItem(null);
+        return;
+      }
+      if (selectedItem === 'Employee Details' && isAddEmployeeViewOpen) {
+        await submitEmployeeToBackend();
+        setUploadFileRowShowsSaveIcon(false);
+        setIsEmployeeViewOnly(true);
+        setIsAddEmployeeViewOpen(false);
         setSelectedItem(null);
         return;
       }
@@ -787,6 +914,7 @@ const MasterData = ({ user, onLogout }) => {
   const [employeeAadhaarFile, setEmployeeAadhaarFile] = useState(null);
   const [employeeFormMode, setEmployeeFormMode] = useState('new');
   const [employeeForm, setEmployeeForm] = useState({
+    employeeDbId: '',
     employeeName: '',
     employeeId: '',
     designation: '',
@@ -802,7 +930,8 @@ const MasterData = ({ user, onLogout }) => {
     ifscCode: '',
     branch: '',
     upiPhoneNumber: '',
-    upiId: ''
+    upiId: '',
+    aadhaarImageUrl: ''
   });
   const [isAddLabourViewOpen, setIsAddLabourViewOpen] = useState(false);
   const [isLabourViewOnly, setIsLabourViewOnly] = useState(false);
@@ -838,6 +967,9 @@ const MasterData = ({ user, onLogout }) => {
   const [isAccountDetailsPreviewOpen, setIsAccountDetailsPreviewOpen] = useState(false);
   const [accountDetailsPreview, setAccountDetailsPreview] = useState(null);
   const [isAccountBankNameModalOpen, setIsAccountBankNameModalOpen] = useState(false);
+  const [isAccountDetailsBranchModalOpen, setIsAccountDetailsBranchModalOpen] = useState(false);
+  const accountDetailsBranchModalRef = useRef({ setForm: null, branchKey: 'branch', selectionReadOnly: false });
+  const [accountDetailsBranchModalSelected, setAccountDetailsBranchModalSelected] = useState('');
   const [accountBankNameOptions, setAccountBankNameOptions] = useState([]);
   const accountBankNameSelectRef = useRef(null);
   const [accountFormMode, setAccountFormMode] = useState('new');
@@ -960,6 +1092,12 @@ const MasterData = ({ user, onLogout }) => {
     },
     [extractBankNameOptions]
   );
+
+  const openAccountDetailsBranchModal = useCallback((setForm, branchKey, currentValue, selectionReadOnly) => {
+    accountDetailsBranchModalRef.current = { setForm, branchKey, selectionReadOnly: Boolean(selectionReadOnly) };
+    setAccountDetailsBranchModalSelected(String(currentValue ?? '').trim());
+    setIsAccountDetailsBranchModalOpen(true);
+  }, []);
 
   const vendorNameOptions = useMemo(() => {
     if (selectedItem !== 'Vendor Name') return [];
@@ -1216,6 +1354,12 @@ const MasterData = ({ user, onLogout }) => {
   useEffect(() => {
     setBankDetailsSortReversed(false);
   }, [expandedBankDetailsSection, selectedItem]);
+
+  useEffect(() => {
+    if (isBankNameFormOpen || isBankTypeFormOpen || isBankLocationFormOpen) {
+      setExpandedBankFormSection('bank-form-image');
+    }
+  }, [isBankNameFormOpen, isBankTypeFormOpen, isBankLocationFormOpen]);
 
   useEffect(() => {
     if (selectedItem !== 'Project Name') {
@@ -1565,6 +1709,7 @@ const MasterData = ({ user, onLogout }) => {
     setEmployeeAadhaarFile(null);
     setEmployeeFormMode('new');
     setEmployeeForm({
+      employeeDbId: '',
       employeeName: '',
       employeeId: '',
       designation: '',
@@ -1580,7 +1725,8 @@ const MasterData = ({ user, onLogout }) => {
       ifscCode: '',
       branch: '',
       upiPhoneNumber: '',
-      upiId: ''
+      upiId: '',
+      aadhaarImageUrl: ''
     });
     setIsAddLabourViewOpen(false);
     setExpandedLabourSection('labour-image');
@@ -1782,6 +1928,8 @@ const MasterData = ({ user, onLogout }) => {
     const qrCode = valueOr(
       item?.qrCode,
       item?.qr_code,
+      item?.upiQrImageUrl,
+      item?.upi_qr_image_url,
       item?.qrImagePreview,
       item?.qr_image_preview,
       item?.empUpiQRImagePreview,
@@ -1791,11 +1939,12 @@ const MasterData = ({ user, onLogout }) => {
     );
 
     return {
+      employeeDbId: valueOr(item?.id, item?._id),
       employeeName: valueOr(item?.employeeName, item?.employee_name, item?.name),
       employeeId: valueOr(item?.employeeId, item?.employee_id, item?.id),
       designation: valueOr(item?.designation, item?.roleOfEmployee, item?.role_of_employee),
-      userName: valueOr(item?.userName, item?.username),
-      mobileNumber: valueOr(item?.mobileNumber, item?.mobile_number, item?.contactNumber, item?.contact_number),
+      userName: valueOr(item?.userName, item?.user_name, item?.username),
+      mobileNumber: valueOr(item?.mobileNumber, item?.mobile_number, item?.employeeMobileNumber, item?.employee_mobile_number, item?.contactNumber, item?.contact_number),
       emailId: valueOr(item?.emailId, item?.email_id, item?.contactEmail, item?.contact_email),
       employeeAddress: valueOr(item?.employeeAddress, item?.employee_address, item?.address),
       location: valueOr(item?.location, item?.branchLocation, item?.branch_location),
@@ -1806,7 +1955,8 @@ const MasterData = ({ user, onLogout }) => {
       ifscCode: valueOr(item?.ifscCode, item?.ifsc_code, item?.empIfscCode, item?.emp_ifsc_code),
       branch: valueOr(item?.branch, item?.branch_name, item?.empBranch, item?.emp_branch),
       upiPhoneNumber: valueOr(item?.upiPhoneNumber, item?.upi_phone_number, item?.gpayNumber, item?.gpay_number, item?.empGpayNumber, item?.emp_gpay_number),
-      upiId: valueOr(item?.upiId, item?.upi_id, item?.empUpiId, item?.emp_upi_id)
+      upiId: valueOr(item?.upiId, item?.upi_id, item?.empUpiId, item?.emp_upi_id),
+      aadhaarImageUrl: valueOr(item?.aadhaarImageUrl, item?.aadhaar_image_url)
     };
   };
 
@@ -1950,7 +2100,6 @@ const MasterData = ({ user, onLogout }) => {
   };
 
   const toggleProjectSection = (sectionId) => {
-    if (projectFormMode === 'new' && sectionId !== 'project-image') return;
     setExpandedProjectSection((current) => (current === sectionId ? null : sectionId));
   };
 
@@ -1973,6 +2122,69 @@ const MasterData = ({ user, onLogout }) => {
   const isContractorOptionSelectionEnabled = isFormInteractionEnabled(contractorFormMode, isContractorViewOnly);
   const isProjectOptionSelectionEnabled = isFormInteractionEnabled(projectFormMode, isProjectViewOnly);
 
+  const isFieldMandatory = useCallback((label, required) => {
+    if (!required) return false;
+
+    if (selectedItem === 'Project Name' && isAddProjectViewOpen) {
+      return label === 'Project Name' || label === 'Project Category';
+    }
+
+    if (selectedItem === 'Vendor Name' && isAddVendorViewOpen) {
+      return label === 'Vendor Name';
+    }
+
+    if ((selectedItem === 'Contractor Name' || selectedItem === 'Support Associate Name') && isAddContractorViewOpen) {
+      return label === 'Contractor Name' || label === 'Associate Name';
+    }
+
+    if (selectedItem === 'Categories' && isAddCategoryViewOpen) {
+      return label === 'Category Name';
+    }
+
+    if (selectedItem === 'Machine tools' && isAddMachineViewOpen) {
+      return label === 'Machine Name';
+    }
+
+    if (selectedItem === 'Employee Details' && isAddEmployeeViewOpen) {
+      return label === 'Employee Name';
+    }
+
+    if (selectedItem === 'Company Labour' && isAddLabourViewOpen) {
+      return label === 'Labour Name';
+    }
+
+    if (selectedItem === 'Account Details' && isAddAccountViewOpen) {
+      return label === 'Account Holder Name';
+    }
+
+    if (selectedItem === 'Bank Details' && isBankNameFormOpen) {
+      return label === 'Bank Name';
+    }
+
+    if (selectedItem === 'Bank Details' && isBankTypeFormOpen) {
+      return label === 'Account Type';
+    }
+
+    if (selectedItem === 'Bank Details' && isBankLocationFormOpen) {
+      return label === 'Branch Name';
+    }
+
+    return required;
+  }, [
+    selectedItem,
+    isAddProjectViewOpen,
+    isAddVendorViewOpen,
+    isAddContractorViewOpen,
+    isAddCategoryViewOpen,
+    isAddMachineViewOpen,
+    isAddEmployeeViewOpen,
+    isAddLabourViewOpen,
+    isAddAccountViewOpen,
+    isBankNameFormOpen,
+    isBankTypeFormOpen,
+    isBankLocationFormOpen
+  ]);
+
   const renderInput = ({
     label,
     required,
@@ -1994,111 +2206,113 @@ const MasterData = ({ user, onLogout }) => {
     selectOptions,
     onClick,
     numericOnly = false
-  }) => (
-    <div className="w-full">
-      {labelRight ? (
-        <div className="flex w-full items-center justify-between">
+  }) => {
+    const showRequired = isFieldMandatory(label, required);
+
+    return (
+      <div className="w-full">
+        {labelRight ? (
+          <div className="flex w-full items-center justify-between">
+            <label className="block text-left text-[12px] font-medium text-black">
+              {label}
+              {showRequired && <span className="text-[#E26D47]">*</span>}
+            </label>
+            {labelRight}
+          </div>
+        ) : (
           <label className="block text-left text-[12px] font-medium text-black">
             {label}
-            {required && <span className="text-[#E26D47]">*</span>}
+            {showRequired && <span className="text-[#E26D47]">*</span>}
           </label>
-          {labelRight}
-        </div>
-      ) : (
-        <label className="block text-left text-[12px] font-medium text-black">
-          {label}
-          {required && <span className="text-[#E26D47]">*</span>}
-        </label>
-      )}
-      <div className="relative">
-        {asSelect ? (
-          <select
-            value={value || ''}
-            disabled={readOnly}
-            onChange={(e) => {
-              if (!onChange) return;
-              setHasFormChanges(true);
-              onChange(e);
-            }}
-            className={`h-[32px] w-full rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none placeholder:text-[#B0B0B0] ${
-              copyButtonId || rightIcon ? 'pr-12' : ''
-            }`}
-          >
-            <option value="">{placeholder || 'Select'}</option>
-            {(Array.isArray(selectOptions) ? selectOptions : []).map((opt) => (
-              <option key={String(opt)} value={String(opt)}>
-                {String(opt)}
-              </option>
-            ))}
-          </select>
-        ) : multiline ? (
-          <textarea
-            value={value || ''}
-            readOnly={readOnly}
-            onChange={(e) => {
-              if (!onChange) return;
-              setHasFormChanges(true);
-              onChange(e);
-            }}
-            placeholder={placeholder}
-            rows={3}
-            className="w-full resize-none rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] py-[10px] text-[12px] text-black outline-none placeholder:text-[#B0B0B0]"
-          />
-        ) : (
-          <input
-            value={value || ''}
-            readOnly={readOnly}
-            onChange={(e) => {
-              if (!onChange) return;
-              setHasFormChanges(true);
-              if (!numericOnly) {
+        )}
+        <div className="relative">
+          {asSelect ? (
+            <select
+              value={value || ''}
+              disabled={readOnly}
+              onChange={(e) => {
+                if (!onChange) return;
+                setHasFormChanges(true);
                 onChange(e);
-                return;
-              }
-              const numericValue = String(e.target.value || '').replace(/\D+/g, '');
-              onChange({
-                ...e,
-                target: { ...e.target, value: numericValue }
-              });
-            }}
-            onClick={onClick}
-            list={listId || undefined}
-            inputMode={numericOnly ? 'numeric' : undefined}
-            pattern={numericOnly ? '[0-9]*' : undefined}
-            placeholder={placeholder}
-            className={`h-[32px] w-full rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none placeholder:text-[#B0B0B0] ${
-              copyButtonId || rightIcon ? 'pr-12' : ''
-            } ${onClick ? 'cursor-pointer' : ''}`}
-          />
-        )}
-        {!asSelect && listId && Array.isArray(datalistOptions) && datalistOptions.length > 0 && (
-          <datalist id={listId}>
-            {Array.from(new Set(datalistOptions.filter(Boolean))).map((opt) => (
-              <option key={String(opt)} value={String(opt)} />
-            ))}
-          </datalist>
-        )}
-        {copyButtonId && (
-          <MasterDataCopyButton text={value} fieldName={copyFieldName} buttonId={copyButtonId} className={copyButtonClassName} />
-        )}
-        {rightIcon && !copyButtonId &&
-          (rightIconInteractive ? (
-            <button
-              type="button"
-              onClick={onRightIconClick}
-              aria-label="Action"
-              className="absolute right-[10px] top-1/2 -translate-y-1/2 flex h-[20px] w-[20px] items-center justify-center p-0 text-[#4B4B4B] bg-transparent"
+              }}
+              className={`h-[32px] w-full rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none placeholder:text-[#B0B0B0] ${copyButtonId || rightIcon ? 'pr-12' : ''
+                }`}
             >
-              {rightIcon}
-            </button>
+              <option value="">{placeholder || 'Select'}</option>
+              {(Array.isArray(selectOptions) ? selectOptions : []).map((opt) => (
+                <option key={String(opt)} value={String(opt)}>
+                  {String(opt)}
+                </option>
+              ))}
+            </select>
+          ) : multiline ? (
+            <textarea
+              value={value || ''}
+              readOnly={readOnly}
+              onChange={(e) => {
+                if (!onChange) return;
+                setHasFormChanges(true);
+                onChange(e);
+              }}
+              placeholder={placeholder}
+              rows={3}
+              className="w-full resize-none rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] py-[10px] text-[12px] text-black outline-none placeholder:text-[#B0B0B0]"
+            />
           ) : (
-            <span className="pointer-events-none absolute right-[10px] top-1/2 -translate-y-1/2 text-[#4B4B4B]">
-              {rightIcon}
-            </span>
-          ))}
+            <input
+              value={value || ''}
+              readOnly={readOnly}
+              onChange={(e) => {
+                if (!onChange) return;
+                setHasFormChanges(true);
+                if (!numericOnly) {
+                  onChange(e);
+                  return;
+                }
+                const numericValue = String(e.target.value || '').replace(/\D+/g, '');
+                onChange({
+                  ...e,
+                  target: { ...e.target, value: numericValue }
+                });
+              }}
+              onClick={onClick}
+              list={listId || undefined}
+              inputMode={numericOnly ? 'numeric' : undefined}
+              pattern={numericOnly ? '[0-9]*' : undefined}
+              placeholder={placeholder}
+              className={`h-[32px] w-full rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none placeholder:text-[#B0B0B0] ${copyButtonId || rightIcon ? 'pr-12' : ''
+                } ${onClick ? 'cursor-pointer' : ''}`}
+            />
+          )}
+          {!asSelect && listId && Array.isArray(datalistOptions) && datalistOptions.length > 0 && (
+            <datalist id={listId}>
+              {Array.from(new Set(datalistOptions.filter(Boolean))).map((opt) => (
+                <option key={String(opt)} value={String(opt)} />
+              ))}
+            </datalist>
+          )}
+          {copyButtonId && (
+            <MasterDataCopyButton text={value} fieldName={copyFieldName} buttonId={copyButtonId} className={copyButtonClassName} />
+          )}
+          {rightIcon && !copyButtonId &&
+            (rightIconInteractive ? (
+              <button
+                type="button"
+                onClick={onRightIconClick}
+                aria-label="Action"
+                className="absolute right-[10px] top-1/2 -translate-y-1/2 flex h-[20px] w-[20px] items-center justify-center p-0 text-[#4B4B4B] bg-transparent"
+              >
+                {rightIcon}
+              </button>
+            ) : (
+              <span className="pointer-events-none absolute right-[10px] top-1/2 -translate-y-1/2 text-[#4B4B4B]">
+                {rightIcon}
+              </span>
+            ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderAccountDetailsSection = ({
     form,
@@ -2120,18 +2334,23 @@ const MasterData = ({ user, onLogout }) => {
     accountTypeKey = 'accountType',
     fieldReadOnly = false,
     copyPrefix,
-    onOpenBankNamePicker
+    onOpenBankNamePicker,
+    onOpenBranchModal
   }) => {
     const shouldShowCopy =
       formMode === 'edit' && (isViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon);
     const hasFieldValue = (value) => String(value ?? '').trim() !== '';
+    const canOpenBranchModal =
+      (!fieldReadOnly && isFormInteractionEnabled(formMode, isViewOnly)) || (formMode === 'edit' && isViewOnly);
+    const isAccountHolderMandatory = isFieldMandatory('Account Holder Name', true);
+    const isAccountNumberMandatory = isFieldMandatory('Account Number', true);
 
     return (
-      <div className="space-y-[10px]">
+      <div className="space-y-[6px]">
         <div className="w-full">
           <div className="flex items-center justify-between">
             <label className="block text-left text-[12px] font-medium text-black">
-              Account Holder Name<span className="text-[#E26D47]">*</span>
+              Account Holder Name{isAccountHolderMandatory ? <span className="text-[#E26D47]">*</span> : null}
             </label>
             <button type="button" onClick={onOpenQr} className={qrButtonClassName}>
               QR Code
@@ -2144,7 +2363,7 @@ const MasterData = ({ user, onLogout }) => {
                 setHasFormChanges(true);
                 setForm((s) => ({ ...s, accountHolderName: e.target.value }));
               }}
-              placeholder={accountHolderPlaceholder}
+              placeholder='Enter Name'
               readOnly={fieldReadOnly}
               className="h-[32px] w-full rounded-[4px] border border-[#D9D9D9] bg-white px-[12px] pr-12 text-[12px] text-black outline-none placeholder:text-[#B0B0B0]"
             />
@@ -2162,7 +2381,7 @@ const MasterData = ({ user, onLogout }) => {
         <div className="w-full">
           <div className="flex items-center justify-between">
             <label className="block text-left text-[12px] font-medium text-black">
-              Account Number<span className="text-[#E26D47]">*</span>
+              Account Number{isAccountNumberMandatory ? <span className="text-[#E26D47]">*</span> : null}
             </label>
             <button
               type="button"
@@ -2187,7 +2406,7 @@ const MasterData = ({ user, onLogout }) => {
                 setHasFormChanges(true);
                 setForm((s) => ({ ...s, accountNumber: String(e.target.value || '').replace(/\D+/g, '') }));
               }}
-              placeholder={accountNumberPlaceholder}
+              placeholder='Enter Number'
               readOnly={fieldReadOnly}
               inputMode="numeric"
               pattern="[0-9]*"
@@ -2208,7 +2427,7 @@ const MasterData = ({ user, onLogout }) => {
           {renderInput({
             label: 'IFSC Code',
             required: true,
-            placeholder: ifscPlaceholder,
+            placeholder: 'Enter IFSC Code',
             value: form.ifscCode,
             readOnly: fieldReadOnly,
             onChange: (e) => setForm((s) => ({ ...s, ifscCode: e.target.value })),
@@ -2216,40 +2435,71 @@ const MasterData = ({ user, onLogout }) => {
             copyFieldName: 'IFSC Code',
             copyButtonClassName: 'right-[4px]'
           })}
-          {renderInput({
-            label: 'Branch',
-            required: true,
-            placeholder: branchPlaceholder,
-            value: form[branchKey],
-            asSelect: true,
-            selectOptions: ['Srivilliputhur', 'Madurai'],
-            readOnly: fieldReadOnly,
-            onChange: (e) => setForm((s) => ({ ...s, [branchKey]: e.target.value })),
-            copyButtonId: shouldShowCopy && hasFieldValue(form[branchKey]) ? `${copyPrefix}-branch` : undefined,
-            copyFieldName: 'Branch',
-            copyButtonClassName: 'right-[4px]'
-          })}
+          {typeof onOpenBranchModal === 'function'
+            ? (
+              <div
+                className={
+                  formMode === 'edit' && isViewOnly ? '[&_input]:!pointer-events-auto' : undefined
+                }
+              >
+                {renderInput({
+                  label: 'Branch',
+                  required: true,
+                  placeholder: 'Select',
+                  value: form[branchKey],
+                  readOnly: true,
+                  onClick: () => {
+                    if (canOpenBranchModal) onOpenBranchModal();
+                  },
+                  rightIcon: (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ),
+                  rightIconInteractive: true,
+                  onRightIconClick: () => {
+                    if (canOpenBranchModal) onOpenBranchModal();
+                  },
+                  copyButtonId: shouldShowCopy && hasFieldValue(form[branchKey]) ? `${copyPrefix}-branch` : undefined,
+                  copyFieldName: 'Branch',
+                  copyButtonClassName: 'right-[4px]'
+                })}
+              </div>
+            )
+            : renderInput({
+              label: 'Branch',
+              required: true,
+              placeholder: branchPlaceholder,
+              value: form[branchKey],
+              asSelect: true,
+              selectOptions: ['Srivilliputhur', 'Madurai'],
+              readOnly: fieldReadOnly,
+              onChange: (e) => setForm((s) => ({ ...s, [branchKey]: e.target.value })),
+              copyButtonId: shouldShowCopy && hasFieldValue(form[branchKey]) ? `${copyPrefix}-branch` : undefined,
+              copyFieldName: 'Branch',
+              copyButtonClassName: 'right-[4px]'
+            })}
         </div>
 
         {includeAccountType
           ? renderInput({
-              label: 'Account Type',
-              required: true,
-              placeholder: accountTypePlaceholder,
-              value: form[accountTypeKey],
-              readOnly: fieldReadOnly,
-              onChange: (e) => setForm((s) => ({ ...s, [accountTypeKey]: e.target.value })),
-              copyButtonId: shouldShowCopy && hasFieldValue(form[accountTypeKey]) ? `${copyPrefix}-type` : undefined,
-              copyFieldName: 'Account Type',
-              copyButtonClassName: 'right-[4px]'
-            })
+            label: 'Account Type',
+            required: true,
+            placeholder: 'Select Account Type',
+            value: form[accountTypeKey],
+            readOnly: fieldReadOnly,
+            onChange: (e) => setForm((s) => ({ ...s, [accountTypeKey]: e.target.value })),
+            copyButtonId: shouldShowCopy && hasFieldValue(form[accountTypeKey]) ? `${copyPrefix}-type` : undefined,
+            copyFieldName: 'Account Type',
+            copyButtonClassName: 'right-[4px]'
+          })
           : null}
 
         <div className="grid grid-cols-2 gap-[12px]">
           {renderInput({
             label: 'UPI Phone Number',
             required: true,
-            placeholder: upiPhonePlaceholder,
+            placeholder: 'Enter Number',
             value: form.upiPhoneNumber,
             readOnly: fieldReadOnly,
             onChange: (e) => setForm((s) => ({ ...s, upiPhoneNumber: e.target.value })),
@@ -2261,7 +2511,7 @@ const MasterData = ({ user, onLogout }) => {
           {renderInput({
             label: 'UPI ID',
             required: true,
-            placeholder: upiIdPlaceholder,
+            placeholder: 'Enter UPI ID',
             value: form.upiId,
             readOnly: fieldReadOnly,
             onChange: (e) => setForm((s) => ({ ...s, upiId: e.target.value })),
@@ -2274,10 +2524,8 @@ const MasterData = ({ user, onLogout }) => {
     );
   };
 
-  const shouldKeepImageAccordionOpen = (formMode, sectionId) => formMode === 'new' && String(sectionId).endsWith('-image');
-
   const renderProjectAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedProjectSection === sectionId || shouldKeepImageAccordionOpen(projectFormMode, sectionId);
+    const isExpanded = expandedProjectSection === sectionId;
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
@@ -2670,9 +2918,8 @@ const MasterData = ({ user, onLogout }) => {
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <div
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${
-            isExpanded ? 'border-b border-[#EFEFEF] bg-[#FAFAFA]' : 'bg-white'
-          }`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'border-b border-[#EFEFEF] bg-[#FAFAFA]' : 'bg-white'
+            }`}
         >
           <button type="button" onClick={() => toggleBankDetailsSection(sectionId)} className="flex min-w-0 flex-1 items-center gap-[6px]">
             <span className="truncate text-[14px] font-medium text-black">{title}</span>
@@ -2708,6 +2955,28 @@ const MasterData = ({ user, onLogout }) => {
       <div className="border-t border-[#F2F2F2]">{content}</div>
     </div>
   );
+
+  const toggleBankFormSection = (sectionId) => {
+    setExpandedBankFormSection((current) => (current === sectionId ? null : sectionId));
+  };
+
+  const renderBankFormAccordion = (sectionId, title, content) => {
+    const isExpanded = expandedBankFormSection === sectionId;
+
+    return (
+      <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
+        <button
+          type="button"
+          onClick={() => toggleBankFormSection(sectionId)}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+        >
+          <span className="text-[12px] font-medium text-black">{title}</span>
+          <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
+        </button>
+        {isExpanded && <div className="border-t border-[#F2F2F2]">{content}</div>}
+      </div>
+    );
+  };
 
   const hasImageFile = (value) => typeof value === 'string' && value.trim() !== '';
 
@@ -2783,14 +3052,14 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          bankNameFormMode === 'edit' && !uploadFileRowShowsSaveIcon
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${bankNameFormMode === 'edit' && !uploadFileRowShowsSaveIcon
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
-          {renderStaticBankDetailsCard(
+        <div className="space-y-[2px]">
+          {renderBankFormAccordion(
+            'bank-form-image',
             'Image',
             <div className="px-[14px] py-[12px]">
               {renderImageUploadContent({
@@ -2804,7 +3073,8 @@ const MasterData = ({ user, onLogout }) => {
             </div>
           )}
 
-          {renderStaticBankDetailsCard(
+          {renderBankFormAccordion(
+            'bank-form-details',
             'Bank Name Details',
             <div className="px-[14px] py-[12px]">
               {renderInput({
@@ -2829,14 +3099,14 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          bankTypeFormMode === 'edit' && !uploadFileRowShowsSaveIcon
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${bankTypeFormMode === 'edit' && !uploadFileRowShowsSaveIcon
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
-          {renderStaticBankDetailsCard(
+        <div className="space-y-[2px]">
+          {renderBankFormAccordion(
+            'bank-form-image',
             'Image',
             <div className="px-[14px] py-[12px]">
               {renderImageUploadContent({
@@ -2850,7 +3120,8 @@ const MasterData = ({ user, onLogout }) => {
             </div>
           )}
 
-          {renderStaticBankDetailsCard(
+          {renderBankFormAccordion(
+            'bank-form-details',
             'Account Type Details',
             <div className="px-[14px] py-[12px]">
               {renderInput({
@@ -2875,14 +3146,14 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          bankLocationFormMode === 'edit' && !uploadFileRowShowsSaveIcon
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${bankLocationFormMode === 'edit' && !uploadFileRowShowsSaveIcon
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
-          {renderStaticBankDetailsCard(
+        <div className="space-y-[2px]">
+          {renderBankFormAccordion(
+            'bank-form-image',
             'Image',
             <div className="px-[14px] py-[12px]">
               {renderImageUploadContent({
@@ -2896,7 +3167,8 @@ const MasterData = ({ user, onLogout }) => {
             </div>
           )}
 
-          {renderStaticBankDetailsCard(
+          {renderBankFormAccordion(
+            'bank-form-details',
             'Branch Name Details',
             <div className="px-[14px] py-[12px]">
               {renderInput({
@@ -2915,12 +3187,11 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleVendorSection = (sectionId) => {
-    if (vendorFormMode === 'new' && sectionId !== 'vendor-image') return;
     setExpandedVendorSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderVendorAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedVendorSection === sectionId || shouldKeepImageAccordionOpen(vendorFormMode, sectionId);
+    const isExpanded = expandedVendorSection === sectionId;
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
@@ -2960,12 +3231,11 @@ const MasterData = ({ user, onLogout }) => {
   };
 
   const toggleContractorSection = (sectionId) => {
-    if (contractorFormMode === 'new' && sectionId !== 'contractor-image') return;
     setExpandedContractorSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderContractorAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedContractorSection === sectionId || shouldKeepImageAccordionOpen(contractorFormMode, sectionId);
+    const isExpanded = expandedContractorSection === sectionId;
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
@@ -3011,13 +3281,12 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          contractorFormMode === 'edit' && (isContractorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${contractorFormMode === 'edit' && (isContractorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
+        <div className="space-y-[2px]">
           {renderContractorAccordion(
             'contractor-image',
             'Image',
@@ -3037,7 +3306,7 @@ const MasterData = ({ user, onLogout }) => {
           {renderContractorAccordion(
             'contractor-details',
             'Contractor Details',
-            <div className="space-y-[10px]">
+            <div className="space-y-[6px]">
               {renderInput({
                 label: selectedItem === 'Support Associate Name' ? 'Associate Name' : 'Contractor Name',
                 required: true,
@@ -3137,6 +3406,8 @@ const MasterData = ({ user, onLogout }) => {
               onOpenQr: () => setIsContractorQrModalOpen(true),
               onOpenBankNamePicker: openAccountBankNameModal,
               branchKey: 'location',
+              onOpenBranchModal: () =>
+                openAccountDetailsBranchModal(setContractorForm, 'location', contractorForm.location, isContractorViewOnly),
               copyPrefix: 'm-contractor'
             })
           )}
@@ -3320,12 +3591,11 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleCategorySection = (sectionId) => {
-    if (categoryFormMode === 'new' && sectionId !== 'category-image') return;
     setExpandedCategorySection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderCategoryAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedCategorySection === sectionId || shouldKeepImageAccordionOpen(categoryFormMode, sectionId);
+    const isExpanded = expandedCategorySection === sectionId;
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
@@ -3349,13 +3619,12 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          categoryFormMode === 'edit' && (isCategoryViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${categoryFormMode === 'edit' && (isCategoryViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
+        <div className="space-y-[2px]">
           {renderCategoryAccordion(
             'category-image',
             'Image',
@@ -3389,12 +3658,11 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleMachineSection = (sectionId) => {
-    if (machineFormMode === 'new' && sectionId !== 'machine-image') return;
     setExpandedMachineSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderMachineAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedMachineSection === sectionId || shouldKeepImageAccordionOpen(machineFormMode, sectionId);
+    const isExpanded = expandedMachineSection === sectionId;
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
@@ -3418,13 +3686,12 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          machineFormMode === 'edit' && (isMachineViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${machineFormMode === 'edit' && (isMachineViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
+        <div className="space-y-[2px]">
           {renderMachineAccordion(
             'machine-image',
             'Image',
@@ -3441,7 +3708,7 @@ const MasterData = ({ user, onLogout }) => {
           {renderMachineAccordion(
             'machine-details',
             'Machine Details',
-            <div className="space-y-[10px]">
+            <div className="space-y-[6px]">
               {renderInput({
                 label: 'Machine Name',
                 required: true,
@@ -3458,12 +3725,11 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleEmployeeSection = (sectionId) => {
-    if (employeeFormMode === 'new' && sectionId !== 'employee-image') return;
     setExpandedEmployeeSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderEmployeeAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedEmployeeSection === sectionId || shouldKeepImageAccordionOpen(employeeFormMode, sectionId);
+    const isExpanded = expandedEmployeeSection === sectionId;
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
@@ -3514,13 +3780,12 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          employeeFormMode === 'edit' && (isEmployeeViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${employeeFormMode === 'edit' && (isEmployeeViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
+        <div className="space-y-[2px]">
           {renderEmployeeAccordion(
             'employee-image',
             'Image',
@@ -3537,31 +3802,31 @@ const MasterData = ({ user, onLogout }) => {
           {renderEmployeeAccordion(
             'employee-details',
             'Employee Details',
-            <div className="space-y-[10px]">
+            <div className="space-y-[6px]">
               {employeeFormMode === 'edit'
                 ? renderInput({
-                    label: 'Employee Name',
-                    required: true,
-                    placeholder: 'Enter Name',
-                    value: employeeForm.employeeName,
-                    readOnly: false,
-                    onChange: (e) => setEmployeeForm((s) => ({ ...s, employeeName: e.target.value })),
-                    listId: 'm-employee-name-options',
-                    datalistOptions: employeeNameOptions,
-                    rightIcon: (
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )
-                  })
+                  label: 'Employee Name',
+                  required: true,
+                  placeholder: 'Enter Name',
+                  value: employeeForm.employeeName,
+                  readOnly: false,
+                  onChange: (e) => setEmployeeForm((s) => ({ ...s, employeeName: e.target.value })),
+                  listId: 'm-employee-name-options',
+                  datalistOptions: employeeNameOptions,
+                  rightIcon: (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )
+                })
                 : renderInput({
-                    label: 'Employee Name',
-                    required: true,
-                    placeholder: 'Enter Name',
-                    value: employeeForm.employeeName,
-                    readOnly: false,
-                    onChange: (e) => setEmployeeForm((s) => ({ ...s, employeeName: e.target.value }))
-                  })}
+                  label: 'Employee Name',
+                  required: true,
+                  placeholder: 'Enter Name',
+                  value: employeeForm.employeeName,
+                  readOnly: false,
+                  onChange: (e) => setEmployeeForm((s) => ({ ...s, employeeName: e.target.value }))
+                })}
 
               <div className="grid grid-cols-2 gap-[12px]">
                 {renderInput({
@@ -3581,14 +3846,14 @@ const MasterData = ({ user, onLogout }) => {
                   onChange: (e) => setEmployeeForm((s) => ({ ...s, designation: e.target.value })),
                   ...(employeeFormMode === 'edit'
                     ? {
-                        listId: 'm-employee-designation-options',
-                        datalistOptions: employeeDesignationOptions,
-                        rightIcon: (
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )
-                      }
+                      listId: 'm-employee-designation-options',
+                      datalistOptions: employeeDesignationOptions,
+                      rightIcon: (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )
+                    }
                     : {})
                 })}
               </div>
@@ -3612,9 +3877,9 @@ const MasterData = ({ user, onLogout }) => {
                   numericOnly: true,
                   ...(employeeFormMode === 'edit'
                     ? {
-                        listId: 'm-employee-mobile-options',
-                        datalistOptions: employeeMobileOptions,
-                      }
+                      listId: 'm-employee-mobile-options',
+                      datalistOptions: employeeMobileOptions,
+                    }
                     : {})
                 })}
               </div>
@@ -3656,6 +3921,8 @@ const MasterData = ({ user, onLogout }) => {
               branchPlaceholder: 'Select Branch',
               upiPhonePlaceholder: 'Enter Number',
               upiIdPlaceholder: 'Enter UPI ID',
+              onOpenBranchModal: () =>
+                openAccountDetailsBranchModal(setEmployeeForm, 'branch', employeeForm.branch, isEmployeeViewOnly),
               copyPrefix: 'm-employee'
             })
           )}
@@ -3717,6 +3984,7 @@ const MasterData = ({ user, onLogout }) => {
                   const reader = new FileReader();
                   reader.onload = () => {
                     const result = typeof reader.result === 'string' ? reader.result : '';
+                    setHasFormChanges(true);
                     setEmployeeQrPreview(result);
                     setEmployeeForm((s) => ({ ...s, qrCode: result }));
                   };
@@ -3776,6 +4044,7 @@ const MasterData = ({ user, onLogout }) => {
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
+                  if (file) setHasFormChanges(true);
                   setEmployeeAadhaarFile(file);
                 }}
               />
@@ -3851,12 +4120,11 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleAccountSection = (sectionId) => {
-    if (accountFormMode === 'new' && sectionId !== 'account-image') return;
     setExpandedAccountSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderAccountAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedAccountSection === sectionId || shouldKeepImageAccordionOpen(accountFormMode, sectionId);
+    const isExpanded = expandedAccountSection === sectionId;
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
@@ -3902,13 +4170,12 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          accountFormMode === 'edit' && (isAccountViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${accountFormMode === 'edit' && (isAccountViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
+        <div className="space-y-[2px]">
           {renderAccountAccordion(
             'account-image',
             'Image',
@@ -3932,6 +4199,8 @@ const MasterData = ({ user, onLogout }) => {
               setForm: setAccountForm,
               onOpenQr: () => setIsAccountQrModalOpen(true),
               onOpenBankNamePicker: openAccountBankNameModal,
+              onOpenBranchModal: () =>
+                openAccountDetailsBranchModal(setAccountForm, 'branch', accountForm.branch, isAccountViewOnly),
               includeAccountType: true,
               copyPrefix: 'm-account'
             })
@@ -4020,12 +4289,11 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const toggleLabourSection = (sectionId) => {
-    if (labourFormMode === 'new' && sectionId !== 'labour-image') return;
     setExpandedLabourSection((current) => (current === sectionId ? null : sectionId));
   };
 
   const renderLabourAccordion = (sectionId, title, content) => {
-    const isExpanded = expandedLabourSection === sectionId || shouldKeepImageAccordionOpen(labourFormMode, sectionId);
+    const isExpanded = expandedLabourSection === sectionId;
 
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
@@ -4074,13 +4342,12 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          labourFormMode === 'edit' && (isLabourViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${labourFormMode === 'edit' && (isLabourViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="flex flex-col ">
+        <div className="space-y-[2px]">
           {renderLabourAccordion(
             'labour-image',
             'Image',
@@ -4097,56 +4364,56 @@ const MasterData = ({ user, onLogout }) => {
           {renderLabourAccordion(
             'labour-details',
             'Labour Details',
-            <div className="space-y-[10px]">
+            <div className="space-y-[6px]">
               {labourFormMode === 'edit'
                 ? renderInput({
-                    label: 'Labour Name',
-                    required: true,
-                    placeholder: '',
-                    value: labourForm.labourName,
-                    readOnly: false,
-                    onChange: (e) => setLabourForm((s) => ({ ...s, labourName: e.target.value })),
-                    listId: 'm-labour-name-options',
-                    datalistOptions: labourNameOptions,
-                    rightIcon: (
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )
-                  })
+                  label: 'Labour Name',
+                  required: true,
+                  placeholder: '',
+                  value: labourForm.labourName,
+                  readOnly: false,
+                  onChange: (e) => setLabourForm((s) => ({ ...s, labourName: e.target.value })),
+                  listId: 'm-labour-name-options',
+                  datalistOptions: labourNameOptions,
+                  rightIcon: (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )
+                })
                 : renderInput({
-                    label: 'Labour Name',
-                    required: true,
-                    placeholder: 'Enter Name',
-                    value: labourForm.labourName,
-                    readOnly: false,
-                    onChange: (e) => setLabourForm((s) => ({ ...s, labourName: e.target.value }))
-                  })}
+                  label: 'Labour Name',
+                  required: true,
+                  placeholder: 'Enter Name',
+                  value: labourForm.labourName,
+                  readOnly: false,
+                  onChange: (e) => setLabourForm((s) => ({ ...s, labourName: e.target.value }))
+                })}
 
               {labourFormMode === 'edit'
                 ? renderInput({
-                    label: 'Labour Category',
-                    required: true,
-                    placeholder: '',
-                    value: labourForm.labourCategory,
-                    readOnly: false,
-                    onChange: (e) => setLabourForm((s) => ({ ...s, labourCategory: e.target.value })),
-                    listId: 'm-labour-category-options',
-                    datalistOptions: labourCategoryOptions,
-                    rightIcon: (
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )
-                  })
+                  label: 'Labour Category',
+                  required: true,
+                  placeholder: '',
+                  value: labourForm.labourCategory,
+                  readOnly: false,
+                  onChange: (e) => setLabourForm((s) => ({ ...s, labourCategory: e.target.value })),
+                  listId: 'm-labour-category-options',
+                  datalistOptions: labourCategoryOptions,
+                  rightIcon: (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )
+                })
                 : renderInput({
-                    label: 'Labour Category',
-                    required: true,
-                    placeholder: 'Enter Category',
-                    value: labourForm.labourCategory,
-                    readOnly: false,
-                    onChange: (e) => setLabourForm((s) => ({ ...s, labourCategory: e.target.value }))
-                  })}
+                  label: 'Labour Category',
+                  required: true,
+                  placeholder: 'Enter Category',
+                  value: labourForm.labourCategory,
+                  readOnly: false,
+                  onChange: (e) => setLabourForm((s) => ({ ...s, labourCategory: e.target.value }))
+                })}
 
               <div className="grid grid-cols-2 gap-[12px]">
                 {renderInput({
@@ -4186,15 +4453,15 @@ const MasterData = ({ user, onLogout }) => {
                   onChange: (e) => setLabourForm((s) => ({ ...s, branch: e.target.value })),
                   ...(labourFormMode === 'edit'
                     ? {
-                        placeholder: 'Select',
-                        listId: 'm-labour-branch-options',
-                        datalistOptions: commonBranchOptions,
-                        rightIcon: (
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )
-                      }
+                      placeholder: 'Select',
+                      listId: 'm-labour-branch-options',
+                      datalistOptions: commonBranchOptions,
+                      rightIcon: (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )
+                    }
                     : { placeholder: 'Enter Branch' })
                 })}
               </div>
@@ -4214,10 +4481,10 @@ const MasterData = ({ user, onLogout }) => {
           {renderLabourAccordion(
             'wage-details',
             'Wage Details',
-            <div className="space-y-[10px]">
+            <div className="space-y-[6px]">
               <div className="w-full">
                 <label className="block text-left text-[12px] font-medium text-black">
-                  Wage Type<span className="text-[#E26D47]">*</span>
+                  Wage Type{isFieldMandatory('Wage Type', true) ? <span className="text-[#E26D47]">*</span> : null}
                 </label>
                 <div className="relative">
                   <select
@@ -4269,6 +4536,13 @@ const MasterData = ({ user, onLogout }) => {
               upiPhonePlaceholder: 'Enter Number',
               upiIdPlaceholder: 'Enter UPI ID',
               branchKey: 'accountBranch',
+              onOpenBranchModal: () =>
+                openAccountDetailsBranchModal(
+                  setLabourForm,
+                  'accountBranch',
+                  labourForm.accountBranch,
+                  isLabourViewOnly
+                ),
               copyPrefix: 'm-labour'
             })
           )}
@@ -4362,13 +4636,12 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] ${
-          vendorFormMode === 'edit' && (isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${vendorFormMode === 'edit' && (isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
+        <div className="space-y-[2px]">
           {renderVendorAccordion(
             'vendor-image',
             'Image',
@@ -4388,7 +4661,7 @@ const MasterData = ({ user, onLogout }) => {
           {renderVendorAccordion(
             'vendor-details',
             'Vendor Details',
-            <div className="space-y-[10px]">
+            <div className="space-y-[6px]">
               {renderInput({
                 label: 'Vendor Name',
                 required: true,
@@ -4499,6 +4772,8 @@ const MasterData = ({ user, onLogout }) => {
               onOpenQr: () => setIsVendorQrModalOpen(true),
               onOpenBankNamePicker: openAccountBankNameModal,
               branchKey: 'location',
+              onOpenBranchModal: () =>
+                openAccountDetailsBranchModal(setVendorForm, 'location', vendorForm.location, isVendorViewOnly),
               copyPrefix: 'm-vendor'
             })
           )}
@@ -4530,7 +4805,7 @@ const MasterData = ({ user, onLogout }) => {
             <div
               className={
                 vendorFormMode === 'edit' &&
-                (isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+                  (isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
                   ? '[&_input]:bg-[#EDEDED]'
                   : ''
               }
@@ -4759,89 +5034,88 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 ${
-          projectFormMode === 'edit' && (isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
-            ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
-            : ''
-        }`}
+        className={`w-full px-0 pt-0 mt-[8px] ${projectFormMode === 'edit' && (isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+          ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
+          : ''
+          }`}
       >
-        <div className="">
+        <div className="space-y-[2px]">
           {(projectFormMode === 'new' || projectFormMode === 'edit')
             ? renderProjectAccordion(
-                'project-image',
-                'Image',
-                <div className="">
-                  {projectFormMode === 'edit' ? (
-                    <div className="mb-[8px] flex items-center justify-between">
-                      <span className="truncate pr-[8px] text-[12px] font-medium text-black">{projectForm.projectName || 'Project Name'}</span>
-                      {hasImageFile(projectForm.projectPicture) && (
-                        <button
-                          type="button"
-                          className="inline-flex items-center justify-center p-[4px]"
-                          aria-label="Edit image"
-                          onClick={() => {
-                            if (!canEditMasterData || !isProjectViewOnly) return;
-                            document.getElementById('projectNewPictureInput')?.click();
-                          }}
-                        >
-                          <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
-                        </button>
-                      )}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const canUploadInNewMode = projectFormMode === 'new';
-                      const canUploadInEditMode =
-                        projectFormMode === 'edit' &&
-                        !isProjectViewOnly &&
-                        canEditMasterData;
-                      if (!canUploadInNewMode && !canUploadInEditMode) return;
-                      document.getElementById('projectNewPictureInput')?.click();
-                    }}
-                    className={`block w-full ${projectForm.projectPicture ? 'rounded-[10px] border border-[#DEDEDE] bg-[#FAFAFA] p-[6px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]' : ''}`}
-                  >
-                    <div className={`${projectForm.projectPicture ? 'relative flex h-[196px] w-full flex-col items-center justify-center gap-[4px] overflow-hidden rounded-[8px] border-[2px] border-[#CFCFCF] bg-[#E8E8E8] shadow-[inset_0_3px_10px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.65)]' : 'relative flex h-[196px] w-full items-center justify-center'}`}>
-                      {projectForm.projectPicture ? (
-                        <img src={projectForm.projectPicture} alt="" className="h-full w-full object-contain" />
-                      ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-transparent transition-colors">
-                          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                            <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="#E4572E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M5 16.5V18C5 19.1 5.9 20 7 20H17C18.1 20 19 19.1 19 18V16.5" stroke="#E4572E" strokeWidth="1.8" strokeLinecap="round" />
-                          </svg>
-                          <p className="mt-[4px] text-[14px] font-medium text-[#E4572E]">Click to Upload</p>
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    id="projectNewPictureInput"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const result = typeof reader.result === 'string' ? reader.result : '';
-                        setProjectPictureDraft(result);
-                        setProjectForm((s) => ({ ...s, projectPicture: result }));
-                      };
-                      reader.readAsDataURL(file);
-                      e.target.value = '';
-                    }}
-                  />
-                </div>
-              )
+              'project-image',
+              'Image',
+              <div className="">
+                {projectFormMode === 'edit' ? (
+                  <div className="mb-[8px] flex items-center justify-between">
+                    <span className="truncate pr-[8px] text-[12px] font-medium text-black">{projectForm.projectName || 'Project Name'}</span>
+                    {hasImageFile(projectForm.projectPicture) && (
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center p-[4px]"
+                        aria-label="Edit image"
+                        onClick={() => {
+                          if (!canEditMasterData || !isProjectViewOnly) return;
+                          document.getElementById('projectNewPictureInput')?.click();
+                        }}
+                      >
+                        <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
+                      </button>
+                    )}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const canUploadInNewMode = projectFormMode === 'new';
+                    const canUploadInEditMode =
+                      projectFormMode === 'edit' &&
+                      !isProjectViewOnly &&
+                      canEditMasterData;
+                    if (!canUploadInNewMode && !canUploadInEditMode) return;
+                    document.getElementById('projectNewPictureInput')?.click();
+                  }}
+                  className={`block w-full ${projectForm.projectPicture ? 'rounded-[10px] border border-[#DEDEDE] bg-[#FAFAFA] p-[6px] shadow-[0_1px_2px_rgba(0,0,0,0.06)]' : ''}`}
+                >
+                  <div className={`${projectForm.projectPicture ? 'relative flex h-[196px] w-full flex-col items-center justify-center gap-[4px] overflow-hidden rounded-[8px] border-[2px] border-[#CFCFCF] bg-[#E8E8E8] shadow-[inset_0_3px_10px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.65)]' : 'relative flex h-[196px] w-full items-center justify-center'}`}>
+                    {projectForm.projectPicture ? (
+                      <img src={projectForm.projectPicture} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-transparent transition-colors">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                          <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="#E4572E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M5 16.5V18C5 19.1 5.9 20 7 20H17C18.1 20 19 19.1 19 18V16.5" stroke="#E4572E" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                        <p className="mt-[4px] text-[14px] font-medium text-[#E4572E]">Click to Upload</p>
+                      </div>
+                    )}
+                  </div>
+                </button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="projectNewPictureInput"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const result = typeof reader.result === 'string' ? reader.result : '';
+                      setProjectPictureDraft(result);
+                      setProjectForm((s) => ({ ...s, projectPicture: result }));
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            )
             : null}
 
           {renderProjectAccordion(
             'project-details',
             'Project Details',
-            <div className="space-y-[10px]">
+            <div className="space-y-[6px]">
               <div className="relative">
                 {renderInput({
                   label: 'Project Name',
@@ -4962,7 +5236,7 @@ const MasterData = ({ user, onLogout }) => {
           {renderProjectAccordion(
             'client-details',
             'Client Details',
-            <div className="space-y-[10px]">
+            <div className="space-y-[6px]">
               <div className="grid grid-cols-2 gap-[12px]">
                 {renderInput({
                   label: 'Client Name',
@@ -5057,6 +5331,13 @@ const MasterData = ({ user, onLogout }) => {
                 projectFormMode === 'edit'
                   ? isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
                   : false,
+              onOpenBranchModal: () =>
+                openAccountDetailsBranchModal(
+                  setProjectForm,
+                  'accountBranch',
+                  projectForm.accountBranch,
+                  isProjectViewOnly
+                ),
               copyPrefix: 'm-project'
             })
           )}
@@ -5064,7 +5345,7 @@ const MasterData = ({ user, onLogout }) => {
           {renderProjectAccordion(
             'project-information',
             'Project Information',
-            <div className="space-y-[8px] ">
+            <div className="space-y-[6px] ">
               <div className="mt-[8px] flex items-center gap-[10px]">
                 <div className="relative flex-1">
                   <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -5138,9 +5419,8 @@ const MasterData = ({ user, onLogout }) => {
                         </div>
 
                         <div
-                          className={`relative z-[1] rounded-[12px] border border-[#E8E8E8] bg-white px-[16px] pr-[20px] py-[10px] transition-transform duration-200 ${
-                            canSwipeProjectInfoCard && swipedProjectId === cardId ? '-translate-x-[110px]' : 'translate-x-0'
-                          }`}
+                          className={`relative z-[1] rounded-[12px] border border-[#E8E8E8] bg-white px-[16px] pr-[20px] py-[10px] transition-transform duration-200 ${canSwipeProjectInfoCard && swipedProjectId === cardId ? '-translate-x-[110px]' : 'translate-x-0'
+                            }`}
                         >
                           <div className="space-y-[2px] text-[11px] font-semibold leading-[1.35] text-[#111111]">
                             <div className="flex items-center justify-between gap-[10px]">
@@ -5285,7 +5565,7 @@ const MasterData = ({ user, onLogout }) => {
             <div
               className={
                 projectFormMode === 'edit' &&
-                (isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+                  (isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
                   ? '[&_input]:bg-[#EDEDED]'
                   : ''
               }
@@ -5753,9 +6033,8 @@ const MasterData = ({ user, onLogout }) => {
                 </div>
 
                 <div
-                  className={`grid grid-cols-[28px_minmax(0,1fr)] items-center bg-white px-[14px] py-[10px] transition-transform duration-200 ${
-                    swipedProjectId === `${sectionKey}-${value}-${index}` ? '-translate-x-[70px]' : 'translate-x-0'
-                  }`}
+                  className={`grid grid-cols-[28px_minmax(0,1fr)] items-center bg-white px-[14px] py-[10px] transition-transform duration-200 ${swipedProjectId === `${sectionKey}-${value}-${index}` ? '-translate-x-[70px]' : 'translate-x-0'
+                    }`}
                 >
                   <span className="text-[13px] font-medium text-black text-left">{index + 1}</span>
                   <span className="text-[13px] font-medium text-black text-left">{value}</span>
@@ -5844,396 +6123,236 @@ const MasterData = ({ user, onLogout }) => {
         className="flex flex-col overflow-hidden"
         style={{ height: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))' }}
       >
-      <div className="shrink-0 px-[2px] pt-[8px]">
-        <div className="flex items-center gap-[10px]">
-          <div className="relative flex-1">
-            <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
+        <div className="shrink-0 px-[2px] pt-[8px]">
+          <div className="flex items-center gap-[10px]">
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="8" cy="8" r="5.75" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M12.5 12.5L15.75 15.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={itemSearch}
+                onChange={(event) => setItemSearch(event.target.value)}
+                placeholder="Search"
+                className="h-[36px] w-full rounded-full border border-[#D2D2D2] bg-white pl-[38px] pr-[14px] text-[14px] text-black outline-none placeholder:text-[#8F8F8F]"
+              />
+            </div>
+            <button
+              type="button"
+              className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-black text-white"
+              aria-label="Add"
+              onClick={() => {
+                if (selectedItem === 'Vendor Name') {
+                  setVendorFormMode('new');
+                  setIsVendorViewOnly(false);
+                  setIsAddVendorViewOpen(true);
+                  setExpandedVendorSection('vendor-image');
+                  setVendorQrPreview('');
+                  setVendorQrFile(null);
+                  setVendorPictureFile(null);
+                  setVendorForm({
+                    vendorName: '',
+                    vendorCategory: '',
+                    vendorId: '',
+                    contactNumber: '',
+                    referenceName: '',
+                    branch: '',
+                    emailId: '',
+                    vendorAddress: '',
+                    latitudeLongitude: '',
+                    location: '',
+                    accountHolderName: '',
+                    qrCode: '',
+                    accountNumber: '',
+                    bankName: '',
+                    ifscCode: '',
+                    upiPhoneNumber: '',
+                    upiId: '',
+                    vendorPicture: ''
+                  });
+                } else if (selectedItem === 'Contractor Name' || selectedItem === 'Support Associate Name') {
+                  setContractorFormMode('new');
+                  setIsContractorViewOnly(false);
+                  setIsAddContractorViewOpen(true);
+                  setExpandedContractorSection('contractor-image');
+                  setContractorQrPreview('');
+                  setContractorQrFile(null);
+                  setContractorPictureDraft('');
+                  setContractorPictureFile(null);
+                  setContractorForm({
+                    contractorName: '',
+                    contractorCategory: '',
+                    contractorId: '',
+                    contractorNumber: '',
+                    referenceName: '',
+                    branch: '',
+                    emailId: '',
+                    contractorAddress: '',
+                    location: '',
+                    accountHolderName: '',
+                    qrCode: '',
+                    accountNumber: '',
+                    bankName: '',
+                    ifscCode: '',
+                    upiPhoneNumber: '',
+                    upiId: '',
+                    contractorProfileUrl: ''
+                  });
+                } else if (selectedItem === 'Categories') {
+                  setCategoryFormMode('new');
+                  setIsCategoryViewOnly(false);
+                  setIsAddCategoryViewOpen(true);
+                  setExpandedCategorySection('category-image');
+                  setCategoryForm({ categoryName: '' });
+                } else if (selectedItem === 'Machine tools') {
+                  setMachineFormMode('new');
+                  setIsMachineViewOnly(false);
+                  setIsAddMachineViewOpen(true);
+                  setExpandedMachineSection('machine-image');
+                  setMachineForm({ machineName: '' });
+                } else if (selectedItem === 'Employee Details') {
+                  setEmployeeFormMode('new');
+                  setIsEmployeeViewOnly(false);
+                  setIsAddEmployeeViewOpen(true);
+                  setExpandedEmployeeSection('employee-image');
+                  setIsEmployeeQrModalOpen(false);
+                  setEmployeeQrPreview('');
+                  setIsEmployeeAadhaarModalOpen(false);
+                  setEmployeeAadhaarFile(null);
+                  setEmployeeImage('');
+                  setEmployeeForm({
+                    employeeDbId: '',
+                    employeeName: '',
+                    employeeId: '',
+                    designation: '',
+                    userName: '',
+                    mobileNumber: '',
+                    emailId: '',
+                    employeeAddress: '',
+                    location: '',
+                    accountHolderName: '',
+                    qrCode: '',
+                    accountNumber: '',
+                    bankName: '',
+                    ifscCode: '',
+                    branch: '',
+                    upiPhoneNumber: '',
+                    upiId: '',
+                    aadhaarImageUrl: ''
+                  });
+                } else if (selectedItem === 'Account Details') {
+                  setAccountFormMode('new');
+                  setIsAccountViewOnly(false);
+                  setIsAddAccountViewOpen(true);
+                  setExpandedAccountSection('account-image');
+                  setIsAccountQrModalOpen(false);
+                  setAccountQrPreview('');
+                  setAccountForm({
+                    accountHolderName: '',
+                    accountNumber: '',
+                    bankName: '',
+                    ifscCode: '',
+                    branch: '',
+                    accountType: '',
+                    upiPhoneNumber: '',
+                    upiId: '',
+                    qrCode: ''
+                  });
+                } else if (selectedItem === 'Company Labour') {
+                  setLabourFormMode('new');
+                  setIsLabourViewOnly(false);
+                  setIsAddLabourViewOpen(true);
+                  setExpandedLabourSection('labour-image');
+                  setIsLabourQrModalOpen(false);
+                  setLabourQrPreview('');
+                  setLabourForm({
+                    labourName: '',
+                    labourCategory: '',
+                    labourId: '',
+                    labourNumber: '',
+                    referenceName: '',
+                    branch: '',
+                    labourAddress: '',
+                    location: '',
+                    wageType: '',
+                    labourSalary: '',
+                    accountHolderName: '',
+                    qrCode: '',
+                    accountNumber: '',
+                    bankName: '',
+                    ifscCode: '',
+                    accountBranch: '',
+                    upiPhoneNumber: '',
+                    upiId: ''
+                  });
+                }
+              }}
+            >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="8" cy="8" r="5.75" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M12.5 12.5L15.75 15.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M9 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M3 9H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
-            </span>
-            <input
-              type="text"
-              value={itemSearch}
-              onChange={(event) => setItemSearch(event.target.value)}
-              placeholder="Search"
-              className="h-[36px] w-full rounded-full border border-[#D2D2D2] bg-white pl-[38px] pr-[14px] text-[14px] text-black outline-none placeholder:text-[#8F8F8F]"
-            />
+            </button>
           </div>
-          <button
-            type="button"
-            className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-black text-white"
-            aria-label="Add"
-            onClick={() => {
-              if (selectedItem === 'Vendor Name') {
-                setVendorFormMode('new');
-                setIsVendorViewOnly(false);
-                setIsAddVendorViewOpen(true);
-                setExpandedVendorSection('vendor-image');
-                setVendorQrPreview('');
-                setVendorQrFile(null);
-                setVendorPictureFile(null);
-                setVendorForm({
-                  vendorName: '',
-                  vendorCategory: '',
-                  vendorId: '',
-                  contactNumber: '',
-                  referenceName: '',
-                  branch: '',
-                  emailId: '',
-                  vendorAddress: '',
-                  latitudeLongitude: '',
-                  location: '',
-                  accountHolderName: '',
-                  qrCode: '',
-                  accountNumber: '',
-                  bankName: '',
-                  ifscCode: '',
-                  upiPhoneNumber: '',
-                  upiId: '',
-                  vendorPicture: ''
-                });
-              } else if (selectedItem === 'Contractor Name' || selectedItem === 'Support Associate Name') {
-                setContractorFormMode('new');
-                setIsContractorViewOnly(false);
-                setIsAddContractorViewOpen(true);
-                setExpandedContractorSection('contractor-image');
-                setContractorQrPreview('');
-                setContractorQrFile(null);
-                setContractorPictureDraft('');
-                setContractorPictureFile(null);
-                setContractorForm({
-                  contractorName: '',
-                  contractorCategory: '',
-                  contractorId: '',
-                  contractorNumber: '',
-                  referenceName: '',
-                  branch: '',
-                  emailId: '',
-                  contractorAddress: '',
-                  location: '',
-                  accountHolderName: '',
-                  qrCode: '',
-                  accountNumber: '',
-                  bankName: '',
-                  ifscCode: '',
-                  upiPhoneNumber: '',
-                  upiId: '',
-                  contractorProfileUrl: ''
-                });
-              } else if (selectedItem === 'Categories') {
-                setCategoryFormMode('new');
-                setIsCategoryViewOnly(false);
-                setIsAddCategoryViewOpen(true);
-                setExpandedCategorySection('category-image');
-                setCategoryForm({ categoryName: '' });
-              } else if (selectedItem === 'Machine tools') {
-                setMachineFormMode('new');
-                setIsMachineViewOnly(false);
-                setIsAddMachineViewOpen(true);
-                setExpandedMachineSection('machine-image');
-                setMachineForm({ machineName: '' });
-              } else if (selectedItem === 'Employee Details') {
-                setEmployeeFormMode('new');
-                setIsEmployeeViewOnly(false);
-                setIsAddEmployeeViewOpen(true);
-                setExpandedEmployeeSection('employee-image');
-                setIsEmployeeQrModalOpen(false);
-                setEmployeeQrPreview('');
-                setIsEmployeeAadhaarModalOpen(false);
-                setEmployeeAadhaarFile(null);
-                setEmployeeForm({
-                  employeeName: '',
-                  employeeId: '',
-                  designation: '',
-                  userName: '',
-                  mobileNumber: '',
-                  emailId: '',
-                  employeeAddress: '',
-                  location: '',
-                  accountHolderName: '',
-                  qrCode: '',
-                  accountNumber: '',
-                  bankName: '',
-                  ifscCode: '',
-                  branch: '',
-                  upiPhoneNumber: '',
-                  upiId: ''
-                });
-              } else if (selectedItem === 'Account Details') {
-                setAccountFormMode('new');
-                setIsAccountViewOnly(false);
-                setIsAddAccountViewOpen(true);
-                setExpandedAccountSection('account-image');
-                setIsAccountQrModalOpen(false);
-                setAccountQrPreview('');
-                setAccountForm({
-                  accountHolderName: '',
-                  accountNumber: '',
-                  bankName: '',
-                  ifscCode: '',
-                  branch: '',
-                  accountType: '',
-                  upiPhoneNumber: '',
-                  upiId: '',
-                  qrCode: ''
-                });
-              } else if (selectedItem === 'Company Labour') {
-                setLabourFormMode('new');
-                setIsLabourViewOnly(false);
-                setIsAddLabourViewOpen(true);
-                setExpandedLabourSection('labour-image');
-                setIsLabourQrModalOpen(false);
-                setLabourQrPreview('');
-                setLabourForm({
-                  labourName: '',
-                  labourCategory: '',
-                  labourId: '',
-                  labourNumber: '',
-                  referenceName: '',
-                  branch: '',
-                  labourAddress: '',
-                  location: '',
-                  wageType: '',
-                  labourSalary: '',
-                  accountHolderName: '',
-                  qrCode: '',
-                  accountNumber: '',
-                  bankName: '',
-                  ifscCode: '',
-                  accountBranch: '',
-                  upiPhoneNumber: '',
-                  upiId: ''
-                });
-              }
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M9 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <path d="M3 9H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
         </div>
-      </div>
 
-      <div className="flex min-h-0 flex-1 items-start px-[2px] pt-[12px] pb-[4px]">
-        <div className="flex max-h-full w-full flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
-          <div className="h-[32px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px]">
-            <div className="flex items-center">
-              <span className="w-[28px]" />
-              <div className="flex items-center gap-[6px]">
-                <span className="text-[14px] font-semibold text-black">{selectedItem}</span>
-                <button
-                  type="button"
-                  aria-label="Toggle list order"
-                  className="flex h-[28px] w-[28px] shrink-0 items-center justify-center p-0"
-                  onClick={() => setMasterTableSortReversed((prev) => !prev)}
-                >
-                  <img src={masterTableSortReversed ? UpDownFilter : FilterUp} alt="" className="h-[16px] w-[16px]" />
-                </button>
+        <div className="flex min-h-0 flex-1 items-start px-[2px] pt-[12px] pb-[4px]">
+          <div className="flex max-h-full w-full flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
+            <div className="h-[32px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px]">
+              <div className="flex items-center">
+                <span className="w-[28px]" />
+                <div className="flex items-center gap-[6px]">
+                  <span className="text-[14px] font-semibold text-black">{selectedItem}</span>
+                  <button
+                    type="button"
+                    aria-label="Toggle list order"
+                    className="flex h-[28px] w-[28px] shrink-0 items-center justify-center p-0"
+                    onClick={() => setMasterTableSortReversed((prev) => !prev)}
+                  >
+                    <img src={masterTableSortReversed ? UpDownFilter : FilterUp} alt="" className="h-[16px] w-[16px]" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none no-scrollbar">
-            {isListLoading ? (
-              <div className="px-[16px] py-[24px] text-center text-[13px] text-[#7A7A7A]">
-                Loading...
-              </div>
-            ) : filteredList.length === 0 ? (
-              <div className="px-[16px] py-[24px] text-center text-[13px] text-[#7A7A7A]">
-                No data found
-              </div>
-            ) : (
-              displayedList.map((item, index) => {
-                const rowId = getListRowId(item, index);
-                const isSwiped = swipedProjectId === rowId;
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-none no-scrollbar">
+              {isListLoading ? (
+                <div className="px-[16px] py-[24px] text-center text-[13px] text-[#7A7A7A]">
+                  Loading...
+                </div>
+              ) : filteredList.length === 0 ? (
+                <div className="px-[16px] py-[24px] text-center text-[13px] text-[#7A7A7A]">
+                  No data found
+                </div>
+              ) : (
+                displayedList.map((item, index) => {
+                  const rowId = getListRowId(item, index);
+                  const isSwiped = swipedProjectId === rowId;
 
-                return (
-                  <div
-                    key={rowId}
-                    className="relative border-b border-[#EFEFEF] bg-white last:border-b-0 overflow-hidden select-none"
-                    style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
-                    onTouchStart={handleProjectTouchStart}
-                    onTouchEnd={(event) => handleProjectTouchEnd(event, rowId)}
-                    onMouseDown={handleProjectMouseDown}
-                    onMouseUp={(event) => handleProjectMouseUp(event, rowId)}
-                    onMouseLeave={(event) => handleProjectMouseUp(event, rowId)}
-                  >
-                    <div className="absolute inset-y-0 right-[6px] flex items-center gap-[4px]">
-                      <button
-                        type="button"
-                        className="flex h-[36px] w-[30px] items-center justify-center rounded-[2px] bg-[#0B7A45] text-white"
-                        aria-label="Edit"
-                        onClick={() => {
-                          if (selectedItem === 'Vendor Name') {
-                            const next = normalizeVendorForForm(item);
-                            setVendorFormMode('edit');
-                            setIsVendorViewOnly(false);
-                            setVendorForm(next);
-                            setVendorQrPreview(next.qrCode || '');
-                            setVendorQrFile(null);
-                            setVendorPictureFile(null);
-                            setExpandedVendorSection(hasImageFile(next.vendorPicture) ? 'vendor-image' : 'vendor-details');
-                            setIsAddVendorViewOpen(true);
-                            return;
-                          }
-
-                          if (selectedItem === 'Contractor Name' || selectedItem === 'Support Associate Name') {
-                            const next = normalizeContractorForForm(item);
-                            setContractorFormMode('edit');
-                            setIsContractorViewOnly(false);
-                            setContractorForm(next);
-                            setContractorQrPreview(next.qrCode || '');
-                            setContractorQrFile(null);
-                            setContractorPictureDraft(next.contractorProfileUrl || '');
-                            setContractorPictureFile(null);
-                            setExpandedContractorSection(hasImageFile(next.contractorProfileUrl) ? 'contractor-image' : 'contractor-details');
-                            setIsAddContractorViewOpen(true);
-                            return;
-                          }
-
-                          if (selectedItem === 'Categories') {
-                            const next = normalizeCategoryForForm(item);
-                            const nextCategoryImage = pickImageValue(
-                              item?.categoryImage,
-                              item?.category_image,
-                              item?.image,
-                              item?.imageUrl,
-                              item?.image_url,
-                              item?.categoryProfileUrl,
-                              item?.category_profile_url
-                            );
-                            setCategoryFormMode('edit');
-                            setIsCategoryViewOnly(false);
-                            setCategoryForm(next);
-                            setCategoryImage(nextCategoryImage);
-                            setExpandedCategorySection(hasImageFile(nextCategoryImage) ? 'category-image' : 'category-details');
-                            setIsAddCategoryViewOpen(true);
-                            return;
-                          }
-
-                          if (selectedItem === 'Machine tools') {
-                            const next = normalizeMachineForForm(item);
-                            const nextMachineImage = pickImageValue(
-                              item?.machineImage,
-                              item?.machine_image,
-                              item?.image,
-                              item?.imageUrl,
-                              item?.image_url,
-                              item?.machineProfileUrl,
-                              item?.machine_profile_url
-                            );
-                            setMachineFormMode('edit');
-                            setIsMachineViewOnly(false);
-                            setMachineForm(next);
-                            setMachineImage(nextMachineImage);
-                            setExpandedMachineSection(hasImageFile(nextMachineImage) ? 'machine-image' : 'machine-details');
-                            setIsAddMachineViewOpen(true);
-                            return;
-                          }
-
-                          if (selectedItem === 'Employee Details') {
-                            const next = normalizeEmployeeForForm(item);
-                            const nextEmployeeImage = pickImageValue(
-                              item?.employeeImage,
-                              item?.employee_image,
-                              item?.employeeProfileUrl,
-                              item?.employee_profile_url,
-                              item?.profileUrl,
-                              item?.profile_url,
-                              item?.image,
-                              item?.imageUrl,
-                              item?.image_url
-                            );
-                            setEmployeeFormMode('edit');
-                            setIsEmployeeViewOnly(false);
-                            setEmployeeForm(next);
-                            setEmployeeQrPreview(next.qrCode || '');
-                            setIsEmployeeAadhaarModalOpen(false);
-                            setEmployeeAadhaarFile(null);
-                            setEmployeeImage(nextEmployeeImage);
-                            setExpandedEmployeeSection(hasImageFile(nextEmployeeImage) ? 'employee-image' : 'employee-details');
-                            setIsAddEmployeeViewOpen(true);
-                            return;
-                          }
-
-                          if (selectedItem === 'Account Details') {
-                            const next = normalizeAccountForForm(item);
-                            const nextAccountImage = pickImageValue(
-                              item?.accountImage,
-                              item?.account_image,
-                              item?.accountProfileUrl,
-                              item?.account_profile_url,
-                              item?.profileUrl,
-                              item?.profile_url,
-                              item?.image,
-                              item?.imageUrl,
-                              item?.image_url
-                            );
-                            setAccountFormMode('edit');
-                            setIsAccountViewOnly(false);
-                            setAccountForm(next);
-                            setAccountQrPreview(next.qrCode || '');
-                            setAccountImage(nextAccountImage);
-                            setExpandedAccountSection(hasImageFile(nextAccountImage) ? 'account-image' : 'account-details');
-                            setIsAddAccountViewOpen(true);
-                            return;
-                          }
-
-                          if (selectedItem === 'Company Labour') {
-                            const next = normalizeLabourForForm(item);
-                            const nextLabourImage = pickImageValue(
-                              item?.labourImage,
-                              item?.labour_image,
-                              item?.labourProfileUrl,
-                              item?.labour_profile_url,
-                              item?.profileUrl,
-                              item?.profile_url,
-                              item?.image,
-                              item?.imageUrl,
-                              item?.image_url
-                            );
-                            setLabourFormMode('edit');
-                            setIsLabourViewOnly(false);
-                            setLabourForm(next);
-                            setLabourQrPreview(next.qrCode || '');
-                            setLabourImage(nextLabourImage);
-                            setExpandedLabourSection(hasImageFile(nextLabourImage) ? 'labour-image' : 'labour-details');
-                            setIsAddLabourViewOpen(true);
-                          }
-                        }}
-                      >
-                        <img src={editIcon} alt="Edit" className="w-[18px] h-[18px]" />
-                      </button>
-                      <button
-                        type="button"
-                        className="flex h-[36px] w-[30px] items-center justify-center rounded-[2px] bg-[#F26B3A] text-white"
-                        aria-label="Delete"
-                      >
-                        <img src={deleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
-                      </button>
-                    </div>
-
+                  return (
                     <div
-                      className={`grid grid-cols-[28px_minmax(0,1fr)_auto] items-center bg-white px-[14px] py-[10px] transition-transform duration-200 ${
-                        isSwiped ? '-translate-x-[70px]' : 'translate-x-0'
-                      }`}
+                      key={rowId}
+                      className="relative border-b border-[#EFEFEF] bg-white last:border-b-0 overflow-hidden select-none"
+                      style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
+                      onTouchStart={handleProjectTouchStart}
+                      onTouchEnd={(event) => handleProjectTouchEnd(event, rowId)}
+                      onMouseDown={handleProjectMouseDown}
+                      onMouseUp={(event) => handleProjectMouseUp(event, rowId)}
+                      onMouseLeave={(event) => handleProjectMouseUp(event, rowId)}
                     >
-                      <span className="text-[13px] font-medium text-black text-left">
-                        {listSerialNumberByRowId.get(getListRowId(item, index)) ?? index + 1}
-                      </span>
-                      <span className="pr-[8px] text-[13px] font-medium text-black text-left">
+                      <div className="absolute inset-y-0 right-[6px] flex items-center gap-[4px]">
                         <button
                           type="button"
-                          className="cursor-pointer text-left"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          className="flex h-[36px] w-[30px] items-center justify-center rounded-[2px] bg-[#0B7A45] text-white"
+                          aria-label="Edit"
+                          onClick={() => {
                             if (selectedItem === 'Vendor Name') {
                               const next = normalizeVendorForForm(item);
                               setVendorFormMode('edit');
-                              setIsVendorViewOnly(true);
+                              setIsVendorViewOnly(false);
                               setVendorForm(next);
                               setVendorQrPreview(next.qrCode || '');
                               setVendorQrFile(null);
@@ -6242,10 +6361,11 @@ const MasterData = ({ user, onLogout }) => {
                               setIsAddVendorViewOpen(true);
                               return;
                             }
+
                             if (selectedItem === 'Contractor Name' || selectedItem === 'Support Associate Name') {
                               const next = normalizeContractorForForm(item);
                               setContractorFormMode('edit');
-                              setIsContractorViewOnly(true);
+                              setIsContractorViewOnly(false);
                               setContractorForm(next);
                               setContractorQrPreview(next.qrCode || '');
                               setContractorQrFile(null);
@@ -6255,6 +6375,7 @@ const MasterData = ({ user, onLogout }) => {
                               setIsAddContractorViewOpen(true);
                               return;
                             }
+
                             if (selectedItem === 'Categories') {
                               const next = normalizeCategoryForForm(item);
                               const nextCategoryImage = pickImageValue(
@@ -6267,13 +6388,14 @@ const MasterData = ({ user, onLogout }) => {
                                 item?.category_profile_url
                               );
                               setCategoryFormMode('edit');
-                              setIsCategoryViewOnly(true);
+                              setIsCategoryViewOnly(false);
                               setCategoryForm(next);
                               setCategoryImage(nextCategoryImage);
                               setExpandedCategorySection(hasImageFile(nextCategoryImage) ? 'category-image' : 'category-details');
                               setIsAddCategoryViewOpen(true);
                               return;
                             }
+
                             if (selectedItem === 'Machine tools') {
                               const next = normalizeMachineForForm(item);
                               const nextMachineImage = pickImageValue(
@@ -6286,13 +6408,14 @@ const MasterData = ({ user, onLogout }) => {
                                 item?.machine_profile_url
                               );
                               setMachineFormMode('edit');
-                              setIsMachineViewOnly(true);
+                              setIsMachineViewOnly(false);
                               setMachineForm(next);
                               setMachineImage(nextMachineImage);
                               setExpandedMachineSection(hasImageFile(nextMachineImage) ? 'machine-image' : 'machine-details');
                               setIsAddMachineViewOpen(true);
                               return;
                             }
+
                             if (selectedItem === 'Employee Details') {
                               const next = normalizeEmployeeForForm(item);
                               const nextEmployeeImage = pickImageValue(
@@ -6307,7 +6430,7 @@ const MasterData = ({ user, onLogout }) => {
                                 item?.image_url
                               );
                               setEmployeeFormMode('edit');
-                              setIsEmployeeViewOnly(true);
+                              setIsEmployeeViewOnly(false);
                               setEmployeeForm(next);
                               setEmployeeQrPreview(next.qrCode || '');
                               setIsEmployeeAadhaarModalOpen(false);
@@ -6317,6 +6440,7 @@ const MasterData = ({ user, onLogout }) => {
                               setIsAddEmployeeViewOpen(true);
                               return;
                             }
+
                             if (selectedItem === 'Account Details') {
                               const next = normalizeAccountForForm(item);
                               const nextAccountImage = pickImageValue(
@@ -6331,7 +6455,7 @@ const MasterData = ({ user, onLogout }) => {
                                 item?.image_url
                               );
                               setAccountFormMode('edit');
-                              setIsAccountViewOnly(true);
+                              setIsAccountViewOnly(false);
                               setAccountForm(next);
                               setAccountQrPreview(next.qrCode || '');
                               setAccountImage(nextAccountImage);
@@ -6339,6 +6463,7 @@ const MasterData = ({ user, onLogout }) => {
                               setIsAddAccountViewOpen(true);
                               return;
                             }
+
                             if (selectedItem === 'Company Labour') {
                               const next = normalizeLabourForForm(item);
                               const nextLabourImage = pickImageValue(
@@ -6353,7 +6478,7 @@ const MasterData = ({ user, onLogout }) => {
                                 item?.image_url
                               );
                               setLabourFormMode('edit');
-                              setIsLabourViewOnly(true);
+                              setIsLabourViewOnly(false);
                               setLabourForm(next);
                               setLabourQrPreview(next.qrCode || '');
                               setLabourImage(nextLabourImage);
@@ -6362,44 +6487,200 @@ const MasterData = ({ user, onLogout }) => {
                             }
                           }}
                         >
-                          {getItemPrimaryText(item, selectedItem)}
+                          <img src={editIcon} alt="Edit" className="w-[18px] h-[18px]" />
                         </button>
-                      </span>
-                      {selectedItem === 'Account Details' ? (
                         <button
                           type="button"
-                          className="max-w-[120px] truncate text-[12px] font-medium text-[#2B2B2B]  underline-offset-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const next = normalizeAccountForForm(item);
-                            setAccountDetailsPreview({
-                              accountHolderName: next.accountHolderName || '',
-                              bankName: next.bankName || '',
-                              accountNumber: next.accountNumber || '',
-                              ifscCode: next.ifscCode || '',
-                              branchName: next.branch || next.accountBranch || '',
-                              contactNumber:
-                                item?.contactNumber ||
-                                item?.contact_number ||
-                                item?.mobileNumber ||
-                                item?.mobile_number ||
-                                '',
-                              contactEmail: item?.emailId || item?.email || item?.email_id || ''
-                            });
-                            setIsAccountDetailsPreviewOpen(true);
-                          }}
+                          className="flex h-[36px] w-[30px] items-center justify-center rounded-[2px] bg-[#F26B3A] text-white"
+                          aria-label="Delete"
                         >
-                          {item?.accountNumber || item?.account_number || '-'}
+                          <img src={deleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
                         </button>
-                      ) : null}
+                      </div>
+
+                      <div
+                        className={`grid grid-cols-[28px_minmax(0,1fr)_auto] items-center bg-white px-[14px] py-[10px] transition-transform duration-200 ${isSwiped ? '-translate-x-[70px]' : 'translate-x-0'
+                          }`}
+                      >
+                        <span className="text-[13px] font-medium text-black text-left">
+                          {listSerialNumberByRowId.get(getListRowId(item, index)) ?? index + 1}
+                        </span>
+                        <span className="pr-[8px] text-[13px] font-medium text-black text-left">
+                          <button
+                            type="button"
+                            className="cursor-pointer text-left"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (selectedItem === 'Vendor Name') {
+                                const next = normalizeVendorForForm(item);
+                                setVendorFormMode('edit');
+                                setIsVendorViewOnly(true);
+                                setVendorForm(next);
+                                setVendorQrPreview(next.qrCode || '');
+                                setVendorQrFile(null);
+                                setVendorPictureFile(null);
+                                setExpandedVendorSection(hasImageFile(next.vendorPicture) ? 'vendor-image' : 'vendor-details');
+                                setIsAddVendorViewOpen(true);
+                                return;
+                              }
+                              if (selectedItem === 'Contractor Name' || selectedItem === 'Support Associate Name') {
+                                const next = normalizeContractorForForm(item);
+                                setContractorFormMode('edit');
+                                setIsContractorViewOnly(true);
+                                setContractorForm(next);
+                                setContractorQrPreview(next.qrCode || '');
+                                setContractorQrFile(null);
+                                setContractorPictureDraft(next.contractorProfileUrl || '');
+                                setContractorPictureFile(null);
+                                setExpandedContractorSection(hasImageFile(next.contractorProfileUrl) ? 'contractor-image' : 'contractor-details');
+                                setIsAddContractorViewOpen(true);
+                                return;
+                              }
+                              if (selectedItem === 'Categories') {
+                                const next = normalizeCategoryForForm(item);
+                                const nextCategoryImage = pickImageValue(
+                                  item?.categoryImage,
+                                  item?.category_image,
+                                  item?.image,
+                                  item?.imageUrl,
+                                  item?.image_url,
+                                  item?.categoryProfileUrl,
+                                  item?.category_profile_url
+                                );
+                                setCategoryFormMode('edit');
+                                setIsCategoryViewOnly(true);
+                                setCategoryForm(next);
+                                setCategoryImage(nextCategoryImage);
+                                setExpandedCategorySection(hasImageFile(nextCategoryImage) ? 'category-image' : 'category-details');
+                                setIsAddCategoryViewOpen(true);
+                                return;
+                              }
+                              if (selectedItem === 'Machine tools') {
+                                const next = normalizeMachineForForm(item);
+                                const nextMachineImage = pickImageValue(
+                                  item?.machineImage,
+                                  item?.machine_image,
+                                  item?.image,
+                                  item?.imageUrl,
+                                  item?.image_url,
+                                  item?.machineProfileUrl,
+                                  item?.machine_profile_url
+                                );
+                                setMachineFormMode('edit');
+                                setIsMachineViewOnly(true);
+                                setMachineForm(next);
+                                setMachineImage(nextMachineImage);
+                                setExpandedMachineSection(hasImageFile(nextMachineImage) ? 'machine-image' : 'machine-details');
+                                setIsAddMachineViewOpen(true);
+                                return;
+                              }
+                              if (selectedItem === 'Employee Details') {
+                                const next = normalizeEmployeeForForm(item);
+                                const nextEmployeeImage = pickImageValue(
+                                  item?.employeeImage,
+                                  item?.employee_image,
+                                  item?.employeeProfileUrl,
+                                  item?.employee_profile_url,
+                                  item?.profileUrl,
+                                  item?.profile_url,
+                                  item?.image,
+                                  item?.imageUrl,
+                                  item?.image_url
+                                );
+                                setEmployeeFormMode('edit');
+                                setIsEmployeeViewOnly(true);
+                                setEmployeeForm(next);
+                                setEmployeeQrPreview(next.qrCode || '');
+                                setIsEmployeeAadhaarModalOpen(false);
+                                setEmployeeAadhaarFile(null);
+                                setEmployeeImage(nextEmployeeImage);
+                                setExpandedEmployeeSection(hasImageFile(nextEmployeeImage) ? 'employee-image' : 'employee-details');
+                                setIsAddEmployeeViewOpen(true);
+                                return;
+                              }
+                              if (selectedItem === 'Account Details') {
+                                const next = normalizeAccountForForm(item);
+                                const nextAccountImage = pickImageValue(
+                                  item?.accountImage,
+                                  item?.account_image,
+                                  item?.accountProfileUrl,
+                                  item?.account_profile_url,
+                                  item?.profileUrl,
+                                  item?.profile_url,
+                                  item?.image,
+                                  item?.imageUrl,
+                                  item?.image_url
+                                );
+                                setAccountFormMode('edit');
+                                setIsAccountViewOnly(true);
+                                setAccountForm(next);
+                                setAccountQrPreview(next.qrCode || '');
+                                setAccountImage(nextAccountImage);
+                                setExpandedAccountSection(hasImageFile(nextAccountImage) ? 'account-image' : 'account-details');
+                                setIsAddAccountViewOpen(true);
+                                return;
+                              }
+                              if (selectedItem === 'Company Labour') {
+                                const next = normalizeLabourForForm(item);
+                                const nextLabourImage = pickImageValue(
+                                  item?.labourImage,
+                                  item?.labour_image,
+                                  item?.labourProfileUrl,
+                                  item?.labour_profile_url,
+                                  item?.profileUrl,
+                                  item?.profile_url,
+                                  item?.image,
+                                  item?.imageUrl,
+                                  item?.image_url
+                                );
+                                setLabourFormMode('edit');
+                                setIsLabourViewOnly(true);
+                                setLabourForm(next);
+                                setLabourQrPreview(next.qrCode || '');
+                                setLabourImage(nextLabourImage);
+                                setExpandedLabourSection(hasImageFile(nextLabourImage) ? 'labour-image' : 'labour-details');
+                                setIsAddLabourViewOpen(true);
+                              }
+                            }}
+                          >
+                            {getItemPrimaryText(item, selectedItem)}
+                          </button>
+                        </span>
+                        {selectedItem === 'Account Details' ? (
+                          <button
+                            type="button"
+                            className="max-w-[120px] truncate text-[12px] font-medium text-[#2B2B2B]  underline-offset-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const next = normalizeAccountForForm(item);
+                              setAccountDetailsPreview({
+                                accountHolderName: next.accountHolderName || '',
+                                bankName: next.bankName || '',
+                                accountNumber: next.accountNumber || '',
+                                ifscCode: next.ifscCode || '',
+                                branchName: next.branch || next.accountBranch || '',
+                                contactNumber:
+                                  item?.contactNumber ||
+                                  item?.contact_number ||
+                                  item?.mobileNumber ||
+                                  item?.mobile_number ||
+                                  '',
+                                contactEmail: item?.emailId || item?.email || item?.email_id || ''
+                              });
+                              setIsAccountDetailsPreviewOpen(true);
+                            }}
+                          >
+                            {item?.accountNumber || item?.account_number || '-'}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     );
   };
@@ -6552,9 +6833,8 @@ const MasterData = ({ user, onLogout }) => {
                     </div>
 
                     <div
-                      className={`grid grid-cols-[28px_minmax(0,1fr)_auto] items-center bg-white px-[14px] py-[10px] transition-transform duration-200 ${
-                        isSwiped ? '-translate-x-[70px]' : 'translate-x-0'
-                      }`}
+                      className={`grid grid-cols-[28px_minmax(0,1fr)_auto] items-center bg-white px-[14px] py-[10px] transition-transform duration-200 ${isSwiped ? '-translate-x-[70px]' : 'translate-x-0'
+                        }`}
                     >
                       <span className="text-[13px] font-medium text-black text-left">
                         {getProjectSerialNumber(item, index)}
@@ -6583,13 +6863,12 @@ const MasterData = ({ user, onLogout }) => {
                         </button>
                       </span>
                       <span
-                        className={`text-[12px] font-medium text-left ${
-                          item.projectCategory === 'Client Project'
-                            ? 'text-[#C79B53]'
-                            : item.projectCategory === 'Own Project'
-                              ? 'text-[#111111]'
-                              : 'text-[#7A7A7A]'
-                        }`}
+                        className={`text-[12px] font-medium text-left ${item.projectCategory === 'Client Project'
+                          ? 'text-[#C79B53]'
+                          : item.projectCategory === 'Own Project'
+                            ? 'text-[#111111]'
+                            : 'text-[#7A7A7A]'
+                          }`}
                       >
                         {item.projectCategory === 'Client Project'
                           ? 'Client'
@@ -6609,6 +6888,63 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const updateActionTextClass = hasFormChanges ? 'text-black' : 'text-[#9A9A9A]';
+  const isHeaderActionDisabled = !hasFormChanges;
+  const getHeaderActionClass = (enabledClass = 'text-black', disabledClass = 'text-[#9A9A9A]') =>
+    hasFormChanges ? enabledClass : disabledClass;
+
+  const getActiveFormValidationMessage = () => {
+    const clean = (value) => String(value ?? '').trim();
+
+    if (selectedItem === 'Project Name' && isAddProjectViewOpen) {
+      if (!clean(projectForm.projectName)) return 'Project Name is mandatory.';
+      if (!clean(projectForm.projectCategory)) return 'Project Category is mandatory.';
+      return '';
+    }
+
+    if (selectedItem === 'Vendor Name' && isAddVendorViewOpen) {
+      return clean(vendorForm.vendorName) ? '' : 'Vendor Name is mandatory.';
+    }
+
+    if ((selectedItem === 'Contractor Name' || selectedItem === 'Support Associate Name') && isAddContractorViewOpen) {
+      return clean(contractorForm.contractorName)
+        ? ''
+        : `${selectedItem === 'Support Associate Name' ? 'Associate Name' : 'Contractor Name'} is mandatory.`;
+    }
+
+    if (selectedItem === 'Categories' && isAddCategoryViewOpen) {
+      return clean(categoryForm.categoryName) ? '' : 'Category Name is mandatory.';
+    }
+
+    if (selectedItem === 'Machine tools' && isAddMachineViewOpen) {
+      return clean(machineForm.machineName) ? '' : 'Machine Name is mandatory.';
+    }
+
+    if (selectedItem === 'Employee Details' && isAddEmployeeViewOpen) {
+      return clean(employeeForm.employeeName) ? '' : 'Employee Name is mandatory.';
+    }
+
+    if (selectedItem === 'Company Labour' && isAddLabourViewOpen) {
+      return clean(labourForm.labourName) ? '' : 'Labour Name is mandatory.';
+    }
+
+    if (selectedItem === 'Account Details' && isAddAccountViewOpen) {
+      return clean(accountForm.accountHolderName) ? '' : 'Account Holder Name is mandatory.';
+    }
+
+    if (selectedItem === 'Bank Details' && isBankNameFormOpen) {
+      return clean(bankNameForm.bankName) ? '' : 'Bank Name is mandatory.';
+    }
+
+    if (selectedItem === 'Bank Details' && isBankTypeFormOpen) {
+      return clean(bankTypeForm.accountType) ? '' : 'Account Type is mandatory.';
+    }
+
+    if (selectedItem === 'Bank Details' && isBankLocationFormOpen) {
+      return clean(bankLocationForm.branchName) ? '' : 'Branch Name is mandatory.';
+    }
+
+    return '';
+  };
 
   const addEditFormHeaderSubRow =
     selectedItem === 'Bank Details' && isBankNameFormOpen ? (
@@ -6635,8 +6971,13 @@ const MasterData = ({ user, onLogout }) => {
           <span className="px-[4px] shrink-0">&gt;</span>
           <span className="shrink-0 font-medium text-black">{bankNameFormMode === 'edit' ? 'Edit' : 'New'}</span>
         </div>
-        <button type="button" onClick={handleHeaderSubmit} className="shrink-0 text-[12px] font-medium text-black">
-          Update
+        <button
+          type="button"
+          onClick={handleHeaderSubmit}
+          disabled={isHeaderActionDisabled}
+          className={`shrink-0 text-[12px] font-medium ${bankNameFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass()}`}
+        >
+          {bankNameFormMode === 'edit' ? 'Update' : 'Submit'}
         </button>
       </>
     ) : selectedItem === 'Bank Details' && isBankTypeFormOpen ? (
@@ -6663,8 +7004,13 @@ const MasterData = ({ user, onLogout }) => {
           <span className="px-[4px] shrink-0">&gt;</span>
           <span className="shrink-0 font-medium text-black">{bankTypeFormMode === 'edit' ? 'Edit' : 'New'}</span>
         </div>
-        <button type="button" onClick={handleHeaderSubmit} className="shrink-0 text-[12px] font-medium text-black">
-          Update
+        <button
+          type="button"
+          onClick={handleHeaderSubmit}
+          disabled={isHeaderActionDisabled}
+          className={`shrink-0 text-[12px] font-medium ${bankTypeFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass()}`}
+        >
+          {bankTypeFormMode === 'edit' ? 'Update' : 'Submit'}
         </button>
       </>
     ) : selectedItem === 'Bank Details' && isBankLocationFormOpen ? (
@@ -6691,8 +7037,13 @@ const MasterData = ({ user, onLogout }) => {
           <span className="px-[4px] shrink-0">&gt;</span>
           <span className="shrink-0 font-medium text-black">{bankLocationFormMode === 'edit' ? 'Edit' : 'New'}</span>
         </div>
-        <button type="button" className="shrink-0 text-[12px] font-medium text-black">
-          Save
+        <button
+          type="button"
+          onClick={handleHeaderSubmit}
+          disabled={isHeaderActionDisabled}
+          className={`shrink-0 text-[12px] font-medium ${bankLocationFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass()}`}
+        >
+          {bankLocationFormMode === 'edit' ? 'Update' : 'Submit'}
         </button>
       </>
     ) : selectedItem === 'Project Name' && isAddProjectViewOpen ? (
@@ -6745,7 +7096,8 @@ const MasterData = ({ user, onLogout }) => {
           <button
             type="button"
             onClick={handleHeaderSubmit}
-            className={`shrink-0 text-[12px] font-medium ${projectFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+            disabled={isHeaderActionDisabled}
+            className={`shrink-0 text-[12px] font-medium ${projectFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass()}`}
           >
             {projectFormMode === 'edit' ? 'Update' : 'Submit'}
           </button>
@@ -6792,9 +7144,10 @@ const MasterData = ({ user, onLogout }) => {
           <button
             type="button"
             onClick={handleHeaderSubmit}
-            className={`shrink-0 text-[12px] font-medium ${vendorFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+            disabled={isHeaderActionDisabled}
+            className={`shrink-0 text-[12px] font-medium ${vendorFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass()}`}
           >
-            {vendorFormMode === 'edit' ? 'Update' : 'Save'}
+            {vendorFormMode === 'edit' ? 'Update' : 'Submit'}
           </button>
         )}
       </>
@@ -6839,9 +7192,10 @@ const MasterData = ({ user, onLogout }) => {
           <button
             type="button"
             onClick={handleHeaderSubmit}
-            className={`shrink-0 text-[12px] font-medium ${contractorFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+            disabled={isHeaderActionDisabled}
+            className={`shrink-0 text-[12px] font-medium ${contractorFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass()}`}
           >
-            {contractorFormMode === 'edit' ? 'Update' : 'Save'}
+            {contractorFormMode === 'edit' ? 'Update' : 'Submit'}
           </button>
         )}
       </>
@@ -6882,9 +7236,10 @@ const MasterData = ({ user, onLogout }) => {
           <button
             type="button"
             onClick={handleHeaderSubmit}
-            className={`shrink-0 text-[12px] font-medium ${categoryFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+            disabled={isHeaderActionDisabled}
+            className={`shrink-0 text-[12px] font-medium ${categoryFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass()}`}
           >
-            {categoryFormMode === 'edit' ? 'Update' : 'Add'}
+            {categoryFormMode === 'edit' ? 'Update' : 'Submit'}
           </button>
         )}
       </>
@@ -6929,6 +7284,7 @@ const MasterData = ({ user, onLogout }) => {
           <button
             type="button"
             onClick={handleHeaderSubmit}
+            disabled={isHeaderActionDisabled}
             className={`shrink-0 text-[12px] font-medium ${updateActionTextClass}`}
           >
             Update
@@ -6959,7 +7315,7 @@ const MasterData = ({ user, onLogout }) => {
         </div>
         {employeeFormMode === 'edit' && isEmployeeViewOnly ? (
           <div className="shrink-0 inline-flex items-center gap-[8px]">
-            <button type="button" className={`text-[12px] font-medium ${updateActionTextClass}`}>Update</button>
+            <button type="button" onClick={handleHeaderSubmit} className={`text-[12px] font-medium ${updateActionTextClass}`}>Update</button>
             {canEditMasterData && (
               <button type="button" aria-label="Edit" className="inline-flex items-center justify-center p-[2px]" onClick={() => setIsEmployeeViewOnly(false)}>
                 <img src={editblack} alt="" className="h-[14px] w-[14px] object-contain" />
@@ -6969,7 +7325,9 @@ const MasterData = ({ user, onLogout }) => {
         ) : (
           <button
             type="button"
-            className={`shrink-0 text-[12px] font-medium ${employeeFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+            onClick={handleHeaderSubmit}
+            disabled={isHeaderActionDisabled}
+            className={`shrink-0 text-[12px] font-medium ${employeeFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass()}`}
           >
             {employeeFormMode === 'edit' ? 'Update' : 'Submit'}
           </button>
@@ -7009,7 +7367,8 @@ const MasterData = ({ user, onLogout }) => {
         ) : (
           <button
             type="button"
-            className={`shrink-0 text-[12px] font-medium ${accountFormMode === 'edit' ? updateActionTextClass : 'text-black'}`}
+            disabled={isHeaderActionDisabled}
+            className={`shrink-0 text-[12px] font-medium ${accountFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass()}`}
           >
             {accountFormMode === 'edit' ? 'Update' : 'Submit'}
           </button>
@@ -7055,7 +7414,8 @@ const MasterData = ({ user, onLogout }) => {
         ) : (
           <button
             type="button"
-            className={`shrink-0 text-[12px] font-medium ${labourFormMode === 'edit' ? updateActionTextClass : 'text-[#F26B3A]'}`}
+            disabled={isHeaderActionDisabled}
+            className={`shrink-0 text-[12px] font-medium ${labourFormMode === 'edit' ? updateActionTextClass : getHeaderActionClass('text-[#F26B3A]')}`}
             aria-label={labourFormMode === 'edit' ? 'Update labour' : 'Submit labour'}
           >
             {labourFormMode === 'edit' ? 'Update' : 'Submit'}
@@ -7205,6 +7565,23 @@ const MasterData = ({ user, onLogout }) => {
         selectedValue=""
         options={accountBankNameOptions}
         fieldName="Bank Name"
+        showStarIcon={false}
+      />
+
+      <SelectVendorModal
+        isOpen={isAccountDetailsBranchModalOpen}
+        onClose={() => setIsAccountDetailsBranchModalOpen(false)}
+        onSelect={(value) => {
+          const { setForm, branchKey, selectionReadOnly } = accountDetailsBranchModalRef.current;
+          if (typeof setForm === 'function' && !selectionReadOnly) {
+            setHasFormChanges(true);
+            setForm((s) => ({ ...s, [branchKey]: value || '' }));
+          }
+          setIsAccountDetailsBranchModalOpen(false);
+        }}
+        selectedValue={accountDetailsBranchModalSelected}
+        options={BRANCH_OPTIONS}
+        fieldName="Branch"
         showStarIcon={false}
       />
 
