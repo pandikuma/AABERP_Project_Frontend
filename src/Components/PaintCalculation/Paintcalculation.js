@@ -7587,8 +7587,11 @@ const DesignTool = () => {
             const summaryPdf = await generateSummaryPDF();
             const uploadPdf = async (pdf, name) => {
                 const singleFormData = new FormData();
+                // backend expects: files (plural), folder (required), fileName (optional prefix)
                 singleFormData.append("files", pdf, name);
-                const pdfUploadResponse = await fetch(`https://backendaab.in/aabuilderDash/googleUploader/paintPdfs`, {
+                singleFormData.append("folder", "FileUpload / Paint_Calculation");
+                singleFormData.append("fileName", name);
+                const pdfUploadResponse = await fetch(`https://backendaab.in/aabuildersDash/api/files/upload`, {
                     method: "POST",
                     body: singleFormData,
                 });

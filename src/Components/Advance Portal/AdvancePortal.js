@@ -56,7 +56,28 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
     { value: 'Net Banking', label: 'Net Banking' },
     { value: 'Cheque', label: 'Cheque' }
   ];
-  const finalPaymentModeOptions = paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+  const [backendPaymentModeOptions, setBackendPaymentModeOptions] = useState([]);
+  const finalPaymentModeOptions = backendPaymentModeOptions.length > 0 ? backendPaymentModeOptions : paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+
+  useEffect(() => {
+    const fetchPaymentModes = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/payment_mode/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          const options = Array.isArray(data)
+            ? data
+              .filter(mode => mode.modeOfPayment)
+              .map(mode => ({ value: mode.modeOfPayment, label: mode.modeOfPayment }))
+            : [];
+          setBackendPaymentModeOptions(options);
+        }
+      } catch (error) {
+        console.error('Error fetching payment modes:', error);
+      }
+    };
+    fetchPaymentModes();
+  }, []);
 
   const [selectedType, setSelectedType] = useState('Advance')
   const [selectedOption, setSelectedOption] = useState(null);
@@ -83,6 +104,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
   const [selectedAdvanceFile, setSelectedAdvanceFile] = useState(null);
   const fileInputRef = useRef(null);
   const [billAmount, setBillAmount] = useState('');
+  const [discountAmount, setDiscountAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Expenses Entry Form states
   const [eno, setEno] = useState(null);
@@ -113,6 +135,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
     // Keep selectedOption/selectedSite available for popup prefill flows.
     sessionStorage.removeItem('advanceAmount');
     sessionStorage.removeItem('billAmount');
+    sessionStorage.removeItem('discountAmount');
     sessionStorage.removeItem('paymentMode');
     sessionStorage.removeItem('description');
     sessionStorage.removeItem('transferSiteId');
@@ -122,26 +145,48 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
       try { await onSuccess(); } catch { }
     }
   };
+  const putWeeklyExpenseBillCopyUrl = async (weeklyExpenseId, url) => {
+    if (weeklyExpenseId == null || url == null || String(url).trim() === '') return false;
+    const res = await fetch(
+      `https://backendaab.in/aabuildersDash/api/weekly-expenses/${weeklyExpenseId}/bill-copy-url`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(url),
+      }
+    );
+    return res.ok;
+  };
   useEffect(() => {
     const savedselectedType = sessionStorage.getItem('selectedType');
     const savedContractorVendor = sessionStorage.getItem('selectedOption');
     const savedProjectName = sessionStorage.getItem('selectedSite');
     const savedoverallAdvance = sessionStorage.getItem('overallAdvance');
     const savedbillAmount = sessionStorage.getItem('billAmount');
+    const saveddiscountAmount = sessionStorage.getItem('discountAmount');
     const savedadvanceAmount = sessionStorage.getItem('advanceAmount');
     const savedtransferSiteId = sessionStorage.getItem('transferSiteId');
     const savedpaymentMode = sessionStorage.getItem('paymentMode');
     const saveddescription = sessionStorage.getItem('description');
+    const savedBillSettlementDate = sessionStorage.getItem('cashRegisterBillSettlementDate');
     try {
       if (savedselectedType) setSelectedType(JSON.parse(savedselectedType));
       if (savedContractorVendor) setSelectedOption(JSON.parse(savedContractorVendor));
       if (savedProjectName) setSelectedSite(JSON.parse(savedProjectName));
       if (savedoverallAdvance) setOverallAdvance(JSON.parse(savedoverallAdvance));
       if (savedbillAmount) setBillAmount(JSON.parse(savedbillAmount));
+      if (saveddiscountAmount) setDiscountAmount(JSON.parse(saveddiscountAmount));
       if (savedadvanceAmount) setAdvanceAmount(JSON.parse(savedadvanceAmount));
       if (savedtransferSiteId) setTransferSiteId(JSON.parse(savedtransferSiteId));
       if (savedpaymentMode) setPaymentMode(JSON.parse(savedpaymentMode));
       if (saveddescription) setDescription(JSON.parse(saveddescription));
+      if (savedBillSettlementDate) {
+        const d = JSON.parse(savedBillSettlementDate);
+        if (d) {
+          setDateValue(d);
+          setPaymentModalData((prev) => ({ ...prev, date: d }));
+        }
+      }
     } catch (error) {
       console.error("Error parsing sessionStorage data:", error);
     }
@@ -156,6 +201,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
     sessionStorage.removeItem('selectedSite');
     sessionStorage.removeItem('overallAdvance');
     sessionStorage.removeItem('billAmount');
+    sessionStorage.removeItem('discountAmount');
     sessionStorage.removeItem('advanceAmount');
     sessionStorage.removeItem('transferSiteId');
     sessionStorage.removeItem('paymentMode');
@@ -183,6 +229,12 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
       sessionStorage.removeItem('billAmount');
     }
 
+    if (discountAmount !== null && discountAmount !== undefined && String(discountAmount).trim() !== '') {
+      sessionStorage.setItem('discountAmount', JSON.stringify(discountAmount));
+    } else {
+      sessionStorage.removeItem('discountAmount');
+    }
+
     if (advanceAmount !== null && advanceAmount !== undefined && String(advanceAmount).trim() !== '') {
       sessionStorage.setItem('advanceAmount', JSON.stringify(advanceAmount));
     } else {
@@ -206,7 +258,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
     } else {
       sessionStorage.removeItem('description');
     }
-  }, [selectedType, selectedOption, selectedSite, overallAdvance, billAmount, advanceAmount, transferSiteId, paymentMode, description]);
+  }, [selectedType, selectedOption, selectedSite, overallAdvance, billAmount, discountAmount, advanceAmount, transferSiteId, paymentMode, description]);
   const formatWithCommas = (value) => {
     if (value === '' || value === null || value === undefined) return "";
     const numericValue = typeof value === 'number' ? value : Number(value);
@@ -219,6 +271,12 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
     const rawValue = e.target.value.replace(/,/g, "");
     if (!isNaN(rawValue)) {
       setAdvanceAmount(rawValue);
+    }
+  };
+  const handleDiscountChange = (e) => {
+    const rawValue = e.target.value.replace(/,/g, "");
+    if (!isNaN(rawValue)) {
+      setDiscountAmount(rawValue);
     }
   };
   const handleProjectChange = (selected) => {
@@ -881,6 +939,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
             ? parseFloat(advanceAmount) || 0
             : 0,
         bill_amount: selectedType === 'Bill Settlement' ? parseFloat(billAmount) || 0 : 0,
+        discount_amount: selectedType === 'Bill Settlement' ? parseFloat(discountAmount) || 0 : 0,
         refund_amount: selectedType === 'Refund' ? parseFloat(advanceAmount) || 0 : 0,
         entry_no: nextEntryNo,
         week_no: getWeekNumber(),
@@ -991,6 +1050,18 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
         if (!advanceSaveResponse.ok) {
           throw new Error('Failed to save advance portal data');
         }
+        // If opened from Weekly Cash Register Bill Settlement row, update that row with uploaded bill URL
+        if (selectedType === 'Bill Settlement' && fileUrl) {
+          try {
+            const raw = sessionStorage.getItem("advancePortalWeeklyExpenseIdForBillCopyUrl");
+            const wid = raw ? Number(JSON.parse(raw)) : null;
+            if (Number.isFinite(wid)) {
+              await putWeeklyExpenseBillCopyUrl(wid, fileUrl);
+            }
+          } catch {
+            // ignore
+          }
+        }
         // Also save to expenses form if Bill Settlement
         if (selectedType === 'Bill Settlement') {
           let vendor = '';
@@ -1002,7 +1073,6 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
           }
           const expensesPayload = {
             accountType: 'Bill Payments',
-            eno: eno,
             date: dateValue,
             siteName: selectedSite ? selectedSite.label : '',
             projectId: selectedSite ? selectedSite.id : null,
@@ -1044,6 +1114,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
       setDescription('');
       setPaymentMode('');
       setBillAmount('');
+      setDiscountAmount('');
       setSelectedAdvanceFile(null);
       setSelectedCategory(null);
       if (fileInputRef.current) {
@@ -1051,6 +1122,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
       }
       setEntryNo(nextEntryNo);
       clearTransientFormSessionState();
+      try { sessionStorage.removeItem("advancePortalWeeklyExpenseIdForBillCopyUrl"); } catch { }
       fetchAdvanceData();
       if (selectedOption) handleChange(selectedOption);
       if (selectedOption && selectedSite) calculateProjectAdvance(selectedOption, selectedSite);
@@ -1102,6 +1174,21 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
     setOverallAdvance(total);
   }, [advanceData, selectedOption]);
   useEffect(() => {
+    // Default date to today, but do NOT override Bill Settlement popup prefill
+    // (WeeklyPayment sets this in sessionStorage before opening embedded popup).
+    try {
+      const saved = sessionStorage.getItem('cashRegisterBillSettlementDate');
+      if (saved) {
+        const d = JSON.parse(saved);
+        if (d) {
+          setDateValue(d);
+          setPaymentModalData((prev) => ({ ...prev, date: d }));
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
     const today = new Date();
     const formatted = today.toISOString().split('T')[0];
     setDateValue(formatted);
@@ -1532,6 +1619,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
             ? parseFloat(paymentModalData.amount) || 0
             : 0,
         bill_amount: selectedType === 'Bill Settlement' ? parseFloat(billAmount) || 0 : 0,
+        discount_amount: selectedType === 'Bill Settlement' ? parseFloat(discountAmount) || 0 : 0,
         refund_amount: selectedType === 'Refund' ? parseFloat(paymentModalData.amount) || 0 : 0,
         entry_no: nextEntryNo,
         week_no: getWeekNumber(),
@@ -1544,6 +1632,18 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
       const { response: advanceResponse, data: advanceResult } = await saveAdvancePortalWithLogs(advancePayload, 'Advance Portal Payment Submit');
       if (!advanceResponse.ok) {
         throw new Error('Failed to save advance portal data');
+      }
+      // If opened from Weekly Cash Register Bill Settlement row, update that row with uploaded bill URL
+      if (selectedType === 'Bill Settlement' && fileUrl) {
+        try {
+          const raw = sessionStorage.getItem("advancePortalWeeklyExpenseIdForBillCopyUrl");
+          const wid = raw ? Number(JSON.parse(raw)) : null;
+          if (Number.isFinite(wid)) {
+            await putWeeklyExpenseBillCopyUrl(wid, fileUrl);
+          }
+        } catch {
+          // ignore
+        }
       }
       // Save to weekly payment bills only if payment mode is not "Direct"
       let isWeeklyPaymentBillSaved = false;
@@ -1559,6 +1659,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
           type: selectedType,
           bill_payment_mode: paymentModalData.paymentMode,
           amount: parseFloat(paymentModalData.amount),
+          discount_amount: selectedType === 'Bill Settlement' ? parseFloat(discountAmount) || 0 : 0,
           status: true,
           weekly_number: "",
           weekly_payment_expense_id: null,
@@ -1604,6 +1705,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
           contractorId: selectedOption?.type === 'Contractor' ? selectedOption.id : null,
           quantity: '',
           amount: parseInt(billAmount) || 0,
+          discount_amount: parseFloat(discountAmount) || 0,
           category: selectedCategory ? selectedCategory.label : '',
           comments: description,
           machineTools: '',
@@ -1640,6 +1742,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
       setDescription('');
       setPaymentMode('');
       setBillAmount('');
+      setDiscountAmount('');
       setSelectedAdvanceFile(null);
       setSelectedCategory(null);
       if (fileInputRef.current) {
@@ -1648,6 +1751,7 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
       setEntryNo(nextEntryNo);
       setShowPaymentModal(false);
       clearTransientFormSessionState();
+      try { sessionStorage.removeItem("advancePortalWeeklyExpenseIdForBillCopyUrl"); } catch { }
       fetchAdvanceData();
       if (selectedOption) handleChange(selectedOption);
       if (selectedOption && selectedSite) calculateProjectAdvance(selectedOption, selectedSite);
@@ -1889,65 +1993,81 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
                     </div>
                   )}
                   {selectedType === 'Bill Settlement' && (
-                    <div className='space-y-1'>
-                      <label className='font-semibold block text-sm sm:text-base'>Category<span className="text-red-500">*</span></label>
-                      <Select
-                        options={categoryOptions}
-                        value={selectedCategory}
-                        onChange={setSelectedCategory}
-                        styles={customStyles}
-                        isClearable
-                        isSearchable
-                        placeholder="Select a category..."
-                        className='w-full rounded-lg focus:outline-none'
-                      />
+                    <div className="col-span-1 sm:col-span-2">
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="space-y-1 flex-1">
+                          <label className='font-semibold block text-sm sm:text-base'>Category<span className="text-red-500">*</span></label>
+                          <Select
+                            options={categoryOptions}
+                            value={selectedCategory}
+                            onChange={setSelectedCategory}
+                            styles={customStyles}
+                            isClearable
+                            isSearchable
+                            placeholder="Select a category..."
+                            className='w-full rounded-lg focus:outline-none'
+                          />
+                        </div>
+                        <div className="space-y-1 flex-1">
+                          <label className='font-semibold block text-sm sm:text-base'>Discount</label>
+                          <input
+                            value={formatWithCommas(discountAmount)}
+                            onChange={handleDiscountChange}
+                            className='w-full h-[45px] no-spinner border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
-                  <div className='space-y-1'>
-                    <label className='font-semibold block text-sm sm:text-base'>
-                      {selectedType === 'Transfer'
-                        ? 'Transfer Amount'
-                        : selectedType === 'Refund'
-                          ? 'Refund Amount'
-                          : 'Amount Given'}<span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      value={formatWithCommas(advanceAmount)}
-                      onChange={handleAmountChange}
-                      className='w-full h-[45px] no-spinner border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
-                    />
-                  </div>
-                  <div className='space-y-1'>
-                    {selectedType === 'Transfer' ? (
-                      <>
-                        <label className='font-semibold block text-sm sm:text-base'>Project Name</label>
-                        <Select
-                          options={sortedSiteOptions}
-                          placeholder="Select a site..."
-                          isSearchable
-                          value={sortedSiteOptions.find(option => option.id === parseInt(transferSiteId)) || null}
-                          onChange={(selected) => setTransferSiteId(selected ? selected.id : '')}
-                          styles={customStyles}
-                          isClearable
-                          menuPortalTarget={document.body}
-                          className='w-full rounded-lg focus:outline-none'
+                  <div className="col-span-1 sm:col-span-2">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="space-y-1 flex-1">
+                        <label className='font-semibold block text-sm sm:text-base'>
+                          {selectedType === 'Transfer'
+                            ? 'Transfer Amount'
+                            : selectedType === 'Refund'
+                              ? 'Refund Amount'
+                              : 'Amount Given'}<span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          value={formatWithCommas(advanceAmount)}
+                          onChange={handleAmountChange}
+                          className='w-full h-[45px] no-spinner border-2 border-[#BF9853] border-opacity-30 px-2 py-1 rounded-lg focus:outline-none text-sm'
                         />
-                      </>
-                    ) : (
-                      <>
-                        <label className='font-semibold block text-sm sm:text-base'>Payment Mode</label>
-                        <Select
-                          options={finalPaymentModeOptions}
-                          value={paymentMode ? { value: paymentMode, label: paymentMode } : null}
-                          onChange={(selected) => setPaymentMode(selected ? selected.value : '')}
-                          placeholder="Select"
-                          isSearchable
-                          isClearable
-                          styles={customStyles}
-                          className='w-full rounded-lg focus:outline-none'
-                        />
-                      </>
-                    )}
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        {selectedType === 'Transfer' ? (
+                          <>
+                            <label className='font-semibold block text-sm sm:text-base'>Project Name</label>
+                            <Select
+                              options={sortedSiteOptions}
+                              placeholder="Select a site..."
+                              isSearchable
+                              value={sortedSiteOptions.find(option => option.id === parseInt(transferSiteId)) || null}
+                              onChange={(selected) => setTransferSiteId(selected ? selected.id : '')}
+                              styles={customStyles}
+                              isClearable
+                              menuPortalTarget={document.body}
+                              className='w-full rounded-lg focus:outline-none'
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <label className='font-semibold block text-sm sm:text-base'>Payment Mode</label>
+                            <Select
+                              options={finalPaymentModeOptions}
+                              value={paymentMode ? { value: paymentMode, label: paymentMode } : null}
+                              onChange={(selected) => setPaymentMode(selected ? selected.value : '')}
+                              placeholder="Select"
+                              isSearchable
+                              isClearable
+                              styles={customStyles}
+                              className='w-full rounded-lg focus:outline-none'
+                            />
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div className='col-span-1 sm:col-span-2 space-y-1'>
                     <label className='font-semibold block text-sm sm:text-base'>Description</label>
@@ -2095,13 +2215,13 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
                               }
                               return (
                                 <tr key={index} className="border-t hover:bg-gray-50">
-                                  <td className="px-2 sm:px-4 lg:px-6 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">
+                                  <td className="px-2 sm:px-4 lg:px-6 py-2 text-xs sm:text-sm text-left font-semibold whitespace-nowrap">
                                     {new Date(date).toLocaleDateString('en-GB')}
                                   </td>
-                                  <td className="px-2 py-2 text-xs sm:text-sm text-right font-semibold whitespace-nowrap">
+                                  <td className="px-2 py-2 text-xs sm:text-sm text-center font-semibold whitespace-nowrap">
                                     {advanceAmount}
                                   </td>
-                                  <td className="px-2 py-2 text-xs sm:text-sm text-right font-semibold whitespace-nowrap">
+                                  <td className="px-2 py-2 text-xs sm:text-sm text-center font-semibold whitespace-nowrap">
                                     {billAmount}
                                   </td>
                                   <td className="px-2 py-2 text-xs sm:text-sm text-left font-semibold break-words min-w-[120px] sm:min-w-[200px]">
@@ -2554,18 +2674,30 @@ const AdvancePortal = ({ username, userRoles = [], paymentModeOptions = [], embe
                                 className="w-full h-[45px] border-2 border-[#BF9853] rounded-lg px-3 border-opacity-20"
                               />
                             </div>
-                            <div>
-                              <label className="text-sm font-semibold mb-1 block">Category</label>
-                              <Select
-                                options={categoryOptions}
-                                value={selectedCategory}
-                                onChange={setSelectedCategory}
-                                styles={customStyles}
-                                isClearable
-                                isSearchable
-                                placeholder="Select a category..."
-                                className="custom-select rounded-lg"
-                              />
+                            <div className="col-span-2">
+                              <div className="flex flex-col sm:flex-row gap-4">
+                                <div className="flex-1">
+                                  <label className="text-sm font-semibold mb-1 block">Category</label>
+                                  <Select
+                                    options={categoryOptions}
+                                    value={selectedCategory}
+                                    onChange={setSelectedCategory}
+                                    styles={customStyles}
+                                    isClearable
+                                    isSearchable
+                                    placeholder="Select a category..."
+                                    className="custom-select rounded-lg"
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-sm font-semibold mb-1 block">Discount</label>
+                                  <input
+                                    value={formatWithCommas(discountAmount)}
+                                    onChange={handleDiscountChange}
+                                    className="w-full h-[45px] border-2 border-[#BF9853] rounded-lg px-3 border-opacity-20"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </>
                         )}

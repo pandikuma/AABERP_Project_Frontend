@@ -7,7 +7,7 @@ import Reload from '../Images/rotate-right.png'
 import edit from '../Images/Edit.svg';
 import Attach from '../Images/Attachfile.svg';
 import cross from '../Images/cross.png';
-const AdvanceTableView = ({ username, userRoles = [] }) => {
+const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] }) => {
   const resolveActiveBranchId = useCallback(() => {
     try {
       const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -61,6 +61,36 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
   const normalizedUsername = (username || '').trim().toLowerCase();
   const isAdminUser = adminUsernames.some(name => name.toLowerCase() === normalizedUsername);
   const isAdmin = isAdminUser;
+  const defaultPaymentModeOptions = [
+    { value: 'Cash', label: 'Cash' },
+    { value: 'GPay', label: 'GPay' },
+    { value: 'PhonePe', label: 'PhonePe' },
+    { value: 'Net Banking', label: 'Net Banking' },
+    { value: 'Cheque', label: 'Cheque' },
+    { value: 'Direct', label: 'Direct' }
+  ];
+  const [backendPaymentModeOptions, setBackendPaymentModeOptions] = useState([]);
+  const finalPaymentModeOptions = backendPaymentModeOptions.length > 0 ? backendPaymentModeOptions : paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+
+  useEffect(() => {
+    const fetchPaymentModes = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/payment_mode/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          const options = Array.isArray(data)
+            ? data
+              .filter(mode => mode.modeOfPayment)
+              .map(mode => ({ value: mode.modeOfPayment, label: mode.modeOfPayment }))
+            : [];
+          setBackendPaymentModeOptions(options);
+        }
+      } catch (error) {
+        console.error('Error fetching payment modes:', error);
+      }
+    };
+    fetchPaymentModes();
+  }, []);
 
   useEffect(() => {
     const isPageRefresh = sessionStorage.getItem('advanceTableViewPageLoaded') === null;
@@ -1916,11 +1946,7 @@ const AdvanceTableView = ({ username, userRoles = [] }) => {
                             <div className=''>
                               <label className='block font-semibold mb-2'>Payment Mode</label>
                               <Select
-                                options={[
-                                  { value: 'Cash', label: 'Cash' },
-                                  { value: 'GPay', label: 'GPay' },
-                                  { value: 'Net Banking', label: 'Net Banking' }
-                                ]}
+                                options={finalPaymentModeOptions}
                                 value={editFormData.payment_mode ? { value: editFormData.payment_mode, label: editFormData.payment_mode } : null}
                                 onChange={(selected) => setEditFormData({ ...editFormData, payment_mode: selected ? selected.value : '' })}
                                 placeholder="Select"

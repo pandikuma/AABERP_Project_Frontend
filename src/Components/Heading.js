@@ -6,6 +6,7 @@ import Database from './ExpensesEntry/DatabaseExpenses';
 import ExpensesAddInput from './ExpensesEntry/ExpensesInputData';
 import EntryChecking from './ExpensesEntry/EntryCheck';
 import WeeklyPaymentHistory from './Cash Register/WeeklyPaymentHistory';
+import SingleDatePickerPage from './ExpensesEntry/SingleDatePickerPage';
 const Heading = ({ username, userRoles = [] }) => {
     const [activeTab, setActiveTab] = useState(() => {
         // Check if there's prefill data to navigate to expense-entry
@@ -40,6 +41,8 @@ const Heading = ({ username, userRoles = [] }) => {
                 return <EntryChecking userRoles={userRoles} />;
             case 'weeklyUploadHistory':
                 return <WeeklyPaymentHistory username={username} userRoles={userRoles} viewMode="expenses-entry-upload" />;
+            case 'datePicker':
+                return <SingleDatePickerPage />;
             default:
                 return <Form />;
         }

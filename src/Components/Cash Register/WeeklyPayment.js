@@ -602,7 +602,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     };
     // File upload functions — Bill rows open Expenses Entry (Bill Payments) like Utility Dashboard
     const handleFileUploadClick = (row) => {
-        if (row.type === 'Bill Payment') {
+        if (row.type === 'Bill Payment' || row.type === 'Claim') {
             const project = siteOptions.find((opt) => Number(opt.id) === Number(row.project_id));
             const resolvedSiteName = project?.label ?? '';
             const isSummaryBillProject = String(resolvedSiteName).trim() === "Summary Bill";
@@ -627,10 +627,12 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 (rawCid != null && !Number.isNaN(Number(rawCid)) ? getContractorName(Number(rawCid)) : "") ??
                 "";
             const prefill = {
-                accountType: 'Bill Payments',
+                accountType: row.type === 'Claim' ? 'Claim' : 'Bill Payments',
                 siteName,
                 amount: row.amount,
                 date: dateStr,
+                client_id: row.client_id ?? row.clientId ?? "",
+                client_name: row.client_name ?? row.clientName ?? "",
                 vendorId:
                     rawVid != null && String(rawVid).trim() !== '' && !Number.isNaN(Number(rawVid))
                         ? Number(rawVid)
@@ -722,6 +724,8 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 sessionStorage.removeItem("description");
                 // best-effort prefill for date (Advance Portal uses dateValue state; keep for future extension)
                 if (dateStr) sessionStorage.setItem("cashRegisterBillSettlementDate", JSON.stringify(dateStr));
+                // used by AdvancePortal popup to update this weekly expense row with uploaded bill URL
+                sessionStorage.setItem("advancePortalWeeklyExpenseIdForBillCopyUrl", JSON.stringify(row.id));
             } catch {
                 // ignore storage failures
             }
@@ -2956,7 +2960,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         };
         drawHeader(doc, "WEEKLY PAYMENT REPORT");
         const expensesHeaders = [["SNO", "Date", "Party", "Project Name", "Type", "Amount", "AC", "C", ""]];
-        const pdfFilteredExpenses = expenses.filter(row => row.type === "Bill Payment" || row.type === "Wage");
+        const pdfFilteredExpenses = expenses.filter(row => row.type === "Bill Payment" || row.type === "Wage" || row.type === "Bill Settlement");
         const expensesData = pdfFilteredExpenses.map((row, idx) => [
             String(idx + 1 || ""),
             String(row.date ? formatDateOnly(row.date) : ""),
@@ -3342,7 +3346,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             });
             newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
         }
-        const excludedTypes = ["Bill Payment", "Wage", "Project Advance", "Staff Advance", "Staff Salary", "Daily", "Diwali Bonus"];
+        const excludedTypes = ["Bill Payment", "Wage", "Project Advance", "Staff Advance", "Staff Salary", "Daily", "Diwali Bonus", "Bill Settlement"];
         const otherExpenseTypes = [...new Set(expenses.map(e => e.type).filter(type => type && !excludedTypes.includes(type)))];
         otherExpenseTypes.forEach((expenseType) => {
             const typeEntries = expenses.filter(e => e.type === expenseType);
@@ -4267,7 +4271,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                         ) : (
                                                             <div className="flex flex-col gap-1">
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className={row.type === "Claim" && !row.send_to_expenses_entry ? "text-red-500" : ""}>{row.type}</span>
+                                                                    <span>{row.type}</span>
                                                                     {row.type !== "Daily" && (
                                                                         <button
                                                                             onClick={() => {
@@ -5017,19 +5021,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                 </div>
                             </div>
                         )}
-                        <div className="flex justify-between items-center mt-6">
-                            {currentProjectAdvanceRow && currentProjectAdvanceRow.type === "Claim" && !currentProjectAdvanceRow.send_to_expenses_entry && (
-                                <button
-                                    onClick={() => {
-                                        setSelectedCategory(null);
-                                        setIsConfirmingCategory(false);
-                                        setShowCategoryPopup(true);
-                                    }}
-                                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                                >
-                                    Add To Expense Entry
-                                </button>
-                            )}
+                        <div className="flex justify-end items-center mt-6">
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => {

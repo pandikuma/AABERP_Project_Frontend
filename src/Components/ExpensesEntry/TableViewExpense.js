@@ -1663,27 +1663,20 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                             </button>
                             {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate) && (
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
-                                    {startDate && endDate ? (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                            <span className="font-normal">start date: </span>
-                                            <span className="font-bold">{startDate}</span>
-                                            <span className="font-normal">, end date: </span>
-                                            <span className="font-bold">{endDate}</span>
-                                            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    ) : startDate ? (
+                                    {startDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">Start Date: </span>
                                             <span className="font-bold">{startDate}</span>
                                             <button onClick={() => setStartDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
-                                    ) : endDate ? (
+                                    )}
+                                    {endDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">End Date: </span>
                                             <span className="font-bold">{endDate}</span>
                                             <button onClick={() => setEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
-                                    ) : null}
+                                    )}
                                     {selectedSiteName && (
                                         <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
                                             <span className="font-normal">Site Name: </span>

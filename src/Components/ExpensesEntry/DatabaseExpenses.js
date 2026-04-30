@@ -1466,7 +1466,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
 
                 {Object.keys(accountTypeSummary).length > 0 && (
                     <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg mb-4">
-                        <div className="flex flex-wrap gap-5 items-end">
+                        <div className="flex flex-wrap gap-5 items-end text-left">
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
                                 <div className="w-[168px]">
@@ -1518,9 +1518,9 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                     </div>
                 )}
                 {Object.keys(accountTypeSummary).length === 0 && (
-                    <div className="w-full max-w-[1860px] mx-auto p-4 bg-white text-left shadow-lg mb-4">
-                        <div className="flex flex-wrap gap-5 items-end text-left">
-                            <div className=''>
+                    <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg mb-4">
+                        <div className="flex flex-wrap gap-5 items-end">
+                            <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
                                 <div className="w-[168px]">
                                     <CustomDateField
@@ -1530,7 +1530,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     />
                                 </div>
                             </div>
-                            <div className=''>
+                            <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">End Date</label>
                                 <div className="w-[168px]">
                                     <CustomDateField
