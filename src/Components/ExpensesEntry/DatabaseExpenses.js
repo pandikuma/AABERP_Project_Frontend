@@ -15,10 +15,10 @@ import autoTable from "jspdf-autotable";
 import XL from '../Images/sheets.png'
 import Pdf from '../Images/pdf.png'
 Modal.setAppElement('#root');
-const TOOLS_API_BASE = 'https://backendaab.in/aabuildersDash';
+const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 
 const DatabaseExpenses = ({ username, userRoles = [] }) => {
-    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-telecom/getAll';
+    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
     const resolveActiveBranchId = useCallback(() => {
         try {
             const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -115,10 +115,33 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     const [sortDirection, setSortDirection] = useState('asc');
     const [userPermissions, setUserPermissions] = useState([]);
     const moduleName = "Expense Entry";
+    const defaultPaymentModeOptions = [
+        { modeOfPayment: 'Cash' },
+        { modeOfPayment: 'GPay' },
+        { modeOfPayment: 'PhonePe' },
+        { modeOfPayment: 'Net Banking' },
+        { modeOfPayment: 'Cheque' }
+    ];
+    const [paymentModeOptions, setPaymentModeOptions] = useState([]);
+    const finalPaymentModeOptions = paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+    useEffect(() => {
+        const fetchPaymentModes = async () => {
+            try {
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
+                if (response.ok) {
+                    const data = await response.json();
+                    setPaymentModeOptions(Array.isArray(data) ? data : []);
+                }
+            } catch (error) {
+                console.error('Error fetching payment modes:', error);
+            }
+        };
+        fetchPaymentModes();
+    }, []);
     useEffect(() => {
         const fetchUserRoles = async () => {
             try {
-                const response = await axios.get("https://backendaab.in/aabuilderDash/api/user_roles/all");
+                const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
                 const allRoles = response.data;
                 const userRoleNames = userRoles.map(r => r.roles);
                 const matchedRoles = allRoles.filter(role =>
@@ -277,7 +300,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountDetails = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setAccountDetails(data);
@@ -384,7 +407,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     const fetchProjectData = async (projectId) => {
         try {
             if (!projectId) return null;
-            const response = await fetch(`https://backendaab.in/aabuilderDash/api/projects/get/${projectId}`);
+            const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/get/${projectId}`);
             if (!response.ok) return null;
             const data = await response.json();
             setProjectData(data);
@@ -499,7 +522,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     }, [resolveActiveBranchId]);
     useEffect(() => {
         axios
-            .get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
+            .get('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
                 params: activeBranchId ? { branchId: activeBranchId } : {},
             })
             .then((response) => {
@@ -533,7 +556,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchSites = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -560,7 +583,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -587,7 +610,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchContractorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -614,7 +637,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -639,7 +662,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchMachinTools = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/machine_tools/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -724,7 +747,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountType = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/account_type/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/account_type/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -751,7 +774,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchLaboursList = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     const formattedData = data.map(item => ({
@@ -776,7 +799,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchEmployeeDetails = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/employee_details/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -804,7 +827,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchBranches = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/branch/getAll', {
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/branch/getAll', {
                     method: 'GET',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' }
@@ -1019,7 +1042,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 // ✅ CHANGE 3: optional filename
                 uploadFormData.append("fileName", finalName);
 
-                const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
+                const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
                     method: "POST",
                     body: uploadFormData,
                 });
@@ -1069,7 +1092,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         }
     };
     const performUpdateAndWeeklyBills = async (updatedFormData, modalPaymentData = null) => {
-        const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatedFormData)
@@ -1101,7 +1124,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                     transaction_number: (modalPaymentData && modalPaymentData.transactionNumber) || null,
                     account_number: (modalPaymentData && modalPaymentData.accountNumber) || null
                 };
-                const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
+                const weeklyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1315,7 +1338,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         if (window.confirm('Are you sure you want to delete this expense?')) {
             try {
                 const response = await fetch(
-                    `https://backendaab.in/aabuilderDash/expenses_form/delete/${id}?editedBy=${encodeURIComponent(username)}`,
+                    `https://backendaab.in/demoAabuilderDash/expenses_form/delete/${id}?editedBy=${encodeURIComponent(username)}`,
                     {
                         method: 'POST',
                     }
@@ -1337,7 +1360,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     };
     const fetchAuditDetails = async (expenseId) => {
         try {
-            const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/audit/${expenseId}`);
+            const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/audit/${expenseId}`);
             const data = await response.json();
             setAudits(data);
             setShowModal(true);
@@ -1469,21 +1492,21 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                         <div className="flex flex-wrap gap-5 items-end text-left">
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
-                                <div className="w-[168px]">
+                                <div className="w-[168px] placeholder:text-gray-400">
                                     <CustomDateField
                                         value={startDate}
                                         onChange={setStartDate}
-                                        placeholder="Start date"
+                                        placeholder="dd/mm/yyyy"
                                     />
                                 </div>
                             </div>
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">End Date</label>
-                                <div className="w-[168px]">
+                                <div className="w-[168px] placeholder:text-gray-400">
                                     <CustomDateField
                                         value={endDate}
                                         onChange={setEndDate}
-                                        placeholder="End date"
+                                        placeholder="dd/mm/yyyy"
                                     />
                                 </div>
                             </div>
@@ -1732,7 +1755,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     onClick={() => setShowDateRangePicker(true)}
                                                     className="w-full min-w-[140px] px-2 py-2 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200 hover:bg-[#FAF6ED] text-left flex items-center justify-between"
                                                 >
-                                                    <span className="text-gray-700 truncate">
+                                                    <span className="text-gray-400 text-[12px] font-semibold truncate">
                                                         {timestampStartDate ? (timestampEndDate ? `${timestampStartDate} – ${timestampEndDate}` : `From ${timestampStartDate}`) : 'Time stamp'}
                                                     </span>
                                                     <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -1754,7 +1777,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     <CustomDateField
                                                         value={selectedDate}
                                                         onChange={setSelectedDate}
-                                                        placeholder="Date"
+                                                        placeholder="dd/mm/yyyy"
+                                                        className="placeholder:text-gray-400"
                                                     />
                                                 </div>
                                             </th>
@@ -2247,10 +2271,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 onChange={handleChange}
                                                 className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none">
                                                 <option value="">Select Payment Mode</option>
-                                                <option value="GPay">GPay</option>
-                                                <option value="PhonePe">PhonePe</option>
-                                                <option value="Net Banking">Net Banking</option>
-                                                <option value="Cheque">Cheque</option>
+                                                {finalPaymentModeOptions.map(mode => (
+                                                    <option key={mode.id || mode.modeOfPayment} value={mode.modeOfPayment}>
+                                                        {mode.modeOfPayment}
+                                                    </option>
+                                                ))}
                                             </select>
                                         </div>
                                     )}

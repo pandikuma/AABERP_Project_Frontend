@@ -595,7 +595,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		if (purchaseOrdersAll.length > 0 || loadingPurchaseOrders) return purchaseOrdersAll;
 		setLoadingPurchaseOrders(true);
 		try {
-			const PURCHASE_ORDERS_URL = 'https://backendaab.in/aabuildersDash/api/purchase_orders/getAll';
+			const PURCHASE_ORDERS_URL = 'https://backendaab.in/demoAabuildersDash/api/purchase_orders/getAll';
 			const res = await fetchWithBranch(PURCHASE_ORDERS_URL, {
 					method: 'GET',
 					credentials: 'include',
@@ -624,7 +624,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			const billId = persisted?.id;
 			if (!billId) return;
 			const res = await fetchWithBranch(
-				`https://backendaab.in/aabuildersDash/api/vendor-payments/bill/${billId}/duplicate?duplicate=${checked ? 'true' : 'false'}`,
+				`https://backendaab.in/demoAabuildersDash/api/vendor-payments/bill/${billId}/duplicate?duplicate=${checked ? 'true' : 'false'}`,
 				{ method: 'PUT', headers: { 'Content-Type': 'application/json' } }
 			);
 			if (!res.ok) throw new Error('Failed to update duplicate');
@@ -686,14 +686,14 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				return payload;
 			});
 
-			const billRes = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
+			const billRes = await fetchWithBranch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(billsData)
 			});
 			if (!billRes.ok) throw new Error('Failed to update bill verifications');
 
-			const res = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/approve-request?requestApproved=true`, {
+			const res = await fetchWithBranch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/approve-request?requestApproved=true`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' }
 			});
@@ -715,7 +715,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				alert('Tracker ID not found');
 				return;
 			}
-			const res = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=false`, {
+			const res = await fetchWithBranch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=false`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' }
 			});
@@ -731,7 +731,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 	const reloadTrackers = async () => {
 		try {
-			const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers/pending', {
+			const res = await fetchWithBranch('https://backendaab.in/demoAabuildersDash/api/vendor-payments/trackers/pending', {
 				method: 'GET',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' }
@@ -998,7 +998,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 		setSubmittingVerify(true);
 		try {
-			const billRes = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
+			const billRes = await fetchWithBranch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(billsData)
@@ -1006,7 +1006,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			if (!billRes.ok) throw new Error('Failed to save bills');
 
 			if (sendRequest) {
-				const reqRes = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=true`, {
+				const reqRes = await fetchWithBranch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=true`, {
 					method: 'PUT',
 					headers: { 'Content-Type': 'application/json' }
 				});
@@ -1014,7 +1014,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				alert('Saved and request sent successfully!');
 			} else {
 				// Desktop: submit persists bills and clears request flag.
-				await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=false`, {
+				await fetchWithBranch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=false`, {
 					method: 'PUT',
 					headers: { 'Content-Type': 'application/json' }
 				});
@@ -1085,7 +1085,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				entered_date: toYyyyMmDd(billEntryForm.date),
 				branch_id: activeBranchId
 			};
-			const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/bill-entry/save', {
+			const res = await fetchWithBranch('https://backendaab.in/demoAabuildersDash/api/bill-entry/save', {
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' },
@@ -1099,7 +1099,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			// Refresh entry details + expense matching (same idea as desktop)
 			await reloadTrackers();
 			try {
-				const r = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/bill-entry/getAll', {
+				const r = await fetchWithBranch('https://backendaab.in/demoAabuildersDash/api/bill-entry/getAll', {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }
@@ -1157,7 +1157,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		setSubmittingVerify(true);
 		try {
 			const res = await fetchWithBranch(
-				`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${billId}/adjustment-amount?adjustmentAmount=${adjustmentAmount}`,
+				`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${billId}/adjustment-amount?adjustmentAmount=${adjustmentAmount}`,
 				{
 					method: 'PUT',
 					credentials: 'include',
@@ -1207,7 +1207,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const fetchSelectedVendorAccountDetails = async (vendorId) => {
 		try {
 			setLoadingVendorBankDetails(true);
-			const res = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+			const res = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
 				method: "GET",
 				credentials: "include",
 				headers: { "Content-Type": "application/json" }
@@ -1266,7 +1266,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	// Match desktop PendingBill.js fetchCarryForwardData: show AVAILABLE carry forward balance
 	const fetchCarryForwardData = async (vendorId) => {
 		try {
-			const res = await fetchWithBranch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/getAll", {
+			const res = await fetchWithBranch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/getAll", {
 				method: "GET",
 				credentials: "include",
 				headers: { "Content-Type": "application/json" }
@@ -1319,7 +1319,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			formData.append('files', file);
 			formData.append('folderName', 'FileUpload / Bill_Payments_Tracker ');
 			formData.append('file_name', fileName);
-			const uploadRes = await window.fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
+			const uploadRes = await window.fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
 				method: "POST",
 				body: formData
 			});
@@ -1330,7 +1330,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 			// Update tracker overall pdf url (desktop behavior)
 			const res = await fetchWithBranch(
-				`https://backendaab.in/aabuildersDash/api/vendor-payments/bills/${trackerId}/pdf-url?pdfUrl=${encodeURIComponent(pdfUrl)}`,
+				`https://backendaab.in/demoAabuildersDash/api/vendor-payments/bills/${trackerId}/pdf-url?pdfUrl=${encodeURIComponent(pdfUrl)}`,
 				{
 					method: "PUT",
 					credentials: "include",
@@ -1459,7 +1459,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				formData.append('files', paymentForm.file);
 				formData.append('folderName', 'FileUpload / Bill_Payments_Tracker ');
 				formData.append('file_name', finalName);
-				const uploadRes = await window.fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
+				const uploadRes = await window.fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
 					method: "POST",
 					body: formData
 				});
@@ -1489,7 +1489,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				bill_url: billUrl,
 				branch_id: activeBranchId
 			};
-			const res = await fetchWithBranch("https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/save", {
+			const res = await fetchWithBranch("https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/save", {
 				method: "POST",
 				credentials: "include",
 				headers: { "Content-Type": "application/json" },
@@ -1513,7 +1513,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 					branch_id: activeBranchId
 				};
 				try {
-					await fetchWithBranch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/save", {
+					await fetchWithBranch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/save", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify(cfConsumePayload)
@@ -1549,7 +1549,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 					branch_id: activeBranchId
 				};
 				try {
-					await fetchWithBranch("https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save", {
+					await fetchWithBranch("https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify(weeklyPaymentBillPayload)
@@ -1583,7 +1583,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 					branch_id: activeBranchId
 				};
 				try {
-					await fetchWithBranch("https://backendaab.in/aabuildersDash/api/weekly-expenses/save", {
+					await fetchWithBranch("https://backendaab.in/demoAabuildersDash/api/weekly-expenses/save", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify(weeklyExpensePayload)
@@ -1596,7 +1596,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			try {
 				const vendorIdForCf = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
 				if (vendorIdForCf != null) {
-					const cfRes = await fetchWithBranch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/getAll", {
+					const cfRes = await fetchWithBranch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/getAll", {
 						method: "GET",
 						credentials: "include",
 						headers: { "Content-Type": "application/json" }
@@ -1622,7 +1622,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			}
 			// Refresh bank details list after save
 			try {
-				const bankRes = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${trackerId}`, {
+				const bankRes = await fetchWithBranch(`https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/get/${trackerId}`, {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }
@@ -1671,7 +1671,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		if (vendorIdForCf != null) fetchCarryForwardData(vendorIdForCf);
 		else setCarryForwardAmount(0);
 		try {
-			const res = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${bill?.id}`, {
+			const res = await fetchWithBranch(`https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/get/${bill?.id}`, {
 				method: 'GET',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' }
@@ -1778,7 +1778,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				branch_id: activeBranchId
 			};
 			// Desktop endpoint: /tracker/{id}/update-details
-			const res = await fetchWithBranch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${editRow.id}/update-details`, {
+			const res = await fetchWithBranch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${editRow.id}/update-details`, {
 				method: 'PUT',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' },
@@ -1831,7 +1831,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				total_amount: amount,
 				branch_id: activeBranchId
 			};
-			const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/vendor-payments/tracker', {
+			const res = await fetchWithBranch('https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker', {
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' },
@@ -1937,7 +1937,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 		const fetchVendorNames = async () => {
 			try {
-				const res = await fetchWithBranch('https://backendaab.in/aabuilderDash/api/vendor_Names/getAll', {
+				const res = await fetchWithBranch('https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll', {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }
@@ -1966,7 +1966,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			setLoading(true);
 			setError(null);
 			try {
-				const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/vendor-payments/trackers/pending', {
+				const res = await fetchWithBranch('https://backendaab.in/demoAabuildersDash/api/vendor-payments/trackers/pending', {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }
@@ -1988,7 +1988,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 		const fetchAllBillEntries = async () => {
 			try {
-				const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/bill-entry/getAll', {
+				const res = await fetchWithBranch('https://backendaab.in/demoAabuildersDash/api/bill-entry/getAll', {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }
@@ -2003,7 +2003,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 		const fetchAccountDetails = async () => {
 			try {
-				const res = await fetchWithBranch('https://backendaab.in/aabuildersDash/api/account-details/getAll', {
+				const res = await fetchWithBranch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll', {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }
@@ -2018,7 +2018,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 		const fetchExpensesData = async () => {
 			try {
-				const res = await fetchWithBranch('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
+				const res = await fetchWithBranch('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
 					method: 'GET',
 					credentials: 'include',
 					headers: { 'Content-Type': 'application/json' }

@@ -96,7 +96,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
     // Fetch employee details
     const fetchEmployeeDetails = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+        const response = await fetch("https://backendaab.in/demoAabuildersDash/api/employee_details/getAll", {
           method: "GET",
           credentials: "include",
           headers: {
@@ -126,7 +126,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
   }, []);
   const fetchLaboursList = async () => {
     try {
-      const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/getAll');
       if (response.ok) {
         const data = await response.json();
         const formattedData = data.map(item => ({
@@ -174,7 +174,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
   useEffect(() => {
     const fetchPurposeOptions = async () => {
       try {
-        const response = await fetch("https://backendaab.in/aabuildersDash/api/purposes/getAll", {
+        const response = await fetch("https://backendaab.in/demoAabuildersDash/api/purposes/getAll", {
           method: "GET",
           headers: { "Content-Type": "application/json" }
         });
@@ -309,7 +309,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
   // Fetch all records and update table data state
   const fetchRecords = useCallback(async () => {
     try {
-      const res = await fetch('https://backendaab.in/aabuildersDash/api/staff-advance/all');
+      const res = await fetch('https://backendaab.in/demoAabuildersDash/api/staff-advance/all');
       if (!res.ok) {
         console.warn('Staff advance API not available, using empty data');
         setTableData([]);
@@ -600,7 +600,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
           formData.append('files', selectedFile);
           formData.append('folder', 'FileUpload / Staff_Advances');
           formData.append('fileName', finalName);          
-          const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
+          const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
             method: "POST",
             body: formData,
           });
@@ -617,7 +617,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
         }
       }
 
-      const resAll = await fetch('https://backendaab.in/aabuildersDash/api/staff-advance/all');
+      const resAll = await fetch('https://backendaab.in/demoAabuildersDash/api/staff-advance/all');
       let allData = [];
       if (resAll.ok) {
         allData = await resAll.json();
@@ -651,7 +651,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
         payload.to_purpose_id = null;
         payload.amount = dataToSubmit.selectedType === 'Advance' ? parseFloat(dataToSubmit.amountGivenInput) || 0 : 0;
       }
-      const saveRes = await fetch(withBranchUrl('https://backendaab.in/aabuildersDash/api/staff-advance/save'), {
+      const saveRes = await fetch(withBranchUrl('https://backendaab.in/demoAabuildersDash/api/staff-advance/save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -669,7 +669,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
       const staffAdvanceResult = await saveRes.json();
 
       // If payment details are provided and payment mode requires weekly payment bills
-      if (paymentDetails && ['GPay', 'PhonePe', 'Net Banking', 'Cheque'].includes(paymentDetails.paymentMode)) {
+      if (paymentDetails && ['GPay', 'Gpay', 'PhonePe', 'Net Banking', 'Cheque'].includes(paymentDetails.paymentMode)) {
         const weeklyPaymentBillPayload = {
           date: paymentDetails.date,
           created_at: new Date().toISOString(),
@@ -694,7 +694,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
         };
         try {
           const weeklyPaymentBillResponse = await axios.post(
-            withBranchUrl("https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save"),
+            withBranchUrl("https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save"),
             weeklyPaymentBillPayload,
             { headers: { "Content-Type": "application/json" } }
           );
@@ -1105,7 +1105,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
 
     // Check if payment mode requires popup
     if ((formData.selectedType === 'Advance' || formData.selectedType === 'Refund') &&
-      ['GPay', 'PhonePe', 'Net Banking', 'Cheque'].includes(formData.paymentMode)) {
+      ['GPay', 'Gpay', 'PhonePe', 'Net Banking', 'Cheque'].includes(formData.paymentMode)) {
       // Store form data and show payment popup
       setPendingFormData({ ...formData });
       setPaymentPopupData(prev => ({
@@ -1227,7 +1227,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
         updatePayload.to_purpose_id = editFormData.transferPurpose?.id;
         updatePayload.amount = editFormData.transferAmount;
       }
-      const res = await fetch(withBranchUrl(`https://backendaab.in/aabuildersDash/api/staff-advance/${editingId}`), {
+      const res = await fetch(withBranchUrl(`https://backendaab.in/demoAabuildersDash/api/staff-advance/${editingId}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatePayload)
@@ -1860,7 +1860,7 @@ const StaffAdvance = ({ username, userRoles = [], paymentModeOptions = [] }) => 
                     </div>
                   </div>
 
-                  {(paymentPopupData.paymentMode === "GPay" || paymentPopupData.paymentMode === "PhonePe" ||
+                  {(paymentPopupData.paymentMode === "GPay" || paymentPopupData.paymentMode === "Gpay" || paymentPopupData.paymentMode === "PhonePe" ||
                     paymentPopupData.paymentMode === "Net Banking" || paymentPopupData.paymentMode === "Cheque") && (
                       <div className="border-2 border-[#BF9853] border-opacity-25 rounded-lg p-4">
                         <div className="space-y-4">

@@ -29,7 +29,7 @@ export default function CustomDateField({
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
         className={[
-          "w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 bg-white px-3 pr-9 text-left text-sm text-gray-800 shadow-sm",
+          `w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 bg-white px-3 pr-9 text-left ${displayValue ? "text-sm text-gray-800" : "text-[12px] text-gray-400 font-semibold"} shadow-sm`,
           "hover:bg-[#FAF6ED] focus:outline-none focus:ring-2 focus:ring-[#BF9853]",
           disabled ? "opacity-70 cursor-not-allowed bg-gray-100 hover:bg-gray-100" : "cursor-pointer",
         ].join(" ")}

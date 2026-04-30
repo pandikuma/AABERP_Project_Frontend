@@ -6,7 +6,7 @@ import Database from './ExpensesEntry/DatabaseExpenses';
 import ExpensesAddInput from './ExpensesEntry/ExpensesInputData';
 import EntryChecking from './ExpensesEntry/EntryCheck';
 import WeeklyPaymentHistory from './Cash Register/WeeklyPaymentHistory';
-import SingleDatePickerPage from './ExpensesEntry/SingleDatePickerPage';
+import DailyHistory from './Cash Register/DailyHistory';
 const Heading = ({ username, userRoles = [] }) => {
     const [activeTab, setActiveTab] = useState(() => {
         // Check if there's prefill data to navigate to expense-entry
@@ -41,8 +41,8 @@ const Heading = ({ username, userRoles = [] }) => {
                 return <EntryChecking userRoles={userRoles} />;
             case 'weeklyUploadHistory':
                 return <WeeklyPaymentHistory username={username} userRoles={userRoles} viewMode="expenses-entry-upload" />;
-            case 'datePicker':
-                return <SingleDatePickerPage />;
+            case 'dailyUpload':
+                return <DailyHistory username={username} userRoles={userRoles} />;
             default:
                 return <Form />;
         }
@@ -50,7 +50,7 @@ const Heading = ({ username, userRoles = [] }) => {
     return (
         <div className="bg-[#FAF6ED]">
             {/* Top Navigation Tabs */}
-            <div className="topbar-title gap-4 w-[350px] sm:w-[580px] lg:w-[950px] overflow-x-auto no-scrollbar px-2 py-3">
+            <div className="topbar-title gap-[] w-[400px] sm:w-[580px] lg:w-[1050px] overflow-x-auto no-scrollbar py-3">
                 <h2 className={`link whitespace-nowrap ${activeTab === 'expense-entry' ? 'active' : ''}`}
                     onClick={() => setActiveTab('expense-entry')}>
                     Form
@@ -78,6 +78,10 @@ const Heading = ({ username, userRoles = [] }) => {
                 <h2 className={`link whitespace-nowrap ${activeTab === 'weeklyUploadHistory' ? 'active' : ''}`}
                     onClick={() => setActiveTab('weeklyUploadHistory')}>
                     Weekly Uploads
+                </h2>
+                <h2 className={`link whitespace-nowrap ${activeTab === 'dailyUpload' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('dailyUpload')}>
+                    Daily Upload
                 </h2>
             </div>
             {/* Dynamic Content Area */}

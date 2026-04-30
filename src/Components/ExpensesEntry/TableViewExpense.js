@@ -11,7 +11,7 @@ import XL from '../Images/sheets.png'
 import Pdf from '../Images/pdf.png'
 import CustomDateField from './CustomDateField';
 Modal.setAppElement('#root');
-const TOOLS_API_BASE = 'https://backendaab.in/aabuildersDash';
+const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 // Date Range Picker Component
 const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChange }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -20,6 +20,8 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
     const [tempEndDate, setTempEndDate] = useState(null);
     const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
     const datePickerRef = useRef(null);
+    const lastMonthWheelAt = useRef(0);
+    const lastYearWheelAt = useRef(0);
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
@@ -190,54 +192,145 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
             />
             {isOpen && (
                 <div className="absolute z-50 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-4" style={{ minWidth: '320px' }}>
-                    <div className="flex items-center justify-between mb-4">
-                        <button
-                            onClick={prevMonth}
-                            className="p-1 hover:bg-gray-100 rounded"
-                            type="button"
-                        >
-                            <span className="text-lg">‹</span>
-                        </button>
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                        {showMonthYearPicker ? (
+                            <div className="w-8" />
+                        ) : (
+                            <button
+                                onClick={prevMonth}
+                                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+                                type="button"
+                                aria-label="Previous month"
+                            >
+                                &lt;
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={() => setShowMonthYearPicker(!showMonthYearPicker)}
-                            className="font-semibold text-base px-2 py-1 rounded hover:bg-gray-100"
+                            className="h-8 px-3 rounded border border-gray-300 bg-gray-100 text-sm font-medium text-gray-800 hover:bg-gray-200 inline-flex items-center gap-2"
+                            aria-label="Choose month and year"
                         >
                             {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                            <span className="text-xs text-gray-700">{showMonthYearPicker ? "▴" : "▾"}</span>
                         </button>
-                        <button
-                            onClick={nextMonth}
-                            className="p-1 hover:bg-gray-100 rounded"
-                            type="button"
-                        >
-                            <span className="text-lg">›</span>
-                        </button>
+                        {showMonthYearPicker ? (
+                            <div className="w-8" />
+                        ) : (
+                            <button
+                                onClick={nextMonth}
+                                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+                                type="button"
+                                aria-label="Next month"
+                            >
+                                &gt;
+                            </button>
+                        )}
                     </div>
                     {showMonthYearPicker ? (
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="grid grid-cols-3 gap-1">
-                                {monthNames.map((month, index) => (
-                                    <button
-                                        key={month}
-                                        type="button"
-                                        onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), index, 1))}
-                                        className={`h-8 text-sm rounded ${currentMonth.getMonth() === index ? 'bg-black text-white' : 'hover:bg-gray-100 text-gray-800'}`}
-                                    >
-                                        {month.slice(0, 3)}
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="grid grid-cols-3 gap-1 max-h-[132px] overflow-y-auto">
-                                {years.map((year) => (
-                                    <button
-                                        key={year}
-                                        type="button"
-                                        onClick={() => setCurrentMonth(new Date(year, currentMonth.getMonth(), 1))}
-                                        className={`h-8 text-sm rounded ${currentMonth.getFullYear() === year ? 'bg-black text-white' : 'hover:bg-gray-100 text-gray-800'}`}
-                                    >
-                                        {year}
-                                    </button>
-                                ))}
+                        <div className="py-1">
+                            <div className="flex justify-center">
+                                <div className="grid grid-cols-2 gap-4 w-[260px]">
+                                    {/* Month wheel */}
+                                    <div className="flex flex-col items-center">
+                                        <button
+                                            type="button"
+                                            className="text-gray-600 hover:text-gray-900"
+                                            onClick={() => setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
+                                            aria-label="Previous month"
+                                        >
+                                            ^
+                                        </button>
+                                        <div
+                                            className="w-full mt-1"
+                                            onWheel={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                const now = Date.now();
+                                                if (now - lastMonthWheelAt.current < 120) return;
+                                                lastMonthWheelAt.current = now;
+                                                const dir = e.deltaY > 0 ? 1 : -1;
+                                                setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() + dir, 1));
+                                            }}
+                                        >
+                                            {[-2, -1, 0, 1, 2].map((offset) => {
+                                                const idx = (currentMonth.getMonth() + offset + 12) % 12;
+                                                const isActive = offset === 0;
+                                                return (
+                                                    <button
+                                                        key={`${idx}-${offset}`}
+                                                        type="button"
+                                                        onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), idx, 1))}
+                                                        className={[
+                                                            "w-full text-center px-2 py-1 rounded text-sm",
+                                                            isActive ? "bg-blue-600 text-white" : "text-gray-800 hover:bg-gray-50",
+                                                        ].join(" ")}
+                                                    >
+                                                        {monthNames[idx].slice(0, 3)}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="text-gray-600 hover:text-gray-900 mt-1"
+                                            onClick={() => setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
+                                            aria-label="Next month"
+                                        >
+                                            v
+                                        </button>
+                                    </div>
+
+                                    {/* Year wheel */}
+                                    <div className="flex flex-col items-center">
+                                        <button
+                                            type="button"
+                                            className="text-gray-600 hover:text-gray-900"
+                                            onClick={() => setCurrentMonth((d) => new Date(d.getFullYear() - 1, d.getMonth(), 1))}
+                                            aria-label="Previous year"
+                                        >
+                                            ^
+                                        </button>
+                                        <div
+                                            className="w-full mt-1"
+                                            onWheel={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                const now = Date.now();
+                                                if (now - lastYearWheelAt.current < 120) return;
+                                                lastYearWheelAt.current = now;
+                                                const dir = e.deltaY > 0 ? 1 : -1;
+                                                setCurrentMonth((d) => new Date(d.getFullYear() + dir, d.getMonth(), 1));
+                                            }}
+                                        >
+                                            {[-2, -1, 0, 1, 2].map((offset) => {
+                                                const y = currentMonth.getFullYear() + offset;
+                                                const isActive = offset === 0;
+                                                return (
+                                                    <button
+                                                        key={y}
+                                                        type="button"
+                                                        onClick={() => setCurrentMonth(new Date(y, currentMonth.getMonth(), 1))}
+                                                        className={[
+                                                            "w-full text-center px-2 py-1 rounded text-sm",
+                                                            isActive ? "bg-blue-600 text-white" : "text-gray-800 hover:bg-gray-50",
+                                                        ].join(" ")}
+                                                    >
+                                                        {y}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="text-gray-600 hover:text-gray-900 mt-1"
+                                            onClick={() => setCurrentMonth((d) => new Date(d.getFullYear() + 1, d.getMonth(), 1))}
+                                            aria-label="Next year"
+                                        >
+                                            v
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ) : (
@@ -308,7 +401,7 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
     );
 };
 const TableViewExpense = ({ username, userRoles = [] }) => {
-    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-telecom/getAll';
+    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
     const resolveActiveBranchId = useCallback(() => {
         try {
             const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -488,7 +581,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountDetails = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setAccountDetails(data);
@@ -539,7 +632,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     const fetchProjectData = async (projectId) => {
         try {
             if (!projectId) return null;
-            const response = await fetch(`https://backendaab.in/aabuilderDash/api/projects/get/${projectId}`);
+            const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/get/${projectId}`);
             if (!response.ok) return null;
             const data = await response.json();
             setProjectData(data);
@@ -650,10 +743,33 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     const pendingUpdateFormDataRef = useRef(null);
     const [userPermissions, setUserPermissions] = useState([]);
     const moduleName = "Expense Entry";
+    const defaultPaymentModeOptions = [
+        { modeOfPayment: 'Cash' },
+        { modeOfPayment: 'GPay' },
+        { modeOfPayment: 'PhonePe' },
+        { modeOfPayment: 'Net Banking' },
+        { modeOfPayment: 'Cheque' }
+    ];
+    const [paymentModeOptions, setPaymentModeOptions] = useState([]);
+    const finalPaymentModeOptions = paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+    useEffect(() => {
+        const fetchPaymentModes = async () => {
+            try {
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
+                if (response.ok) {
+                    const data = await response.json();
+                    setPaymentModeOptions(Array.isArray(data) ? data : []);
+                }
+            } catch (error) {
+                console.error('Error fetching payment modes:', error);
+            }
+        };
+        fetchPaymentModes();
+    }, []);
     useEffect(() => {
         const fetchUserRoles = async () => {
             try {
-                const response = await axios.get("https://backendaab.in/aabuilderDash/api/user_roles/all");
+                const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
                 const allRoles = response.data;
                 const userRoleNames = userRoles.map(r => r.roles);
                 const matchedRoles = allRoles.filter(role =>
@@ -686,7 +802,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     }, [resolveActiveBranchId]);
     useEffect(() => {
         axios
-            .get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
+            .get('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
                 params: activeBranchId ? { branchId: activeBranchId } : {},
             })
             .then((response) => {
@@ -721,7 +837,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchSites = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -748,7 +864,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -775,7 +891,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchContractorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -802,7 +918,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -827,7 +943,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchMachinTools = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/machine_tools/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -912,7 +1028,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchBranches = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/branch/getAll', {
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/branch/getAll', {
                     method: 'GET',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' }
@@ -930,7 +1046,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountType = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/account_type/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/account_type/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -957,7 +1073,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchLaboursList = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     const formattedData = data.map(item => ({
@@ -981,7 +1097,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchEmployeeDetails = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/employee_details/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -1202,7 +1318,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                 // ✅ CHANGE 3: optional filename
                 uploadFormData.append("fileName", finalName);
 
-                const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
+                const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
                     method: "POST",
                     body: uploadFormData,
                 });
@@ -1255,7 +1371,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         }
     };
     const performUpdateAndWeeklyBills = async (updatedFormData, modalPaymentData = null) => {
-        const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatedFormData)
@@ -1287,7 +1403,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                     transaction_number: (modalPaymentData && modalPaymentData.transactionNumber) || null,
                     account_number: (modalPaymentData && modalPaymentData.accountNumber) || null
                 };
-                const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
+                const weeklyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1663,20 +1779,27 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                             </button>
                             {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate) && (
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
-                                    {startDate && (
+                                    {startDate && endDate ? (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                            <span className="font-normal">Start Date: </span>
-                                            <span className="font-bold">{startDate}</span>
+                                            <span className="font-normal">Start date: </span>
+                                            <span className="font-bold">{startDate.split('-').reverse().join('-')}</span>
+                                            <span className="font-normal">, End date: </span>
+                                            <span className="font-bold">{endDate.split('-').reverse().join('-')}</span>
+                                            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        </span>
+                                    ) : startDate ? (
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
+                                            <span className="font-normal">Start date: </span>
+                                            <span className="font-bold">{startDate.split('-').reverse().join('-')}</span>
                                             <button onClick={() => setStartDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
-                                    )}
-                                    {endDate && (
+                                    ) : endDate ? (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                            <span className="font-normal">End Date: </span>
-                                            <span className="font-bold">{endDate}</span>
+                                            <span className="font-normal">End date: </span>
+                                            <span className="font-bold">{endDate.split('-').reverse().join('-')}</span>
                                             <button onClick={() => setEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
-                                    )}
+                                    ) : null}
                                     {selectedSiteName && (
                                         <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
                                             <span className="font-normal">Site Name: </span>
@@ -2291,10 +2414,11 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                 onChange={handleChange}
                                                 className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none">
                                                 <option value="">Select Payment Mode</option>
-                                                <option value="GPay">GPay</option>
-                                                <option value="PhonePe">PhonePe</option>
-                                                <option value="Net Banking">Net Banking</option>
-                                                <option value="Cheque">Cheque</option>
+                                                {finalPaymentModeOptions.map(mode => (
+                                                    <option key={mode.id || mode.modeOfPayment} value={mode.modeOfPayment}>
+                                                        {mode.modeOfPayment}
+                                                    </option>
+                                                ))}
                                             </select>
                                         </div>
                                     )}

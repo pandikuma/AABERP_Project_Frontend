@@ -4,7 +4,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 
 const BillStatement = ({ username, userRoles = [] }) => {
-  const API_BASE = 'https://backendaab.in/aabuildersDash/api';
+  const API_BASE = 'https://backendaab.in/demoAabuildersDash/api';
   const [apiData, setApiData] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -33,7 +33,7 @@ const BillStatement = ({ username, userRoles = [] }) => {
   // Fetch vendor names
   const fetchVendorNames = async () => {
     try {
-      const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+      const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
         method: "GET",
         credentials: "include",
         headers: {
