@@ -36,7 +36,7 @@ const StaffHeading = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchPaymentModes = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/payment_mode/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     const formattedOptions = data.map((mode) => ({

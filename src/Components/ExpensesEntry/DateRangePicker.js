@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     format,
     startOfMonth,
@@ -25,6 +25,7 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
     const panelRef = useRef(null);
     const lastMonthWheelAt = useRef(0);
     const lastYearWheelAt = useRef(0);
+    const today = useMemo(() => new Date(), []);
 
     useEffect(() => {
         if (isOpen) {
@@ -78,12 +79,6 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
     const handleClear = () => {
         setTempFrom(null);
         setTempTo(null);
-    };
-
-    const handleCancel = () => {
-        setTempFrom(startDate ? parseISO(startDate) : null);
-        setTempTo(endDate ? parseISO(endDate) : null);
-        onClose();
     };
 
     const handleDone = () => {
@@ -145,7 +140,7 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
         <Wrapper>
             <div ref={panelRef} className="bg-white rounded-lg shadow-xl p-3 w-[320px] border border-gray-200">
                 {/* Header: Month/Year with arrows */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between gap-2 mb-3">
                     {showMonthYearPicker ? (
                         <div className="w-8" />
                     ) : (
@@ -199,6 +194,7 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
                                         className="w-full mt-1"
                                         onWheel={(e) => {
                                             e.preventDefault();
+                                            e.stopPropagation();
                                             const now = Date.now();
                                             if (now - lastMonthWheelAt.current < 120) return;
                                             lastMonthWheelAt.current = now;
@@ -248,6 +244,7 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
                                         className="w-full mt-1"
                                         onWheel={(e) => {
                                             e.preventDefault();
+                                            e.stopPropagation();
                                             const now = Date.now();
                                             if (now - lastYearWheelAt.current < 120) return;
                                             lastYearWheelAt.current = now;
@@ -306,18 +303,20 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
                                     const inMonth = isSameMonth(d, viewDate);
                                     const inRange = isInRange(d);
                                     const selected = isSelected(d);
+                                    const isToday = isSameDay(d, today);
                                     return (
                                         <button
                                             key={d.toISOString()}
                                             type="button"
                                             onClick={() => handleDateClick(d)}
-                                            className={`
-                                                w-9 h-9 flex items-center justify-center text-sm rounded
-                                                ${!inMonth ? 'text-gray-300' : 'text-gray-800'}
-                                                ${inRange && !selected ? 'bg-gray-200' : ''}
-                                                ${selected ? 'bg-blue-600 text-white' : ''}
-                                                ${inMonth && !selected ? 'hover:bg-gray-100' : ''}
-                                            `}
+                                            className={[
+                                                'w-9 h-9 flex items-center justify-center text-sm rounded',
+                                                inMonth ? 'text-gray-900' : 'text-gray-300',
+                                                inRange && !selected ? 'bg-gray-200' : '',
+                                                selected ? 'bg-blue-600 text-white' : '',
+                                                !selected && inMonth ? 'hover:bg-gray-100' : '',
+                                                !selected && isToday ? 'ring-2 ring-blue-500 ring-inset' : '',
+                                            ].filter(Boolean).join(' ')}
                                         >
                                             {format(d, 'd')}
                                         </button>
@@ -328,32 +327,30 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
                     </>
                 )}
 
-                {/* Action buttons */}
-                <div className="flex justify-between mt-4 pt-3 border-t border-gray-200">
-                    <button
-                        type="button"
-                        onClick={handleClear}
-                        className="text-sm font-medium text-gray-600 hover:text-gray-800"
-                    >
-                        Clear
-                    </button>
-                    <div className="flex gap-4">
-                        <button
-                            type="button"
-                            onClick={handleCancel}
-                            className="text-sm font-medium text-gray-600 hover:text-gray-800"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleDone}
-                            className="text-sm font-medium text-gray-800 hover:text-black"
-                        >
-                            Done
-                        </button>
+                {/* Footer: match SingleDatePicker day view + range actions */}
+                {!showMonthYearPicker && (
+                    <div className="flex items-center justify-between mt-2 pt-2">
+                        <div className="text-xs text-gray-500">
+                            Today: <span className="font-medium text-gray-700">{format(today, 'dd-MM-yyyy')}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleClear}
+                                className="px-3 py-1.5 text-sm font-medium border border-gray-400 rounded hover:bg-gray-50"
+                            >
+                                Clear
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDone}
+                                className="px-3 py-1.5 text-sm font-medium border border-gray-400 rounded hover:bg-gray-50"
+                            >
+                                Done
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </Wrapper>
     );

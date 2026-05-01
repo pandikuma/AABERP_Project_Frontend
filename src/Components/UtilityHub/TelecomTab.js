@@ -7,11 +7,11 @@ import * as XLSX from 'xlsx';
 import edit from '../Images/Edit.svg';
 import ExpenseEntryForm from '../ExpensesEntry/Form';
 
-const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
-const PROJECTS_ENDPOINT = 'https://backendaab.in/demoAabuilderDash/api/projects/getAll';
-const TELECOM_EXPENSES_ENDPOINT = 'https://backendaab.in/demoAabuilderDash/expenses_form/utility/telecom';
-const FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-frequency/getAll';
-const SAVE_FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-frequency/save';
+const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-telecom/getAll';
+const PROJECTS_ENDPOINT = 'https://backendaab.in/aabuilderDash/api/projects/getAll';
+const TELECOM_EXPENSES_ENDPOINT = 'https://backendaab.in/aabuilderDash/expenses_form/utility/telecom';
+const FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-frequency/getAll';
+const SAVE_FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-frequency/save';
 
 const TelecomTab = ({ username, userRoles = [] }) => {
     const [filters, setFilters] = useState({

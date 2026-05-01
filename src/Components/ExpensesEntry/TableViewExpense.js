@@ -10,411 +10,12 @@ import autoTable from "jspdf-autotable";
 import XL from '../Images/sheets.png'
 import Pdf from '../Images/pdf.png'
 import CustomDateField from './CustomDateField';
+import { Calendar } from 'lucide-react';
+import DateRangePicker from './DateRangePicker';
 Modal.setAppElement('#root');
-const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
-// Date Range Picker Component
-const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChange }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [tempStartDate, setTempStartDate] = useState(null);
-    const [tempEndDate, setTempEndDate] = useState(null);
-    const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
-    const datePickerRef = useRef(null);
-    const popupRef = useRef(null);
-    const lastMonthWheelAt = useRef(0);
-    const lastYearWheelAt = useRef(0);
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
-                setIsOpen(false);
-            }
-        };
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [isOpen]);
-    const formatDate = (dateString) => {
-        if (!dateString) return '';
-        // If dateString is already in YYYY-MM-DD format, parse it directly
-        if (dateString.includes('-') && dateString.length === 10) {
-            const [year, month, day] = dateString.split('-');
-            return `${day}-${month}-${year}`;
-        }
-        // Otherwise, parse as Date object
-        const d = new Date(dateString);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}-${month}-${year}`;
-    };
-    const getDisplayText = () => {
-        if (startDate && endDate) {
-            return `${formatDate(startDate)} to ${formatDate(endDate)}`;
-        } else if (startDate) {
-            return `${formatDate(startDate)} to ...`;
-        }
-        return 'Select Date';
-    };
-    const getDaysInMonth = (date) => {
-        return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-    };
-    const getFirstDayOfMonth = (date) => {
-        return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-    };
-    const formatDateToString = (year, month, day) => {
-        const monthStr = String(month + 1).padStart(2, '0');
-        const dayStr = String(day).padStart(2, '0');
-        return `${year}-${monthStr}-${dayStr}`;
-    };
-    const handleDateClick = (day, isCurrentMonth) => {
-        if (!isCurrentMonth) return;
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth();
-        const dateString = formatDateToString(year, month, day);
-        if (!tempStartDate || (tempStartDate && tempEndDate)) {
-            setTempStartDate(dateString);
-            setTempEndDate(null);
-        } else if (tempStartDate && !tempEndDate) {
-            let finalStartDate = tempStartDate;
-            let finalEndDate = dateString;
-            if (dateString < tempStartDate) {
-                finalStartDate = dateString;
-                finalEndDate = tempStartDate;
-            }
-            setTempStartDate(finalStartDate);
-            setTempEndDate(finalEndDate);
-            // Auto-apply when both dates are selected
-            setTimeout(() => {
-                onStartDateChange(finalStartDate);
-                onEndDateChange(finalEndDate);
-                setIsOpen(false);
-            }, 0);
-        }
-    };
-    const handleDone = () => {
-        if (showMonthYearPicker) {
-            onStartDateChange(formatDateToString(currentMonth.getFullYear(), currentMonth.getMonth(), 1));
-            onEndDateChange(formatDateToString(currentMonth.getFullYear(), currentMonth.getMonth(), getDaysInMonth(currentMonth)));
-        } else if (tempStartDate) {
-            onStartDateChange(tempStartDate);
-            if (tempEndDate) {
-                onEndDateChange(tempEndDate);
-            } else {
-                onEndDateChange('');
-            }
-        }
-        setIsOpen(false);
-    };
-    const handleCancel = () => {
-        setTempStartDate(startDate || null);
-        setTempEndDate(endDate || null);
-        setIsOpen(false);
-    };
-    const handleClear = () => {
-        setTempStartDate(null);
-        setTempEndDate(null);
-        onStartDateChange('');
-        onEndDateChange('');
-        setIsOpen(false);
-    };
-    const prevMonth = () => {
-        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-    };
-    const nextMonth = () => {
-        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-    };
-    const isDateInRange = (day, isCurrentMonth) => {
-        if (!tempStartDate || !isCurrentMonth) return false;
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth();
-        const dateString = formatDateToString(year, month, day);
-        if (tempStartDate && tempEndDate) {
-            return dateString >= tempStartDate && dateString <= tempEndDate;
-        } else if (tempStartDate) {
-            return dateString === tempStartDate;
-        }
-        return false;
-    };
-    const isStartDate = (day, isCurrentMonth) => {
-        if (!tempStartDate || !isCurrentMonth) return false;
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth();
-        const dateString = formatDateToString(year, month, day);
-        return dateString === tempStartDate;
-    };
-    const isEndDate = (day, isCurrentMonth) => {
-        if (!tempEndDate || !isCurrentMonth) return false;
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth();
-        const dateString = formatDateToString(year, month, day);
-        return dateString === tempEndDate;
-    };
-    const daysInMonth = getDaysInMonth(currentMonth);
-    const firstDay = getFirstDayOfMonth(currentMonth);
-    const days = [];
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-    // Previous month's trailing days
-    const prevMonthDays = getDaysInMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-    for (let i = firstDay - 1; i >= 0; i--) {
-        days.push({ day: prevMonthDays - i, isCurrentMonth: false });
-    }
-    // Current month's days
-    for (let i = 1; i <= daysInMonth; i++) {
-        days.push({ day: i, isCurrentMonth: true });
-    }
-    // Next month's leading days
-    const totalCells = 42; // 6 rows * 7 days
-    const remainingDays = totalCells - days.length;
-    for (let i = 1; i <= remainingDays; i++) {
-        days.push({ day: i, isCurrentMonth: false });
-    }
-    useEffect(() => {
-        if (isOpen) {
-            setTempStartDate(startDate || null);
-            setTempEndDate(endDate || null);
-            setShowMonthYearPicker(false);
-        }
-    }, [isOpen, startDate, endDate]);
-
-    // Prevent background (table/page) scroll while using wheel inside popup.
-    useEffect(() => {
-        if (!isOpen) return;
-        const el = popupRef.current;
-        if (!el) return;
-        const onWheel = (e) => {
-            e.preventDefault();
-        };
-        el.addEventListener("wheel", onWheel, { passive: false });
-        return () => el.removeEventListener("wheel", onWheel);
-    }, [isOpen]);
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 61 }, (_, index) => currentYear - 30 + index);
-    return (
-        <div className="relative" ref={datePickerRef}>
-            <input
-                type="text"
-                readOnly
-                value={getDisplayText()}
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full px-3 py-2 text-xs bg-transparent focus:outline-none  cursor-pointer"
-                placeholder="Select Date Range"
-            />
-            {isOpen && (
-                <div ref={popupRef} className="absolute z-50 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-3" style={{ minWidth: '320px' }}>
-                    <div className="flex items-center justify-between gap-2 mb-4">
-                        {showMonthYearPicker ? (
-                            <div className="w-8" />
-                        ) : (
-                            <button
-                                onClick={prevMonth}
-                                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
-                                type="button"
-                                aria-label="Previous month"
-                            >
-                                &lt;
-                            </button>
-                        )}
-                        <button
-                            type="button"
-                            onClick={() => setShowMonthYearPicker(!showMonthYearPicker)}
-                            className="h-8 px-3 rounded border border-gray-300 bg-gray-100 text-sm font-medium text-gray-800 hover:bg-gray-200 inline-flex items-center gap-2"
-                            aria-label="Choose month and year"
-                        >
-                            {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                            <span className="text-xs text-gray-700">{showMonthYearPicker ? "▴" : "▾"}</span>
-                        </button>
-                        {showMonthYearPicker ? (
-                            <div className="w-8" />
-                        ) : (
-                            <button
-                                onClick={nextMonth}
-                                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
-                                type="button"
-                                aria-label="Next month"
-                            >
-                                &gt;
-                            </button>
-                        )}
-                    </div>
-                    {showMonthYearPicker ? (
-                        <div className="py-1">
-                            <div className="flex justify-center">
-                                <div className="grid grid-cols-2 gap-4 w-[260px]">
-                                    {/* Month wheel */}
-                                    <div className="flex flex-col items-center">
-                                        <button
-                                            type="button"
-                                            className="text-gray-600 hover:text-gray-900"
-                                            onClick={() => setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                                            aria-label="Previous month"
-                                        >
-                                            ^
-                                        </button>
-                                        <div
-                                            className="w-full mt-1"
-                                            onWheel={(e) => {
-                                                e.preventDefault();
-                                                const now = Date.now();
-                                                if (now - lastMonthWheelAt.current < 120) return;
-                                                lastMonthWheelAt.current = now;
-                                                const dir = e.deltaY > 0 ? 1 : -1;
-                                                setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() + dir, 1));
-                                            }}
-                                        >
-                                            {[-2, -1, 0, 1, 2].map((offset) => {
-                                                const idx = (currentMonth.getMonth() + offset + 12) % 12;
-                                                const isActive = offset === 0;
-                                                return (
-                                                    <button
-                                                        key={`${idx}-${offset}`}
-                                                        type="button"
-                                                        onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), idx, 1))}
-                                                        className={[
-                                                            "w-full text-center px-2 py-1 rounded text-sm",
-                                                            isActive ? "bg-blue-600 text-white" : "text-gray-800 hover:bg-gray-50",
-                                                        ].join(" ")}
-                                                    >
-                                                        {monthNames[idx].slice(0, 3)}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="text-gray-600 hover:text-gray-900 mt-1"
-                                            onClick={() => setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                                            aria-label="Next month"
-                                        >
-                                            v
-                                        </button>
-                                    </div>
-
-                                    {/* Year wheel */}
-                                    <div className="flex flex-col items-center">
-                                        <button
-                                            type="button"
-                                            className="text-gray-600 hover:text-gray-900"
-                                            onClick={() => setCurrentMonth((d) => new Date(d.getFullYear() - 1, d.getMonth(), 1))}
-                                            aria-label="Previous year"
-                                        >
-                                            ^
-                                        </button>
-                                        <div
-                                            className="w-full mt-1"
-                                            onWheel={(e) => {
-                                                e.preventDefault();
-                                                const now = Date.now();
-                                                if (now - lastYearWheelAt.current < 120) return;
-                                                lastYearWheelAt.current = now;
-                                                const dir = e.deltaY > 0 ? 1 : -1;
-                                                setCurrentMonth((d) => new Date(d.getFullYear() + dir, d.getMonth(), 1));
-                                            }}
-                                        >
-                                            {[-2, -1, 0, 1, 2].map((offset) => {
-                                                const y = currentMonth.getFullYear() + offset;
-                                                const isActive = offset === 0;
-                                                return (
-                                                    <button
-                                                        key={y}
-                                                        type="button"
-                                                        onClick={() => setCurrentMonth(new Date(y, currentMonth.getMonth(), 1))}
-                                                        className={[
-                                                            "w-full text-center px-2 py-1 rounded text-sm",
-                                                            isActive ? "bg-blue-600 text-white" : "text-gray-800 hover:bg-gray-50",
-                                                        ].join(" ")}
-                                                    >
-                                                        {y}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="text-gray-600 hover:text-gray-900 mt-1"
-                                            onClick={() => setCurrentMonth((d) => new Date(d.getFullYear() + 1, d.getMonth(), 1))}
-                                            aria-label="Next year"
-                                        >
-                                            v
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="grid grid-cols-7 gap-0.5 mb-1">
-                                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, idx) => (
-                                    <div
-                                        key={day}
-                                        className={`text-center text-[11px] font-medium py-1 ${idx === 0 || idx === 6 ? "text-red-500" : "text-gray-500"}`}
-                                    >
-                                        {day}
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="grid grid-cols-7 gap-0.5">
-                                {days.map((dateObj, idx) => {
-                                    const { day, isCurrentMonth } = dateObj;
-                                    const inRange = isDateInRange(day, isCurrentMonth);
-                                    const isStart = isStartDate(day, isCurrentMonth);
-                                    const isEnd = isEndDate(day, isCurrentMonth);
-
-                                    return (
-                                        <button
-                                            key={idx}
-                                            type="button"
-                                            onClick={() => handleDateClick(day, isCurrentMonth)}
-                                            disabled={!isCurrentMonth}
-                                            className={`
-                                                w-9 h-9 flex items-center justify-center text-sm rounded
-                                                ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100 text-gray-800'}
-                                                ${isStart || isEnd ? 'bg-blue-600 text-white font-semibold' : ''}
-                                                ${inRange && !isStart && !isEnd ? 'bg-gray-200' : ''}
-                                            `}
-                                        >
-                                            {day}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </>
-                    )}
-                    <div className="flex justify-between mt-4 pt-4 border-t">
-                        <button
-                            onClick={handleClear}
-                            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-                            type="button"
-                        >
-                            Clear
-                        </button>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleCancel}
-                                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-                                type="button"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDone}
-                                className="px-4 py-2 text-sm font-semibold text-black hover:bg-gray-100 rounded"
-                                type="button"
-                            >
-                                Done
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
+const TOOLS_API_BASE = 'https://backendaab.in/aabuildersDash';
 const TableViewExpense = ({ username, userRoles = [] }) => {
-    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
+    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-telecom/getAll';
     const resolveActiveBranchId = useCallback(() => {
         try {
             const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -489,11 +90,13 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     const [categoryOption, setCategoryOption] = useState([]);
     const [machineToolsOption, setMachineToolsOption] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
+    const [showDateRangePicker, setShowDateRangePicker] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [sortField, setSortField] = useState('');
     const [sortDirection, setSortDirection] = useState('asc');
     const scrollRef = useRef(null);
+    const filterRowRef = useRef(null);
     const isDragging = useRef(false);
     const start = useRef({ x: 0, y: 0 });
     const scroll = useRef({ left: 0, top: 0 });
@@ -594,7 +197,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountDetails = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setAccountDetails(data);
@@ -645,7 +248,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     const fetchProjectData = async (projectId) => {
         try {
             if (!projectId) return null;
-            const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/get/${projectId}`);
+            const response = await fetch(`https://backendaab.in/aabuilderDash/api/projects/get/${projectId}`);
             if (!response.ok) return null;
             const data = await response.json();
             setProjectData(data);
@@ -768,7 +371,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchPaymentModes = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/payment_mode/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setPaymentModeOptions(Array.isArray(data) ? data : []);
@@ -782,7 +385,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchUserRoles = async () => {
             try {
-                const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
+                const response = await axios.get("https://backendaab.in/aabuilderDash/api/user_roles/all");
                 const allRoles = response.data;
                 const userRoleNames = userRoles.map(r => r.roles);
                 const matchedRoles = allRoles.filter(role =>
@@ -815,7 +418,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     }, [resolveActiveBranchId]);
     useEffect(() => {
         axios
-            .get('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
+            .get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
                 params: activeBranchId ? { branchId: activeBranchId } : {},
             })
             .then((response) => {
@@ -850,7 +453,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchSites = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -877,7 +480,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -904,7 +507,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchContractorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -931,7 +534,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -956,7 +559,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchMachinTools = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/machine_tools/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -1041,7 +644,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchBranches = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/branch/getAll', {
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/branch/getAll', {
                     method: 'GET',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' }
@@ -1059,7 +662,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountType = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/account_type/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/account_type/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -1086,7 +689,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchLaboursList = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     const formattedData = data.map(item => ({
@@ -1110,7 +713,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchEmployeeDetails = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/employee_details/getAll", {
+                const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -1331,7 +934,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                 // ✅ CHANGE 3: optional filename
                 uploadFormData.append("fileName", finalName);
 
-                const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
+                const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
                     method: "POST",
                     body: uploadFormData,
                 });
@@ -1384,7 +987,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         }
     };
     const performUpdateAndWeeklyBills = async (updatedFormData, modalPaymentData = null) => {
-        const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`, {
+        const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatedFormData)
@@ -1416,7 +1019,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                     transaction_number: (modalPaymentData && modalPaymentData.transactionNumber) || null,
                     account_number: (modalPaymentData && modalPaymentData.accountNumber) || null
                 };
-                const weeklyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save', {
+                const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1783,7 +1386,21 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                     <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate
                         ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-3 gap-2`}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
-                            <button className='pl-2' onClick={() => setShowFilters(!showFilters)}>
+                            <button
+                                className='pl-2'
+                                onClick={() => {
+                                    const willOpen = !showFilters;
+                                    setShowFilters(willOpen);
+                                    if (!willOpen) return;
+                                    const scroller = scrollRef.current;
+                                    if (!scroller) return;
+                                    if (scroller.scrollTop <= 0) return;
+                                    requestAnimationFrame(() => {
+                                        const h = filterRowRef.current?.offsetHeight || 0;
+                                        if (h > 0) scroller.scrollTop = scroller.scrollTop + h;
+                                    });
+                                }}
+                            >
                                 <img
                                     src={Filter}
                                     alt="Toggle Filter"
@@ -1931,14 +1548,31 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                         <th className="px-0.5 w-[50px] font-bold text-left">File</th>
                                     </tr>
                                     {showFilters && (
-                                        <tr className="bg-[#FAF6ED]">
-                                            <th className=" py-3">
-                                                <DateRangePicker
-                                                    startDate={startDate}
-                                                    endDate={endDate}
-                                                    onStartDateChange={setStartDate}
-                                                    onEndDateChange={setEndDate}
-                                                />
+                                        <tr ref={filterRowRef} className="bg-[#FAF6ED]">
+                                            <th className="py-3">
+                                                <div className="relative">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowDateRangePicker(true)}
+                                                        className="w-full min-w-[140px] h-[45px] px-2 py-0 text-sm rounded-lg border-2 border-[#BF9853] border-opacity-30 font-normal bg-white shadow-sm text-left flex items-center justify-between outline-none ring-0 hover:border-[hsl(0,0%,70%)] hover:border-opacity-100 focus:border-[#2684FF] focus:border-opacity-100 focus:shadow-[0_0_0_1px_#2684FF] focus-visible:border-[#2684FF] focus-visible:border-opacity-100 focus-visible:shadow-[0_0_0_1px_#2684FF]"
+                                                    >
+                                                        <span className="text-gray-400 text-[12px] font-semibold truncate">
+                                                            {startDate ? (endDate ? `${startDate} – ${endDate}` : `From ${startDate}`) : 'Date'}
+                                                        </span>
+                                                        <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                    </button>
+                                                    <DateRangePicker
+                                                        isOpen={showDateRangePicker}
+                                                        onClose={() => setShowDateRangePicker(false)}
+                                                        startDate={startDate}
+                                                        endDate={endDate}
+                                                        variant="dropdown"
+                                                        onApply={(from, to) => {
+                                                            setStartDate(from);
+                                                            setEndDate(to);
+                                                        }}
+                                                    />
+                                                </div>
                                             </th>
                                             <th className=" py-3">
                                                 <Select

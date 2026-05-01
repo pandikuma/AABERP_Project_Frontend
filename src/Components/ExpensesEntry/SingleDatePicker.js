@@ -189,7 +189,7 @@ export default function SingleDatePicker({
                       type="button"
                       onClick={() => handlePickMonth(idx)}
                       className={[
-                        "w-full text-center px-2 py-1 rounded text-sm",
+                        "w-full text-center px-2 py-1 rounded text-sm font-bold",
                         isActive ? "bg-blue-600 text-white" : "text-gray-800 hover:bg-gray-50",
                       ].join(" ")}
                     >
@@ -238,7 +238,7 @@ export default function SingleDatePicker({
                       type="button"
                       onClick={() => handlePickYear(y)}
                       className={[
-                        "w-full text-center px-2 py-1 rounded text-sm",
+                        "w-full text-center px-2 py-1 rounded text-sm font-bold",
                         isActive ? "bg-blue-600 text-white" : "text-gray-800 hover:bg-gray-50",
                       ].join(" ")}
                     >
@@ -290,7 +290,7 @@ export default function SingleDatePicker({
                     type="button"
                     onClick={() => handleSelectDay(d)}
                     className={[
-                      "w-9 h-9 flex items-center justify-center text-sm rounded",
+                      "w-9 h-9 flex items-center justify-center text-sm font-bold rounded",
                       inMonth ? "text-gray-900" : "text-gray-300",
                       selected ? "bg-blue-600 text-white" : "hover:bg-gray-100",
                       !selected && isToday ? "ring-2 ring-blue-500 ring-inset" : "",

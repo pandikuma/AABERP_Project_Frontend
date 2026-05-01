@@ -154,7 +154,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     // Fetch vendor names
     const fetchVendorNames = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
+            const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -284,7 +284,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
         setHasStartedEditing(false)
         const existingDetails = await fetchExistingBillEntryDetails(item.id)
         try {
-            const trackerResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${item.id}`, {
+            const trackerResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${item.id}`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: {
@@ -313,7 +313,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     const fetchExistingBillEntryDetails = async (vendorPaymentsTrackerId) => {
         setLoadingEntryDetails(true);
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/bill-entry/get/${vendorPaymentsTrackerId}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/bill-entry/get/${vendorPaymentsTrackerId}`, {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -347,7 +347,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     const fetchExistingPaymentDetails = async (vendorPaymentsTrackerId) => {
         setLoadingPaymentDetails(true)
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/get/${vendorPaymentsTrackerId}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${vendorPaymentsTrackerId}`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' }
@@ -369,7 +369,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
 
     const fetchPaymentDetailsRaw = async (vendorPaymentsTrackerId) => {
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/get/${vendorPaymentsTrackerId}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${vendorPaymentsTrackerId}`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' }
@@ -749,7 +749,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     }
     const fetchCarryForwardData = async (vendorId) => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/getAll", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -1201,7 +1201,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     }
     const handlePreviousEntrySave = async (entryId) => {
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/bill-entry/update/${entryId}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/bill-entry/update/${entryId}`, {
                 method: 'PUT',
                 credentials: 'include',
                 headers: {
@@ -1274,7 +1274,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                 entered_by: username,
                 entered_date: entryFormData.date
             }
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/bill-entry/save", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/bill-entry/save", {
                 method: "POST",
                 credentials: "include",
                 headers: {
@@ -1337,7 +1337,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             return
         }
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${billId}/adjustment-amount?adjustmentAmount=${adjustmentAmount}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${billId}/adjustment-amount?adjustmentAmount=${adjustmentAmount}`, {
                 method: 'PUT',
                 credentials: 'include',
                 headers: {
@@ -1392,7 +1392,21 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             return
         }
         const billId = selectedEntryBill.id
-        const matchDetails = expenseMatchDetails[billId]
+        let matchDetails = expenseMatchDetails[billId]
+        // Lazy-load matching expenses only when user clicks Check (same as PendingBill.js)
+        // Compute + use results immediately (avoid relying on async state timing).
+        if (!matchDetails) {
+            try {
+                const [billEntries, expenses] = await Promise.all([
+                    fetchAllBillEntries(),
+                    fetchExpensesData()
+                ])
+                const result = calculateExpenseMatchStatus(expenses || [], billEntries || [])
+                matchDetails = result?.matchDetailsMap?.[billId] || null
+            } catch {
+                matchDetails = null
+            }
+        }
 
         if (!matchDetails || !matchDetails.matchingExpenses || matchDetails.matchingExpenses.length === 0) {
             alert('No matching expenses found for this bill')
@@ -1681,7 +1695,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             formData.append('files', processedFile);
             formData.append('folder', 'FileUpload/Bill_Payments_Tracker');
             formData.append('fileName', finalName);
-            const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
+            const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
                 method: "POST",
                 body: formData,
             });
@@ -1691,7 +1705,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             const uploadResult = await uploadResponse.json();
             const billUrl = uploadResult.urls[0] || '';
             // Update the payment with bill_url using the update API
-            const updateResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/update/${paymentId}`, {
+            const updateResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/update/${paymentId}`, {
                 method: "PUT",
                 credentials: "include",
                 headers: {
@@ -1758,7 +1772,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             formData.append('files', processedFile);
             formData.append('folder', 'FileUpload/Bill_Payments_Tracker');
             formData.append('fileName', fileName);
-            const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
+            const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
                 method: "POST",
                 body: formData,
             });
@@ -1770,7 +1784,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             // Update the overall payment PDF URL via API
             const billId = selectedPaymentBill.id; // This is the tracker ID
             const response = await fetch(
-                `https://backendaab.in/demoAabuildersDash/api/vendor-payments/bills/${billId}/pdf-url?pdfUrl=${encodeURIComponent(pdfUrl)}`,
+                `https://backendaab.in/aabuildersDash/api/vendor-payments/bills/${billId}/pdf-url?pdfUrl=${encodeURIComponent(pdfUrl)}`,
                 {
                     method: "PUT",
                     credentials: "include",
@@ -1947,7 +1961,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                         formData.append('files', processedFile);
                         formData.append('folder', 'FileUpload/Bill_Payments_Tracker');
                         formData.append('fileName', finalName);
-                        const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
+                        const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
                             method: "POST",
                             body: formData,
                         });
@@ -1978,7 +1992,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                         account_number: entry.accountNumber || '',
                         bill_url: billUrl
                     }
-                    const response = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/save", {
+                    const response = await fetch("https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/save", {
                         method: "POST",
                         credentials: "include",
                         headers: {
@@ -2013,7 +2027,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                         account_number: '',
                         bill_url: ''
                     };
-                    const carryForwardPaymentResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/save", {
+                    const carryForwardPaymentResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/save", {
                         method: "POST",
                         credentials: "include",
                         headers: {
@@ -2063,7 +2077,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                     };
                     try {
                         const weeklyPaymentBillResponse = await fetch(
-                            "https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save",
+                            "https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save",
                             {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -2106,7 +2120,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                     };
                     try {
                         const weeklyExpenseResponse = await fetch(
-                            "https://backendaab.in/demoAabuildersDash/api/weekly-expenses/save",
+                            "https://backendaab.in/aabuildersDash/api/weekly-expenses/save",
                             {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -2149,7 +2163,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                         bill_amount: actualCarryForwardUsed,
                         refund_amount: 0
                     };
-                    const carryForwardResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/save", {
+                    const carryForwardResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/save", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(carryForwardPayload)
@@ -2244,7 +2258,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     // Fetch contractor names
     const fetchContractorNames = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
+            const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -2270,9 +2284,10 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     // Fetch tracker data
     const fetchTrackerData = async () => {
         setLoading(true);
-        setPaymentStatusesLoaded(false); // Reset so we show verified bills first, then re-check conditions
+        setError(null)
         try {
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor-payments/trackers", {
+            // Mirror mobile Database.jsx exactly (non-paged endpoint)
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/vendor-payments/trackers/enriched/paid", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -2283,8 +2298,16 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                 throw new Error(`Network response was not ok: ${response.statusText}`);
             }
             try {
-                const data = await response.json();
-                setApiData(data);
+                // Same parsing style as mobile to avoid odd backend payload issues
+                const text = await response.text();
+                let data = []
+                try {
+                    data = JSON.parse(text)
+                } catch (e) {
+                    data = []
+                }
+                setApiData(Array.isArray(data) ? data : []); // keep backend order exactly
+                setPaymentStatusesLoaded(true)
             } catch (parseError) {
                 console.warn("Detected circular reference in API response. This needs to be fixed in the backend.");
                 setError("Invalid data format received from server");
@@ -2300,7 +2323,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     // Fetch all bill entries
     const fetchAllBillEntries = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/bill-entry/getAll", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/bill-entry/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -2311,16 +2334,19 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                 throw new Error(`Network response was not ok: ${response.statusText}`);
             }
             const data = await response.json();
-            setAllBillEntries(data);
+            const rows = Array.isArray(data) ? data : []
+            setAllBillEntries(rows);
+            return rows
         } catch (error) {
             console.error("Error fetching bill entries:", error);
+            return []
         }
     };
 
     // Fetch expenses data (use same endpoint as PendingBill for consistent matching)
     const fetchExpensesData = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuilderDash/expenses_form/get_form", {
+            const response = await fetch("https://backendaab.in/aabuilderDash/expenses_form/get_form", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -2331,13 +2357,17 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                 throw new Error(`Network response was not ok: ${response.statusText}`);
             }
             const data = await response.json();
-            setExpensesData(data);
+            const rows = Array.isArray(data) ? data : []
+            setExpensesData(rows);
+            return rows
         } catch (error) {
             console.error("Error fetching expenses data:", error);
+            return []
         }
     };
 
-    // Calculate expense match status for bills (ported from PendingBill). Returns { matchStatus, matchDetails } so callers can use without waiting for state.
+    // Calculate expense match status for bills (ported from PendingBill).
+    // Returns maps immediately so callers can use without waiting for async state.
     const calculateExpenseMatchStatus = (expenses, billEntries = allBillEntries) => {
         const matchStatus = {};
         const matchDetails = {};
@@ -2406,10 +2436,11 @@ const BillDatabase = ({ username, userRoles = [] }) => {
         });
         setExpenseMatchStatus(matchStatus);
         setExpenseMatchDetails(prev => ({ ...prev, ...matchDetails }));
-        return { matchStatus, matchDetails };
+        return { matchStatusMap: matchStatus, matchDetailsMap: matchDetails };
     };
     // Get bill verification status
     const getBillVerificationStatus = (item) => {
+        if (item?.verification_status) return item.verification_status
         if (!item.billVerifications || item.billVerifications.length === 0) {
             return 'Verify'
         }
@@ -2429,6 +2460,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     }
     // Get entry status text
     const getEntryStatusText = (item) => {
+        if (item?.entry_status) return item.entry_status
         const matchStatus = expenseMatchStatus[item.id];
         const baseStatus = item.entry_status || 'Entry';
         if (matchStatus === 'complete_match') {
@@ -2452,7 +2484,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     // Get payment status
     const getPaymentStatus = async (item) => {
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/get/${item.id}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${item.id}`, {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -2501,6 +2533,8 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             return 'px-4 py-1.5 rounded-full text-sm font-semibold bg-[#E2F9E1] border cursor-pointer transition-all duration-200'
         } else if (status === 'Verified') {
             return 'px-5 py-1.5 rounded-full text-sm p-2 font-semibold border  cursor-pointer transition-all duration-200'
+        } else if (status === '✓ Entered') {
+            return 'px-6 py-2 rounded-full text-sm font-semibold bg-[#E2F9E1] border cursor-pointer transition-all duration-200 hover:bg-green-200'
         } else if (status === 'Entered') {
             return 'px-6 py-2 rounded-full text-sm font-semibold bg-[#FFD39E] border  cursor-pointer transition-all duration-200'
         } else if (status === '✓ Paid') {
@@ -2623,7 +2657,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
         // Filter by payment status
         if (filters.paymentStatus) {
             filteredData = filteredData.filter(item => {
-                const paymentStatus = paymentStatuses[item.id] || 'To Pay';
+                const paymentStatus = item.payment_status || '✓ Paid';
                 switch (filters.paymentStatus) {
                     case 'to-pay':
                         return paymentStatus === 'To Pay';
@@ -2719,7 +2753,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                 return
             }
             const response = await axios.put(
-                `https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}/update-details`,
+                `https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}/update-details`,
                 payload,
                 {
                     headers: {
@@ -2766,7 +2800,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             return;
         }
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/delete/${id}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/delete/${id}`, {
                 method: 'DELETE',
             });
             if (response.ok) {
@@ -2783,10 +2817,10 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             alert(`An error occurred while deleting the tracker: ${error.message}`);
         }
     }
-    // Same load pattern as PendingBill.js: fetch tracker + expenses together; table shows when tracker returns; then bill entries when apiData is set; condition check when all data is ready.
+    // Mirror mobile Database.jsx: load once from `/trackers/enriched/paid`
     useEffect(() => {
         fetchTrackerData();
-        fetchExpensesData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     useEffect(() => {
         fetchVendorNames();
@@ -2798,15 +2832,11 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     useEffect(() => {
         fetchUserList();
     }, []);
-    useEffect(() => {
-        if (apiData.length > 0) {
-            fetchAllBillEntries();
-        }
-    }, [apiData]);
+    // NOTE: We intentionally do NOT fetch expenses/bill-entries/payment-statuses for the list view.
     // Fetch account details
     const fetchAccountDetails = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/account-details/getAll", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/account-details/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -2838,7 +2868,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     // Fetch user list
     const fetchUserList = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuilderDash/api/user/all", {
+            const response = await fetch("https://backendaab.in/aabuilderDash/api/user/all", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -2857,21 +2887,8 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     useEffect(() => {
         setCombinedOptions([...vendorOptions, ...contractorOptions]);
     }, [vendorOptions, contractorOptions]);
-    // Same as PendingBill: one condition check when apiData, expensesData, allBillEntries are ready
-    useEffect(() => {
-        if (apiData.length > 0 && expensesData.length > 0 && allBillEntries.length > 0) {
-            calculateExpenseMatchStatus(expensesData, allBillEntries);
-        }
-    }, [apiData, expensesData, allBillEntries]);
-    // Same as PendingBill: fetch all payment statuses in parallel when apiData is set
-    useEffect(() => {
-        if (apiData.length === 0) return;
-        loadPaymentStatuses();
-    }, [apiData]);
-    // Show verified bills immediately; once payment statuses are loaded, filter to fully paid only
-    const baseData = paymentStatusesLoaded
-        ? apiData.filter(isFullyFinished)
-        : apiData.filter((item) => getBillVerificationStatus(item) === '✓ Verified');
+    // Backend already returns only fully-paid enriched rows for the list.
+    const baseData = apiData;
     const filteredData = getFilteredData(baseData);
     const sortedData = applySorting(filteredData);
     return (
@@ -3129,10 +3146,10 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                                         </td>
                                         <td className=" py-3 text-left pr-4 text-sm border-b border-gray-100">
                                             <button
-                                                className={`${getButtonClass(paymentStatuses[item.id] || (paymentStatusesLoaded ? 'To Pay' : '...'))}`}
+                                                className={`${getButtonClass(item.payment_status || '✓ Paid')}`}
                                                 onClick={() => handlePaymentClick(item)}
                                             >
-                                                {paymentStatusesLoaded ? (paymentStatuses[item.id] || 'To Pay') : 'Checking...'}
+                                                {item.payment_status || '✓ Paid'}
                                             </button>
                                         </td>
                                         <td className="px-2 py-3 text-left text-sm border-b border-gray-100">

@@ -56,6 +56,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
         enteredBy: null,
         date: new Date().toISOString().split('T')[0]
     })
+    const canOverrideEnteredBy = username === 'Admin' || username === 'Mahalingam M'
     const [editingPreviousEntry, setEditingPreviousEntry] = useState(null)
     const [previousEntryEditData, setPreviousEntryEditData] = useState({
         enteredBy: null,
@@ -189,7 +190,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
         };
         const fetchPaymentModes = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll");
+                const response = await fetch("https://backendaab.in/aabuildersDash/api/payment_mode/getAll");
                 if (!response.ok) return;
                 const data = await response.json();
                 const backendOptions = (Array.isArray(data) ? data : [])
@@ -210,7 +211,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -236,7 +237,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     }, []);
     const fetchAccountDetails = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/account-details/getAll", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/account-details/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -259,7 +260,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
         setError(null);
         try {
             // Optimized backend endpoint: returns pending trackers with computed verification/entry/payment status.
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor-payments/trackers/pending", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/vendor-payments/trackers/pending", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -288,7 +289,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     };
     const fetchAllBillEntries = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/bill-entry/getAll", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/bill-entry/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -315,7 +316,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     };
     const fetchExpensesData = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuilderDash/expenses_form/get_form", {
+            const response = await fetch("https://backendaab.in/aabuilderDash/expenses_form/get_form", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -412,7 +413,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     };
     const fetchPurchaseOrders = async () => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/purchase_orders/getAll", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/purchase_orders/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -434,7 +435,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     const fetchExistingBillEntryDetails = async (vendorPaymentsTrackerId) => {
         setLoadingEntryDetails(true);
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/bill-entry/get/${vendorPaymentsTrackerId}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/bill-entry/get/${vendorPaymentsTrackerId}`, {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -458,7 +459,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     const fetchExistingPaymentDetails = async (vendorPaymentsTrackerId) => {
         setLoadingPaymentDetails(true);
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/get/${vendorPaymentsTrackerId}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${vendorPaymentsTrackerId}`, {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -797,7 +798,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             const billId = billVerification.id
             try {
                 const response = await axios.put(
-                    `https://backendaab.in/demoAabuildersDash/api/vendor-payments/bill/${billId}/duplicate`,
+                    `https://backendaab.in/aabuildersDash/api/vendor-payments/bill/${billId}/duplicate`,
                     null,
                     {
                         params: { duplicate: checked }
@@ -833,7 +834,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             const billId = billVerification.id
             try {
                 const response = await axios.put(
-                    `https://backendaab.in/demoAabuildersDash/api/vendor-payments/bill/${billId}/duplicate`,
+                    `https://backendaab.in/aabuildersDash/api/vendor-payments/bill/${billId}/duplicate`,
                     null,
                     {
                         params: { duplicate: checked }
@@ -1319,7 +1320,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     billsData.push(billData)
                 }
             }
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1438,7 +1439,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 return
             }
             const response = await axios.put(
-                withBranchUrl(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}/update-details`),
+                withBranchUrl(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}/update-details`),
                 payload,
                 {
                     headers: {
@@ -1454,7 +1455,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 if (originalExtraBills > newExtraBills) {
                     try {
                         // Fetch current bill verifications
-                        const trackerResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}`, {
+                        const trackerResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}`, {
                             method: 'GET',
                             credentials: 'include',
                             headers: {
@@ -1482,7 +1483,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                 const billNumber = billVerification.bill_number || billVerification.billNumber || 'N/A'
                                 const verificationId = billVerification.id
                                 // Call the delete API with verification ID
-                                const deletePromise = fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/bill-verification/${verificationId}`, {
+                                const deletePromise = fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/bill-verification/${verificationId}`, {
                                     method: 'DELETE',
                                     credentials: 'include',
                                     headers: {
@@ -1531,7 +1532,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                     verified_date: verification.verified_date || null
                                 }))
                                 // Update bills - this will remove extra bills
-                                const billsResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}/bills`, {
+                                const billsResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${selectedEditItem.id}/bills`, {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
@@ -1583,7 +1584,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             return;
         }
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/delete/${id}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/delete/${id}`, {
                 method: 'DELETE',
             });
             if (response.ok) {
@@ -1945,7 +1946,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     billsData.push(billData)
                 }
             }
-            const billResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
+            const billResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1955,7 +1956,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             if (!billResponse.ok) {
                 throw new Error(`Failed to save current bill data: ${billResponse.statusText}`)
             }
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=true`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=true`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1989,7 +1990,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user/all");
+                const response = await axios.get("https://backendaab.in/aabuilderDash/api/user/all");
                 const usersWithRoles = response.data.map((user) => ({
                     ...user,
                     roles: user.userRoles ? user.userRoles.map((role) => role.roles) : [],
@@ -2002,11 +2003,15 @@ const PendingBill = ({ username, userRoles = [] }) => {
         fetchUsers();
     }, []);
     const getUserOptions = () => {
-        return userList.map(user => ({
-            value: user.username,
-            label: user.username,
-            id: user.id
-        }));
+        const unique = new Map()
+        ;(Array.isArray(userList) ? userList : []).forEach((user) => {
+            const name = String(user?.username || '').trim()
+            if (!name) return
+            if (!unique.has(name)) {
+                unique.set(name, { value: name, label: name, id: user?.id })
+            }
+        })
+        return Array.from(unique.values()).sort((a, b) => String(a.label).localeCompare(String(b.label)))
     };
     const isAdminUser = () => {
         return username === 'Admin' || username === 'Mahalingam M'
@@ -2288,7 +2293,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     billsData.push(billData)
                 }
             }
-            const billResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
+            const billResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2298,7 +2303,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             if (!billResponse.ok) {
                 throw new Error(`Failed to update bill verifications: ${billResponse.statusText}`)
             }
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/approve-request?requestApproved=true`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/approve-request?requestApproved=true`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2331,7 +2336,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 alert('Tracker ID not found')
                 return
             }
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/approve-request?requestApproved=false`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/approve-request?requestApproved=false`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2349,7 +2354,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     is_verified: false,
                     verified_date: null
                 }))
-                const billResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
+                const billResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/bills`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2391,7 +2396,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 alert('Tracker ID not found')
                 return
             }
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=false`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${trackerId}/send-request?sendRequest=false`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2473,7 +2478,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
         setSelectedEntryBill(bill)
         setShowEntryModal(true)
         setEntryFormData({
-            enteredBy: null,
+            enteredBy: username || null,
             date: new Date().toISOString().split('T')[0]
         })
         setNumberInputValue(bill.adjustment_amount || bill.adjustmentAmount || '')
@@ -2481,7 +2486,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
         setHasStartedEditing(false)
         const existingDetails = await fetchExistingBillEntryDetails(bill.id)
         try {
-            const trackerResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${bill.id}`, {
+            const trackerResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${bill.id}`, {
                 method: 'GET',
                 credentials: 'include',
                 headers: {
@@ -2503,7 +2508,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             console.error('Error fetching tracker data:', error)
         }
         setEntryFormData({
-            enteredBy: null,
+            enteredBy: username || null,
             date: ''
         })
     }
@@ -2519,13 +2524,17 @@ const PendingBill = ({ username, userRoles = [] }) => {
             return
         }
         try {
+            const selectedEnteredBy = canOverrideEnteredBy
+                ? (entryFormData.enteredBy || username)
+                : username
+            const finalEnteredBy = selectedEnteredBy || username
             const billEntryData = {
                 vendor_payments_tracker_id: selectedEntryBill.id,
-                entered_by: username,
+                entered_by: finalEnteredBy,
                 entered_date: entryFormData.date,
                 branch_id: activeBranchId
             }
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/bill-entry/save", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/bill-entry/save", {
                 method: "POST",
                 credentials: "include",
                 headers: {
@@ -2642,7 +2651,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     }
     const handlePreviousEntrySave = async (entryId) => {
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/bill-entry/update/${entryId}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/bill-entry/update/${entryId}`, {
                 method: 'PUT',
                 credentials: 'include',
                 headers: {
@@ -2692,7 +2701,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             return
         }
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${billId}/adjustment-amount?adjustmentAmount=${adjustmentAmount}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${billId}/adjustment-amount?adjustmentAmount=${adjustmentAmount}`, {
                 method: 'PUT',
                 credentials: 'include',
                 headers: {
@@ -2876,7 +2885,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     }
     const fetchCarryForwardData = async (vendorId) => {
         try {
-            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/getAll", {
+            const response = await fetch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/getAll", {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -2931,7 +2940,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             // Fetch carry forward data for this vendor
             await fetchCarryForwardData(vendorId);
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -3217,7 +3226,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             formData.append('files', processedFile);
             formData.append('folder', 'FileUpload / Bill_Payments_Tracker ');
             formData.append('fileName', finalName);
-            const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
+            const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
                 method: "POST",
                 body: formData,
             });
@@ -3228,7 +3237,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             const uploadResult = await uploadResponse.json();
             const billUrl = uploadResult.urls[0];
             // Update the payment with bill_url using the update API
-            const updateResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/update/${paymentId}`, {
+            const updateResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/update/${paymentId}`, {
                 method: "PUT",
                 credentials: "include",
                 headers: {
@@ -3295,7 +3304,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             formData.append('files', processedFile);
             formData.append('folder', 'FileUpload / Bill_Payments_Tracker ');
             formData.append('fileName', fileName);
-            const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
+            const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
                 method: "POST",
                 body: formData,
             });
@@ -3307,7 +3316,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             // Update the overall payment PDF URL via API
             const billId = selectedPaymentBill.id; // This is the tracker ID
             const response = await fetch(
-                `https://backendaab.in/demoAabuildersDash/api/vendor-payments/bills/${billId}/pdf-url?pdfUrl=${encodeURIComponent(pdfUrl)}`,
+                `https://backendaab.in/aabuildersDash/api/vendor-payments/bills/${billId}/pdf-url?pdfUrl=${encodeURIComponent(pdfUrl)}`,
                 {
                     method: "PUT",
                     credentials: "include",
@@ -3460,7 +3469,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                             formData.append('files', entry.attachedFile);
                             formData.append('folder', 'FileUpload / Bill_Payments_Tracker ');
                             formData.append('fileName', finalName);
-                            const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
+                            const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
                                 method: "POST",
                                 body: formData,
                             });
@@ -3492,7 +3501,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         bill_url: billUrl,
                         branch_id: activeBranchId
                     }
-                    const response = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/save", {
+                    const response = await fetch("https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/save", {
                         method: "POST",
                         credentials: "include",
                         headers: {
@@ -3527,7 +3536,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         bill_url: '',
                         branch_id: activeBranchId
                     };
-                    const carryForwardPaymentResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/save", {
+                    const carryForwardPaymentResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/save", {
                         method: "POST",
                         credentials: "include",
                         headers: {
@@ -3578,7 +3587,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     };
                     try {
                         const weeklyPaymentBillResponse = await fetch(
-                            "https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save",
+                            "https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save",
                             {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -3621,7 +3630,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                     };
                     try {
                         const weeklyExpenseResponse = await fetch(
-                            "https://backendaab.in/demoAabuildersDash/api/weekly-expenses/save",
+                            "https://backendaab.in/aabuildersDash/api/weekly-expenses/save",
                             {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -3665,7 +3674,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         refund_amount: 0,
                         branch_id: activeBranchId
                     };
-                    const carryForwardResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/save", {
+                    const carryForwardResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/save", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(carryForwardPayload)
@@ -3694,7 +3703,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                         refund_amount: 0,
                         branch_id: activeBranchId
                     };
-                    const excessAmountResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/save", {
+                    const excessAmountResponse = await fetch("https://backendaab.in/aabuildersDash/api/vendor_carry_forward/save", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(excessAmountPayload)
@@ -3785,7 +3794,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
             if (updatedStatus === '✓ Paid') {
                 try {
                     // Fetch updated tracker data to get latest bill verifications
-                    const trackerResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker/${selectedPaymentBill.id}`, {
+                    const trackerResponse = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-payments/tracker/${selectedPaymentBill.id}`, {
                         method: 'GET',
                         credentials: 'include',
                         headers: {
@@ -3819,7 +3828,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                             const completePaymentPromises = verifiedPONumbers.map(async (poNumber) => {
                                 try {
                                     const completeResponse = await fetch(
-                                        `https://backendaab.in/demoAabuildersDash/api/purchase_orders/payment/complete?vendorId=${vendorId}&eno=${encodeURIComponent(poNumber)}`,
+                                        `https://backendaab.in/aabuildersDash/api/purchase_orders/payment/complete?vendorId=${vendorId}&eno=${encodeURIComponent(poNumber)}`,
                                         {
                                             method: 'PUT',
                                             credentials: 'include',
@@ -3989,7 +3998,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
     }
     const getPaymentStatus = async (item) => {
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/vendor-bill-tracker/get/${item.id}`, {
+            const response = await fetch(`https://backendaab.in/aabuildersDash/api/vendor-bill-tracker/get/${item.id}`, {
                 method: "GET",
                 credentials: "include",
                 headers: {
@@ -4505,7 +4514,7 @@ const PendingBill = ({ username, userRoles = [] }) => {
                 total_amount: Number(formData.totalAmount),
                 branch_id: activeBranchId,
             };
-            const response = await axios.post(withBranchUrl("https://backendaab.in/demoAabuildersDash/api/vendor-payments/tracker"), payload);
+            const response = await axios.post(withBranchUrl("https://backendaab.in/aabuildersDash/api/vendor-payments/tracker"), payload);
             alert(`Tracker created with ID: ${response.data.id}`);
             window.location.reload();
         } catch (error) {
@@ -5242,12 +5251,30 @@ const PendingBill = ({ username, userRoles = [] }) => {
                                 <div className='flex gap-5'>
                                     <div>
                                         <label className="block text-sm font-semibold mb-2">Entered By</label>
-                                        <input
-                                            type="text"
-                                            value={username}
-                                            readOnly
-                                            className="w-[270px] h-[45px] px-3 py-2 border-2 border-[#BF9853] border-opacity-20 rounded-lg text-sm bg-gray-50"
-                                        />
+                                        {canOverrideEnteredBy ? (
+                                            <Select
+                                                options={getUserOptions()}
+                                                value={
+                                                    entryFormData.enteredBy
+                                                        ? { value: entryFormData.enteredBy, label: entryFormData.enteredBy }
+                                                        : (username ? { value: username, label: username } : null)
+                                                }
+                                                onChange={(selectedOption) =>
+                                                    handleEntryInputChange('enteredBy', selectedOption?.value || selectedOption?.label || null)
+                                                }
+                                                placeholder="Select"
+                                                className='w-[270px] h-[40px]'
+                                                styles={customStyles}
+                                                isClearable={false}
+                                            />
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={username}
+                                                readOnly
+                                                className="w-[270px] h-[45px] px-3 py-2 border-2 border-[#BF9853] border-opacity-20 rounded-lg text-sm bg-gray-50"
+                                            />
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold mb-2">Date</label>

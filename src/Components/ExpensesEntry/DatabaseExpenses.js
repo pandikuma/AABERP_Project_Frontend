@@ -15,10 +15,10 @@ import autoTable from "jspdf-autotable";
 import XL from '../Images/sheets.png'
 import Pdf from '../Images/pdf.png'
 Modal.setAppElement('#root');
-const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
+const TOOLS_API_BASE = 'https://backendaab.in/aabuildersDash';
 
 const DatabaseExpenses = ({ username, userRoles = [] }) => {
-    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
+    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-telecom/getAll';
     const resolveActiveBranchId = useCallback(() => {
         try {
             const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -127,7 +127,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchPaymentModes = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/payment_mode/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setPaymentModeOptions(Array.isArray(data) ? data : []);
@@ -141,7 +141,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchUserRoles = async () => {
             try {
-                const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
+                const response = await axios.get("https://backendaab.in/aabuilderDash/api/user_roles/all");
                 const allRoles = response.data;
                 const userRoleNames = userRoles.map(r => r.roles);
                 const matchedRoles = allRoles.filter(role =>
@@ -160,6 +160,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         }
     }, [userRoles]);
     const scrollRef = useRef(null);
+    const filterRowRef = useRef(null);
     const isDragging = useRef(false);
     const start = useRef({ x: 0, y: 0 });
     const scroll = useRef({ left: 0, top: 0 });
@@ -300,7 +301,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountDetails = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setAccountDetails(data);
@@ -402,12 +403,15 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             display: 'none',
         }),
     }), []);
+    const expenseDateFilterInputShellClass =
+        '[&_button]:!border-[#BF9853] [&_button]:!border-opacity-30 [&_button:hover]:!border-[hsl(0,0%,70%)] [&_button:hover]:!border-opacity-100 [&_button:focus]:!border-[#2684FF] [&_button:focus]:!border-opacity-100 [&_button:focus]:!shadow-[0_0_0_1px_#2684FF] [&_button:focus]:!ring-0 [&_button:focus]:!outline-none [&_button:focus-visible]:!border-[#2684FF] [&_button:focus-visible]:!border-opacity-100 [&_button:focus-visible]:!shadow-[0_0_0_1px_#2684FF]';
+    const expenseDateFilterCustomDateClassName = `${expenseDateFilterInputShellClass} placeholder:text-gray-400`;
     const [modalIsOpen, setModalIsOpen] = useState(false);
 
     const fetchProjectData = async (projectId) => {
         try {
             if (!projectId) return null;
-            const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/get/${projectId}`);
+            const response = await fetch(`https://backendaab.in/aabuilderDash/api/projects/get/${projectId}`);
             if (!response.ok) return null;
             const data = await response.json();
             setProjectData(data);
@@ -522,7 +526,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     }, [resolveActiveBranchId]);
     useEffect(() => {
         axios
-            .get('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
+            .get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
                 params: activeBranchId ? { branchId: activeBranchId } : {},
             })
             .then((response) => {
@@ -556,7 +560,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchSites = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -583,7 +587,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -610,7 +614,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchContractorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -637,7 +641,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -662,7 +666,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchMachinTools = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/machine_tools/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -747,7 +751,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchAccountType = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/account_type/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/account_type/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -774,7 +778,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchLaboursList = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     const formattedData = data.map(item => ({
@@ -799,7 +803,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchEmployeeDetails = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/employee_details/getAll", {
+                const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -827,7 +831,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchBranches = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/branch/getAll', {
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/branch/getAll', {
                     method: 'GET',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' }
@@ -1003,6 +1007,16 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     const handleFileChange = (e) => {
         setSelectedFile(e.target.files[0]);
     };
+    const formatChipDateDMY = (dateString) => {
+        if (!dateString) return '';
+        // expected input: yyyy-MM-dd
+        const parts = String(dateString).split('-');
+        if (parts.length === 3 && parts[0].length === 4) {
+            const [y, m, d] = parts;
+            return `${d}-${m}-${y}`;
+        }
+        return String(dateString);
+    };
     const formatDateOnly = (dateString) => {
         const date = new Date(dateString);
         const day = String(date.getDate()).padStart(2, '0');
@@ -1042,7 +1056,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 // ✅ CHANGE 3: optional filename
                 uploadFormData.append("fileName", finalName);
 
-                const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
+                const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
                     method: "POST",
                     body: uploadFormData,
                 });
@@ -1092,7 +1106,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         }
     };
     const performUpdateAndWeeklyBills = async (updatedFormData, modalPaymentData = null) => {
-        const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`, {
+        const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatedFormData)
@@ -1124,7 +1138,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                     transaction_number: (modalPaymentData && modalPaymentData.transactionNumber) || null,
                     account_number: (modalPaymentData && modalPaymentData.accountNumber) || null
                 };
-                const weeklyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save', {
+                const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1189,6 +1203,28 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         } else if (sortField === 'machineTools') {
             aValue = String(getMachineToolsItemIdDisplay(a.machineTools) || '').toLowerCase();
             bValue = String(getMachineToolsItemIdDisplay(b.machineTools) || '').toLowerCase();
+        } else if (sortField === 'staff') {
+            const aLabourId = a.labourId || a.labour_id || a.labourID || a.labour_ID;
+            const aEmployeeId = a.employeeId || a.employee_id || a.employeeID || a.employee_ID;
+            const bLabourId = b.labourId || b.labour_id || b.labourID || b.labour_ID;
+            const bEmployeeId = b.employeeId || b.employee_id || b.employeeID || b.employee_ID;
+            aValue = aLabourId ?? aEmployeeId ?? '';
+            bValue = bLabourId ?? bEmployeeId ?? '';
+            const aNum = Number(aValue);
+            const bNum = Number(bValue);
+            if (Number.isFinite(aNum) && Number.isFinite(bNum)) {
+                aValue = aNum;
+                bValue = bNum;
+            } else {
+                aValue = String(aValue || '').toLowerCase();
+                bValue = String(bValue || '').toLowerCase();
+            }
+        } else if (sortField === 'branch') {
+            aValue = String(getBranchName(a.branch_id ?? a.branchId ?? '') || '').toLowerCase();
+            bValue = String(getBranchName(b.branch_id ?? b.branchId ?? '') || '').toLowerCase();
+        } else if (sortField === 'quantity' || sortField === 'amount') {
+            aValue = Number(aValue) || 0;
+            bValue = Number(bValue) || 0;
         } else {
             aValue = String(aValue || '').toLowerCase();
             bValue = String(bValue || '').toLowerCase();
@@ -1338,7 +1374,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         if (window.confirm('Are you sure you want to delete this expense?')) {
             try {
                 const response = await fetch(
-                    `https://backendaab.in/demoAabuilderDash/expenses_form/delete/${id}?editedBy=${encodeURIComponent(username)}`,
+                    `https://backendaab.in/aabuilderDash/expenses_form/delete/${id}?editedBy=${encodeURIComponent(username)}`,
                     {
                         method: 'POST',
                     }
@@ -1360,7 +1396,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
     };
     const fetchAuditDetails = async (expenseId) => {
         try {
-            const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/audit/${expenseId}`);
+            const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/audit/${expenseId}`);
             const data = await response.json();
             setAudits(data);
             setShowModal(true);
@@ -1492,21 +1528,23 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                         <div className="flex flex-wrap gap-5 items-end text-left">
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
-                                <div className="w-[168px] placeholder:text-gray-400">
+                                <div className="w-[168px]">
                                     <CustomDateField
                                         value={startDate}
                                         onChange={setStartDate}
                                         placeholder="dd/mm/yyyy"
+                                        className={expenseDateFilterCustomDateClassName}
                                     />
                                 </div>
                             </div>
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">End Date</label>
-                                <div className="w-[168px] placeholder:text-gray-400">
+                                <div className="w-[168px]">
                                     <CustomDateField
                                         value={endDate}
                                         onChange={setEndDate}
                                         placeholder="dd/mm/yyyy"
+                                        className={expenseDateFilterCustomDateClassName}
                                     />
                                 </div>
                             </div>
@@ -1549,7 +1587,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     <CustomDateField
                                         value={startDate}
                                         onChange={setStartDate}
-                                        placeholder="Start date"
+                                        placeholder="dd/mm/yyyy"
+                                        className={expenseDateFilterCustomDateClassName}
                                     />
                                 </div>
                             </div>
@@ -1559,7 +1598,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     <CustomDateField
                                         value={endDate}
                                         onChange={setEndDate}
-                                        placeholder="End date"
+                                        placeholder="dd/mm/yyyy"
+                                        className={expenseDateFilterCustomDateClassName}
                                     />
                                 </div>
                             </div>
@@ -1573,7 +1613,21 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                             : 'flex-row justify-between items-center'
                             } mb-3 gap-2`}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
-                            <button className='pl-2' onClick={() => setShowFilters(!showFilters)}>
+                            <button
+                                className='pl-2'
+                                onClick={() => {
+                                    const willOpen = !showFilters;
+                                    setShowFilters(willOpen);
+                                    if (!willOpen) return;
+                                    const scroller = scrollRef.current;
+                                    if (!scroller) return;
+                                    if (scroller.scrollTop <= 0) return;
+                                    requestAnimationFrame(() => {
+                                        const h = filterRowRef.current?.offsetHeight || 0;
+                                        if (h > 0) scroller.scrollTop = scroller.scrollTop + h;
+                                    });
+                                }}
+                            >
                                 <img
                                     src={Filter}
                                     alt="Toggle Filter"
@@ -1585,35 +1639,35 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     {timestampStartDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">Timestamp: </span>
-                                            <span className="font-bold">{timestampStartDate}{timestampEndDate ? ` – ${timestampEndDate}` : ' onwards'}</span>
+                                            <span className="font-bold">{formatChipDateDMY(timestampStartDate)}{timestampEndDate ? ` – ${formatChipDateDMY(timestampEndDate)}` : ' onwards'}</span>
                                             <button onClick={() => { setTimestampStartDate(''); setTimestampEndDate(''); }} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
                                     )}
                                     {timestampEndDate && !timestampStartDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">Timestamp until: </span>
-                                            <span className="font-bold">{timestampEndDate}</span>
+                                            <span className="font-bold">{formatChipDateDMY(timestampEndDate)}</span>
                                             <button onClick={() => setTimestampEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
                                     )}
                                     {startDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">Start Date: </span>
-                                            <span className="font-bold">{startDate}</span>
+                                            <span className="font-bold">{formatChipDateDMY(startDate)}</span>
                                             <button onClick={() => setStartDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
                                     )}
                                     {endDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">End Date: </span>
-                                            <span className="font-bold">{endDate}</span>
+                                            <span className="font-bold">{formatChipDateDMY(endDate)}</span>
                                             <button onClick={() => setEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
                                     )}
                                     {selectedDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
                                             <span className="font-normal">Date: </span>
-                                            <span className="font-bold">{selectedDate}</span>
+                                            <span className="font-bold">{formatChipDateDMY(selectedDate)}</span>
                                             <button onClick={() => setSelectedDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                                         </span>
                                     )}
@@ -1721,9 +1775,15 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         <th className="px-0.5 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('contractor')}>
                                             Contractor {sortField === 'contractor' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[120px] font-bold text-left">Staff</th>
-                                        <th className="px-0.5 w-[120px] font-bold text-left">Quantity</th>
-                                        <th className="px-0.5 w-[120px] font-bold text-left">Amount</th>
+                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('staff')}>
+                                            Staff {sortField === 'staff' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
+                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('quantity')}>
+                                            Quantity {sortField === 'quantity' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
+                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('amount')}>
+                                            Amount {sortField === 'amount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
                                         <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('comments')}>
                                             Description {sortField === 'comments' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
@@ -1736,8 +1796,12 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('machineTools')}>
                                             Machine Tools {sortField === 'machineTools' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[150px] font-bold text-left">Source From</th>
-                                        <th className="px-0.5 w-[150px] font-bold text-left">Branch</th>
+                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('source')}>
+                                            Source From {sortField === 'source' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
+                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('branch')}>
+                                            Branch {sortField === 'branch' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
                                         <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('enteredBy')}>
                                             Entered By {sortField === 'enteredBy' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
@@ -1748,29 +1812,31 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         <th className="px-0.5 w-[50px] font-bold text-left">File</th>
                                     </tr>
                                     {showFilters && (
-                                        <tr className="bg-[#FAF6ED]">
-                                            <th className="py-3 px-2 relative">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowDateRangePicker(true)}
-                                                    className="w-full min-w-[140px] px-2 py-2 text-sm rounded-lg border-2 border-[#BF9853] font-normal border-opacity-30 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent transition-all duration-200 hover:bg-[#FAF6ED] text-left flex items-center justify-between"
-                                                >
-                                                    <span className="text-gray-400 text-[12px] font-semibold truncate">
-                                                        {timestampStartDate ? (timestampEndDate ? `${timestampStartDate} – ${timestampEndDate}` : `From ${timestampStartDate}`) : 'Time stamp'}
-                                                    </span>
-                                                    <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                                </button>
-                                                <DateRangePicker
-                                                    isOpen={showDateRangePicker}
-                                                    onClose={() => setShowDateRangePicker(false)}
-                                                    startDate={timestampStartDate}
-                                                    endDate={timestampEndDate}
-                                                    variant="dropdown"
-                                                    onApply={(from, to) => {
-                                                        setTimestampStartDate(from);
-                                                        setTimestampEndDate(to);
-                                                    }}
-                                                />
+                                        <tr ref={filterRowRef} className="bg-[#FAF6ED]">
+                                            <th className="py-3">
+                                                <div className="relative">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowDateRangePicker(true)}
+                                                        className="w-full min-w-[140px] h-[45px] px-2 py-0 text-sm rounded-lg border-2 border-[#BF9853] border-opacity-30 font-normal bg-white shadow-sm text-left flex items-center justify-between outline-none ring-0 hover:border-[hsl(0,0%,70%)] hover:border-opacity-100 focus:border-[#2684FF] focus:border-opacity-100 focus:shadow-[0_0_0_1px_#2684FF] focus-visible:border-[#2684FF] focus-visible:border-opacity-100 focus-visible:shadow-[0_0_0_1px_#2684FF]"
+                                                    >
+                                                        <span className="text-gray-400 text-[12px] font-semibold truncate">
+                                                            {timestampStartDate ? (timestampEndDate ? `${timestampStartDate} – ${timestampEndDate}` : `From ${timestampStartDate}`) : 'Time stamp'}
+                                                        </span>
+                                                        <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                    </button>
+                                                    <DateRangePicker
+                                                        isOpen={showDateRangePicker}
+                                                        onClose={() => setShowDateRangePicker(false)}
+                                                        startDate={timestampStartDate}
+                                                        endDate={timestampEndDate}
+                                                        variant="dropdown"
+                                                        onApply={(from, to) => {
+                                                            setTimestampStartDate(from);
+                                                            setTimestampEndDate(to);
+                                                        }}
+                                                    />
+                                                </div>
                                             </th>
                                             <th className="py-3">
                                                 <div className="min-w-[100px]">
@@ -1778,7 +1844,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                         value={selectedDate}
                                                         onChange={setSelectedDate}
                                                         placeholder="dd/mm/yyyy"
-                                                        className="placeholder:text-gray-400"
+                                                        className={expenseDateFilterCustomDateClassName}
                                                     />
                                                 </div>
                                             </th>
@@ -2053,18 +2119,38 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     </div>
                                     <div>
                                         <label className="block text-gray-500 font-semibold text-left">Account Type *</label>
-                                        <select
+                                        <Select
                                             name="accountType"
-                                            value={formData.accountType}
-                                            onChange={handleChange}
-                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none">
-                                            <option value="" disabled>--- Select ---</option>
-                                            {editAccountTypeOptions.map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            value={editAccountTypeOptions.find(option => option.value === formData.accountType) || null}
+                                            onChange={(selectedOption) =>
+                                                setFormData({
+                                                    ...formData,
+                                                    accountType: selectedOption?.value || '',
+                                                })
+                                            }
+                                            options={editAccountTypeOptions}
+                                            placeholder="--- Select ---"
+                                            styles={{
+                                                control: (base) => ({
+                                                    ...base,
+                                                    borderColor: 'rgba(191, 152, 83, 0.2)',
+                                                    borderWidth: '2px',
+                                                    borderRadius: '0.5rem',
+                                                    padding: '0.25rem',
+                                                    textAlign: 'left',
+                                                }),
+                                                option: (provided, state) => ({
+                                                    ...provided,
+                                                    textAlign: 'left',
+                                                    fontWeight: 'normal',
+                                                    fontSize: '15px',
+                                                    backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+                                                    color: 'black',
+                                                }),
+                                            }}
+                                            menuPlacement="bottom"
+                                            menuPosition="absolute"
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-gray-500 font-semibold text-left">Site Name *</label>
@@ -2275,18 +2361,58 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     {(formData.accountType === 'Claim' || formData.accountType === 'Utility Bills' || formData.accountType === 'Weekly Payment') && (
                                         <div>
                                             <label className="block text-gray-500 font-semibold text-left">Payment Mode *</label>
-                                            <select
+                                            <Select
                                                 name="paymentMode"
-                                                value={formData.paymentMode}
-                                                onChange={handleChange}
-                                                className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none">
-                                                <option value="">Select Payment Mode</option>
-                                                {finalPaymentModeOptions.map(mode => (
-                                                    <option key={mode.id || mode.modeOfPayment} value={mode.modeOfPayment}>
-                                                        {mode.modeOfPayment}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                options={finalPaymentModeOptions.map((mode) => ({
+                                                    value: mode.modeOfPayment,
+                                                    label: mode.modeOfPayment,
+                                                }))}
+                                                value={
+                                                    finalPaymentModeOptions
+                                                        .map((mode) => ({
+                                                            value: mode.modeOfPayment,
+                                                            label: mode.modeOfPayment,
+                                                        }))
+                                                        .find((o) => o.value === formData.paymentMode) || null
+                                                }
+                                                onChange={(selectedOption) =>
+                                                    setFormData({
+                                                        ...formData,
+                                                        paymentMode: selectedOption?.value || '',
+                                                    })
+                                                }
+                                                placeholder="Select Payment Mode"
+                                                maxMenuHeight={200}
+                                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                                styles={{
+                                                    control: (base) => ({
+                                                        ...base,
+                                                        borderColor: 'rgba(191, 152, 83, 0.2)',
+                                                        borderWidth: '2px',
+                                                        borderRadius: '0.5rem',
+                                                        padding: '0.25rem',
+                                                        textAlign: 'left',
+                                                    }),
+                                                    option: (provided, state) => ({
+                                                        ...provided,
+                                                        textAlign: 'left',
+                                                        fontWeight: 'normal',
+                                                        fontSize: '15px',
+                                                        backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+                                                        color: 'black',
+                                                    }),
+                                                    menuPortal: (provided) => ({
+                                                        ...provided,
+                                                        zIndex: 10001,
+                                                    }),
+                                                    menuList: (provided) => ({
+                                                        ...provided,
+                                                        maxHeight: 200,
+                                                    }),
+                                                }}
+                                                menuPlacement="bottom"
+                                                menuPosition="fixed"
+                                            />
                                         </div>
                                     )}
                                     {formData.accountType === 'Utility Bills' && (

@@ -166,7 +166,7 @@ const Dashboard = () => {
     }, []);
     const fetchProjects = async () => {
         try {
-            const response = await fetch('https://backendaab.in/demoAabuilderDash/api/projects/getAll');
+            const response = await fetch('https://backendaab.in/aabuilderDash/api/projects/getAll');
             if (response.ok) {
                 const data = await response.json();
                 const ownProjects = Array.isArray(data)
@@ -185,7 +185,7 @@ const Dashboard = () => {
     }, []);
     const fetchRentForms = async () => {
         try {
-            const response = await axios.get('https://backendaab.in/demoAabuildersDash/api/rental_forms/getAll');
+            const response = await axios.get('https://backendaab.in/aabuildersDash/api/rental_forms/getAll');
             const list = Array.isArray(response.data) ? response.data : [];
             const sortedForms = list.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
             setRentForms(sortedForms);
@@ -223,7 +223,7 @@ const Dashboard = () => {
     }, [projects]);
     const fetchTenants = async () => {
         try {
-            const response = await fetch('https://backendaab.in/demoAabuildersDash/api/tenant_link_shop/getAll');
+            const response = await fetch('https://backendaab.in/aabuildersDash/api/tenant_link_shop/getAll');
             if (response.ok) {
                 const data = await response.json();
                 setTenantShopData(data);
@@ -593,7 +593,7 @@ const Dashboard = () => {
     const handleSaveRentAdvance = async () => {
         const { tenantId, shopId } = selectedShop;
         try {
-            const updateResponse = await fetch(`https://backendaab.in/demoAabuildersDash/api/tenant_link_shop/update/${tenantId}/shopNo/${shopId}`, {
+            const updateResponse = await fetch(`https://backendaab.in/aabuildersDash/api/tenant_link_shop/update/${tenantId}/shopNo/${shopId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -610,7 +610,7 @@ const Dashboard = () => {
                         rentAmount: editRent,
                         startingMonthForThisRent: editStartingMonth
                     };
-                    const historyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/rent-history/save', {
+                    const historyResponse = await fetch('https://backendaab.in/aabuildersDash/api/rent-history/save', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
