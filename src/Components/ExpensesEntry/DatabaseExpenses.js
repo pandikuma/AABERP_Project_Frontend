@@ -1887,7 +1887,17 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th></th>
+                                            <th className="py-3">
+                                                <Select
+                                                    className="w-full"
+                                                    options={enoOptions.map((eno) => ({ value: String(eno), label: String(eno) }))}
+                                                    value={selectedEno ? { value: String(selectedEno), label: String(selectedEno) } : null}
+                                                    onChange={(selectedOption) => setSelectedEno(selectedOption ? selectedOption.value : '')}
+                                                    placeholder="E.No"
+                                                    menuPlacement="bottom"
+                                                    styles={customStyles}
+                                                />
+                                            </th>
                                             <th></th>
                                             <th></th>
                                         </tr>

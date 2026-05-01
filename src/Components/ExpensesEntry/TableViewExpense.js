@@ -20,6 +20,7 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
     const [tempEndDate, setTempEndDate] = useState(null);
     const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
     const datePickerRef = useRef(null);
+    const popupRef = useRef(null);
     const lastMonthWheelAt = useRef(0);
     const lastYearWheelAt = useRef(0);
     useEffect(() => {
@@ -178,6 +179,18 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
             setShowMonthYearPicker(false);
         }
     }, [isOpen, startDate, endDate]);
+
+    // Prevent background (table/page) scroll while using wheel inside popup.
+    useEffect(() => {
+        if (!isOpen) return;
+        const el = popupRef.current;
+        if (!el) return;
+        const onWheel = (e) => {
+            e.preventDefault();
+        };
+        el.addEventListener("wheel", onWheel, { passive: false });
+        return () => el.removeEventListener("wheel", onWheel);
+    }, [isOpen]);
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 61 }, (_, index) => currentYear - 30 + index);
     return (
@@ -191,7 +204,7 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
                 placeholder="Select Date Range"
             />
             {isOpen && (
-                <div className="absolute z-50 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-4" style={{ minWidth: '320px' }}>
+                <div ref={popupRef} className="absolute z-50 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-3" style={{ minWidth: '320px' }}>
                     <div className="flex items-center justify-between gap-2 mb-4">
                         {showMonthYearPicker ? (
                             <div className="w-8" />
@@ -245,7 +258,6 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
                                             className="w-full mt-1"
                                             onWheel={(e) => {
                                                 e.preventDefault();
-                                                e.stopPropagation();
                                                 const now = Date.now();
                                                 if (now - lastMonthWheelAt.current < 120) return;
                                                 lastMonthWheelAt.current = now;
@@ -295,7 +307,6 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
                                             className="w-full mt-1"
                                             onWheel={(e) => {
                                                 e.preventDefault();
-                                                e.stopPropagation();
                                                 const now = Date.now();
                                                 if (now - lastYearWheelAt.current < 120) return;
                                                 lastYearWheelAt.current = now;
@@ -335,14 +346,17 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
                         </div>
                     ) : (
                         <>
-                            <div className="grid grid-cols-7 gap-1 mb-2">
-                                {dayNames.map((day, idx) => (
-                                    <div key={idx} className="text-center text-xs font-medium text-gray-600 py-1">
+                            <div className="grid grid-cols-7 gap-0.5 mb-1">
+                                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, idx) => (
+                                    <div
+                                        key={day}
+                                        className={`text-center text-[11px] font-medium py-1 ${idx === 0 || idx === 6 ? "text-red-500" : "text-gray-500"}`}
+                                    >
                                         {day}
                                     </div>
                                 ))}
                             </div>
-                            <div className="grid grid-cols-7 gap-1">
+                            <div className="grid grid-cols-7 gap-0.5">
                                 {days.map((dateObj, idx) => {
                                     const { day, isCurrentMonth } = dateObj;
                                     const inRange = isDateInRange(day, isCurrentMonth);
@@ -356,11 +370,10 @@ const DateRangePicker = ({ startDate, endDate, onStartDateChange, onEndDateChang
                                             onClick={() => handleDateClick(day, isCurrentMonth)}
                                             disabled={!isCurrentMonth}
                                             className={`
-                                                py-2 text-sm rounded
-                                                ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100'}
-                                                ${isStart || isEnd ? 'bg-black text-white font-semibold' : ''}
+                                                w-9 h-9 flex items-center justify-center text-sm rounded
+                                                ${!isCurrentMonth ? 'text-gray-300 cursor-not-allowed' : 'hover:bg-gray-100 text-gray-800'}
+                                                ${isStart || isEnd ? 'bg-blue-600 text-white font-semibold' : ''}
                                                 ${inRange && !isStart && !isEnd ? 'bg-gray-200' : ''}
-                                                ${isCurrentMonth && !inRange && !isStart && !isEnd ? 'text-black' : ''}
                                             `}
                                         >
                                             {day}
@@ -2021,7 +2034,17 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th></th>
+                                            <th className="py-3">
+                                                <Select
+                                                    className="w-full"
+                                                    options={enoOptions.map((eno) => ({ value: String(eno), label: String(eno) }))}
+                                                    value={selectedEno ? { value: String(selectedEno), label: String(selectedEno) } : null}
+                                                    onChange={(selectedOption) => setSelectedEno(selectedOption ? selectedOption.value : '')}
+                                                    placeholder="E.No"
+                                                    menuPlacement="bottom"
+                                                    styles={customStyles}
+                                                />
+                                            </th>
                                             <th></th>
                                             <th></th>
                                         </tr>

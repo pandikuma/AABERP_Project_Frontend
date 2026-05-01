@@ -35,6 +35,7 @@ export default function SingleDatePicker({
   const [viewDate, setViewDate] = useState(() => selectedDate || new Date());
   const [mode, setMode] = useState("day"); // "day" | "monthYear"
   const containerRef = useRef(null);
+  const panelRef = useRef(null);
   const lastMonthWheelAt = useRef(0);
   const lastYearWheelAt = useRef(0);
   const today = useMemo(() => new Date(), []);
@@ -54,6 +55,18 @@ export default function SingleDatePicker({
     window.addEventListener("mousedown", onMouseDown);
     return () => window.removeEventListener("mousedown", onMouseDown);
   }, [isOpen, variant, onClose]);
+
+  // Prevent background (table/page) scroll while using wheel inside popup.
+  useEffect(() => {
+    if (!isOpen) return;
+    const el = panelRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [isOpen]);
 
   const monthStart = startOfMonth(viewDate);
   const monthEnd = endOfMonth(viewDate);
@@ -102,7 +115,7 @@ export default function SingleDatePicker({
   if (!isOpen) return null;
 
   const panel = (
-    <div className="bg-white rounded-lg shadow-xl p-3 w-[320px] border border-gray-200">
+    <div ref={panelRef} className="bg-white rounded-lg shadow-xl p-3 w-[320px] border border-gray-200">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-3">
         {mode === "day" ? (

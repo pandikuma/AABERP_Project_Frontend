@@ -22,6 +22,7 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
     const [tempTo, setTempTo] = useState(endDate ? parseISO(endDate) : null);
     const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
     const containerRef = useRef(null);
+    const panelRef = useRef(null);
     const lastMonthWheelAt = useRef(0);
     const lastYearWheelAt = useRef(0);
 
@@ -106,6 +107,21 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
         return () => window.removeEventListener("mousedown", onMouseDown);
     }, [isOpen, variant, onClose]);
 
+    // Prevent background (table/page) scroll while using wheel inside popup.
+    // Use a non-passive CAPTURE listener so preventDefault reliably blocks scroll.
+    useEffect(() => {
+        if (!isOpen) return;
+        const onWheel = (e) => {
+            const el = panelRef.current;
+            if (!el) return;
+            if (el.contains(e.target)) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+        return () => window.removeEventListener("wheel", onWheel, { capture: true });
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     const months = Array.from({ length: 12 }, (_, i) => format(new Date(2024, i, 1), "MMM"));
@@ -127,7 +143,7 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
 
     return (
         <Wrapper>
-            <div className="bg-white rounded-lg shadow-xl p-4 w-[320px]">
+            <div ref={panelRef} className="bg-white rounded-lg shadow-xl p-3 w-[320px] border border-gray-200">
                 {/* Header: Month/Year with arrows */}
                 <div className="flex items-center justify-between mb-4">
                     {showMonthYearPicker ? (
@@ -183,7 +199,6 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
                                         className="w-full mt-1"
                                         onWheel={(e) => {
                                             e.preventDefault();
-                                            e.stopPropagation();
                                             const now = Date.now();
                                             if (now - lastMonthWheelAt.current < 120) return;
                                             lastMonthWheelAt.current = now;
@@ -233,7 +248,6 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
                                         className="w-full mt-1"
                                         onWheel={(e) => {
                                             e.preventDefault();
-                                            e.stopPropagation();
                                             const now = Date.now();
                                             if (now - lastYearWheelAt.current < 120) return;
                                             lastYearWheelAt.current = now;
@@ -274,9 +288,12 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
                 ) : (
                     <>
                         {/* Weekday headers */}
-                        <div className="grid grid-cols-7 gap-0.5 mb-2">
-                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d) => (
-                                <div key={d} className="text-center text-xs font-medium text-gray-500 py-1">
+                        <div className="grid grid-cols-7 gap-0.5 mb-1">
+                            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, idx) => (
+                                <div
+                                    key={d}
+                                    className={`text-center text-[11px] font-medium py-1 ${idx === 0 || idx === 6 ? "text-red-500" : "text-gray-500"}`}
+                                >
                                     {d}
                                 </div>
                             ))}
@@ -298,7 +315,7 @@ const DateRangePicker = ({ isOpen, onClose, startDate, endDate, onApply, variant
                                                 w-9 h-9 flex items-center justify-center text-sm rounded
                                                 ${!inMonth ? 'text-gray-300' : 'text-gray-800'}
                                                 ${inRange && !selected ? 'bg-gray-200' : ''}
-                                                ${selected ? 'bg-black text-white' : ''}
+                                                ${selected ? 'bg-blue-600 text-white' : ''}
                                                 ${inMonth && !selected ? 'hover:bg-gray-100' : ''}
                                             `}
                                         >
