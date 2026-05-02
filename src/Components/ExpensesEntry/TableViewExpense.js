@@ -1072,8 +1072,13 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
             fontSize: '12px',
             height: '45px',
             borderRadius: '8px',
-            borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.3)' : 'rgba(191, 152, 83, 0.3)',
-            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.3)' : 'none',
+            padding: '0.25rem',
+            textAlign: 'left',
+            borderColor: 'rgba(191, 152, 83, 0.2)',
+            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+            '&:hover': {
+                borderColor: 'rgba(191, 152, 83, 0.4)',
+            },
         }),
         clearIndicator: (provided) => ({
             ...provided,
@@ -1081,7 +1086,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         }),
         menu: (provided) => ({
             ...provided,
-            zIndex: 9999,
+            zIndex: 999,
             maxHeight: '300px',
         }),
         menuPortal: (provided) => ({
@@ -1098,21 +1103,15 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         }),
         singleValue: (provided) => ({
             ...provided,
-            fontWeight: '400',
-            color: 'black',
-            textAlign: 'left',
+            color: '#111827',
         }),
         option: (provided, state) => ({
             ...provided,
-            fontWeight: '300',
-            fontSize: '14px',
-            backgroundColor: state.isSelected
-                ? 'rgba(191, 152, 83, 0.3)'
-                : state.isFocused
-                    ? 'rgba(191, 152, 83, 0.1)'
-                    : 'white',
-            color: 'black',
             textAlign: 'left',
+            fontWeight: 'normal',
+            fontSize: '15px',
+            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+            color: 'black',
         }),
         input: (provided) => ({
             ...provided,
@@ -1122,8 +1121,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
         }),
         placeholder: (provided) => ({
             ...provided,
-            fontWeight: '500',
-            color: '#999',
+            color: '#6B7280',
             textAlign: 'left',
         }),
         indicatorSeparator: (provided) => ({
@@ -1553,7 +1551,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                     {showFilters && (
                                         <tr ref={filterRowRef} className="bg-[#FAF6ED]">
                                             <th className="py-3">
-                                                <div className="relative">
+                                                <div className="relative [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]">
                                                     <button
                                                         type="button"
                                                         onClick={() => setShowDateRangePicker(true)}
@@ -1644,7 +1642,7 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
                                                     options={machineToolsOptions}
                                                     value={selectedMachineTools ? machineToolsOptions.find(opt => opt.value === String(selectedMachineTools)) : null}
                                                     onChange={(selectedOption) => setSelectedMachineTools(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Machine Tools"
+                                                    placeholder="MachineTools"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />

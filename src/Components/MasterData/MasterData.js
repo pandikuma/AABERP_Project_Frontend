@@ -983,7 +983,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       });
       if (response.ok) {
         setMessage('Site name saved successfully!');
-        window.location.reload();
+        fetchSiteNames();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1029,7 +1029,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       }
       const result = await response.json();
       setMessage("Vendor saved successfully!");
-      window.location.reload();
+      fetchVendorNames();
       // Reset form fields or close modal
       setVendorName("");
       setVendorAccountHolderName("");
@@ -1097,7 +1097,6 @@ const MasterData = ({ username, userRoles = [] }) => {
         setContractorQrImagePreview(null);
         closeContractorNames();
         fetchContractorNames(); // Refresh the list
-        window.location.reload();
       } else {
         const errorData = await response.text();
         setMessage('Error saving contractor: ' + errorData);
@@ -1119,7 +1118,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       if (response.ok) {
         setMessage('Category saved successfully!');
         setCategory('');
-        window.location.reload();
+        fetchCategories();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1137,7 +1136,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       if (response.ok) {
         setMessage('Machine tool saved successfully!');
         setMachineTool('');
-        window.location.reload();
+        fetchMachinTools();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1262,7 +1261,8 @@ const MasterData = ({ username, userRoles = [] }) => {
         setAadhaarPdfFile(null);
         setAadhaarImageUrl('');
         setIsSiteEngineer(false);
-        window.location.reload();
+        fetchEmployeeList();
+        fetchUsernames();
       } else {
         console.error('Save request failed:', response.status, response.statusText);
         alert('Failed to save employee data. Please try again.');
@@ -1285,7 +1285,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setMessage('Labour details saved successfully!');
         setLabourName('');
         setLabourSalary('');
-        window.location.reload();
+        fetchLaboursList();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1328,7 +1328,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setAccountType('');
         setQrImage(null);
         setQrImagePreview(null);
-        window.location.reload();
+        fetchAccountDetails();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1346,7 +1346,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       if (response.ok) {
         setMessage('Bank Account Type saved successfully!');
         setBankAccountType('');
-        window.location.reload();
+        fetchBankAccountTypes();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1371,7 +1371,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setSelectedProject(null);
         setDoorNo('');
         setEbServiceNo('');
-        window.location.reload();
+        fetchEbServiceLinks();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1393,7 +1393,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setMessage('Support Staff Name saved successfully!');
         setSupportStaffName('');
         setSupportStaffMobileNumber('');
-        window.location.reload();
+        fetchSupportStaffNameList();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1913,7 +1913,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Site name deleted successfully!');
-          window.location.reload();
+          fetchSiteNames();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -1928,7 +1928,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Vendor name deleted successfully!');
-          window.location.reload();
+          fetchVendorNames();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -1943,7 +1943,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('All vendor names deleted successfully!');
-          window.location.reload();
+          fetchVendorNames();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -1968,7 +1968,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setMessage(result);
         setVendorBulkUploadFile(null);
         setIsVendorBulkUploadOpen(false);
-        window.location.reload();
+        fetchVendorNames();
       } else {
         setMessage(`Upload failed: ${result}`);
       }
@@ -2110,7 +2110,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Contractor name deleted successfully!');
-          window.location.reload();
+          fetchContractorNames();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2125,7 +2125,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Category deleted successfully!');
-          window.location.reload();
+          fetchCategories();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2140,7 +2140,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Machine tool deleted successfully!');
-          window.location.reload();
+          fetchMachinTools();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2155,7 +2155,8 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Employee data deleted successfully!');
-          window.location.reload();
+          fetchEmployeeList();
+          fetchUsernames();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2170,7 +2171,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Labour data deleted successfully!');
-          window.location.reload();
+          fetchLaboursList();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2185,7 +2186,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Account details deleted successfully!');
-          window.location.reload();
+          fetchAccountDetails();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2200,7 +2201,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Bank Account Type deleted successfully!');
-          window.location.reload();
+          fetchBankAccountTypes();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2216,7 +2217,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('EB Service Link deleted successfully!');
-          window.location.reload();
+          fetchEbServiceLinks();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2231,7 +2232,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Support staff name deleted successfully!');
-          window.location.reload();
+          fetchSupportStaffNameList();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -4961,7 +4962,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                   if (response.ok) {
                     setMessage('Site name updated successfully!');
                     setIsEditSiteNameOpen(false);
-                    window.location.reload();
+                    fetchSiteNames();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -5048,7 +5049,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                           const result = await response.json();
                           setMessage('Vendor name updated successfully!');
                           setIsVendorEditOpen(false);
-                          window.location.reload();
+                          fetchVendorNames();
                         } else {
                           const errorText = await response.text();
                           setMessage(`Error: ${response.status} - ${errorText}`);
@@ -5426,10 +5427,9 @@ const MasterData = ({ username, userRoles = [] }) => {
                           body: formData,
                         });
                         if (response.ok) {
-                          window.location.reload();
                           setMessage('Contractor name updated successfully!');
                           setIsContractorEditOpen(false);
-                          fetchContractorNames(); // Refresh the list
+                          fetchContractorNames();
                         } else {
                           const errorData = await response.text();
                           setMessage('Error updating contractor: ' + errorData);
@@ -5742,7 +5742,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                   if (response.ok) {
                     setMessage('Category updated successfully!');
                     setIsCategoriesEditOpen(false);
-                    window.location.reload();
+                    fetchCategories();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -5792,7 +5792,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                   if (response.ok) {
                     setMessage('Machine tool updated successfully!');
                     setIsMachineToolsEditOpen(false);
-                    window.location.reload();
+                    fetchMachinTools();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -5875,7 +5875,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                   if (response.ok) {
                     setMessage('Bank Account Type updated successfully!');
                     setIsBankAccountTypeEditOpen(false);
-                    window.location.reload();
+                    fetchBankAccountTypes();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -5990,7 +5990,8 @@ const MasterData = ({ username, userRoles = [] }) => {
                   });
                   if (response.ok) {
                     setMessage('EB Service Link updated successfully!');
-                    window.location.reload();
+                    setIsEbServiceLinkEditOpen(false);
+                    fetchEbServiceLinks();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -6109,7 +6110,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                 if (response.ok) {
                   setMessage('Support Staff Name updated successfully!');
                   setIsSupportStaffNameEditOpen(false);
-                  window.location.reload();
+                  fetchSupportStaffNameList();
                 }
               } catch (error) {
                 console.error('Error:', error);
@@ -6827,7 +6828,8 @@ const MasterData = ({ username, userRoles = [] }) => {
                     if (response.ok) {
                       setMessage('Employee data updated successfully!');
                       setIsEditEmployeeDataOpen(false);
-                      window.location.reload();
+                      fetchEmployeeList();
+                      fetchUsernames();
                     } else {
                       console.error('Update request failed:', response.status, response.statusText);
                       alert('Failed to update employee data. Please try again.');
@@ -7270,7 +7272,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                 if (response.ok) {
                   setMessage('Labour data updated successfully!');
                   setIsEditLaboursListDataOpen(false);
-                  window.location.reload();
+                  fetchLaboursList();
                 }
               } catch (error) {
                 console.error('Error:', error);
@@ -7348,7 +7350,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                       if (response.ok) {
                         setMessage('Account details updated successfully!');
                         setIsAccountDetailsEditOpen(false);
-                        window.location.reload();
+                        fetchAccountDetails();
                       }
                     } catch (error) {
                       console.error('Error:', error);

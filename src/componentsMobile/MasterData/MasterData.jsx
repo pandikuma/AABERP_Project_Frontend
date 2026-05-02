@@ -2908,6 +2908,45 @@ const MasterData = ({ user, onLogout }) => {
     });
   };
 
+  const downloadLabourListTablePdf = (bodyRows) => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.setTextColor(191, 152, 83);
+    doc.text('Company Labour', 105, 20, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Labour Name, Wage Type & Wage', 14, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.autoTable({
+      startY: 35,
+      head: [['Labour Name', 'Wage Type', 'Wage']],
+      body: bodyRows.length ? bodyRows : [['N/A', 'N/A', 'N/A']],
+      theme: 'grid',
+      styles: {
+        fontSize: 10,
+        cellPadding: 3
+      },
+      headStyles: { fillColor: [191, 152, 83], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 11 },
+      columnStyles: {
+        0: { fontStyle: 'bold', textColor: [0, 0, 0], fontSize: 11 },
+        1: { textColor: [50, 50, 50] },
+        2: { textColor: [50, 50, 50] }
+      }
+    });
+    const stamp = new Date().toISOString().slice(0, 10);
+    doc.save(`Company_Labour_List_${stamp}.pdf`);
+  };
+
+  const handleCompanyLabourListShare = () => {
+    const source = Array.isArray(displayedList) ? displayedList : [];
+    const bodyRows = source.map((item) => {
+      const n = normalizeLabourForForm(item);
+      return [getPdfValue(n.labourName), getPdfValue(n.wageType), getPdfValue(n.labourSalary)];
+    });
+    downloadLabourListTablePdf(bodyRows);
+  };
+
   const toggleBankDetailsSection = (sectionId) => {
     setExpandedBankDetailsSection((current) => (current === sectionId ? null : sectionId));
   };
@@ -4507,7 +4546,7 @@ const MasterData = ({ user, onLogout }) => {
                 </div>
               </div>
               {renderInput({
-                label: 'Salary',
+                label: 'Wage',
                 required: true,
                 placeholder: '',
                 value: labourForm.labourSalary,
@@ -6302,19 +6341,31 @@ const MasterData = ({ user, onLogout }) => {
         <div className="flex min-h-0 flex-1 items-start px-[2px] pt-[12px] pb-[4px]">
           <div className="flex max-h-full w-full flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
             <div className="h-[32px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px]">
-              <div className="flex items-center">
-                <span className="w-[28px]" />
-                <div className="flex items-center gap-[6px]">
-                  <span className="text-[14px] font-semibold text-black">{selectedItem}</span>
+              <div className="flex w-full min-w-0 items-center justify-between gap-[8px]">
+                <div className="flex min-w-0 items-center">
+                  <span className="w-[28px] shrink-0" />
+                  <div className="flex min-w-0 items-center gap-[6px]">
+                    <span className="truncate text-[14px] font-semibold text-black">{selectedItem}</span>
+                    <button
+                      type="button"
+                      aria-label="Toggle list order"
+                      className="flex h-[28px] w-[28px] shrink-0 items-center justify-center p-0"
+                      onClick={() => setMasterTableSortReversed((prev) => !prev)}
+                    >
+                      <img src={masterTableSortReversed ? UpDownFilter : FilterUp} alt="" className="h-[16px] w-[16px]" />
+                    </button>
+                  </div>
+                </div>
+                {selectedItem === 'Company Labour' ? (
                   <button
                     type="button"
-                    aria-label="Toggle list order"
-                    className="flex h-[28px] w-[28px] shrink-0 items-center justify-center p-0"
-                    onClick={() => setMasterTableSortReversed((prev) => !prev)}
+                    aria-label="Share labour list as PDF"
+                    className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[6px]"
+                    onClick={handleCompanyLabourListShare}
                   >
-                    <img src={masterTableSortReversed ? UpDownFilter : FilterUp} alt="" className="h-[16px] w-[16px]" />
+                    <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
                   </button>
-                </div>
+                ) : null}
               </div>
             </div>
 

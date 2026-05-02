@@ -2117,6 +2117,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     setFormData((prev) => ({ ...prev, date: v }));
                                                 }}
                                                 placeholder="Select date"
+                                                alwaysOpenBelow
                                                 className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
                                             />
                                         </div>
