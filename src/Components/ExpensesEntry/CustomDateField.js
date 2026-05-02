@@ -10,6 +10,7 @@ export default function CustomDateField({
   className = "",
   disabled = false,
   anchor = "left",
+  alwaysOpenBelow = false,
 }) {
   const [open, setOpen] = useState(false);
 
@@ -46,6 +47,7 @@ export default function CustomDateField({
         onChange={(v) => onChange(v)}
         variant="dropdown"
         anchor={anchor}
+        alwaysOpenBelow={alwaysOpenBelow}
       />
     </div>
   );

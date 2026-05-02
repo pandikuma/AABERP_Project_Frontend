@@ -1092,6 +1092,9 @@ const TableViewExpense = ({ username, userRoles = [] }) => {
             ...provided,
             maxHeight: '250px',
             overflowY: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
         }),
         singleValue: (provided) => ({
             ...provided,

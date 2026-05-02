@@ -30,10 +30,12 @@ export default function SingleDatePicker({
   onChange,
   variant = "dropdown", // "dropdown" | "modal"
   anchor = "left", // "left" | "right"
+  alwaysOpenBelow = false,
 }) {
   const selectedDate = useMemo(() => (value ? parseISO(value) : null), [value]);
   const [viewDate, setViewDate] = useState(() => selectedDate || new Date());
   const [mode, setMode] = useState("day"); // "day" | "monthYear"
+  const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef(null);
   const panelRef = useRef(null);
   const lastMonthWheelAt = useRef(0);
@@ -44,7 +46,25 @@ export default function SingleDatePicker({
     if (!isOpen) return;
     setViewDate(selectedDate || new Date());
     setMode("day");
+    setOpenUp(false);
   }, [isOpen, selectedDate]);
+
+  // In dropdown mode, if there's not enough space below, open upwards
+  useEffect(() => {
+    if (!isOpen || variant !== "dropdown" || alwaysOpenBelow) return;
+    const raf = requestAnimationFrame(() => {
+      const trigger = containerRef.current;
+      const panel = panelRef.current;
+      if (!trigger || !panel) return;
+      const rect = trigger.getBoundingClientRect();
+      const panelH = panel.getBoundingClientRect().height || panel.offsetHeight || 0;
+      // account for the mt-2 / mb-2 gap (~8px)
+      const gap = 8;
+      const wouldOverflowBottom = rect.bottom + gap + panelH > window.innerHeight;
+      setOpenUp(wouldOverflowBottom);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isOpen, variant, mode, value, alwaysOpenBelow]);
 
   useEffect(() => {
     if (!isOpen || variant !== "dropdown") return;
@@ -327,7 +347,7 @@ export default function SingleDatePicker({
     return (
       <div
         ref={containerRef}
-        className={`absolute top-full mt-2 z-[9999] ${anchor === "right" ? "right-0" : "left-0"}`}
+        className={`absolute z-[9999] ${openUp ? "bottom-full mb-2" : "top-full mt-2"} ${anchor === "right" ? "right-0" : "left-0"}`}
       >
         {panel}
       </div>

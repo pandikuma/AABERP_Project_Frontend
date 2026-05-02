@@ -347,8 +347,13 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             fontSize: '12px',
             height: '45px',
             borderRadius: '8px',
-            borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.3)' : 'rgba(191, 152, 83, 0.3)',
-            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.3)' : 'none',
+            padding: '0.25rem',
+            textAlign: 'left',
+            borderColor: 'rgba(191, 152, 83, 0.2)',
+            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+            '&:hover': {
+                borderColor: 'rgba(191, 152, 83, 0.4)',
+            },
         }),
         clearIndicator: (provided) => ({
             ...provided,
@@ -356,7 +361,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         }),
         menu: (provided) => ({
             ...provided,
-            zIndex: 9999,
+            zIndex: 999,
             maxHeight: '300px',
         }),
         menuPortal: (provided) => ({
@@ -367,24 +372,21 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             ...provided,
             maxHeight: '250px',
             overflowY: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
         }),
         singleValue: (provided) => ({
             ...provided,
-            fontWeight: '400',
-            color: 'black',
-            textAlign: 'left',
+            color: '#111827',
         }),
         option: (provided, state) => ({
             ...provided,
-            fontWeight: '300',
-            fontSize: '14px',
-            backgroundColor: state.isSelected
-                ? 'rgba(191, 152, 83, 0.3)'
-                : state.isFocused
-                    ? 'rgba(191, 152, 83, 0.1)'
-                    : 'white',
-            color: 'black',
             textAlign: 'left',
+            fontWeight: 'normal',
+            fontSize: '15px',
+            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+            color: 'black',
         }),
         input: (provided) => ({
             ...provided,
@@ -394,8 +396,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         }),
         placeholder: (provided) => ({
             ...provided,
-            fontWeight: '500',
-            color: '#999',
+            color: '#6B7280',
             textAlign: 'left',
         }),
         indicatorSeparator: (provided) => ({
@@ -403,9 +404,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             display: 'none',
         }),
     }), []);
-    const expenseDateFilterInputShellClass =
-        '[&_button]:!border-[#BF9853] [&_button]:!border-opacity-30 [&_button:hover]:!border-[hsl(0,0%,70%)] [&_button:hover]:!border-opacity-100 [&_button:focus]:!border-[#2684FF] [&_button:focus]:!border-opacity-100 [&_button:focus]:!shadow-[0_0_0_1px_#2684FF] [&_button:focus]:!ring-0 [&_button:focus]:!outline-none [&_button:focus-visible]:!border-[#2684FF] [&_button:focus-visible]:!border-opacity-100 [&_button:focus-visible]:!shadow-[0_0_0_1px_#2684FF]';
-    const expenseDateFilterCustomDateClassName = `${expenseDateFilterInputShellClass} placeholder:text-gray-400`;
     const [modalIsOpen, setModalIsOpen] = useState(false);
 
     const fetchProjectData = async (projectId) => {
@@ -1533,7 +1531,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         value={startDate}
                                         onChange={setStartDate}
                                         placeholder="dd/mm/yyyy"
-                                        className={expenseDateFilterCustomDateClassName}
+                                        alwaysOpenBelow
+                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
                                     />
                                 </div>
                             </div>
@@ -1544,7 +1543,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         value={endDate}
                                         onChange={setEndDate}
                                         placeholder="dd/mm/yyyy"
-                                        className={expenseDateFilterCustomDateClassName}
+                                        alwaysOpenBelow
+                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
                                     />
                                 </div>
                             </div>
@@ -1588,7 +1588,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         value={startDate}
                                         onChange={setStartDate}
                                         placeholder="dd/mm/yyyy"
-                                        className={expenseDateFilterCustomDateClassName}
+                                        alwaysOpenBelow
+                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
                                     />
                                 </div>
                             </div>
@@ -1599,7 +1600,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         value={endDate}
                                         onChange={setEndDate}
                                         placeholder="dd/mm/yyyy"
-                                        className={expenseDateFilterCustomDateClassName}
+                                        alwaysOpenBelow
+                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
                                     />
                                 </div>
                             </div>
@@ -1814,11 +1816,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     {showFilters && (
                                         <tr ref={filterRowRef} className="bg-[#FAF6ED]">
                                             <th className="py-3">
-                                                <div className="relative">
+                                                <div className="relative [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]">
                                                     <button
                                                         type="button"
                                                         onClick={() => setShowDateRangePicker(true)}
-                                                        className="w-full min-w-[140px] h-[45px] px-2 py-0 text-sm rounded-lg border-2 border-[#BF9853] border-opacity-30 font-normal bg-white shadow-sm text-left flex items-center justify-between outline-none ring-0 hover:border-[hsl(0,0%,70%)] hover:border-opacity-100 focus:border-[#2684FF] focus:border-opacity-100 focus:shadow-[0_0_0_1px_#2684FF] focus-visible:border-[#2684FF] focus-visible:border-opacity-100 focus-visible:shadow-[0_0_0_1px_#2684FF]"
+                                                        className="w-full min-w-[140px] h-[45px] px-2 py-0 text-sm font-normal bg-white text-left flex items-center justify-between"
                                                     >
                                                         <span className="text-gray-400 text-[12px] font-semibold truncate">
                                                             {timestampStartDate ? (timestampEndDate ? `${timestampStartDate} – ${timestampEndDate}` : `From ${timestampStartDate}`) : 'Time stamp'}
@@ -1844,7 +1846,8 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                         value={selectedDate}
                                                         onChange={setSelectedDate}
                                                         placeholder="dd/mm/yyyy"
-                                                        className={expenseDateFilterCustomDateClassName}
+                                                        alwaysOpenBelow
+                                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
                                                     />
                                                 </div>
                                             </th>
@@ -1915,7 +1918,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     options={machineToolsOptions}
                                                     value={selectedMachineTools ? machineToolsOptions.find(opt => opt.value === String(selectedMachineTools)) : null}
                                                     onChange={(selectedOption) => setSelectedMachineTools(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Machine Tools"
+                                                    placeholder="MachineTools"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
@@ -2114,6 +2117,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     setFormData((prev) => ({ ...prev, date: v }));
                                                 }}
                                                 placeholder="Select date"
+                                                className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
                                             />
                                         </div>
                                     </div>
@@ -2129,14 +2133,23 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 })
                                             }
                                             options={editAccountTypeOptions}
-                                            placeholder="--- Select ---"
+                                            placeholder="Select"
                                             styles={{
-                                                control: (base) => ({
+                                                control: (base, state) => ({
                                                     ...base,
                                                     borderColor: 'rgba(191, 152, 83, 0.2)',
                                                     borderWidth: '2px',
                                                     borderRadius: '0.5rem',
                                                     padding: '0.25rem',
+                                                    textAlign: 'left',
+                                                    boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+                                                    '&:hover': {
+                                                        borderColor: 'rgba(191, 152, 83, 0.4)',
+                                                    },
+                                                }),
+                                                placeholder: (base) => ({
+                                                    ...base,
+                                                    color: '#6B7280',
                                                     textAlign: 'left',
                                                 }),
                                                 option: (provided, state) => ({
@@ -2146,6 +2159,20 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     fontSize: '15px',
                                                     backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                     color: 'black',
+                                                }),
+                                                singleValue: (base) => ({
+                                                    ...base,
+                                                    color: '#111827',
+                                                }),
+                                                menu: (base) => ({
+                                                    ...base,
+                                                    zIndex: 999,
+                                                }),
+                                                menuList: (base) => ({
+                                                    ...base,
+                                                    scrollbarWidth: 'none',
+                                                    msOverflowStyle: 'none',
+                                                    '&::-webkit-scrollbar': { display: 'none' },
                                                 }),
                                             }}
                                             menuPlacement="bottom"
@@ -2165,14 +2192,23 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 })
                                             }
                                             options={siteOption}
-                                            placeholder="--- Select Site ---"
+                                            placeholder="Select Site"
                                             styles={{
-                                                control: (base) => ({
+                                                control: (base, state) => ({
                                                     ...base,
                                                     borderColor: 'rgba(191, 152, 83, 0.2)',
                                                     borderWidth: '2px',
                                                     borderRadius: '0.5rem',
                                                     padding: '0.25rem',
+                                                    textAlign: 'left',
+                                                    boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+                                                    '&:hover': {
+                                                        borderColor: 'rgba(191, 152, 83, 0.4)',
+                                                    },
+                                                }),
+                                                placeholder: (base) => ({
+                                                    ...base,
+                                                    color: '#6B7280',
                                                     textAlign: 'left',
                                                 }),
                                                 option: (provided, state) => ({
@@ -2182,6 +2218,20 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     fontSize: '15px',
                                                     backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                     color: 'black',
+                                                }),
+                                                singleValue: (base) => ({
+                                                    ...base,
+                                                    color: '#111827',
+                                                }),
+                                                menu: (base) => ({
+                                                    ...base,
+                                                    zIndex: 999,
+                                                }),
+                                                menuList: (base) => ({
+                                                    ...base,
+                                                    scrollbarWidth: 'none',
+                                                    msOverflowStyle: 'none',
+                                                    '&::-webkit-scrollbar': { display: 'none' },
                                                 }),
                                             }}
                                             menuPlacement="bottom"
@@ -2239,8 +2289,14 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     ...base,
                                                     zIndex: 999,
                                                 }),
+                                                menuList: (base) => ({
+                                                    ...base,
+                                                    scrollbarWidth: 'none',
+                                                    msOverflowStyle: 'none',
+                                                    '&::-webkit-scrollbar': { display: 'none' },
+                                                }),
                                             }}
-                                            placeholder="--- Select Vendor ---"
+                                            placeholder="Select Vendor"
                                         />
                                     </div>
                                     <div>
@@ -2295,14 +2351,20 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     ...base,
                                                     zIndex: 999,
                                                 }),
+                                                menuList: (base) => ({
+                                                    ...base,
+                                                    scrollbarWidth: 'none',
+                                                    msOverflowStyle: 'none',
+                                                    '&::-webkit-scrollbar': { display: 'none' },
+                                                }),
                                             }}
-                                            placeholder="--- Select Contractor ---"
+                                            placeholder="Select Contractor"
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-gray-500 font-semibold text-left">Quantity *</label>
                                         <input type="text" name="quantity" value={formData.quantity} onChange={handleChange}
-                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
                                         />
                                     </div>
                                     <div>
@@ -2310,14 +2372,23 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         <Select name="category" value={categoryOption.find(option => option.value === formData.category)}
                                             onChange={(selectedOption) => setFormData({ ...formData, category: selectedOption?.value || '' })}
                                             options={categoryOption}
-                                            placeholder="--- Select Category ---"
+                                            placeholder="Select Category"
                                             styles={{
-                                                control: (base) => ({
+                                                control: (base, state) => ({
                                                     ...base,
                                                     borderColor: 'rgba(191, 152, 83, 0.2)',
                                                     borderWidth: '2px',
                                                     borderRadius: '0.5rem',
                                                     padding: '0.25rem',
+                                                    textAlign: 'left',
+                                                    boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+                                                    '&:hover': {
+                                                        borderColor: 'rgba(191, 152, 83, 0.4)',
+                                                    },
+                                                }),
+                                                placeholder: (base) => ({
+                                                    ...base,
+                                                    color: '#6B7280',
                                                     textAlign: 'left',
                                                 }),
                                                 option: (provided, state) => ({
@@ -2328,6 +2399,20 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                     color: 'black',
                                                 }),
+                                                singleValue: (base) => ({
+                                                    ...base,
+                                                    color: '#111827',
+                                                }),
+                                                menu: (base) => ({
+                                                    ...base,
+                                                    zIndex: 999,
+                                                }),
+                                                menuList: (base) => ({
+                                                    ...base,
+                                                    scrollbarWidth: 'none',
+                                                    msOverflowStyle: 'none',
+                                                    '&::-webkit-scrollbar': { display: 'none' },
+                                                }),
                                             }}
                                             menuPlacement="bottom"
                                             menuPosition="absolute"
@@ -2337,14 +2422,14 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         <label className="block text-gray-500 font-semibold text-left">Amount *</label>
                                         <span className="absolute top-9 left-3 mt-[2px] text-gray-600">₹</span>
                                         <input type="text" name="amount" value={formData.amount} onChange={handleChange}
-                                            className="mt-1 block w-full p-2 pl-6 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                            className="mt-1 block w-full p-2 pl-6 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
                                             onWheel={(e) => e.target.blur()}
                                         />
                                     </div>
                                     <div>
                                         <label className="block text-gray-500 font-semibold text-left">Comments *</label>
                                         <input type="text" name="comments" value={formData.comments} onChange={handleChange}
-                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
                                         />
                                     </div>
                                     <div>
@@ -2353,7 +2438,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             {selectedFile && <span className="text-orange-600 ml-4">{selectedFile.name}</span>}
                                         </div>
                                         <input type="text" name="billCopy" value={formData.billCopy} onChange={handleChange}
-                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
                                         />
                                         <input type="file" className="hidden" id="fileInput" onChange={handleFileChange} />
                                     </div>
@@ -2385,12 +2470,21 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 maxMenuHeight={200}
                                                 menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                                                 styles={{
-                                                    control: (base) => ({
+                                                    control: (base, state) => ({
                                                         ...base,
                                                         borderColor: 'rgba(191, 152, 83, 0.2)',
                                                         borderWidth: '2px',
                                                         borderRadius: '0.5rem',
                                                         padding: '0.25rem',
+                                                        textAlign: 'left',
+                                                        boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+                                                        '&:hover': {
+                                                            borderColor: 'rgba(191, 152, 83, 0.4)',
+                                                        },
+                                                    }),
+                                                    placeholder: (base) => ({
+                                                        ...base,
+                                                        color: '#6B7280',
                                                         textAlign: 'left',
                                                     }),
                                                     option: (provided, state) => ({
@@ -2401,13 +2495,23 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                         backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                         color: 'black',
                                                     }),
-                                                    menuPortal: (provided) => ({
-                                                        ...provided,
+                                                    singleValue: (base) => ({
+                                                        ...base,
+                                                        color: '#111827',
+                                                    }),
+                                                    menuPortal: (base) => ({
+                                                        ...base,
                                                         zIndex: 10001,
                                                     }),
-                                                    menuList: (provided) => ({
-                                                        ...provided,
-                                                        maxHeight: 200,
+                                                    menu: (base) => ({
+                                                        ...base,
+                                                        zIndex: 999,
+                                                    }),
+                                                    menuList: (base) => ({
+                                                        ...base,
+                                                        scrollbarWidth: 'none',
+                                                        msOverflowStyle: 'none',
+                                                        '&::-webkit-scrollbar': { display: 'none' },
                                                     }),
                                                 }}
                                                 menuPlacement="bottom"
@@ -2423,7 +2527,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     name="utilityType"
                                                     value={formData.utilityType}
                                                     onChange={handleChange}
-                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none">
+                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]">
                                                     <option value="" disabled>--- Select ---</option>
                                                     <option value="Electricity">Electricity</option>
                                                     <option value="Property">Property</option>
@@ -2449,7 +2553,15 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     placeholder={`Select ${formData.utilityType === 'Electricity' ? 'EB Number' :
                                                         formData.utilityType === 'Property' ? 'Property Tax Number' :
                                                             formData.utilityType === 'Water' ? 'Water Tax Number' : 'Number'}...`}
-                                                    styles={customStyles}
+                                                    styles={{
+                                                        ...customStyles,
+                                                        menuList: (base) => ({
+                                                            ...(typeof customStyles.menuList === 'function' ? customStyles.menuList(base) : base),
+                                                            scrollbarWidth: 'none',
+                                                            msOverflowStyle: 'none',
+                                                            '&::-webkit-scrollbar': { display: 'none' },
+                                                        }),
+                                                    }}
                                                     menuPlacement="bottom"
                                                     menuPosition="absolute"
                                                 />
@@ -2462,7 +2574,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     value={formData.utilityForTheMonth}
                                                     onChange={handleChange}
                                                     placeholder="Enter months..."
-                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
                                                 />
                                             </div>
                                             {(formData.utilityType === 'Telecom' || formData.utilityType === 'Subscription') && (
@@ -2477,7 +2589,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                             value={formData.utilityValidityDays}
                                                             onChange={handleChange}
                                                             placeholder="Enter validity..."
-                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
                                                         />
                                                     </div>
 
@@ -2488,7 +2600,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                             name="utilityValidityType"
                                                             value={formData.utilityValidityType}
                                                             onChange={handleChange}
-                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none"
+                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
                                                         >
                                                             <option value="">--- Select ---</option>
                                                             <option value="Days">Days</option>

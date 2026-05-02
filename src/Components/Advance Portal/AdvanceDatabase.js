@@ -45,6 +45,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
   const [selectDatabaseType, setSelectDatabaseType] = useState('');
   const [selectDatabaseMode, setSelectDatabaseMode] = useState('');
   const [selectDatabaseEntryNo, setSelectDatabaseEntryNo] = useState('');
+  const [selectDatabaseSourceFrom, setSelectDatabaseSourceFrom] = useState('');
+  const [selectDatabaseBranch, setSelectDatabaseBranch] = useState('');
+  const [selectDatabaseEnteredBy, setSelectDatabaseEnteredBy] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showAdvancePortalModal, setShowAdvancePortalModal] = useState(false);
@@ -121,6 +124,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
           if (filters.selectDatabaseType) setSelectDatabaseType(filters.selectDatabaseType);
           if (filters.selectDatabaseMode) setSelectDatabaseMode(filters.selectDatabaseMode);
           if (filters.selectDatabaseEntryNo) setSelectDatabaseEntryNo(filters.selectDatabaseEntryNo);
+          if (filters.selectDatabaseSourceFrom) setSelectDatabaseSourceFrom(filters.selectDatabaseSourceFrom);
+          if (filters.selectDatabaseBranch) setSelectDatabaseBranch(filters.selectDatabaseBranch);
+          if (filters.selectDatabaseEnteredBy) setSelectDatabaseEnteredBy(filters.selectDatabaseEnteredBy);
           if (filters.startDate) setStartDate(filters.startDate);
           if (filters.endDate) setEndDate(filters.endDate);
           if (filters.showFilters !== undefined) setShowFilters(filters.showFilters);
@@ -159,12 +165,15 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       selectDatabaseType,
       selectDatabaseMode,
       selectDatabaseEntryNo,
+      selectDatabaseSourceFrom,
+      selectDatabaseBranch,
+      selectDatabaseEnteredBy,
       startDate,
       endDate,
       showFilters
     };
     sessionStorage.setItem('advanceDatabaseFilters', JSON.stringify(filters));
-  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseMode, selectDatabaseEntryNo, startDate, endDate, showFilters]);
+  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate, showFilters]);
   const scrollRef = useRef(null);
   const isDragging = useRef(false);
   const start = useRef({ x: 0, y: 0 });
@@ -592,6 +601,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       ...provided,
       maxHeight: '250px',
       overflowY: 'auto',
+      scrollbarWidth: 'none',
+      msOverflowStyle: 'none',
+      '&::-webkit-scrollbar': { display: 'none' },
     }),
     singleValue: (provided) => ({
       ...provided,
@@ -737,6 +749,18 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
     if (selectDatabaseEntryNo) {
       if (!entry.entry_no?.toString().includes(selectDatabaseEntryNo.toString())) return false;
     }
+    if (selectDatabaseSourceFrom) {
+      const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
+      if (String(sourceVal).toLowerCase() !== String(selectDatabaseSourceFrom).toLowerCase()) return false;
+    }
+    if (selectDatabaseBranch) {
+      const branchVal = entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? "";
+      if (String(branchVal).toLowerCase() !== String(selectDatabaseBranch).toLowerCase()) return false;
+    }
+    if (selectDatabaseEnteredBy) {
+      const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
+      if (String(enteredVal).toLowerCase() !== String(selectDatabaseEnteredBy).toLowerCase()) return false;
+    }
     return true;
   });
   // Extract unique values from table data for filter options
@@ -748,6 +772,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
     const uniqueTypes = new Set();
     const uniqueModes = new Set();
     const uniqueEntryNos = new Set();
+    const uniqueSources = new Set();
+    const uniqueBranches = new Set();
+    const uniqueEnteredBy = new Set();
 
     advanceData.forEach(entry => {
       // Extract vendors and contractors
@@ -786,6 +813,15 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       if (entry.entry_no) {
         uniqueEntryNos.add(entry.entry_no.toString());
       }
+
+      const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
+      if (sourceVal) uniqueSources.add(String(sourceVal));
+
+      const branchVal = entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? "";
+      if (branchVal) uniqueBranches.add(String(branchVal));
+
+      const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
+      if (enteredVal) uniqueEnteredBy.add(String(enteredVal));
     });
 
     // Create options arrays for Select components
@@ -824,7 +860,10 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       transferSiteOptions,
       typeOptions,
       modeOptions,
-      entryNoOptions
+      entryNoOptions,
+      sourceFromOptions: Array.from(uniqueSources).sort(),
+      branchOptions: Array.from(uniqueBranches).sort(),
+      enteredByOptions: Array.from(uniqueEnteredBy).sort(),
     };
   }, [advanceData, vendorOptions, contractorOptions, siteOptions]);
   const sortedData = React.useMemo(() => {
@@ -865,6 +904,18 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
             aValue = a.payment_mode || '';
             bValue = b.payment_mode || '';
             break;
+          case 'source':
+            aValue = String(a.source_from ?? a.sourceFrom ?? a.source ?? '');
+            bValue = String(b.source_from ?? b.sourceFrom ?? b.source ?? '');
+            break;
+          case 'branch':
+            aValue = String(a.branch ?? a.branch_name ?? a.branchName ?? a.branch_id ?? a.branchId ?? '');
+            bValue = String(b.branch ?? b.branch_name ?? b.branchName ?? b.branch_id ?? b.branchId ?? '');
+            break;
+          case 'enteredBy':
+            aValue = String(a.enteredBy ?? a.entered_by ?? a.request_send_by ?? a.requested_by ?? a.createdBy ?? a.created_by ?? '');
+            bValue = String(b.enteredBy ?? b.entered_by ?? b.request_send_by ?? b.requested_by ?? b.createdBy ?? b.created_by ?? '');
+            break;
           default:
             return 0;
         }
@@ -898,7 +949,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
   const currentData = sortedData.slice(startIndex, endIndex);
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseMode, selectDatabaseEntryNo, startDate, endDate]);
+  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate]);
   const goToPage = (page) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
@@ -1414,7 +1465,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       </div>
       <div className='max-w-[1850px] ml-10 mr-10 px-4 bg-white rounded-md h-[650px] mt-4 pt-5'>
         <div
-          className={`text-left flex ${selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || startDate || endDate
+          className={`text-left flex ${selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate
             ? 'flex-col sm:flex-row sm:justify-between'
             : 'flex-row justify-between items-center'
             } mb-3 gap-2`}>
@@ -1426,7 +1477,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                 className="w-7 h-7 border border-[#BF9853] rounded-md ml-3"
               />
             </button>
-            {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || startDate || endDate) && (
+            {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate) && (
               <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
                 {startDate && (
                   <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
@@ -1498,11 +1549,32 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                     <button onClick={() => setSelectDatabaseEntryNo('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
                 )}
+                {selectDatabaseSourceFrom && (
+                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal">Source From: </span>
+                    <span className="font-bold">{selectDatabaseSourceFrom}</span>
+                    <button onClick={() => setSelectDatabaseSourceFrom('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  </span>
+                )}
+                {selectDatabaseBranch && (
+                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal">Branch: </span>
+                    <span className="font-bold">{selectDatabaseBranch}</span>
+                    <button onClick={() => setSelectDatabaseBranch('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  </span>
+                )}
+                {selectDatabaseEnteredBy && (
+                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal">Entered By: </span>
+                    <span className="font-bold">{selectDatabaseEnteredBy}</span>
+                    <button onClick={() => setSelectDatabaseEnteredBy('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  </span>
+                )}
               </div>
             )}
           </div>
           <div className='space-x-4 flex justify-end mr-5'>
-            {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || startDate || endDate) && (
+            {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate) && (
               <button
                 onClick={() => {
                   setSelectTimeStampDate('');
@@ -1513,6 +1585,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                   setSelectDatabaseType('');
                   setSelectDatabaseMode('');
                   setSelectDatabaseEntryNo('');
+                  setSelectDatabaseSourceFrom('');
+                  setSelectDatabaseBranch('');
+                  setSelectDatabaseEnteredBy('');
                   setStartDate('');
                   setEndDate('');
                   sessionStorage.removeItem('advanceDatabaseFilters');
@@ -1534,52 +1609,67 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
             <table className="min-w-[1805px] w-full border-collapse">
               <thead className="sticky top-0 z-10 bg-white">
                 <tr className="bg-[#FAF6ED]">
-                  <th className="py-2 pl-3 w-[340px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="py-2 pl-3 w-[340px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
                     onClick={() => handleSort('timestamp')}
                   >
                     Time Stamp {sortConfig.key === 'timestamp' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="pt-2 pl-3 w-[320px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="pt-2 pl-3 w-[320px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
                     onClick={() => handleSort('date')}
                   >
                     Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
                     onClick={() => handleSort('vendor')}
                   >
                     Contractor/Vendor {sortConfig.key === 'vendor' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
                     onClick={() => handleSort('project')}
                   >
                     Project Name {sortConfig.key === 'project' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
                     onClick={() => handleSort('transfer')}
                   >
                     Transfer Site {sortConfig.key === 'transfer' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[100px] font-bold text-right">Advance</th>
+                  <th className="px-2 w-[100px] font-bold text-right whitespace-nowrap">Advance</th>
                   <th className="px-2 w-[100px] font-bold text-right whitespace-nowrap">Bill Payment</th>
-                  <th className="px-2 w-[120px] font-bold text-right">Refund</th>
-                  <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[120px] font-bold text-right whitespace-nowrap">Refund</th>
+                  <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
                     onClick={() => handleSort('type')}
                   >
                     Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[120px] font-bold text-left">Description</th>
-                  <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[120px] font-bold text-left whitespace-nowrap">Description</th>
+                  <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
                     onClick={() => handleSort('mode')}
                   >
                     Mode {sortConfig.key === 'mode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[80px] font-bold text-left whitespace-nowrap">File</th>
-                  <th className="px-2 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200"
+                  <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                    onClick={() => handleSort('source')}
+                  >
+                    Source From {sortConfig.key === 'source' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                    onClick={() => handleSort('branch')}
+                  >
+                    Branch {sortConfig.key === 'branch' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                    onClick={() => handleSort('enteredBy')}
+                  >
+                    Entered By {sortConfig.key === 'enteredBy' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th className="px-2 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
                     onClick={() => handleSort('entry_no')}
                   >
                     E.No {sortConfig.key === 'entry_no' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[120px] font-bold text-left">Activity</th>
+                  <th className="px-2 w-[80px] font-bold text-left whitespace-nowrap">File</th>
+                  <th className="px-2 w-[120px] font-bold text-left whitespace-nowrap">Activity</th>
                 </tr>
                 {showFilters && (
                   <tr className="bg-white border-b border-gray-200">
@@ -1783,7 +1873,42 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                         ))}
                       </select>
                     </th>
-                    <th className='w-[80px] '></th>
+                    <th className='w-[150px] '>
+                      <select
+                        value={selectDatabaseSourceFrom}
+                        onChange={(e) => setSelectDatabaseSourceFrom(e.target.value)}
+                        className="mt-3 mb-3 rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                      >
+                        <option value=''>Select</option>
+                        {filterOptionsFromData.sourceFromOptions.map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className='w-[150px] '>
+                      <select
+                        value={selectDatabaseBranch}
+                        onChange={(e) => setSelectDatabaseBranch(e.target.value)}
+                        className="mt-3 mb-3 rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                      >
+                        <option value=''>Select</option>
+                        {filterOptionsFromData.branchOptions.map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </th>
+                    <th className='w-[150px] '>
+                      <select
+                        value={selectDatabaseEnteredBy}
+                        onChange={(e) => setSelectDatabaseEnteredBy(e.target.value)}
+                        className="mt-3 mb-3 rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                      >
+                        <option value=''>Select</option>
+                        {filterOptionsFromData.enteredByOptions.map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </th>
                     <th className='w-[140px] '>
                       <input
                         type="text"
@@ -1793,6 +1918,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                         placeholder="Entry No..."
                       />
                     </th>
+                    <th className='w-[80px] '></th>
                     <th className='w-[120px] '></th>
                   </tr>
                 )}
@@ -1832,6 +1958,10 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                       <td className="text-sm text-left font-semibold">{entry.type}</td>
                       <td className="text-sm text-left font-semibold">{entry.description}</td>
                       <td className="text-sm text-left font-semibold">{entry.payment_mode}</td>
+                      <td className="text-sm text-left font-semibold">{entry.source_from ?? entry.sourceFrom ?? entry.source ?? ''}</td>
+                      <td className="text-sm text-left font-semibold">{entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? ''}</td>
+                      <td className="text-sm text-left font-semibold">{entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? ''}</td>
+                      <td className="text-sm text-left pl-3 font-semibold">{entry.entry_no}</td>
                       <td className="text-sm text-left pl-1">
                         {entry.file_url ? (
                           <a
@@ -1846,7 +1976,6 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                           <span></span>
                         )}
                       </td>
-                      <td className="text-sm text-left pl-3 font-semibold">{entry.entry_no}</td>
                       <td className=" flex w-[100px] justify-between py-2">
                         <button
                           className={`rounded-full transition duration-200 ml-2 mr-3 ${entry.not_allow_to_edit && !isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1884,7 +2013,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                   ))
                 ) : (
                   <tr>
-                    <td className="p-2 text-center text-sm text-gray-400" colSpan={15}>
+                    <td className="p-2 text-center text-sm text-gray-400" colSpan={18}>
                       No data available
                     </td>
                   </tr>

@@ -40,6 +40,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
   const [selectType, setSelectType] = useState('');
   const [selectMode, setSelectMode] = useState('');
   const [selectEntryNo, setSelectEntryNo] = useState('');
+  const [selectSourceFrom, setSelectSourceFrom] = useState('');
+  const [selectBranch, setSelectBranch] = useState('');
+  const [selectEnteredBy, setSelectEnteredBy] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -109,6 +112,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
           if (filters.selectType) setSelectType(filters.selectType);
           if (filters.selectMode) setSelectMode(filters.selectMode);
           if (filters.selectEntryNo) setSelectEntryNo(filters.selectEntryNo);
+          if (filters.selectSourceFrom) setSelectSourceFrom(filters.selectSourceFrom);
+          if (filters.selectBranch) setSelectBranch(filters.selectBranch);
+          if (filters.selectEnteredBy) setSelectEnteredBy(filters.selectEnteredBy);
           if (filters.startDate) setStartDate(filters.startDate);
           if (filters.endDate) setEndDate(filters.endDate);
           if (filters.showFilters !== undefined) setShowFilters(filters.showFilters);
@@ -145,12 +151,15 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
       selectType,
       selectMode,
       selectEntryNo,
+      selectSourceFrom,
+      selectBranch,
+      selectEnteredBy,
       startDate,
       endDate,
       showFilters
     };
     sessionStorage.setItem('advanceTableViewFilters', JSON.stringify(filters));
-  }, [selectDate, selectContractororVendorName, selectProjectName, selectTransfer, selectType, selectMode, selectEntryNo, startDate, endDate, showFilters]);
+  }, [selectDate, selectContractororVendorName, selectProjectName, selectTransfer, selectType, selectMode, selectEntryNo, selectSourceFrom, selectBranch, selectEnteredBy, startDate, endDate, showFilters]);
   useEffect(() => {
     const syncBranch = () => {
       const nextBranchId = resolveActiveBranchId();
@@ -660,6 +669,18 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     if (selectEntryNo) {
       if (!entry.entry_no?.toString().includes(selectEntryNo.toString())) return false;
     }
+    if (selectSourceFrom) {
+      const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
+      if (String(sourceVal).toLowerCase() !== String(selectSourceFrom).toLowerCase()) return false;
+    }
+    if (selectBranch) {
+      const branchVal = entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? "";
+      if (String(branchVal).toLowerCase() !== String(selectBranch).toLowerCase()) return false;
+    }
+    if (selectEnteredBy) {
+      const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
+      if (String(enteredVal).toLowerCase() !== String(selectEnteredBy).toLowerCase()) return false;
+    }
     return true;
   });
   const filterOptionsFromData = React.useMemo(() => {
@@ -670,6 +691,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     const uniqueTypes = new Set();
     const uniqueModes = new Set();
     const uniqueEntryNos = new Set();
+    const uniqueSources = new Set();
+    const uniqueBranches = new Set();
+    const uniqueEnteredBy = new Set();
     advanceData.forEach(entry => {
       if (entry.vendor_id) {
         const vendorName = getVendorName(entry.vendor_id);
@@ -696,6 +720,12 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
       if (entry.entry_no) {
         uniqueEntryNos.add(entry.entry_no.toString());
       }
+      const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
+      if (sourceVal) uniqueSources.add(String(sourceVal));
+      const branchVal = entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? "";
+      if (branchVal) uniqueBranches.add(String(branchVal));
+      const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
+      if (enteredVal) uniqueEnteredBy.add(String(enteredVal));
     });
     const vendorContractorOptions = [
       ...Array.from(uniqueVendors).map(name => {
@@ -728,7 +758,10 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
       transferSiteOptions,
       typeOptions,
       modeOptions,
-      entryNoOptions
+      entryNoOptions,
+      sourceFromOptions: Array.from(uniqueSources).sort(),
+      branchOptions: Array.from(uniqueBranches).sort(),
+      enteredByOptions: Array.from(uniqueEnteredBy).sort(),
     };
   }, [advanceData, vendorOptions, contractorOptions, siteOptions]);
   const sortedData = React.useMemo(() => {
@@ -760,6 +793,18 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
           case 'mode':
             aValue = a.payment_mode || '';
             bValue = b.payment_mode || '';
+            break;
+          case 'source':
+            aValue = String(a.source_from ?? a.sourceFrom ?? a.source ?? '');
+            bValue = String(b.source_from ?? b.sourceFrom ?? b.source ?? '');
+            break;
+          case 'branch':
+            aValue = String(a.branch ?? a.branch_name ?? a.branchName ?? a.branch_id ?? a.branchId ?? '');
+            bValue = String(b.branch ?? b.branch_name ?? b.branchName ?? b.branch_id ?? b.branchId ?? '');
+            break;
+          case 'enteredBy':
+            aValue = String(a.enteredBy ?? a.entered_by ?? a.request_send_by ?? a.requested_by ?? a.createdBy ?? a.created_by ?? '');
+            bValue = String(b.enteredBy ?? b.entered_by ?? b.request_send_by ?? b.requested_by ?? b.createdBy ?? b.created_by ?? '');
             break;
           default:
             return 0;
@@ -796,7 +841,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
   const currentData = sortedData.slice(startIndex, endIndex);
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectDate, selectContractororVendorName, selectProjectName, selectTransfer, selectType, selectMode, selectEntryNo, startDate, endDate]);
+  }, [selectDate, selectContractororVendorName, selectProjectName, selectTransfer, selectType, selectMode, selectEntryNo, selectSourceFrom, selectBranch, selectEnteredBy, startDate, endDate]);
   const goToPage = (page) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
@@ -933,6 +978,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
       ...provided,
       maxHeight: '250px',
       overflowY: 'auto',
+      scrollbarWidth: 'none',
+      msOverflowStyle: 'none',
+      '&::-webkit-scrollbar': { display: 'none' },
     }),
     singleValue: (provided) => ({
       ...provided,
@@ -1262,7 +1310,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
         </div>
         <div className='rounded-md max-w-[1850px] ml-10 mr-10 px-4 bg-white mt-4 pt-5 h-[650px]'>
           <div
-            className={`text-left flex ${selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || startDate || endDate
+            className={`text-left flex ${selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || selectSourceFrom || selectBranch || selectEnteredBy || startDate || endDate
               ? 'flex-col sm:flex-row sm:justify-between'
               : 'flex-row justify-between items-center'
               } mb-3 gap-2`}>
@@ -1274,7 +1322,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                   className="w-7 h-7 border border-[#BF9853] rounded-md ml-3"
                 />
               </button>
-              {(selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || startDate || endDate) && (
+              {(selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || selectSourceFrom || selectBranch || selectEnteredBy || startDate || endDate) && (
                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
                   {startDate && (
                     <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
@@ -1339,11 +1387,32 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                       <button onClick={() => setSelectEntryNo('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                     </span>
                   )}
+                  {selectSourceFrom && (
+                    <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                      <span className="font-normal">Source From: </span>
+                      <span className="font-bold">{selectSourceFrom}</span>
+                      <button onClick={() => setSelectSourceFrom('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                    </span>
+                  )}
+                  {selectBranch && (
+                    <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                      <span className="font-normal">Branch: </span>
+                      <span className="font-bold">{selectBranch}</span>
+                      <button onClick={() => setSelectBranch('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                    </span>
+                  )}
+                  {selectEnteredBy && (
+                    <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                      <span className="font-normal">Entered By: </span>
+                      <span className="font-bold">{selectEnteredBy}</span>
+                      <button onClick={() => setSelectEnteredBy('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                    </span>
+                  )}
                 </div>
               )}
             </div>
             <div className='space-x-4 flex justify-end mr-4'>
-              {(selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || startDate || endDate) && (
+              {(selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || selectSourceFrom || selectBranch || selectEnteredBy || startDate || endDate) && (
                 <button
                   onClick={() => {
                     setSelectDate('');
@@ -1353,6 +1422,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                     setSelectType('');
                     setSelectMode('');
                     setSelectEntryNo('');
+                    setSelectSourceFrom('');
+                    setSelectBranch('');
+                    setSelectEnteredBy('');
                     setStartDate('');
                     setEndDate('');
                     sessionStorage.removeItem('advanceTableViewFilters');
@@ -1379,31 +1451,40 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
               <table className="min-w-[1805px] w-full border-collapse">
                 <thead className="sticky top-0 z-10 bg-white ">
                   <tr className="bg-[#FAF6ED]">
-                    <th className="pt-2 pl-3 py-2 w-44 font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('date')}>
+                    <th className="pt-2 pl-3 py-2 w-44 font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('date')}>
                       Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[320px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('vendor')}>
+                    <th className="px-2 w-[320px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('vendor')}>
                       Contractor/Vendor {sortConfig.key === 'vendor' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[400px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('project')}>
+                    <th className="px-2 w-[400px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('project')}>
                       Project Name {sortConfig.key === 'project' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('transfer')}>
+                    <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('transfer')}>
                       Transfer Site {sortConfig.key === 'transfer' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[100px] font-bold text-right">Advance</th>
-                    <th className="px-2 w-[170px] font-bold text-right">Bill Payment</th>
-                    <th className="px-2 w-[120px] font-bold text-right">Refund</th>
-                    <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('type')}>
+                    <th className="px-2 w-[100px] font-bold text-right whitespace-nowrap">Advance</th>
+                    <th className="px-2 w-[170px] font-bold text-right whitespace-nowrap">Bill Payment</th>
+                    <th className="px-2 w-[120px] font-bold text-right whitespace-nowrap">Refund</th>
+                    <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('type')}>
                       Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[120px] font-bold text-left">Description</th>
-                    <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('mode')}>
+                    <th className="px-2 w-[120px] font-bold text-left whitespace-nowrap">Description</th>
+                    <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('mode')}>
                       Mode {sortConfig.key === 'mode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[80px] font-bold text-left">File</th>
-                    <th className="px-2 w-[80px] font-bold text-left">E.No</th>
-                    <th className="px-2 w-[120px] font-bold text-left">Activity</th>
+                    <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('source')}>
+                      Source From {sortConfig.key === 'source' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('branch')}>
+                      Branch {sortConfig.key === 'branch' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('enteredBy')}>
+                      Entered By {sortConfig.key === 'enteredBy' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th className="px-2 w-[80px] font-bold text-left whitespace-nowrap">E.No</th>
+                    <th className="px-2 w-[80px] font-bold text-left whitespace-nowrap">File</th>
+                    <th className="px-2 w-[120px] font-bold text-left whitespace-nowrap">Activity</th>
                   </tr>
                   {showFilters && (
                     <tr className="bg-white border-b border-gray-200">
@@ -1637,7 +1718,42 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                           ))}
                         </select>
                       </th>
-                      <th className='w-[80px] pt-2 pb-2'></th>
+                      <th className='w-[150px] pt-2 pb-2'>
+                        <select
+                          value={selectSourceFrom}
+                          onChange={(e) => setSelectSourceFrom(e.target.value)}
+                          className="rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                        >
+                          <option value=''>Select</option>
+                          {filterOptionsFromData.sourceFromOptions.map(v => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </th>
+                      <th className='w-[120px] pt-2 pb-2'>
+                        <select
+                          value={selectBranch}
+                          onChange={(e) => setSelectBranch(e.target.value)}
+                          className="rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                        >
+                          <option value=''>Select</option>
+                          {filterOptionsFromData.branchOptions.map(v => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </th>
+                      <th className='w-[150px] pt-2 pb-2'>
+                        <select
+                          value={selectEnteredBy}
+                          onChange={(e) => setSelectEnteredBy(e.target.value)}
+                          className="rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
+                        >
+                          <option value=''>Select</option>
+                          {filterOptionsFromData.enteredByOptions.map(v => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </th>
                       <th className="pt-2 pb-2">
                         <input
                           type="text"
@@ -1647,6 +1763,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                           placeholder="Entry No..."
                         />
                       </th>
+                      <th className='w-[80px] pt-2 pb-2'></th>
                       <th className='w-[120px] pt-2 pb-2'></th>
                     </tr>
                   )}
@@ -1685,6 +1802,10 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                         <td className="text-sm text-left font-semibold">{entry.type}</td>
                         <td className="text-sm text-left font-semibold">{entry.description}</td>
                         <td className="text-sm text-left font-semibold">{entry.payment_mode}</td>
+                        <td className="text-sm text-left font-semibold">{entry.source_from ?? entry.sourceFrom ?? entry.source ?? ''}</td>
+                        <td className="text-sm text-left font-semibold">{entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? ''}</td>
+                        <td className="text-sm text-left font-semibold">{entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? ''}</td>
+                        <td className="text-sm text-left pl-3 font-semibold">{entry.entry_no}</td>
                         <td className="text-sm text-left pl-">
                           {entry.file_url ? (
                             <a
@@ -1699,7 +1820,6 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                             <span></span>
                           )}
                         </td>
-                        <td className="text-sm text-left pl-3 font-semibold">{entry.entry_no}</td>
                         <td className="flex py-2">
                           <button
                             className={`rounded-full transition duration-200 ml-2 mr-3 ${entry.not_allow_to_edit && !isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1717,7 +1837,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                     ))
                   ) : (
                     <tr>
-                      <td className="p-2 text-center text-sm text-gray-400" colSpan={13}>
+                      <td className="p-2 text-center text-sm text-gray-400" colSpan={16}>
                         No data available
                       </td>
                     </tr>
