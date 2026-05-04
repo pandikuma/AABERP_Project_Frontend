@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import MasterDataHeader from './MasterDataHeader';
 import Sidebar from '../Bars/Sidebar';
@@ -5492,47 +5493,50 @@ const MasterData = ({ user, onLogout }) => {
         </div>
       </div>
 
-      {projectInformationDeleteConfirmIndex !== null && (
-        <>
-          <button
-            type="button"
-            aria-label="Close overlay"
-            onClick={() => setProjectInformationDeleteConfirmIndex(null)}
-            className="fixed inset-0 z-[9999] bg-black/60"
-          />
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center px-[16px] pointer-events-none">
-            <div
-              className="pointer-events-auto w-full max-w-[330px] rounded-[14px] bg-white px-[18px] pt-[16px] pb-[18px] shadow-[0px_10px_30px_rgba(0,0,0,0.22)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-[10px] text-center text-[16px] font-semibold text-black">Delete this card?</div>
-              <div className="mb-[16px] text-center text-[13px] text-[#444444]">
-                This project information entry will be removed from the list.
-              </div>
-              <div className="grid grid-cols-2 gap-[12px]">
-                <button
-                  type="button"
-                  onClick={() => setProjectInformationDeleteConfirmIndex(null)}
-                  className="h-[44px] rounded-[8px] border border-[#BEBEBE] bg-white text-[14px] font-medium text-black"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const idx = projectInformationDeleteConfirmIndex;
-                    setProjectInformationDeleteConfirmIndex(null);
-                    if (idx !== null && idx !== undefined) handleProjectInformationDelete(idx);
-                  }}
-                  className="h-[44px] rounded-[8px] bg-[#E4572E] text-[14px] font-semibold text-white"
-                >
-                  Delete
-                </button>
+      {typeof document !== 'undefined' &&
+        projectInformationDeleteConfirmIndex !== null &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              aria-label="Close overlay"
+              onClick={() => setProjectInformationDeleteConfirmIndex(null)}
+              className="fixed inset-0 z-[20000] bg-black/60"
+            />
+            <div className="fixed inset-0 z-[20001] flex items-center justify-center px-[16px] pointer-events-none">
+              <div
+                className="pointer-events-auto w-full max-w-[330px] rounded-[14px] bg-white px-[18px] pt-[16px] pb-[18px] shadow-[0px_10px_30px_rgba(0,0,0,0.22)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-[10px] text-center text-[16px] font-semibold text-black">Delete this card?</div>
+                <div className="mb-[16px] text-center text-[13px] text-[#444444]">
+                  This project information entry will be removed from the list.
+                </div>
+                <div className="grid grid-cols-2 gap-[12px]">
+                  <button
+                    type="button"
+                    onClick={() => setProjectInformationDeleteConfirmIndex(null)}
+                    className="h-[44px] rounded-[8px] border border-[#BEBEBE] bg-white text-[14px] font-medium text-black"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idx = projectInformationDeleteConfirmIndex;
+                      setProjectInformationDeleteConfirmIndex(null);
+                      if (idx !== null && idx !== undefined) handleProjectInformationDelete(idx);
+                    }}
+                    className="h-[44px] rounded-[8px] bg-[#E4572E] text-[14px] font-semibold text-white"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </>
-      )}
+          </>,
+          document.body
+        )}
 
       {isProjectPictureModalOpen && (
         <>
@@ -6205,7 +6209,7 @@ const MasterData = ({ user, onLogout }) => {
         className="flex flex-col overflow-hidden"
         style={{ height: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="shrink-0 px-[2px] pt-[8px]">
+        <div className="shrink-0 px-[2px]">
           <div className="flex items-center gap-[10px]">
             <div className="relative flex-1">
               <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -6784,7 +6788,7 @@ const MasterData = ({ user, onLogout }) => {
       className="flex flex-col overflow-hidden"
       style={{ height: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))' }}
     >
-      <div className="shrink-0 px-[2px] pt-[8px]">
+      <div className="shrink-0 px-[2px]">
         <div className="flex items-center gap-[10px]">
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -6801,7 +6805,6 @@ const MasterData = ({ user, onLogout }) => {
               className="h-[36px] w-full rounded-full border border-[#D2D2D2] bg-white pl-[38px] pr-[14px] text-[14px] text-black outline-none placeholder:text-[#8F8F8F]"
             />
           </div>
-
           <button
             type="button"
             className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-black text-white"
@@ -7592,7 +7595,7 @@ const MasterData = ({ user, onLogout }) => {
               minHeight: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))'
             }}
           >
-            <div className="mt-[10px] shrink-0 pt-0">
+            <div className=" shrink-0 pt-[2px]">
               <div className="relative">
                 <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
