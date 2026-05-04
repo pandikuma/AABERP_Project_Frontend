@@ -2561,7 +2561,7 @@ const MasterData = ({ user, onLogout }) => {
             {renderChevron(isExpanded)}
           </span>
         </button>
-        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
+        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[8px]">{content}</div>}
       </div>
     );
   };
@@ -3266,7 +3266,7 @@ const MasterData = ({ user, onLogout }) => {
             {renderChevron(isExpanded)}
           </span>
         </button>
-        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
+        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[8px]">{content}</div>}
       </div>
     );
   };
@@ -3310,7 +3310,7 @@ const MasterData = ({ user, onLogout }) => {
             {renderChevron(isExpanded)}
           </span>
         </button>
-        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
+        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[8px]">{content}</div>}
       </div>
     );
   };
@@ -3682,7 +3682,7 @@ const MasterData = ({ user, onLogout }) => {
           {renderCategoryAccordion(
             'category-details',
             'Category Details',
-            <div className="space-y-[10px]">
+            <div className="space-y-[6px]">
               {renderInput({
                 label: 'Category Name',
                 required: true,
@@ -3804,7 +3804,7 @@ const MasterData = ({ user, onLogout }) => {
             {renderChevron(isExpanded)}
           </span>
         </button>
-        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
+        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[8px]">{content}</div>}
       </div>
     );
   };
@@ -4199,7 +4199,7 @@ const MasterData = ({ user, onLogout }) => {
             {renderChevron(isExpanded)}
           </span>
         </button>
-        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
+        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[8px]">{content}</div>}
       </div>
     );
   };
@@ -4368,7 +4368,7 @@ const MasterData = ({ user, onLogout }) => {
             {renderChevron(isExpanded)}
           </span>
         </button>
-        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[12px]">{content}</div>}
+        {isExpanded && <div className="border-t border-[#F2F2F2] px-[14px] py-[8px]">{content}</div>}
       </div>
     );
   };
@@ -5387,7 +5387,7 @@ const MasterData = ({ user, onLogout }) => {
             'project-information',
             'Project Information',
             <div className="space-y-[6px] ">
-              <div className="mt-[8px] flex items-center gap-[10px]">
+              <div className=" flex items-center gap-[10px]">
                 <div className="relative flex-1">
                   <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
