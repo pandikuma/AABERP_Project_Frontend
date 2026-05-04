@@ -806,6 +806,7 @@ const MasterData = ({ user, onLogout }) => {
   const [projectInformationSearch, setProjectInformationSearch] = useState('');
   const [addOnBillForm, setAddOnBillForm] = useState({ ...EMPTY_PROJECT_PROPERTY });
   const [projectPropertyDetails, setProjectPropertyDetails] = useState([]);
+  const [projectInformationDeleteConfirmIndex, setProjectInformationDeleteConfirmIndex] = useState(null);
   const [editingProjectPropertyIndex, setEditingProjectPropertyIndex] = useState(null);
   const [projectForm, setProjectForm] = useState({
     projectDbId: '',
@@ -5450,7 +5451,7 @@ const MasterData = ({ user, onLogout }) => {
                               type="button"
                               className="flex w-[48px] shrink-0 self-stretch items-center justify-center rounded-[6px] bg-[#E4572E] text-white shadow-sm transition-colors hover:bg-[#cc4d26]"
                               aria-label="Delete"
-                              onClick={() => handleProjectInformationDelete(sourceIndex)}
+                              onClick={() => setProjectInformationDeleteConfirmIndex(sourceIndex)}
                             >
                               <img src={deleteIcon} alt="Delete" className="w-[18px] h-[18px]" />
                             </button>
@@ -5490,6 +5491,48 @@ const MasterData = ({ user, onLogout }) => {
           )}
         </div>
       </div>
+
+      {projectInformationDeleteConfirmIndex !== null && (
+        <>
+          <button
+            type="button"
+            aria-label="Close overlay"
+            onClick={() => setProjectInformationDeleteConfirmIndex(null)}
+            className="fixed inset-0 z-[9999] bg-black/60"
+          />
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center px-[16px] pointer-events-none">
+            <div
+              className="pointer-events-auto w-full max-w-[330px] rounded-[14px] bg-white px-[18px] pt-[16px] pb-[18px] shadow-[0px_10px_30px_rgba(0,0,0,0.22)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-[10px] text-center text-[16px] font-semibold text-black">Delete this card?</div>
+              <div className="mb-[16px] text-center text-[13px] text-[#444444]">
+                This project information entry will be removed from the list.
+              </div>
+              <div className="grid grid-cols-2 gap-[12px]">
+                <button
+                  type="button"
+                  onClick={() => setProjectInformationDeleteConfirmIndex(null)}
+                  className="h-[44px] rounded-[8px] border border-[#BEBEBE] bg-white text-[14px] font-medium text-black"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const idx = projectInformationDeleteConfirmIndex;
+                    setProjectInformationDeleteConfirmIndex(null);
+                    if (idx !== null && idx !== undefined) handleProjectInformationDelete(idx);
+                  }}
+                  className="h-[44px] rounded-[8px] bg-[#E4572E] text-[14px] font-semibold text-white"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {isProjectPictureModalOpen && (
         <>

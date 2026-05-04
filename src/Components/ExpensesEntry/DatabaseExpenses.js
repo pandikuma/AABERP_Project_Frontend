@@ -17,7 +17,7 @@ import Pdf from '../Images/pdf.png'
 Modal.setAppElement('#root');
 const TOOLS_API_BASE = 'https://backendaab.in/aabuildersDash';
 
-const DatabaseExpenses = ({ username, userRoles = [] }) => {
+const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-telecom/getAll';
     const resolveActiveBranchId = useCallback(() => {
         try {
@@ -344,10 +344,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             ...provided,
             borderWidth: '2px',
             lineHeight: '20px',
-            fontSize: '12px',
+            fontSize: '14px',
+            fontWeight: 'normal',
             height: '45px',
             borderRadius: '8px',
-            padding: '0.25rem',
+            padding: '0.15rem',
             textAlign: 'left',
             borderColor: 'rgba(191, 152, 83, 0.2)',
             boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
@@ -379,6 +380,20 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         singleValue: (provided) => ({
             ...provided,
             color: '#111827',
+            fontWeight: 'normal',
+            marginRight: 0,
+        }),
+        valueContainer: (provided) => ({
+            ...provided,
+            paddingRight: '2px',
+        }),
+        indicatorsContainer: (provided) => ({
+            ...provided,
+            paddingLeft: '0px',
+        }),
+        dropdownIndicator: (provided) => ({
+            ...provided,
+            padding: '4px',
         }),
         option: (provided, state) => ({
             ...provided,
@@ -390,14 +405,15 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         }),
         input: (provided) => ({
             ...provided,
-            fontWeight: '300',
+            fontWeight: 'normal',
             color: 'black',
             textAlign: 'left',
         }),
         placeholder: (provided) => ({
             ...provided,
-            color: '#6B7280',
+            color: '#d3d5db',
             textAlign: 'left',
+            fontWeight: 'bold',
         }),
         indicatorSeparator: (provided) => ({
             ...provided,
@@ -522,39 +538,44 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             window.removeEventListener("branchSelectionChanged", syncBranch);
         };
     }, [resolveActiveBranchId]);
-    useEffect(() => {
-        axios
-            .get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
-                params: activeBranchId ? { branchId: activeBranchId } : {},
-            })
-            .then((response) => {
-                const sortedExpenses = response.data.sort((a, b) => {
-                    const enoA = parseInt(a.eno, 10);
-                    const enoB = parseInt(b.eno, 10);
-                    return enoB - enoA;
-                });
-                setExpenses(sortedExpenses);
-                setFilteredExpenses(sortedExpenses);
-                const uniqueAccountTypes = [...new Set(response.data.map(expense => expense.accountType))];
-                const uniqueProjectNames = [...new Set(response.data.map(expense => expense.siteName))];
-                const siteOptions = uniqueProjectNames.map(name => ({ value: name, label: name }));
-                const uniqueVendorOptions = [...new Set(response.data.map(expense => expense.vendor))];
-                const vendorOptions = uniqueVendorOptions.map(name => ({ value: name, label: name }));
-                const uniqueContractorOptions = [...new Set(response.data.map(expense => expense.contractor))];
-                const uniqueCategoryOptions = [...new Set(response.data.map(expense => expense.category))];
-                const contractorOption = uniqueContractorOptions.map(name => ({ value: name, label: name }));
-                const categoryOption = uniqueCategoryOptions.map(name => ({ value: name, label: name }));
-                // Set the unique dropdown options in state
-                setAccountTypeOptions(uniqueAccountTypes);
-                setSiteOptions(siteOptions);
-                setVendorOptions(vendorOptions);
-                setContractorOptions(contractorOption);
-                setCategoryOptions(categoryOption);
-            })
-            .catch((error) => {
-                console.error('Error fetching expenses:', error);
-            });
+    const refetchExpenses = useCallback(async () => {
+        const response = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
+            params: activeBranchId ? { branchId: activeBranchId } : {},
+        });
+        const sortedExpenses = response.data.sort((a, b) => {
+            const enoA = parseInt(a.eno, 10);
+            const enoB = parseInt(b.eno, 10);
+            return enoB - enoA;
+        });
+        setExpenses(sortedExpenses);
+        setFilteredExpenses(sortedExpenses);
+        const uniqueAccountTypes = [...new Set(response.data.map(expense => expense.accountType))];
+        const uniqueProjectNames = [...new Set(response.data.map(expense => expense.siteName))];
+        const siteOptions = uniqueProjectNames.map(name => ({ value: name, label: name }));
+        const uniqueVendorOptions = [...new Set(response.data.map(expense => expense.vendor))];
+        const vendorOptions = uniqueVendorOptions.map(name => ({ value: name, label: name }));
+        const uniqueContractorOptions = [...new Set(response.data.map(expense => expense.contractor))];
+        const uniqueCategoryOptions = [...new Set(response.data.map(expense => expense.category))];
+        const contractorOption = uniqueContractorOptions.map(name => ({ value: name, label: name }));
+        const categoryOption = uniqueCategoryOptions.map(name => ({ value: name, label: name }));
+        setAccountTypeOptions(uniqueAccountTypes);
+        setSiteOptions(siteOptions);
+        setVendorOptions(vendorOptions);
+        setContractorOptions(contractorOption);
+        setCategoryOptions(categoryOption);
     }, [activeBranchId]);
+    useEffect(() => {
+        refetchExpenses().catch((error) => {
+            console.error('Error fetching expenses:', error);
+        });
+    }, [refetchExpenses]);
+    const prevIsActiveRef = useRef(isActive);
+    useEffect(() => {
+        if (isActive && prevIsActiveRef.current === false) {
+            void refetchExpenses();
+        }
+        prevIsActiveRef.current = isActive;
+    }, [isActive, refetchExpenses]);
     useEffect(() => {
         const fetchSites = async () => {
             try {
@@ -1093,10 +1114,10 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         }
         try {
             await performUpdateAndWeeklyBills(updatedFormData);
+            await refetchExpenses();
             setModalIsOpen(false);
             setIsSubmitting(false);
             alert('Updated successfully!');
-            window.location.reload();
         } catch (error) {
             console.error('Error updating expense:', error);
             alert('Failed to update expense');
@@ -1110,7 +1131,6 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
             body: JSON.stringify(updatedFormData)
         });
         if (!response.ok) throw new Error('Failed to update expense');
-        setExpenses(expenses.map(exp => (exp.id === editId ? { ...exp, ...updatedFormData } : exp)));
         const isPaymentType = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
         const isNonCashPaymentMode = ['GPay', 'PhonePe', 'Net Banking', 'Cheque'].includes(updatedFormData.paymentMode);
         if (isPaymentType && isNonCashPaymentMode && editId && !sentToWeeklyPaymentBillsRef.current.has(editId)) {
@@ -1162,11 +1182,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
         setIsSubmitting(true);
         try {
             await performUpdateAndWeeklyBills(updatedFormData, paymentModalData);
+            await refetchExpenses();
             setShowPaymentModal(false);
             setModalIsOpen(false);
             setIsSubmitting(false);
             alert('Updated successfully!');
-            window.location.reload();
         } catch (error) {
             console.error('Error updating expense:', error);
             alert('Failed to update expense');
@@ -1379,7 +1399,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 );
                 if (response.ok) {
                     alert('Expenses deleted successfully!!!');
-                    window.location.reload();
+                    try {
+                        await refetchExpenses();
+                    } catch (err) {
+                        console.error('Error refetching expenses:', err);
+                    }
                 } else {
                     alert('Failed to delete expense');
                 }
@@ -1532,7 +1556,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         onChange={setStartDate}
                                         placeholder="dd/mm/yyyy"
                                         alwaysOpenBelow
-                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
+                                        className={`[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]${!startDate ? ' [&>button]:![font-size:14px] [&>button]:!text-[#d3d5db] [&>button]:!font-bold' : ''}`}
                                     />
                                 </div>
                             </div>
@@ -1544,7 +1568,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         onChange={setEndDate}
                                         placeholder="dd/mm/yyyy"
                                         alwaysOpenBelow
-                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
+                                        className={` [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]${!endDate ? ' [&>button]:![font-size:14px] [&>button]:!text-[#d3d5db] [&>button]:!font-bold' : ''}`}
                                     />
                                 </div>
                             </div>
@@ -1580,7 +1604,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 )}
                 {Object.keys(accountTypeSummary).length === 0 && (
                     <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg mb-4">
-                        <div className="flex flex-wrap gap-5 items-end">
+                        <div className="flex flex-wrap gap-5 items-end text-left">
                             <div>
                                 <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
                                 <div className="w-[168px]">
@@ -1589,7 +1613,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         onChange={setStartDate}
                                         placeholder="dd/mm/yyyy"
                                         alwaysOpenBelow
-                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
+                                        className={`[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]${!startDate ? ' [&>button]:![font-size:14px] [&>button]:!text-[#d3d5db] [&>button]:!font-bold' : ''}`}
                                     />
                                 </div>
                             </div>
@@ -1601,7 +1625,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         onChange={setEndDate}
                                         placeholder="dd/mm/yyyy"
                                         alwaysOpenBelow
-                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
+                                        className={`[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]${!endDate ? ' [&>button]:![font-size:14px] [&>button]:!text-[#d3d5db] [&>button]:!font-bold' : ''}`}
                                     />
                                 </div>
                             </div>
@@ -1610,7 +1634,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                 )}
                 <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg overflow-x-auto">
                     <div
-                        className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate
+                        className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno
                             ? 'flex-col sm:flex-row sm:justify-between'
                             : 'flex-row justify-between items-center'
                             } mb-3 gap-2`}>
@@ -1636,7 +1660,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     className="w-7 h-7 border border-[#BF9853] rounded-md"
                                 />
                             </button>
-                            {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate) && (
+                            {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno) && (
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
                                     {timestampStartDate && (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
@@ -1736,6 +1760,13 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             <button onClick={() => setSelectedEnteredBy('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                                         </span>
                                     )}
+                                    {selectedEno && (
+                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                                            <span className="font-normal">E.No: </span>
+                                            <span className="font-bold">{selectedEno}</span>
+                                            <button onClick={() => setSelectedEno('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                                        </span>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1820,9 +1851,9 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     <button
                                                         type="button"
                                                         onClick={() => setShowDateRangePicker(true)}
-                                                        className="w-full min-w-[140px] h-[45px] px-2 py-0 text-sm font-normal bg-white text-left flex items-center justify-between"
+                                                        className="w-full min-w-[140px] h-[45px] px-2 py-0 text-sm font-semibold bg-white text-left flex items-center gap-1"
                                                     >
-                                                        <span className="text-gray-400 text-[12px] font-semibold truncate">
+                                                        <span className={`text-[14px] truncate flex-1 min-w-0 text-left ${timestampStartDate && timestampEndDate ? 'text-black font-normal' : 'text-[#d3d5db] font-bold'}`}>
                                                             {timestampStartDate ? (timestampEndDate ? `${timestampStartDate} – ${timestampEndDate}` : `From ${timestampStartDate}`) : 'Time stamp'}
                                                         </span>
                                                         <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -1847,7 +1878,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                         onChange={setSelectedDate}
                                                         placeholder="dd/mm/yyyy"
                                                         alwaysOpenBelow
-                                                        className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
+                                                        className={` [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button]:!text-[14px] ${selectedDate ? '[&>button]:!text-black [&>button]:!font-normal' : '[&>button]:!text-[#d3d5db] [&>button]:!font-bold'} [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]`}
                                                     />
                                                 </div>
                                             </th>
@@ -1886,7 +1917,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             </th>
                                             <th></th>
                                             <th></th>
-                                            <th className="text-base text-left font-bold py-3">
+                                            <th className="text-base text-right font-bold py-3">
                                                 ₹{Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </th>
                                             <th></th>
@@ -1929,7 +1960,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     options={sourceOptions}
                                                     value={selectedSource ? { value: selectedSource, label: selectedSource } : null}
                                                     onChange={(selectedOption) => setSelectedSource(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="Source From"
+                                                    placeholder="SourceFrom"
                                                     menuPlacement="bottom"
                                                     styles={customStyles}
                                                 />
@@ -1982,7 +2013,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             <td className=" text-sm text-left ">{getDisplayContractorName(expense)}</td>
                                             <td className=" text-sm text-left ">{getDisplayStaffName(expense)}</td>
                                             <td className=" text-sm text-left ">{expense.quantity}</td>
-                                            <td className="text-sm text-right pr-5">
+                                            <td className="text-sm text-right">
                                                 ₹{Number(expense.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             <td className="text-sm text-left w-[120px] max-w-[120px] break-words overflow-hidden whitespace-normal px-1">{expense.comments || ''}</td>
@@ -1992,7 +2023,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             <td className=" text-sm text-left ">{expense.source}</td>
                                             <td className=" text-sm text-left ">{getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}</td>
                                             <td className=" text-sm text-left ">{expense.enteredBy || 'Sivaprakasm'}</td>
-                                            <td className=" text-sm text-left pl-3 ">{expense.eno}</td>
+                                            <td className=" text-sm text-right pl-3 ">{expense.eno}</td>
                                             <td className=" flex w-[100px] justify-between py-2">
                                                 <button onClick={() => handleEditClick(expense)} className="rounded-full transition duration-200 ml-2 mr-3">
                                                     <img
@@ -2104,10 +2135,10 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                             contentLabel="Edit Expense" className="fixed inset-0 flex items-center justify-center p-4 bg-gray-800 bg-opacity-50 z-[9999]"
                             overlayClassName="fixed inset-0 z-[9999]">
                             <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl">
-                                <h2 className="text-xl font-bold mb-6 border-b-2">Edit Expense</h2>
+                                <h2 className="text-xl font-normal mb-6 border-b-2">Edit Expense</h2>
                                 <form className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-gray-500 font-semibold text-left">Date</label>
+                                        <label className="block text-gray-500 font-normal text-left">Date</label>
                                         <div className="mt-1">
                                             <CustomDateField
                                                 value={formData.date}
@@ -2118,12 +2149,12 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 }}
                                                 placeholder="Select date"
                                                 alwaysOpenBelow
-                                                className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]"
+                                                className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button]:!font-normal"
                                             />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-gray-500 font-semibold text-left">Account Type *</label>
+                                        <label className="block text-gray-500 font-normal text-left">Account Type *</label>
                                         <Select
                                             name="accountType"
                                             value={editAccountTypeOptions.find(option => option.value === formData.accountType) || null}
@@ -2135,9 +2166,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             }
                                             options={editAccountTypeOptions}
                                             placeholder="Select"
+                                            isClearable
                                             styles={{
                                                 control: (base, state) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     borderColor: 'rgba(191, 152, 83, 0.2)',
                                                     borderWidth: '2px',
                                                     borderRadius: '0.5rem',
@@ -2150,6 +2183,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 }),
                                                 placeholder: (base) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     color: '#6B7280',
                                                     textAlign: 'left',
                                                 }),
@@ -2164,6 +2198,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 singleValue: (base) => ({
                                                     ...base,
                                                     color: '#111827',
+                                                    fontWeight: 'normal',
                                                 }),
                                                 menu: (base) => ({
                                                     ...base,
@@ -2181,7 +2216,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-gray-500 font-semibold text-left">Site Name *</label>
+                                        <label className="block text-gray-500 font-normal text-left">Site Name *</label>
                                         <Select
                                             name="siteName"
                                             value={siteOption.find(option => option.value === formData.siteName)}
@@ -2194,9 +2229,11 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             }
                                             options={siteOption}
                                             placeholder="Select Site"
+                                            isClearable
                                             styles={{
                                                 control: (base, state) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     borderColor: 'rgba(191, 152, 83, 0.2)',
                                                     borderWidth: '2px',
                                                     borderRadius: '0.5rem',
@@ -2209,6 +2246,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 }),
                                                 placeholder: (base) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     color: '#6B7280',
                                                     textAlign: 'left',
                                                 }),
@@ -2223,6 +2261,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 singleValue: (base) => ({
                                                     ...base,
                                                     color: '#111827',
+                                                    fontWeight: 'normal',
                                                 }),
                                                 menu: (base) => ({
                                                     ...base,
@@ -2240,7 +2279,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-gray-500 font-semibold text-left">Vendor Name *</label>
+                                        <label className="block text-gray-500 font-normal text-left">Vendor Name *</label>
                                         <Select
                                             name="vendor"
                                             options={vendorOption}
@@ -2259,6 +2298,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             styles={{
                                                 control: (base, state) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     borderColor: 'rgba(191, 152, 83, 0.2)',
                                                     borderWidth: '2px',
                                                     borderRadius: '0.5rem',
@@ -2271,6 +2311,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 }),
                                                 placeholder: (base) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     color: '#6B7280',
                                                     textAlign: 'left',
                                                 }),
@@ -2285,6 +2326,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 singleValue: (base) => ({
                                                     ...base,
                                                     color: '#111827',
+                                                    fontWeight: 'normal',
                                                 }),
                                                 menu: (base) => ({
                                                     ...base,
@@ -2301,7 +2343,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-gray-500 font-semibold text-left">Contractor Name *</label>
+                                        <label className="block text-gray-500 font-normal text-left">Contractor Name *</label>
                                         <Select
                                             name="contractor"
                                             options={contractorOption}
@@ -2320,6 +2362,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                             styles={{
                                                 control: (base, state) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     borderColor: 'rgba(191, 152, 83, 0.2)',
                                                     borderWidth: '2px',
                                                     borderRadius: '0.5rem',
@@ -2332,6 +2375,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 }),
                                                 placeholder: (base) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     color: '#6B7280',
                                                     textAlign: 'left',
 
@@ -2347,6 +2391,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 singleValue: (base) => ({
                                                     ...base,
                                                     color: '#111827',
+                                                    fontWeight: 'normal',
                                                 }),
                                                 menu: (base) => ({
                                                     ...base,
@@ -2363,20 +2408,22 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-gray-500 font-semibold text-left">Quantity *</label>
+                                        <label className="block text-gray-500 font-normal text-left">Quantity *</label>
                                         <input type="text" name="quantity" value={formData.quantity} onChange={handleChange}
-                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
+                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-gray-500 font-semibold text-left">Category *</label>
+                                        <label className="block text-gray-500 font-normal text-left">Category *</label>
                                         <Select name="category" value={categoryOption.find(option => option.value === formData.category)}
                                             onChange={(selectedOption) => setFormData({ ...formData, category: selectedOption?.value || '' })}
                                             options={categoryOption}
                                             placeholder="Select Category"
+                                            isClearable
                                             styles={{
                                                 control: (base, state) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     borderColor: 'rgba(191, 152, 83, 0.2)',
                                                     borderWidth: '2px',
                                                     borderRadius: '0.5rem',
@@ -2389,6 +2436,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 }),
                                                 placeholder: (base) => ({
                                                     ...base,
+                                                    fontWeight: 'normal',
                                                     color: '#6B7280',
                                                     textAlign: 'left',
                                                 }),
@@ -2403,6 +2451,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 singleValue: (base) => ({
                                                     ...base,
                                                     color: '#111827',
+                                                    fontWeight: 'normal',
                                                 }),
                                                 menu: (base) => ({
                                                     ...base,
@@ -2420,33 +2469,33 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                         />
                                     </div>
                                     <div className="relative">
-                                        <label className="block text-gray-500 font-semibold text-left">Amount *</label>
-                                        <span className="absolute top-9 left-3 mt-[2px] text-gray-600">₹</span>
+                                        <label className="block text-gray-500 font-normal text-left">Amount *</label>
+                                        <span className="absolute top-9 left-3 mt-[2px] text-gray-600 font-normal">₹</span>
                                         <input type="text" name="amount" value={formData.amount} onChange={handleChange}
-                                            className="mt-1 block w-full p-2 pl-6 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
+                                            className="mt-1 block w-full p-2 pl-6 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
                                             onWheel={(e) => e.target.blur()}
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-gray-500 font-semibold text-left">Comments *</label>
+                                        <label className="block text-gray-500 font-normal text-left">Comments *</label>
                                         <input type="text" name="comments" value={formData.comments} onChange={handleChange}
-                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
+                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
                                         />
                                     </div>
                                     <div>
                                         <div className=' flex'>
-                                            <label className="block text-gray-500 font-semibold text-left cursor-pointer" htmlFor="fileInput">Bill Copy URL</label>
+                                            <label className="block text-gray-500 font-normal text-left cursor-pointer" htmlFor="fileInput">Bill Copy URL</label>
                                             {selectedFile && <span className="text-orange-600 ml-4">{selectedFile.name}</span>}
                                         </div>
                                         <input type="text" name="billCopy" value={formData.billCopy} onChange={handleChange}
-                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
+                                            className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
                                         />
                                         <input type="file" className="hidden" id="fileInput" onChange={handleFileChange} />
                                     </div>
                                     {/* Conditional fields based on Account Type */}
                                     {(formData.accountType === 'Claim' || formData.accountType === 'Utility Bills' || formData.accountType === 'Weekly Payment') && (
                                         <div>
-                                            <label className="block text-gray-500 font-semibold text-left">Payment Mode *</label>
+                                            <label className="block text-gray-500 font-normal text-left">Payment Mode *</label>
                                             <Select
                                                 name="paymentMode"
                                                 options={finalPaymentModeOptions.map((mode) => ({
@@ -2468,11 +2517,13 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     })
                                                 }
                                                 placeholder="Select Payment Mode"
+                                                isClearable
                                                 maxMenuHeight={200}
                                                 menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                                                 styles={{
                                                     control: (base, state) => ({
                                                         ...base,
+                                                        fontWeight: 'normal',
                                                         borderColor: 'rgba(191, 152, 83, 0.2)',
                                                         borderWidth: '2px',
                                                         borderRadius: '0.5rem',
@@ -2485,6 +2536,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     }),
                                                     placeholder: (base) => ({
                                                         ...base,
+                                                        fontWeight: 'normal',
                                                         color: '#6B7280',
                                                         textAlign: 'left',
                                                     }),
@@ -2499,6 +2551,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     singleValue: (base) => ({
                                                         ...base,
                                                         color: '#111827',
+                                                        fontWeight: 'normal',
                                                     }),
                                                     menuPortal: (base) => ({
                                                         ...base,
@@ -2523,12 +2576,12 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                     {formData.accountType === 'Utility Bills' && (
                                         <>
                                             <div>
-                                                <label className="block text-gray-500 font-semibold text-left">Utility Type *</label>
+                                                <label className="block text-gray-500 font-normal text-left">Utility Type *</label>
                                                 <select
                                                     name="utilityType"
                                                     value={formData.utilityType}
                                                     onChange={handleChange}
-                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]">
+                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal">
                                                     <option value="" disabled>--- Select ---</option>
                                                     <option value="Electricity">Electricity</option>
                                                     <option value="Property">Property</option>
@@ -2538,7 +2591,7 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-gray-500 font-semibold text-left">
+                                                <label className="block text-gray-500 font-normal text-left">
                                                     {formData.utilityType === 'Electricity' ? 'EB Number' :
                                                         formData.utilityType === 'Property' ? 'Property Tax Number' :
                                                             formData.utilityType === 'Water' ? 'Water Tax Number' : 'Number'}
@@ -2556,6 +2609,10 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                             formData.utilityType === 'Water' ? 'Water Tax Number' : 'Number'}...`}
                                                     styles={{
                                                         ...customStyles,
+                                                        singleValue: (provided) => ({
+                                                            ...(typeof customStyles.singleValue === 'function' ? customStyles.singleValue(provided) : provided),
+                                                            fontWeight: 'normal',
+                                                        }),
                                                         menuList: (base) => ({
                                                             ...(typeof customStyles.menuList === 'function' ? customStyles.menuList(base) : base),
                                                             scrollbarWidth: 'none',
@@ -2568,14 +2625,14 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-gray-500 font-semibold text-left">Months</label>
+                                                <label className="block text-gray-500 font-normal text-left">Months</label>
                                                 <input
                                                     type="month"
                                                     name="utilityForTheMonth"
                                                     value={formData.utilityForTheMonth}
                                                     onChange={handleChange}
                                                     placeholder="Enter months..."
-                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
+                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
                                                 />
                                             </div>
                                             {(formData.utilityType === 'Telecom' || formData.utilityType === 'Subscription') && (
@@ -2583,25 +2640,25 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
 
                                                     {/* Validity */}
                                                     <div>
-                                                        <label className="block text-gray-500 font-semibold text-left">Validity</label>
+                                                        <label className="block text-gray-500 font-normal text-left">Validity</label>
                                                         <input
                                                             type="text"
                                                             name="utilityValidityDays"
                                                             value={formData.utilityValidityDays}
                                                             onChange={handleChange}
                                                             placeholder="Enter validity..."
-                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
+                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
                                                         />
                                                     </div>
 
                                                     {/* Validity Type */}
                                                     <div>
-                                                        <label className="block text-gray-500 font-semibold text-left">Validity Type</label>
+                                                        <label className="block text-gray-500 font-normal text-left">Validity Type</label>
                                                         <select
                                                             name="utilityValidityType"
                                                             value={formData.utilityValidityType}
                                                             onChange={handleChange}
-                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40]"
+                                                            className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
                                                         >
                                                             <option value="">--- Select ---</option>
                                                             <option value="Days">Days</option>
@@ -2613,12 +2670,13 @@ const DatabaseExpenses = ({ username, userRoles = [] }) => {
                                                     {/* Service Start Date */}
                                                     {formData.utilityType === 'Telecom' && (
                                                         <div>
-                                                            <label className="block text-gray-500 font-semibold text-left">Service Start Date</label>
+                                                            <label className="block text-gray-500 font-normal text-left">Service Start Date</label>
                                                             <div className="mt-1">
                                                                 <CustomDateField
                                                                     value={formData.serviceStartingDate}
                                                                     onChange={(v) => setFormData((prev) => ({ ...prev, serviceStartingDate: v }))}
                                                                     placeholder="Service start date"
+                                                                    className="[&>button]:!font-normal"
                                                                 />
                                                             </div>
                                                         </div>
