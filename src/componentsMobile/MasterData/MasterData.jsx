@@ -1096,6 +1096,7 @@ const MasterData = ({ user, onLogout }) => {
   );
 
   const openAccountDetailsBranchModal = useCallback((setForm, branchKey, currentValue, selectionReadOnly) => {
+    if (Boolean(selectionReadOnly)) return;
     accountDetailsBranchModalRef.current = { setForm, branchKey, selectionReadOnly: Boolean(selectionReadOnly) };
     setAccountDetailsBranchModalSelected(String(currentValue ?? '').trim());
     setIsAccountDetailsBranchModalOpen(true);
@@ -2342,8 +2343,7 @@ const MasterData = ({ user, onLogout }) => {
     const shouldShowCopy =
       formMode === 'edit' && (isViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon);
     const hasFieldValue = (value) => String(value ?? '').trim() !== '';
-    const canOpenBranchModal =
-      (!fieldReadOnly && isFormInteractionEnabled(formMode, isViewOnly)) || (formMode === 'edit' && isViewOnly);
+    const canOpenBranchModal = !fieldReadOnly && isFormInteractionEnabled(formMode, isViewOnly);
     const isAccountHolderMandatory = isFieldMandatory('Account Holder Name', true);
     const isAccountNumberMandatory = isFieldMandatory('Account Number', true);
 
@@ -2439,34 +2439,24 @@ const MasterData = ({ user, onLogout }) => {
           })}
           {typeof onOpenBranchModal === 'function'
             ? (
-              <div
-                className={
-                  formMode === 'edit' && isViewOnly ? '[&_input]:!pointer-events-auto' : undefined
-                }
-              >
-                {renderInput({
-                  label: 'Branch',
-                  required: true,
-                  placeholder: 'Select',
-                  value: form[branchKey],
-                  readOnly: true,
-                  onClick: () => {
-                    if (canOpenBranchModal) onOpenBranchModal();
-                  },
-                  rightIcon: (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  ),
-                  rightIconInteractive: true,
-                  onRightIconClick: () => {
-                    if (canOpenBranchModal) onOpenBranchModal();
-                  },
-                  copyButtonId: shouldShowCopy && hasFieldValue(form[branchKey]) ? `${copyPrefix}-branch` : undefined,
-                  copyFieldName: 'Branch',
-                  copyButtonClassName: 'right-[4px]'
-                })}
-              </div>
+              renderInput({
+                label: 'Branch',
+                required: true,
+                placeholder: 'Select',
+                value: form[branchKey],
+                readOnly: true,
+                onClick: canOpenBranchModal ? () => onOpenBranchModal() : undefined,
+                rightIcon: (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ),
+                rightIconInteractive: canOpenBranchModal,
+                onRightIconClick: canOpenBranchModal ? () => onOpenBranchModal() : undefined,
+                copyButtonId: shouldShowCopy && hasFieldValue(form[branchKey]) ? `${copyPrefix}-branch` : undefined,
+                copyFieldName: 'Branch',
+                copyButtonClassName: 'right-[4px]'
+              })
             )
             : renderInput({
               label: 'Branch',
@@ -2959,8 +2949,7 @@ const MasterData = ({ user, onLogout }) => {
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <div
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'border-b border-[#EFEFEF] bg-[#FAFAFA]' : 'bg-white'
-            }`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'border-b border-[#EFEFEF] bg-[#FAFAFA]' : 'bg-white'}`}
         >
           <button type="button" onClick={() => toggleBankDetailsSection(sectionId)} className="flex min-w-0 flex-1 items-center gap-[6px]">
             <span className="truncate text-[14px] font-medium text-black">{title}</span>
@@ -5167,7 +5156,10 @@ const MasterData = ({ user, onLogout }) => {
                     projectFormMode === 'edit'
                       ? isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
                       : false,
-                  onChange: (e) => setProjectForm((s) => ({ ...s, projectName: e.target.value }))
+                  onChange: (e) => setProjectForm((s) => ({ ...s, projectName: e.target.value })),
+                  labelRight: (
+                    <span className="shrink-0 text-[12px] font-medium text-black">Site Engineer</span>
+                  )
                 })}
                 {projectFormMode === 'edit' && !isProjectViewOnly && !uploadFileRowShowsSaveIcon && (
                   <button
@@ -5409,7 +5401,7 @@ const MasterData = ({ user, onLogout }) => {
                     openProjectInformationAddSheet();
                   }}
                   disabled={!isProjectOptionSelectionEnabled}
-                  className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-black text-white disabled:opacity-60"
+                  className="flex h-[33px] w-[33px] items-center justify-center rounded-full bg-black text-white disabled:opacity-60"
                   aria-label="Add"
                 >
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5858,34 +5850,38 @@ const MasterData = ({ user, onLogout }) => {
                 })}
               </div>
 
-              <div className="grid grid-cols-[70px_80px_minmax(0,1fr)] gap-[8px]">
-                {renderInput({
-                  label: 'Shop No',
-                  required: true,
-                  placeholder: 'Enter',
-                  value: addOnBillForm.shopNo,
-                  readOnly: false,
-                  onChange: (e) => setAddOnBillForm((s) => ({ ...s, shopNo: e.target.value })),
-                  numericOnly: true
-                })}
-                {renderInput({
-                  label: 'Door No',
-                  required: true,
-                  placeholder: 'Enter',
-                  value: addOnBillForm.doorNo,
-                  readOnly: false,
-                  onChange: (e) => setAddOnBillForm((s) => ({ ...s, doorNo: e.target.value })),
-                  numericOnly: true
-                })}
-                {renderInput({
-                  label: 'Area (Sqft)',
-                  required: true,
-                  placeholder: 'Enter Area',
-                  value: addOnBillForm.area,
-                  readOnly: false,
-                  onChange: (e) => setAddOnBillForm((s) => ({ ...s, area: e.target.value })),
-                  numericOnly: true
-                })}
+              <div className="grid min-w-0 grid-cols-2 gap-[12px] [&>div]:min-w-0">
+                <div className="grid min-w-0 grid-cols-[minmax(72px,96px)_minmax(0,1fr)] gap-[8px] [&>div]:min-w-0">
+                  {renderInput({
+                    label: 'Shop No',
+                    required: true,
+                    placeholder: 'Enter',
+                    value: addOnBillForm.shopNo,
+                    readOnly: false,
+                    onChange: (e) => setAddOnBillForm((s) => ({ ...s, shopNo: e.target.value })),
+                    numericOnly: true
+                  })}
+                  {renderInput({
+                    label: 'Door No',
+                    required: true,
+                    placeholder: 'Enter',
+                    value: addOnBillForm.doorNo,
+                    readOnly: false,
+                    onChange: (e) => setAddOnBillForm((s) => ({ ...s, doorNo: e.target.value })),
+                    numericOnly: true
+                  })}
+                </div>
+                <div className="min-w-0">
+                  {renderInput({
+                    label: 'Area (Sqft)',
+                    required: true,
+                    placeholder: 'Enter Area',
+                    value: addOnBillForm.area,
+                    readOnly: false,
+                    onChange: (e) => setAddOnBillForm((s) => ({ ...s, area: e.target.value })),
+                    numericOnly: true
+                  })}
+                </div>
               </div>
 
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-[8px]">
