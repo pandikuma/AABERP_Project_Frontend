@@ -96,6 +96,7 @@ const MasterData = ({ user, onLogout }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [projects, setProjects] = useState([]);
   const [projectSearch, setProjectSearch] = useState('');
+  const [projectNameCategoryFilter, setProjectNameCategoryFilter] = useState('All');
   const [listData, setListData] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [itemSearch, setItemSearch] = useState('');
@@ -802,6 +803,7 @@ const MasterData = ({ user, onLogout }) => {
   const [isProjectTypeModalOpen, setIsProjectTypeModalOpen] = useState(false);
   const [isProjectFloorNameModalOpen, setIsProjectFloorNameModalOpen] = useState(false);
   const [isProjectEbPhaseModalOpen, setIsProjectEbPhaseModalOpen] = useState(false);
+  const [isProjectNameCategoryFilterModalOpen, setIsProjectNameCategoryFilterModalOpen] = useState(false);
   const [projectQrPreview, setProjectQrPreview] = useState('');
   const [projectPictureDraft, setProjectPictureDraft] = useState('');
   const [projectInformationSearch, setProjectInformationSearch] = useState('');
@@ -818,6 +820,7 @@ const MasterData = ({ user, onLogout }) => {
     branch: '',
     projectAddress: '',
     latitudeLongitude: '',
+    siteEngineerName: '',
     clientName: '',
     fatherName: '',
     mobileNumber: '',
@@ -834,6 +837,9 @@ const MasterData = ({ user, onLogout }) => {
     upiId: '',
     projectPicture: ''
   });
+  const [isProjectSiteEngineerModalOpen, setIsProjectSiteEngineerModalOpen] = useState(false);
+  const [projectSiteEngineerOptions, setProjectSiteEngineerOptions] = useState([]);
+  const projectSiteEngineerSelectRef = useRef(null);
   const [isAddOnSheetOpen, setIsAddOnSheetOpen] = useState(false);
   const [isAddVendorViewOpen, setIsAddVendorViewOpen] = useState(false);
   const [isVendorViewOnly, setIsVendorViewOnly] = useState(false);
@@ -1003,14 +1009,33 @@ const MasterData = ({ user, onLogout }) => {
 
   const filteredProjects = useMemo(() => {
     const query = projectSearch.trim().toLowerCase();
-    if (!query) return projects;
+    const base = query
+      ? projects.filter((project) =>
+        (project.projectName || '').toLowerCase().includes(query) ||
+        (project.projectAddress || '').toLowerCase().includes(query) ||
+        (project.projectId || '').toLowerCase().includes(query)
+      )
+      : projects;
 
-    return projects.filter((project) =>
-      (project.projectName || '').toLowerCase().includes(query) ||
-      (project.projectAddress || '').toLowerCase().includes(query) ||
-      (project.projectId || '').toLowerCase().includes(query)
-    );
-  }, [projectSearch, projects]);
+    const selectedFilter = String(projectNameCategoryFilter || 'All').trim();
+    if (!selectedFilter || selectedFilter === 'All') return base;
+
+    const normalizeCategory = (raw) => String(raw || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const desired =
+      selectedFilter === 'Client'
+        ? 'client'
+        : selectedFilter === 'Owen'
+          ? 'own'
+          : normalizeCategory(selectedFilter);
+
+    return base.filter((project) => {
+      const raw = project?.projectCategory ?? project?.project_category ?? '';
+      const normalized = normalizeCategory(raw);
+      if (desired === 'client') return normalized.includes('client');
+      if (desired === 'own') return normalized.includes('own');
+      return normalized.includes(desired);
+    });
+  }, [projectSearch, projects, projectNameCategoryFilter]);
 
   const filteredList = useMemo(() => {
     const query = itemSearch.trim().toLowerCase();
@@ -1582,6 +1607,14 @@ const MasterData = ({ user, onLogout }) => {
       branch: valueOr(item?.branch, item?.branch_name),
       projectAddress: valueOr(item?.projectAddress, item?.project_address, item?.address),
       latitudeLongitude: valueOr(item?.location, item?.latitudeLongitude, item?.latitude_longitude, item?.latLong, item?.lat_long),
+      siteEngineerName: valueOr(
+        item?.siteEngineerName,
+        item?.site_engineer_name,
+        item?.siteEngineer,
+        item?.site_engineer,
+        item?.siteEngineerId,
+        item?.site_engineer_id
+      ),
       clientName: valueOr(owner?.clientName, owner?.client_name, item?.clientName, item?.client_name),
       fatherName: valueOr(owner?.fatherName, owner?.father_name, item?.fatherName, item?.father_name),
       mobileNumber: valueOr(owner?.mobile, owner?.mobileNumber, owner?.mobile_number, item?.mobileNumber, item?.mobile_number),
@@ -1599,6 +1632,39 @@ const MasterData = ({ user, onLogout }) => {
       projectPicture: valueOr(item?.projectPicture, item?.project_picture, item?.projectImage, item?.project_image)
     };
   };
+
+  const openProjectSiteEngineerModal = useCallback(
+    async (onSelect) => {
+      projectSiteEngineerSelectRef.current = typeof onSelect === 'function' ? onSelect : null;
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = response.ok ? await response.json() : [];
+        const rows = Array.isArray(data) ? data : [];
+        const options = rows
+          .filter((emp) => {
+            const byFlag = emp?.is_site_engineer === true || emp?.isSiteEngineer === true;
+            const designation = String(emp?.designation || emp?.roleOfEmployee || emp?.role_of_employee || '').trim().toLowerCase();
+            return byFlag || designation === 'site engineer';
+          })
+          .map((emp) => {
+            const label = emp?.employee_name ?? emp?.employeeName ?? emp?.name ?? '';
+            return String(label || '').trim();
+          })
+          .filter(Boolean);
+        setProjectSiteEngineerOptions(Array.from(new Set(options)).sort((a, b) => a.localeCompare(b)));
+      } catch (error) {
+        console.error('Error fetching site engineer options:', error);
+        setProjectSiteEngineerOptions([]);
+      } finally {
+        setIsProjectSiteEngineerModalOpen(true);
+      }
+    },
+    []
+  );
 
   const normalizeProjectPropertyForForm = (item) => {
     const valueOr = (...vals) => vals.find((v) => v !== undefined && v !== null && String(v).trim() !== '') || '';
@@ -5158,7 +5224,36 @@ const MasterData = ({ user, onLogout }) => {
                       : false,
                   onChange: (e) => setProjectForm((s) => ({ ...s, projectName: e.target.value })),
                   labelRight: (
-                    <span className="shrink-0 text-[12px] font-medium text-black">Site Engineer</span>
+                    <span className="shrink-0 inline-flex items-center gap-[8px]">
+                      <button
+                        type="button"
+                        className="text-[12px] font-medium text-black"
+                        onClick={() => {
+                          if (!isProjectOptionSelectionEnabled) return;
+                          openProjectSiteEngineerModal((value) => {
+                            setHasFormChanges(true);
+                            setProjectForm((s) => ({ ...s, siteEngineerName: value || '' }));
+                          });
+                        }}
+                      >
+                        {projectForm.siteEngineerName || 'Project Incharge'}
+                      </button>
+                      {projectForm.siteEngineerName && isProjectOptionSelectionEnabled ? (
+                        <button
+                          type="button"
+                          aria-label="Clear Project Incharge"
+                          className="inline-flex h-[18px] w-[18px] items-center justify-center text-[16px] leading-none text-[#7A7A7A]"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setHasFormChanges(true);
+                            setProjectForm((s) => ({ ...s, siteEngineerName: '' }));
+                          }}
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </span>
                   )
                 })}
                 {projectFormMode === 'edit' && !isProjectViewOnly && !uploadFileRowShowsSaveIcon && (
@@ -5757,22 +5852,23 @@ const MasterData = ({ user, onLogout }) => {
                 }}
               />
 
-              <button
-                type="button"
-                onClick={() => document.getElementById('projectAccountQrUpload')?.click()}
-                disabled={
-                  projectFormMode === 'edit'
-                    ? isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
-                    : false
-                }
-                className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black disabled:opacity-50"
-              >
-                Update QR Code
-              </button>
+              {!(projectFormMode === 'edit'
+                ? isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                : false) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('projectAccountQrUpload')?.click()}
+                    className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
+                  >
+                    Update QR Code
+                  </button>
 
-              <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
-                Update
-              </button>
+                  <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
+                    Update
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -6865,6 +6961,14 @@ const MasterData = ({ user, onLogout }) => {
                   <img src={masterTableSortReversed ? UpDownFilter : FilterUp} alt="" className="h-[16px] w-[16px]" />
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsProjectNameCategoryFilterModalOpen(true)}
+                className="ml-auto text-[12px] font-medium text-black bg-transparent"
+                aria-label="Project category filter"
+              >
+                {projectNameCategoryFilter}
+              </button>
             </div>
           </div>
 
@@ -7675,6 +7779,35 @@ const MasterData = ({ user, onLogout }) => {
         selectedValue={accountDetailsBranchModalSelected}
         options={BRANCH_OPTIONS}
         fieldName="Branch"
+        showStarIcon={false}
+      />
+
+      <SelectVendorModal
+        isOpen={isProjectSiteEngineerModalOpen}
+        onClose={() => setIsProjectSiteEngineerModalOpen(false)}
+        onSelect={(value) => {
+          if (typeof projectSiteEngineerSelectRef.current === 'function') {
+            projectSiteEngineerSelectRef.current(value || '');
+          }
+          setIsProjectSiteEngineerModalOpen(false);
+        }}
+        selectedValue={projectForm.siteEngineerName || ''}
+        options={projectSiteEngineerOptions}
+        fieldName="Project Incharge"
+        showStarIcon={false}
+      />
+
+      <SelectVendorModal
+        isOpen={isProjectNameCategoryFilterModalOpen}
+        onClose={() => setIsProjectNameCategoryFilterModalOpen(false)}
+        onSelect={(value) => {
+          const next = value || 'All';
+          setProjectNameCategoryFilter(next);
+          setIsProjectNameCategoryFilterModalOpen(false);
+        }}
+        selectedValue={projectNameCategoryFilter}
+        options={['All', 'Own', 'Client']}
+        fieldName="Project Category"
         showStarIcon={false}
       />
 

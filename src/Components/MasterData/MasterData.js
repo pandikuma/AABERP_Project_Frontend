@@ -311,7 +311,8 @@ const MasterData = ({ username, userRoles = [] }) => {
       propertyTaxFrequency: "",
       waterTaxNo: "",
       waterTaxFrequency: ""
-    }]
+    }],
+    siteEngineerId: ''
   });
   const [projects, setProjects] = useState([]);
   const projectCategoryOptions = useMemo(() => {
@@ -352,8 +353,78 @@ const MasterData = ({ username, userRoles = [] }) => {
       propertyTaxFrequency: "",
       waterTaxNo: "",
       waterTaxFrequency: ""
-    }]
+    }],
+    siteEngineerId: ''
   });
+
+  const siteEngineerSelectOptions = useMemo(() => {
+    const list = Array.isArray(employeeList) ? employeeList : [];
+    return list
+      .map((emp) => {
+        const rowId = emp.id ?? emp.employee_id ?? emp.employeeId;
+        const label =
+          emp.employee_name ??
+          emp.employeeName ??
+          emp.name ??
+          '';
+        if (rowId == null || rowId === '') return null;
+        return {
+          value: String(rowId),
+          label: String(label || `Employee #${rowId}`),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [employeeList]);
+
+  const projectSiteEngineerSelectStyles = useMemo(
+    () => ({
+      control: (provided, state) => ({
+        ...provided,
+        minHeight: '56px',
+        height: '56px',
+        border: '2px solid rgba(191, 152, 83, 0.3)',
+        borderRadius: '0.5rem',
+        boxShadow: 'none',
+        '&:hover': { borderColor: 'rgba(191, 152, 83, 0.5)' },
+        ...(state.isFocused && { borderColor: '#BF9853', boxShadow: 'none' }),
+      }),
+      valueContainer: (provided) => ({ ...provided, height: '52px', padding: '2px 8px' }),
+      indicatorsContainer: (provided) => ({ ...provided, height: '52px' }),
+      menuPortal: (base, portalProps) => ({
+        ...base,
+        zIndex: 9999,
+        boxSizing: 'border-box',
+        ...(portalProps?.rect?.width != null ? { width: `${portalProps.rect.width}px` } : {}),
+      }),
+      menu: (base) => ({
+        ...base,
+        left: 0,
+        width: '100%',
+        margin: 0,
+        textAlign: 'left',
+        boxSizing: 'border-box',
+      }),
+      menuList: (base) => ({
+        ...base,
+        textAlign: 'left',
+      }),
+      option: (provided, state) => ({
+        ...provided,
+        backgroundColor: state.isSelected ? '#BF9853' : state.isFocused ? '#F5F5F5' : 'white',
+        color: state.isSelected ? 'white' : 'black',
+      }),
+      placeholder: (provided) => ({ ...provided, color: '#9CA3AF' }),
+    }),
+    []
+  );
+
+  /** Java entity `siteEngineerId` is String — API must receive a JSON string, not a number. */
+  const normalizeSiteEngineerIdForProjectApi = (raw) => {
+    if (raw === '' || raw == null) return null;
+    const s = String(raw).trim();
+    return s.length > 0 ? s : null;
+  };
 
   const [message, setMessage] = useState('');
   // Tooltip state for Account Details hover
@@ -621,6 +692,8 @@ const MasterData = ({ username, userRoles = [] }) => {
       projectId: '',
       projectCategory: '',
       projectReferenceName: '',
+      branch: '',
+      siteEngineerId: '',
       ownerDetailsList: [{
         clientName: "",
         fatherName: "",
@@ -645,22 +718,6 @@ const MasterData = ({ username, userRoles = [] }) => {
     });
   };
   // Fetch functions
-  useEffect(() => {
-    fetchSiteNames();
-    fetchVendorNames();
-    fetchContractorNames();
-    fetchCategories();
-    fetchMachinTools();
-    fetchEmployeeList();
-    fetchUsernames();
-    fetchLaboursList();
-    fetchAccountDetails();
-    fetchBankAccountTypes();
-    fetchEbServiceLinks();
-    fetchSupportStaffNameList();
-    fetchProjects();
-  }, []);
-
   const fetchSiteNames = async () => {
     try {
       const response = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/getAll');
@@ -832,6 +889,29 @@ const MasterData = ({ username, userRoles = [] }) => {
     }
   };
 
+  const refetchAllMasterData = async () => {
+    await Promise.all([
+      fetchSiteNames(),
+      fetchVendorNames(),
+      fetchContractorNames(),
+      fetchCategories(),
+      fetchMachinTools(),
+      fetchEmployeeList(),
+      fetchUsernames(),
+      fetchLaboursList(),
+      fetchAccountDetails(),
+      fetchBankAccountTypes(),
+      fetchEbServiceLinks(),
+      fetchSupportStaffNameList(),
+      fetchProjects(),
+    ]);
+  };
+
+  useEffect(() => {
+    void refetchAllMasterData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount load + explicit refetch after mutations
+  }, []);
+
   // Project Management Handler Functions
   const handleNewOwnerChange = (index, field, value) => {
     const updatedOwners = [...newProject.ownerDetailsList];
@@ -983,7 +1063,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       });
       if (response.ok) {
         setMessage('Site name saved successfully!');
-        fetchSiteNames();
+        void refetchAllMasterData();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1029,7 +1109,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       }
       const result = await response.json();
       setMessage("Vendor saved successfully!");
-      fetchVendorNames();
+      void refetchAllMasterData();
       // Reset form fields or close modal
       setVendorName("");
       setVendorAccountHolderName("");
@@ -1097,6 +1177,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setContractorQrImagePreview(null);
         closeContractorNames();
         fetchContractorNames(); // Refresh the list
+        void refetchAllMasterData();
       } else {
         const errorData = await response.text();
         setMessage('Error saving contractor: ' + errorData);
@@ -1118,7 +1199,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       if (response.ok) {
         setMessage('Category saved successfully!');
         setCategory('');
-        fetchCategories();
+        void refetchAllMasterData();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1136,7 +1217,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       if (response.ok) {
         setMessage('Machine tool saved successfully!');
         setMachineTool('');
-        fetchMachinTools();
+        void refetchAllMasterData();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1261,8 +1342,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setAadhaarPdfFile(null);
         setAadhaarImageUrl('');
         setIsSiteEngineer(false);
-        fetchEmployeeList();
-        fetchUsernames();
+        void refetchAllMasterData();
       } else {
         console.error('Save request failed:', response.status, response.statusText);
         alert('Failed to save employee data. Please try again.');
@@ -1285,7 +1365,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setMessage('Labour details saved successfully!');
         setLabourName('');
         setLabourSalary('');
-        fetchLaboursList();
+        void refetchAllMasterData();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1328,7 +1408,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setAccountType('');
         setQrImage(null);
         setQrImagePreview(null);
-        fetchAccountDetails();
+        void refetchAllMasterData();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1346,7 +1426,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       if (response.ok) {
         setMessage('Bank Account Type saved successfully!');
         setBankAccountType('');
-        fetchBankAccountTypes();
+        void refetchAllMasterData();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1371,7 +1451,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setSelectedProject(null);
         setDoorNo('');
         setEbServiceNo('');
-        fetchEbServiceLinks();
+        void refetchAllMasterData();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1393,7 +1473,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setMessage('Support Staff Name saved successfully!');
         setSupportStaffName('');
         setSupportStaffMobileNumber('');
-        fetchSupportStaffNameList();
+        void refetchAllMasterData();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1404,7 +1484,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     e.preventDefault();
 
     try {
-      // Map frontend state to backend field names
+      // Map frontend state to backend entity (camelCase matches ProjectNameWithAllOtherDetails)
       const payload = {
         projectName: newProject.projectName,
         projectAddress: newProject.projectAddress,
@@ -1412,10 +1492,10 @@ const MasterData = ({ username, userRoles = [] }) => {
         projectCategory: newProject.projectCategory,
         projectReferenceName: newProject.projectReferenceName,
         branch: newProject.branch,
+        siteEngineerId: normalizeSiteEngineerIdForProjectApi(newProject.siteEngineerId),
         ownerDetails: newProject.ownerDetailsList,      // map to backend
         propertyDetails: newProject.propertyDetailsList // map to backend
       };
-
       const response = await fetch('https://backendaab.in/aabuilderDash/api/projects/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1706,6 +1786,11 @@ const MasterData = ({ username, userRoles = [] }) => {
   };
   const handleEditProject = (item) => {
     setSelectedProjectId(item.id);
+    const rawSeId =
+      item.siteEngineerId ??
+      item.site_engineer_id ??
+      item.siteEngineer?.id ??
+      '';
     setEditProject({
       projectName: item.projectName || '',
       projectAddress: item.projectAddress || '',
@@ -1713,6 +1798,7 @@ const MasterData = ({ username, userRoles = [] }) => {
       projectCategory: item.projectCategory || '',
       projectReferenceName: item.projectReferenceName || '',
       branch: item.branch || '',
+      siteEngineerId: rawSeId === '' || rawSeId == null ? '' : String(rawSeId),
       ownerDetailsList: item.ownerDetails && item.ownerDetails.length > 0 ? item.ownerDetails : [{
         clientName: "",
         fatherName: "",
@@ -1792,6 +1878,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         projectCategory: editProject.projectCategory,
         projectReferenceName: editProject.projectReferenceName,
         branch: editProject.branch,
+        siteEngineerId: normalizeSiteEngineerIdForProjectApi(editProject.siteEngineerId),
         ownerDetails: editProject.ownerDetailsList,       // mapped for backend
         propertyDetails: sortedPropertyDetails  // mapped for backend - sorted before submit
       };
@@ -1913,7 +2000,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Site name deleted successfully!');
-          fetchSiteNames();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -1928,7 +2015,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Vendor name deleted successfully!');
-          fetchVendorNames();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -1943,7 +2030,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('All vendor names deleted successfully!');
-          fetchVendorNames();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -1968,7 +2055,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         setMessage(result);
         setVendorBulkUploadFile(null);
         setIsVendorBulkUploadOpen(false);
-        fetchVendorNames();
+        void refetchAllMasterData();
       } else {
         setMessage(`Upload failed: ${result}`);
       }
@@ -2110,7 +2197,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Contractor name deleted successfully!');
-          fetchContractorNames();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2125,7 +2212,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Category deleted successfully!');
-          fetchCategories();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2140,7 +2227,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Machine tool deleted successfully!');
-          fetchMachinTools();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2155,8 +2242,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Employee data deleted successfully!');
-          fetchEmployeeList();
-          fetchUsernames();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2171,7 +2257,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Labour data deleted successfully!');
-          fetchLaboursList();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2186,7 +2272,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Account details deleted successfully!');
-          fetchAccountDetails();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2201,7 +2287,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Bank Account Type deleted successfully!');
-          fetchBankAccountTypes();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2217,7 +2303,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('EB Service Link deleted successfully!');
-          fetchEbServiceLinks();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2232,7 +2318,7 @@ const MasterData = ({ username, userRoles = [] }) => {
         });
         if (response.ok) {
           setMessage('Support staff name deleted successfully!');
-          fetchSupportStaffNameList();
+          void refetchAllMasterData();
         }
       } catch (error) {
         console.error('Error:', error);
@@ -4962,7 +5048,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                   if (response.ok) {
                     setMessage('Site name updated successfully!');
                     setIsEditSiteNameOpen(false);
-                    fetchSiteNames();
+                    void refetchAllMasterData();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -5049,7 +5135,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                           const result = await response.json();
                           setMessage('Vendor name updated successfully!');
                           setIsVendorEditOpen(false);
-                          fetchVendorNames();
+                          void refetchAllMasterData();
                         } else {
                           const errorText = await response.text();
                           setMessage(`Error: ${response.status} - ${errorText}`);
@@ -5427,9 +5513,10 @@ const MasterData = ({ username, userRoles = [] }) => {
                           body: formData,
                         });
                         if (response.ok) {
+                          void refetchAllMasterData();
                           setMessage('Contractor name updated successfully!');
                           setIsContractorEditOpen(false);
-                          fetchContractorNames();
+                          fetchContractorNames(); // Refresh the list
                         } else {
                           const errorData = await response.text();
                           setMessage('Error updating contractor: ' + errorData);
@@ -5742,7 +5829,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                   if (response.ok) {
                     setMessage('Category updated successfully!');
                     setIsCategoriesEditOpen(false);
-                    fetchCategories();
+                    void refetchAllMasterData();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -5792,7 +5879,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                   if (response.ok) {
                     setMessage('Machine tool updated successfully!');
                     setIsMachineToolsEditOpen(false);
-                    fetchMachinTools();
+                    void refetchAllMasterData();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -5875,7 +5962,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                   if (response.ok) {
                     setMessage('Bank Account Type updated successfully!');
                     setIsBankAccountTypeEditOpen(false);
-                    fetchBankAccountTypes();
+                    void refetchAllMasterData();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -5990,8 +6077,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                   });
                   if (response.ok) {
                     setMessage('EB Service Link updated successfully!');
-                    setIsEbServiceLinkEditOpen(false);
-                    fetchEbServiceLinks();
+                    void refetchAllMasterData();
                   }
                 } catch (error) {
                   console.error('Error:', error);
@@ -6110,7 +6196,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                 if (response.ok) {
                   setMessage('Support Staff Name updated successfully!');
                   setIsSupportStaffNameEditOpen(false);
-                  fetchSupportStaffNameList();
+                  void refetchAllMasterData();
                 }
               } catch (error) {
                 console.error('Error:', error);
@@ -6201,7 +6287,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     </select>
                   </div>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-4 flex-wrap items-end">
                   <div className="mb-4 pl-5">
                     <label className="block text-lg font-medium mb-2">Project Reference Name</label>
                     <input className="w-[35rem] border-2 border-[#BF9853] border-opacity-30 p-2 rounded-lg h-14 focus:outline-none"
@@ -6223,6 +6309,30 @@ const MasterData = ({ username, userRoles = [] }) => {
                       <option value="Client Project">Client Project</option>
                       <option value="Own Project">Own Project</option>
                     </select>
+                  </div>
+                  <div className="mb-4 pl-5 min-w-[16rem] w-[20rem]">
+                    <label className="block text-lg font-medium mb-2">Site Engineer</label>
+                    <Select
+                      inputId="new-project-site-engineer"
+                      value={
+                        siteEngineerSelectOptions.find((o) => o.value === newProject.siteEngineerId) ??
+                        null
+                      }
+                      onChange={(opt) =>
+                        setNewProject((prev) => ({
+                          ...prev,
+                          siteEngineerId: opt?.value ?? '',
+                        }))
+                      }
+                      options={siteEngineerSelectOptions}
+                      placeholder="Search or select site engineer"
+                      isSearchable
+                      isClearable
+                      menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                      menuPosition="fixed"
+                      styles={projectSiteEngineerSelectStyles}
+                      classNamePrefix="react-select-site-engineer text-left"
+                    />
                   </div>
                 </div>
                 <div className="mb-4 pl-5">
@@ -6513,7 +6623,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     </select>
                   </div>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-4 flex-wrap items-end">
                   <div className="mb-4 pl-5">
                     <label className="block text-lg font-medium mb-2">Project Reference Name</label>
                     <input className="w-[35rem] border-2 border-[#BF9853] border-opacity-30 p-2 rounded-lg h-14 focus:outline-none"
@@ -6535,6 +6645,30 @@ const MasterData = ({ username, userRoles = [] }) => {
                       <option value="Client Project">Client Project</option>
                       <option value="Own Project">Own Project</option>
                     </select>
+                  </div>
+                  <div className="mb-4 pl-5 min-w-[16rem] w-[20rem]">
+                    <label className="block text-lg font-medium mb-2">Site Engineer</label>
+                    <Select
+                      inputId="edit-project-site-engineer"
+                      value={
+                        siteEngineerSelectOptions.find((o) => o.value === editProject.siteEngineerId) ??
+                        null
+                      }
+                      onChange={(opt) =>
+                        setEditProject((prev) => ({
+                          ...prev,
+                          siteEngineerId: opt?.value ?? '',
+                        }))
+                      }
+                      options={siteEngineerSelectOptions}
+                      placeholder="Search or select site engineer"
+                      isSearchable
+                      isClearable
+                      menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                      menuPosition="fixed"
+                      styles={projectSiteEngineerSelectStyles}
+                      classNamePrefix="react-select-site-engineer text-left"
+                    />
                   </div>
                 </div>
                 <div className="mb-4 pl-5">
@@ -6828,8 +6962,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                     if (response.ok) {
                       setMessage('Employee data updated successfully!');
                       setIsEditEmployeeDataOpen(false);
-                      fetchEmployeeList();
-                      fetchUsernames();
+                      void refetchAllMasterData();
                     } else {
                       console.error('Update request failed:', response.status, response.statusText);
                       alert('Failed to update employee data. Please try again.');
@@ -7272,7 +7405,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                 if (response.ok) {
                   setMessage('Labour data updated successfully!');
                   setIsEditLaboursListDataOpen(false);
-                  fetchLaboursList();
+                  void refetchAllMasterData();
                 }
               } catch (error) {
                 console.error('Error:', error);
@@ -7350,7 +7483,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                       if (response.ok) {
                         setMessage('Account details updated successfully!');
                         setIsAccountDetailsEditOpen(false);
-                        fetchAccountDetails();
+                        void refetchAllMasterData();
                       }
                     } catch (error) {
                       console.error('Error:', error);
