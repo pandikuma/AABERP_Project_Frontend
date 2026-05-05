@@ -334,7 +334,8 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         serviceStartingDate: '',
         projectId: '',
         vendorId: '',
-        contractorId: ''
+        contractorId: '',
+        billArrivalDate: ''
     });
     const [projectData, setProjectData] = useState(null);
     const [ebNumberOptions, setEbNumberOptions] = useState([]);
@@ -1125,10 +1126,25 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         }
     };
     const performUpdateAndWeeklyBills = async (updatedFormData, modalPaymentData = null) => {
+        const rawArrival = updatedFormData?.billArrivalDate ?? updatedFormData?.bill_arrival_date;
+        let billArrivalForApi = '';
+        if (rawArrival != null && String(rawArrival).trim() !== '') {
+            const s = String(rawArrival).trim();
+            if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+                billArrivalForApi = s.slice(0, 10);
+            } else {
+                const d = new Date(s);
+                billArrivalForApi = Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+            }
+        }
+        const updatePayload = {
+            ...updatedFormData,
+            billArrivalDate: billArrivalForApi
+        };
         const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedFormData)
+            body: JSON.stringify(updatePayload)
         });
         if (!response.ok) throw new Error('Failed to update expense');
         const isPaymentType = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
@@ -1240,6 +1256,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         } else if (sortField === 'branch') {
             aValue = String(getBranchName(a.branch_id ?? a.branchId ?? '') || '').toLowerCase();
             bValue = String(getBranchName(b.branch_id ?? b.branchId ?? '') || '').toLowerCase();
+        } else if (sortField === 'billArrivalDate') {
+            aValue = String(getExpenseBillArrivalRaw(a) || '').slice(0, 10);
+            bValue = String(getExpenseBillArrivalRaw(b) || '').slice(0, 10);
         } else if (sortField === 'quantity' || sortField === 'amount') {
             aValue = Number(aValue) || 0;
             bValue = Number(bValue) || 0;
@@ -1371,6 +1390,26 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     };
     const getBranchName = (id) =>
         branchOptions.find(b => String(b.id) === String(id))?.branch || "";
+    const getExpenseBillArrivalRaw = (e) => e?.billArrivalDate ?? e?.bill_arrival_date ?? '';
+    const expenseBillArrivalToInput = (e) => {
+        const raw = getExpenseBillArrivalRaw(e);
+        if (!raw) return '';
+        const s = String(raw).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+        const d = new Date(s);
+        return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+    };
+    const formatBillArrivalDisplay = (e) => {
+        const raw = getExpenseBillArrivalRaw(e);
+        if (!raw) return '—';
+        const head = String(raw).trim().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(head)) return formatChipDateDMY(head) || '—';
+        try {
+            return formatDateOnly(raw) || '—';
+        } catch {
+            return String(raw);
+        }
+    };
     const handleEditClick = (expense) => {
         setEditId(expense.id);
         setFormData({
@@ -1384,7 +1423,8 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
             serviceStartingDate: expense.serviceStartingDate || '',
             projectId: expense.projectId || '',
             vendorId: expense.vendorId || '',
-            contractorId: expense.contractorId || ''
+            contractorId: expense.contractorId || '',
+            billArrivalDate: expenseBillArrivalToInput(expense)
         });
         setModalIsOpen(true);
     };
@@ -1790,7 +1830,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                             onMouseMove={handleMouseMove}
                             onMouseUp={handleMouseUp}
                             onMouseLeave={handleMouseUp}>
-                            <table className="table-fixed  min-w-[1765px] w-full border-collapse">
+                            <table className="table-fixed  min-w-[1885px] w-full border-collapse">
                                 <thead className="sticky top-0 z-10 bg-white ">
                                     <tr className="bg-[#FAF6ED]">
                                         <th className="px-3 w-44 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('timestamp')}>
@@ -1840,6 +1880,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                         </th>
                                         <th className="px-0.5 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('eno')}>
                                             E.No {sortField === 'eno' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
+                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('billArrivalDate')}>
+                                            Bill Arrival {sortField === 'billArrivalDate' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
                                         <th className="px-0.5 w-[120px] font-bold text-left">Activity</th>
                                         <th className="px-0.5 w-[50px] font-bold text-left">File</th>
@@ -1998,6 +2041,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
+                                            <th className="py-3" aria-label="Bill Arrival filter" />
                                             <th></th>
                                             <th></th>
                                         </tr>
@@ -2024,6 +2068,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                             <td className=" text-sm text-left ">{getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}</td>
                                             <td className=" text-sm text-left ">{expense.enteredBy || 'Sivaprakasm'}</td>
                                             <td className=" text-sm text-right pl-3 ">{expense.eno}</td>
+                                            <td className="text-sm text-left px-1 whitespace-nowrap">{formatBillArrivalDisplay(expense)}</td>
                                             <td className=" flex w-[100px] justify-between py-2">
                                                 <button onClick={() => handleEditClick(expense)} className="rounded-full transition duration-200 ml-2 mr-3">
                                                     <img
@@ -2492,6 +2537,18 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                         />
                                         <input type="file" className="hidden" id="fileInput" onChange={handleFileChange} />
                                     </div>
+                                    {(formData.accountType === 'Bill Payments' || formData.accountType === 'Bill Refund') && (
+                                        <div>
+                                            <label className="block text-gray-500 font-normal text-left">Bill Arrival Date</label>
+                                            <input
+                                                type="date"
+                                                name="billArrivalDate"
+                                                value={formData.billArrivalDate || ''}
+                                                onChange={handleChange}
+                                                className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
+                                            />
+                                        </div>
+                                    )}
                                     {/* Conditional fields based on Account Type */}
                                     {(formData.accountType === 'Claim' || formData.accountType === 'Utility Bills' || formData.accountType === 'Weekly Payment') && (
                                         <div>

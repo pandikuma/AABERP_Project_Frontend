@@ -94,6 +94,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [allBillEntries, setAllBillEntries] = useState([]);
 	const [paymentStatuses, setPaymentStatuses] = useState({});
 	const [paidTodayBills, setPaidTodayBills] = useState({});
+	const [allTrackerDataForChecks, setAllTrackerDataForChecks] = useState([]); // paid/enriched dataset (BillDatabase)
 	const [query, setQuery] = useState('');
 	const [showFilterSheet, setShowFilterSheet] = useState(false);
 	const [filterFromDate, setFilterFromDate] = useState(''); // YYYY-MM-DD
@@ -122,6 +123,60 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	const [duplicateSelections, setDuplicateSelections] = useState({}); // { [index]: true }
 	const [checkingPO, setCheckingPO] = useState(false);
 	const [submittingVerify, setSubmittingVerify] = useState(false);
+
+	const fetchAllTrackerDataForChecks = async () => {
+		try {
+			// Must match Database.jsx data source exactly (no branchId query param on this endpoint).
+			const response = await window.fetch(
+				'https://backendaab.in/aabuildersDash/api/vendor-payments/trackers/enriched/paid',
+				{
+					method: 'GET',
+					credentials: 'include',
+					headers: { 'Content-Type': 'application/json' }
+				}
+			);
+			if (!response.ok) throw new Error('Failed to fetch paid tracker data');
+			const text = await response.text();
+			let data = [];
+			try {
+				data = JSON.parse(text);
+			} catch {
+				data = [];
+			}
+			const rows = Array.isArray(data) ? data : [];
+			setAllTrackerDataForChecks(rows);
+			return rows;
+		} catch (e) {
+			console.error('Error fetching full tracker data for checks:', e);
+			setAllTrackerDataForChecks([]);
+			return [];
+		}
+	};
+
+	const parseBillNumberNumeric = (billNumber) => {
+		const v = String(billNumber || '').trim();
+		if (!v || v === 'NO_PO') return { v: null, n: NaN };
+		const m = v.match(/\d+/);
+		const n = m ? Number(m[0]) : NaN;
+		return { v, n };
+	};
+
+	const getTrackersForDuplicateCheck = () => {
+		const merged = [
+			...(Array.isArray(allTrackerDataForChecks) ? allTrackerDataForChecks : []),
+			...(Array.isArray(apiData) ? apiData : [])
+		];
+		const seen = new Set();
+		const unique = [];
+		for (const t of merged) {
+			const id = t?.id ?? t?.bill_id ?? t?.tracker_id;
+			const key = id != null ? String(id) : `idx-${unique.length}`;
+			if (seen.has(key)) continue;
+			seen.add(key);
+			unique.push(t);
+		}
+		return unique;
+	};
 	const [showAddSheet, setShowAddSheet] = useState(false);
 	const [addForm, setAddForm] = useState({
 		vendorId: '',
@@ -596,10 +651,11 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		setLoadingPurchaseOrders(true);
 		try {
 			const PURCHASE_ORDERS_URL = 'https://backendaab.in/aabuildersDash/api/purchase_orders/getAll';
-			const res = await fetchWithBranch(PURCHASE_ORDERS_URL, {
-					method: 'GET',
-					credentials: 'include',
-					headers: { 'Content-Type': 'application/json' }
+			// Must match desktop + Database.jsx behavior (no branchId query param on this endpoint).
+			const res = await window.fetch(PURCHASE_ORDERS_URL, {
+				method: 'GET',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' }
 			});
 			if (!res.ok) return [];
 			const data = await res.json();
@@ -822,15 +878,43 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		setCheckingPO(true);
 		try {
 			const normalizeValue = (value) => String(value ?? '').trim();
+			const normalizeBillKey = (value) => {
+				const { n } = parseBillNumberNumeric(value);
+				return Number.isFinite(n) ? String(n) : '';
+			};
 			const vendorId = normalizeValue(selectedVerifyBill?.vendorId ?? selectedVerifyBill?.vendor_id);
 			if (!vendorId) {
 				alert('Vendor ID not found');
 				return;
 			}
 
+			// Ensure paid/enriched dataset is loaded so "Already Entered" checks BOTH sources.
+			let paidTrackersForChecks = Array.isArray(allTrackerDataForChecks) ? allTrackerDataForChecks : [];
+			if (paidTrackersForChecks.length === 0) {
+				paidTrackersForChecks = await fetchAllTrackerDataForChecks();
+			}
+			const trackersForDuplicateCheck = (() => {
+				const merged = [
+					...(Array.isArray(paidTrackersForChecks) ? paidTrackersForChecks : []),
+					...(Array.isArray(apiData) ? apiData : [])
+				];
+				const seen = new Set();
+				const unique = [];
+				for (const t of merged) {
+					const id = t?.id ?? t?.bill_id ?? t?.tracker_id;
+					const key = id != null ? String(id) : `idx-${unique.length}`;
+					if (seen.has(key)) continue;
+					seen.add(key);
+					unique.push(t);
+				}
+				return unique;
+			})();
+
+			// Match desktop PendingBill.js: validate against the FULL purchase orders list.
+			// (Using a vendor-filtered cache can be stale / mismatched on mobile timing.)
 			const purchaseOrdersSource =
-				Array.isArray(purchaseOrders) && purchaseOrders.length > 0
-					? purchaseOrders
+				Array.isArray(purchaseOrdersAll) && purchaseOrdersAll.length > 0
+					? purchaseOrdersAll
 					: await ensureAllPurchaseOrdersLoaded();
 			const vendorPurchaseOrders = (purchaseOrdersSource || []).filter((po) =>
 				normalizeValue(po?.vendor_id ?? po?.vendorId) === vendorId
@@ -838,6 +922,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			const vendorENOs = vendorPurchaseOrders
 				.map((po) => normalizeValue(po?.eno ?? po?.po_number ?? po?.purchase_order_number))
 				.filter(Boolean);
+			const vendorENOsKeySet = new Set(vendorENOs.map((v) => normalizeBillKey(v)).filter(Boolean));
 
 			const noOfBills = Number(selectedVerifyBill?.no_of_bills ?? selectedVerifyBill?.noOfBills ?? 0) || 0;
 			const extraBillsCount = Number(selectedVerifyBill?.extra_bills ?? selectedVerifyBill?.extraBills ?? 0) || 0;
@@ -847,12 +932,12 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			const newValidationResults = {};
 			const duplicateNumbers = [];
 			const duplicateMap = {};
-			const currentBillNumbers = poNumbers.map((num) => normalizeValue(num)).filter(Boolean);
+			const currentBillNumbers = poNumbers.map((num) => normalizeBillKey(num)).filter(Boolean);
 			currentBillNumbers.forEach((billNumber, index) => {
 				if (duplicateMap[billNumber]) duplicateMap[billNumber].push(index);
 				else duplicateMap[billNumber] = [index];
 			});
-			const currentExtraBillNumbers = extraPoNumbers.map((num) => normalizeValue(num)).filter(Boolean);
+			const currentExtraBillNumbers = extraPoNumbers.map((num) => normalizeBillKey(num)).filter(Boolean);
 			currentExtraBillNumbers.forEach((billNumber, index) => {
 				if (duplicateMap[billNumber]) duplicateMap[billNumber].push(`extra-${index}`);
 				else duplicateMap[billNumber] = [`extra-${index}`];
@@ -880,15 +965,22 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 				} else if (normalizeValue(billNumber)) {
 					let isAlreadyEntered = false;
 					const trimmedBillNumber = normalizeValue(billNumber);
-					for (const tracker of apiData || []) {
+					const trimmedBillKey = normalizeBillKey(trimmedBillNumber);
+					for (const tracker of trackersForDuplicateCheck) {
 						const tid = tracker?.id ?? tracker?.bill_id;
 						if (tid === currentTrackerId) continue;
 						const trackerVendorId = normalizeValue(tracker?.vendor_id ?? tracker?.vendorId);
 						if (trackerVendorId !== vendorId) continue;
-						const verifications = tracker?.billVerifications || tracker?.bill_verifications || [];
+						const verifications =
+							tracker?.billVerifications ||
+							tracker?.bill_verifications ||
+							tracker?.billVerification ||
+							tracker?.bill_verification ||
+							[];
 						for (const verification of verifications || []) {
 							const existingBill = normalizeValue(verification?.bill_number ?? verification?.billNumber);
-							if (existingBill && existingBill !== 'NO_PO' && existingBill === trimmedBillNumber) {
+							const existingBillKey = normalizeBillKey(existingBill);
+							if (existingBill && existingBill !== 'NO_PO' && existingBillKey && trimmedBillKey && existingBillKey === trimmedBillKey) {
 								isAlreadyEntered = true;
 								break;
 							}
@@ -899,7 +991,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 						isMatched = false;
 						message = 'Already Entered';
 					} else {
-						isMatched = vendorENOs.includes(normalizeValue(billNumber));
+						isMatched = !!trimmedBillKey && vendorENOsKeySet.has(trimmedBillKey);
 						message = isMatched ? 'Matched' : 'Not Matched';
 					}
 				} else {

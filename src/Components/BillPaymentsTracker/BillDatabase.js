@@ -7,7 +7,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 // BillDatabase component - displays fully paid bills (verified + entered + fully paid with tick)
-const BillDatabase = ({ username, userRoles = [] }) => {
+const BillDatabase = ({ username, userRoles = [], billPaymentsTabActive = true }) => {
     const [apiData, setApiData] = useState([])
     // Modal states (match PendingBill style popups)
     const [showModal, setShowModal] = useState(false)
@@ -57,19 +57,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     const [numberInputLocked, setNumberInputLocked] = useState(false)
     const [hasStartedEditing, setHasStartedEditing] = useState(false)
     const [previousEntryNumbers, setPreviousEntryNumbers] = useState({})
-    const [paymentEntries, setPaymentEntries] = useState([
-        {
-            id: 1,
-            date: '',
-            amount: '',
-            mode: '',
-            attachedFile: null,
-            chequeNo: '',
-            chequeDate: '',
-            transactionNumber: '',
-            accountNumber: ''
-        }
-    ])
+    const [paymentEntries, setPaymentEntries] = useState([])
     const [additionalFields, setAdditionalFields] = useState([])
     const [billData, setBillData] = useState([])
     const [serialNumber, setSerialNumber] = useState(1)
@@ -793,23 +781,9 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                 return sum + amount + carryForwardAmount;
             }, 0);
             totalDiscount = existingPayments.reduce((sum, p) => sum + (parseFloat(p.discount_amount) || 0), 0)
-            // Pre-fill entries from existing payments
-            const mapped = existingPayments.map((p, idx) => ({
-                id: p.id || idx + 1,
-                date: p.date || '',
-                amount: p.amount || '',
-                amountDisplay: p.amount ? formatIndianCurrency(parseFloat(p.amount)) : '',
-                mode: p.vendor_bill_payment_mode || p.mode || '',
-                attachedFile: null,
-                chequeNo: p.cheque_number || p.cheque_no || '',
-                chequeDate: p.cheque_date || '',
-                transactionNumber: p.transaction_number || '',
-                accountNumber: p.account_number || ''
-            }))
-            setPaymentEntries(mapped)
-        } else {
-            setPaymentEntries([{ id: Date.now(), date: '', amount: '', amountDisplay: '', mode: '', attachedFile: null, chequeNo: '', chequeDate: '', transactionNumber: '', accountNumber: '' }])
         }
+        // Database payment modal is view-only; entries are not edited here (use Pending Bill to add payments)
+        setPaymentEntries([])
         setReceivedAmount(received)
         setDiscount(totalDiscount)
         setDiscountSubmitted(totalDiscount > 0)
@@ -1502,20 +1476,7 @@ const BillDatabase = ({ username, userRoles = [] }) => {
     const handlePaymentCancel = () => {
         setShowPaymentModal(false)
         setSelectedPaymentBill(null)
-        setPaymentEntries([
-            {
-                id: 1,
-                date: '',
-                amount: '',
-                amountDisplay: '',
-                mode: '',
-                attachedFile: null,
-                chequeNo: '',
-                chequeDate: '',
-                transactionNumber: '',
-                accountNumber: ''
-            }
-        ])
+        setPaymentEntries([])
         setExistingPaymentDetails(null)
         setLoadingPaymentDetails(false)
         setDiscount(0)
@@ -2772,7 +2733,11 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                     extraBills: '0',
                     totalAmount: ''
                 })
-                window.location.reload()
+                // Show loading in table immediately, then refetch in background
+                setLoading(true)
+                setTimeout(() => {
+                    fetchTrackerData()
+                }, 0)
             }
         } catch (error) {
             console.error('Error updating tracker details:', error)
@@ -2817,11 +2782,20 @@ const BillDatabase = ({ username, userRoles = [] }) => {
             alert(`An error occurred while deleting the tracker: ${error.message}`);
         }
     }
-    // Mirror mobile Database.jsx: load once from `/trackers/enriched/paid`
+    // Mirror mobile Database.jsx: load once from `/trackers/enriched/paid` (also prefetches when tab is mounted hidden)
     useEffect(() => {
         fetchTrackerData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+    const billPaymentsTabActivePrevRef = useRef(undefined);
+    useEffect(() => {
+        const prev = billPaymentsTabActivePrevRef.current;
+        billPaymentsTabActivePrevRef.current = billPaymentsTabActive;
+        if (!billPaymentsTabActive) return;
+        if (prev === false) {
+            fetchTrackerData();
+        }
+    }, [billPaymentsTabActive]);
     useEffect(() => {
         fetchVendorNames();
         fetchContractorNames();
@@ -3574,155 +3548,19 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                         </div>
                         <div className="flex-1 overflow-hidden">
                             <div className="flex gap-10 h-full">
-                                <div className="flex-1 flex flex-col">
+                                <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
                                     {loadingPaymentDetails && (
                                         <div className="px-6 py-4 text-center">
                                             <div className="text-sm text-gray-500">Loading existing payment details...</div>
                                         </div>
                                     )}
-                                    {paymentStatuses[selectedPaymentBill?.id] !== '✓ Paid' && (
-                                        <>
-                                            <div className="flex-1 overflow-y-auto p-4">
-                                                {paymentEntries.map((entry, index) => {
-                                                    const existingPaymentCount = existingPaymentDetails?.length || 0;
-                                                    const paymentNumber = existingPaymentCount + index + 1;
-                                                    return (
-                                                        <div key={entry.id} className="text-left p- shadow-lg rounded-lg">
-                                                            <div className="mb-2">
-                                                                <span className="text-sm font-bold text-gray-700">Payment - {paymentNumber}</span>
-                                                            </div>
-                                                            <div className={`flex gap-4 border border-[#BF9853] border-opacity-35 rounded-md p-4 ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-50' : ''}`}>
-                                                                <div className="flex-1">
-                                                                    <label className="block font-semibold mb-1 text-sm">Date</label>
-                                                                    <input
-                                                                        type="date"
-                                                                        value={entry.date}
-                                                                        onChange={(e) => handlePaymentEntryChange(entry.id, 'date', e.target.value)}
-                                                                        disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                                                        className={`w-[150px] h-[35px] px-3 border-2 border-[#BF9853] border-opacity-35 rounded-md text-sm focus:outline-none ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                                                    />
-                                                                </div>
-                                                                <div className="flex-1">
-                                                                    <label className="block font-semibold mb-1 text-sm">Amount</label>
-                                                                    <input
-                                                                        type="text"
-                                                                        placeholder="Enter Amount"
-                                                                        value={entry.amountDisplay || ''}
-                                                                        onChange={(e) => handlePaymentEntryChange(entry.id, 'amount', e.target.value)}
-                                                                        disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                                                        className={`w-[150px] h-[35px] px-3 border-2 border-[#BF9853] border-opacity-35 rounded-md text-sm focus:outline-none ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                                                    />
-                                                                </div>
-                                                                <div className="flex-1">
-                                                                    <label className="block font-semibold mb-1 text-sm">Mode</label>
-                                                                    <select
-                                                                        value={entry.mode}
-                                                                        onChange={(e) => handlePaymentEntryChange(entry.id, 'mode', e.target.value)}
-                                                                        disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                                                        className={`w-[180px] h-[35px] px-3 border-2 border-[#BF9853] border-opacity-35 rounded-md text-sm focus:outline-none ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                                                    >
-                                                                        <option value="">Select</option>
-                                                                        <option value="Cash">Cash</option>
-                                                                        <option value="Direct">Direct</option>
-                                                                        <option value="Net Banking">Net Banking</option>
-                                                                        <option value="Gpay">Gpay</option>
-                                                                        <option value="PhonePe">PhonePe</option>
-                                                                        <option value="Cheque">Cheque</option>
-                                                                    </select>
-                                                                    <div className="mt-1 px-6">
-                                                                        <button className="text-[#E4572E] text-sm flex items-center gap-1"
-                                                                            onClick={() => document.getElementById(`file-input-${entry.id}`).click()}
-                                                                        >
-                                                                            Attach file
-                                                                        </button>
-                                                                        <input
-                                                                            id={`file-input-${entry.id}`}
-                                                                            type="file"
-                                                                            accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,application/pdf,image/*"
-                                                                            className="hidden"
-                                                                            onChange={(e) => handleFileAttachment(entry.id, e.target.files[0])}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            {(entry.mode === "Gpay" || entry.mode === "PhonePe" || entry.mode === "Net Banking" || entry.mode === "Cheque") && (
-                                                                <div className="mt-4 p-4 border border-[#BF9853] border-opacity-25 rounded-lg">
-                                                                    <div className="space-y-4">
-                                                                        {entry.mode === "Cheque" && (
-                                                                            <div className="grid grid-cols-2 gap-4">
-                                                                                <div>
-                                                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Cheque No</label>
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={entry.chequeNo}
-                                                                                        onChange={(e) => handlePaymentEntryChange(entry.id, 'chequeNo', e.target.value)}
-                                                                                        placeholder="Enter cheque number"
-                                                                                        disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                                                                        className={`w-full h-[35px] px-3 border-2 border-[#BF9853] border-opacity-25 rounded-md text-sm focus:outline-none ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                                                                    />
-                                                                                </div>
-                                                                                <div>
-                                                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Cheque Date</label>
-                                                                                    <input
-                                                                                        type="date"
-                                                                                        value={entry.chequeDate}
-                                                                                        onChange={(e) => handlePaymentEntryChange(entry.id, 'chequeDate', e.target.value)}
-                                                                                        disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                                                                        className={`w-full h-[35px] px-3 border-2 border-[#BF9853] border-opacity-25 rounded-md text-sm focus:outline-none ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                                                                    />
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
-                                                                        <div className="grid grid-cols-2 gap-4">
-                                                                            <div>
-                                                                                <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Number</label>
-                                                                                <input
-                                                                                    type="text"
-                                                                                    value={entry.transactionNumber}
-                                                                                    onChange={(e) => handlePaymentEntryChange(entry.id, 'transactionNumber', e.target.value)}
-                                                                                    placeholder="Enter transaction number"
-                                                                                    disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                                                                    className={`w-full h-[35px] px-3 border-2 border-[#BF9853] border-opacity-25 rounded-md text-sm focus:outline-none ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                                                                />
-                                                                            </div>
-                                                                            <div>
-                                                                                <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
-                                                                                <select
-                                                                                    value={entry.accountNumber}
-                                                                                    onChange={(e) => handlePaymentEntryChange(entry.id, 'accountNumber', e.target.value)}
-                                                                                    disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                                                                    className={`w-full h-[35px] px-3 border-2 border-[#BF9853] border-opacity-25 rounded-md text-sm focus:outline-none ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                                                                >
-                                                                                    <option value="">Select Account</option>
-                                                                                    {accountDetails.map((account) => (
-                                                                                        <option key={account.id} value={account.account_number}>
-                                                                                            {account.account_number}
-                                                                                        </option>
-                                                                                    ))}
-                                                                                </select>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                                {paymentStatuses[selectedPaymentBill?.id] !== '✓ Paid' && (
-                                                    <div className="flex py-3">
-                                                        <button
-                                                            onClick={handleAddPaymentEntry}
-                                                            className="text-[#E4572E] text-sm font-semibold border-dashed border-b-2 border-[#BF9853] cursor-pointer hover:text-[#c44a26] transition-colors duration-200 flex items-center gap-1"
-                                                        >
-                                                            <span className="text-red-500">+</span> Add on
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </>
+                                    {!loadingPaymentDetails && (!existingPaymentDetails || existingPaymentDetails.length === 0) && (
+                                        <div className="px-6 py-10 text-center text-sm text-gray-500">
+                                            No payment records for this bill.
+                                        </div>
                                     )}
                                     {existingPaymentDetails && existingPaymentDetails.length > 0 && (
-                                        <div className="p-w pl-4 overflow-auto h-[700px] mb-2">
+                                        <div className="pl-4 pr-4 pb-4 mb-2">
                                             <h4 className="text-sm font-semibold text-gray-700 mt-2">Previous Payment Details:</h4>
                                             <div className="space-y-4">
                                                 {[...existingPaymentDetails].reverse().map((payment, index) => {
@@ -3853,18 +3691,13 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                                             </div>
                                         </div>
                                     )}
-                                    <div className="flex justify-end gap-3 bg-white mb-4">
-                                        <button className="px-4 py-2 border border-[#BF9853] text-[#BF9853] rounded-lg font-medium"
+                                    <div className="flex justify-end gap-3 bg-white mb-4 px-4">
+                                        <button
+                                            type="button"
+                                            className="px-6 py-2 border border-[#BF9853] text-[#BF9853] rounded-lg font-medium hover:bg-[#FAF6ED] transition-colors"
                                             onClick={handlePaymentCancel}
                                         >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            className={`px-4 py-2 rounded-lg font-medium ${paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'text-white bg-[#BF9853]'}`}
-                                            onClick={handlePaymentSubmit}
-                                            disabled={paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                        >
-                                            {paymentStatuses[selectedPaymentBill?.id] === '✓ Paid' ? 'Fully Paid' : 'Submit'}
+                                            Close
                                         </button>
                                     </div>
                                 </div>
@@ -3970,9 +3803,9 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={useCarryForward}
-                                                                    onChange={(e) => setUseCarryForward(e.target.checked)}
-                                                                    disabled={carryForwardAmount <= 0 || paymentStatuses[selectedPaymentBill?.id] === '✓ Paid'}
-                                                                    className="w-4 h-4 cursor-pointer"
+                                                                    disabled
+                                                                    title="View only — add or adjust payments from Pending Bill"
+                                                                    className="w-4 h-4 cursor-not-allowed opacity-60"
                                                                 />
                                                             </div>
                                                             <span className={`font-semibold ${useCarryForward ? 'text-green-600' : ''}`}>
@@ -3993,27 +3826,11 @@ const BillDatabase = ({ username, userRoles = [] }) => {
                                                                         ? ''
                                                                         : discount.toLocaleString('en-IN')
                                                                 }
-                                                                onChange={(e) => {
-                                                                    if (!discountSubmitted) {
-                                                                        const rawValue = e.target.value.replace(/,/g, '').replace(/\D/g, '');
-                                                                        const newDiscount = Number(rawValue) || 0;
-                                                                        setDiscount(newDiscount);
-                                                                    }
-                                                                }}
-                                                                onKeyDown={(e) => {
-                                                                    if (!discountSubmitted && e.key === 'Backspace' && discount === 0) {
-                                                                        setDiscount('');
-                                                                    }
-                                                                }}
-                                                                disabled={discountSubmitted}
-                                                                className={`w-24 h-6 px-2 no-spinner text-right text-xs border pl-4 border-gray-300 rounded focus:outline-none ${discountSubmitted ? 'bg-gray-100 cursor-not-allowed' : ''
-                                                                    }`}
+                                                                readOnly
+                                                                tabIndex={-1}
+                                                                className="w-24 h-6 px-2 no-spinner text-right text-xs border pl-4 border-gray-300 rounded bg-gray-50 cursor-default"
                                                                 placeholder="0"
-                                                                title={
-                                                                    discountSubmitted
-                                                                        ? 'Discount already applied in previous payment'
-                                                                        : 'Enter discount amount'
-                                                                }
+                                                                title="View only — discount is shown from saved payments"
                                                             />
                                                         </div>
                                                         <hr className="border-gray-300" />

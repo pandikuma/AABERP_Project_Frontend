@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import Select from 'react-select';
 import Filter from '../Images/filter (3).png'
 import Reload from '../Images/rotate-right.png'
+import Pdf from '../Images/pdf.png';
+import XL from '../Images/sheets.png';
 import { sum } from 'mathjs';
 import edit from '../Images/Edit.svg';
 import history from '../Images/History.svg';
@@ -81,7 +83,27 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
     { value: 'Direct', label: 'Direct' }
   ];
   const [backendPaymentModeOptions, setBackendPaymentModeOptions] = useState([]);
+  const [branchOptions, setBranchOptions] = useState([]);
   const finalPaymentModeOptions = backendPaymentModeOptions.length > 0 ? backendPaymentModeOptions : paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/branch/getAll', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) throw new Error('Failed to fetch branches');
+        const data = await response.json();
+        setBranchOptions(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error fetching branches:', error);
+        setBranchOptions([]);
+      }
+    };
+    fetchBranches();
+  }, []);
 
   useEffect(() => {
     const fetchPaymentModes = async () => {
@@ -175,6 +197,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
     sessionStorage.setItem('advanceDatabaseFilters', JSON.stringify(filters));
   }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate, showFilters]);
   const scrollRef = useRef(null);
+  const filterRowRef = useRef(null);
   const isDragging = useRef(false);
   const start = useRef({ x: 0, y: 0 });
   const scroll = useRef({ left: 0, top: 0 });
@@ -566,23 +589,21 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
   const sortedSiteOptions = siteOptions.sort((a, b) =>
     a.label.localeCompare(b.label)
   );
-  const customStyles = {
+  const customStyles = useMemo(() => ({
     control: (provided, state) => ({
       ...provided,
       borderWidth: '2px',
+      lineHeight: '20px',
+      fontSize: '12px',
       height: '45px',
       borderRadius: '8px',
-      borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'rgba(191, 152, 83, 0.2)',
-      boxShadow: state.isFocused ? '0 0 0 1px rgba(101, 102, 53, 0.1)' : 'none',
+      padding: '0.25rem',
+      textAlign: 'left',
+      borderColor: 'rgba(191, 152, 83, 0.2)',
+      boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
       '&:hover': {
-        borderColor: 'rgba(191, 152, 83, 0.2)',
-      }
-    }),
-    indicatorSeparator: () => ({
-      display: 'none',
-    }),
-    dropdownIndicator: () => ({
-      display: 'none',
+        borderColor: 'rgba(191, 152, 83, 0.4)',
+      },
     }),
     clearIndicator: (provided) => ({
       ...provided,
@@ -590,7 +611,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
     }),
     menu: (provided) => ({
       ...provided,
-      zIndex: 9999,
+      zIndex: 999,
       maxHeight: '300px',
     }),
     menuPortal: (provided) => ({
@@ -607,34 +628,32 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
     }),
     singleValue: (provided) => ({
       ...provided,
-      fontWeight: '500',
-      color: 'black',
-      textAlign: 'left',
+      color: '#111827',
     }),
     option: (provided, state) => ({
       ...provided,
-      fontWeight: '500',
-      backgroundColor: state.isSelected 
-        ? 'rgba(191, 152, 83, 0.3)' 
-        : state.isFocused 
-          ? 'rgba(191, 152, 83, 0.1)' 
-          : 'white',
-      color: 'black',
       textAlign: 'left',
+      fontWeight: 'normal',
+      fontSize: '15px',
+      backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+      color: 'black',
     }),
     input: (provided) => ({
       ...provided,
-      fontWeight: '500',
+      fontWeight: '300',
       color: 'black',
       textAlign: 'left',
     }),
     placeholder: (provided) => ({
       ...provided,
-      fontWeight: '500',
-      color: '#999',
+      color: '#6B7280',
       textAlign: 'left',
     }),
-  };
+    indicatorSeparator: (provided) => ({
+      ...provided,
+      display: 'none',
+    }),
+  }), []);
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
   };
@@ -690,6 +709,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
 
   const getSiteName = (id) =>
     siteOptions.find(s => String(s.id) === String(id))?.value || "";
+
+  const getBranchName = (id) =>
+    branchOptions.find(b => String(b.id) === String(id))?.branch || "";
 
   const filteredData = advanceData.filter((entry) => {
     if (startDate && endDate) {
@@ -754,8 +776,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       if (String(sourceVal).toLowerCase() !== String(selectDatabaseSourceFrom).toLowerCase()) return false;
     }
     if (selectDatabaseBranch) {
-      const branchVal = entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? "";
-      if (String(branchVal).toLowerCase() !== String(selectDatabaseBranch).toLowerCase()) return false;
+      if (String(entry.branch_id ?? entry.branchId ?? '') !== String(selectDatabaseBranch)) return false;
     }
     if (selectDatabaseEnteredBy) {
       const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
@@ -773,7 +794,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
     const uniqueModes = new Set();
     const uniqueEntryNos = new Set();
     const uniqueSources = new Set();
-    const uniqueBranches = new Set();
+    const uniqueBranchIds = new Set();
     const uniqueEnteredBy = new Set();
 
     advanceData.forEach(entry => {
@@ -817,8 +838,8 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
       if (sourceVal) uniqueSources.add(String(sourceVal));
 
-      const branchVal = entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? "";
-      if (branchVal) uniqueBranches.add(String(branchVal));
+      const branchId = entry.branch_id ?? entry.branchId;
+      if (branchId != null && branchId !== '') uniqueBranchIds.add(String(branchId));
 
       const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
       if (enteredVal) uniqueEnteredBy.add(String(enteredVal));
@@ -862,10 +883,15 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       modeOptions,
       entryNoOptions,
       sourceFromOptions: Array.from(uniqueSources).sort(),
-      branchOptions: Array.from(uniqueBranches).sort(),
+      branchOptions: Array.from(uniqueBranchIds)
+        .map((id) => ({
+          value: id,
+          label: branchOptions.find((br) => String(br.id) === String(id))?.branch || String(id),
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
       enteredByOptions: Array.from(uniqueEnteredBy).sort(),
     };
-  }, [advanceData, vendorOptions, contractorOptions, siteOptions]);
+  }, [advanceData, vendorOptions, contractorOptions, siteOptions, branchOptions]);
   const sortedData = React.useMemo(() => {
     let sortableData = [...filteredData];
     if (sortConfig.key) {
@@ -909,8 +935,8 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
             bValue = String(b.source_from ?? b.sourceFrom ?? b.source ?? '');
             break;
           case 'branch':
-            aValue = String(a.branch ?? a.branch_name ?? a.branchName ?? a.branch_id ?? a.branchId ?? '');
-            bValue = String(b.branch ?? b.branch_name ?? b.branchName ?? b.branch_id ?? b.branchId ?? '');
+            aValue = String(branchOptions.find((br) => String(br.id) === String(a.branch_id ?? a.branchId ?? ''))?.branch || (a.branch ?? a.branch_name ?? a.branchName ?? '')).toLowerCase();
+            bValue = String(branchOptions.find((br) => String(br.id) === String(b.branch_id ?? b.branchId ?? ''))?.branch || (b.branch ?? b.branch_name ?? b.branchName ?? '')).toLowerCase();
             break;
           case 'enteredBy':
             aValue = String(a.enteredBy ?? a.entered_by ?? a.request_send_by ?? a.requested_by ?? a.createdBy ?? a.created_by ?? '');
@@ -942,7 +968,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       sortableData.sort((a, b) => Number(b.entry_no) - Number(a.entry_no));
     }
     return sortableData;
-  }, [filteredData, sortConfig]);
+  }, [filteredData, sortConfig, branchOptions]);
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -950,24 +976,22 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
   useEffect(() => {
     setCurrentPage(1);
   }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate]);
-  const goToPage = (page) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  };
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-  const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-  const handleItemsPerPageChange = (e) => {
-    const newItemsPerPage = parseInt(e.target.value);
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1);
-  };
+  const clearFilters = useCallback(() => {
+    setSelectTimeStampDate('');
+    setSelectDatabaseDate('');
+    setSelectDatabaseContractororVendorName('');
+    setSelectDatabaseProjectName('');
+    setSelectDatabaseTransfer('');
+    setSelectDatabaseType('');
+    setSelectDatabaseMode('');
+    setSelectDatabaseEntryNo('');
+    setSelectDatabaseSourceFrom('');
+    setSelectDatabaseBranch('');
+    setSelectDatabaseEnteredBy('');
+    setStartDate('');
+    setEndDate('');
+    sessionStorage.removeItem('advanceDatabaseFilters');
+  }, []);
   const handleChange = async (selected) => {
     setSelectedOption(selected);
     setEditFormData(prev => {
@@ -1463,18 +1487,33 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
           <button onClick={() => setIsOpen(true)} className='w-28 h-[35px] border-2 bg-[#BF9853] border-opacity-25 rounded-lg xl:mt-4 text-white'>Migrate</button>
         </div>
       </div>
-      <div className='max-w-[1850px] ml-10 mr-10 px-4 bg-white rounded-md h-[650px] mt-4 pt-5'>
+      <div className="w-full px-4 sm:px-6 lg:px-10">
+        <div className="w-full max-w-[1860px] mx-auto p-4 mt-4 bg-white shadow-lg overflow-x-auto">
         <div
           className={`text-left flex ${selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate
             ? 'flex-col sm:flex-row sm:justify-between'
             : 'flex-row justify-between items-center'
             } mb-3 gap-2`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
-            <button className='pl-2' onClick={() => setShowFilters(!showFilters)}>
+            <button
+              className='pl-2'
+              onClick={() => {
+                const willOpen = !showFilters;
+                setShowFilters(willOpen);
+                if (!willOpen) return;
+                const scroller = scrollRef.current;
+                if (!scroller) return;
+                if (scroller.scrollTop <= 0) return;
+                requestAnimationFrame(() => {
+                  const h = filterRowRef.current?.offsetHeight || 0;
+                  if (h > 0) scroller.scrollTop = scroller.scrollTop + h;
+                });
+              }}
+            >
               <img
                 src={Filter}
                 alt="Toggle Filter"
-                className="w-7 h-7 border border-[#BF9853] rounded-md ml-3"
+                className="w-7 h-7 border border-[#BF9853] rounded-md"
               />
             </button>
             {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate) && (
@@ -1559,7 +1598,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                 {selectDatabaseBranch && (
                   <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
                     <span className="font-normal">Branch: </span>
-                    <span className="font-bold">{selectDatabaseBranch}</span>
+                    <span className="font-bold">{getBranchName(selectDatabaseBranch) || selectDatabaseBranch}</span>
                     <button onClick={() => setSelectDatabaseBranch('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
                 )}
@@ -1573,353 +1612,251 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
               </div>
             )}
           </div>
-          <div className='space-x-4 flex justify-end mr-5'>
-            {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate) && (
-              <button
-                onClick={() => {
-                  setSelectTimeStampDate('');
-                  setSelectDatabaseDate('');
-                  setSelectDatabaseContractororVendorName('');
-                  setSelectDatabaseProjectName('');
-                  setSelectDatabaseTransfer('');
-                  setSelectDatabaseType('');
-                  setSelectDatabaseMode('');
-                  setSelectDatabaseEntryNo('');
-                  setSelectDatabaseSourceFrom('');
-                  setSelectDatabaseBranch('');
-                  setSelectDatabaseEnteredBy('');
-                  setStartDate('');
-                  setEndDate('');
-                  sessionStorage.removeItem('advanceDatabaseFilters');
-                }}
-                className='text-sm text-red-600 hover:underline font-bold'
-              >
-                Clear All Filters
-              </button>
-            )}
-            <button onClick={exportPDF} className='text-sm text-[#E4572E] hover:underline font-bold'>Export PDF</button>
-            <button onClick={exportCSV} className='text-sm text-[#007233] hover:underline font-bold'>Export XL</button>
-            <button className='text-sm text-[#BF9853] hover:underline font-bold'>Print</button>
+          <div className='flex items-center gap-2'>
+            <button onClick={clearFilters} className='w-10 h-9 border border-[#BF9853] rounded-md font-semibold text-sm text-[#BF9853] flex items-center justify-center gap-2'>
+              <img className='w-4 h-4' src={Reload} alt="Reload" />
+            </button>
+            <div className=' text-left md:text-right md:items-center items-start cursor-default flex max-w-screen-2xl table-auto overflow-auto w-full'>
+              <div className='flex items-center'>
+                <span className='text-[#E4572E] mr-3 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
+                <span className='text-[#007233] mr-1 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
+              </div>
+            </div>
           </div>
         </div>
-        <div className='border-l-8 border-l-[#BF9853] rounded-lg mx-2 lg:mx-5'>
-          <div ref={scrollRef} className='overflow-auto max-h-[485px] thin-scrollbar'
-            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+        <div>
+          <div
+            ref={scrollRef}
+            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[600px] overflow-x-auto select-none thin-scrollbar"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
           >
-            <table className="min-w-[1805px] w-full border-collapse">
-              <thead className="sticky top-0 z-10 bg-white">
+            <table className="table-fixed min-w-[1180px] w-full border-collapse">
+              <thead className="sticky top-0 z-10 bg-white ">
                 <tr className="bg-[#FAF6ED]">
-                  <th className="py-2 pl-3 w-[340px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="px-3 w-44 font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('timestamp')}
                   >
                     Time Stamp {sortConfig.key === 'timestamp' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="pt-2 pl-3 w-[320px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="pt-2 w-36 font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('date')}
                   >
                     Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="px-0.5 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('vendor')}
                   >
                     Contractor/Vendor {sortConfig.key === 'vendor' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="px-0.5 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('project')}
                   >
                     Project Name {sortConfig.key === 'project' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="px-0.5 w-[280px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('transfer')}
                   >
                     Transfer Site {sortConfig.key === 'transfer' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[100px] font-bold text-right whitespace-nowrap">Advance</th>
-                  <th className="px-2 w-[100px] font-bold text-right whitespace-nowrap">Bill Payment</th>
-                  <th className="px-2 w-[120px] font-bold text-right whitespace-nowrap">Refund</th>
-                  <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="w-[140px] pl-4 pr-2 font-bold text-right select-none whitespace-nowrap">Advance</th>
+                  <th className="w-[140px] pl-2 pr-1.5 font-bold text-right select-none whitespace-nowrap ">Bill Payment</th>
+                  <th className="w-[140px] pl-2 pr-3 font-bold text-right select-none whitespace-nowrap ">Refund</th>
+                  <th className="px-0.5 pl-3 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('type')}
                   >
                     Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[120px] font-bold text-left whitespace-nowrap">Description</th>
-                  <th className="px-2 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="px-0.5 w-[120px] font-bold text-left select-none whitespace-nowrap">Description</th>
+                  <th className="px-0.5 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('mode')}
                   >
                     Mode {sortConfig.key === 'mode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('source')}
                   >
                     Source From {sortConfig.key === 'source' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('branch')}
                   >
                     Branch {sortConfig.key === 'branch' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('enteredBy')}
                   >
                     Entered By {sortConfig.key === 'enteredBy' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap"
+                  <th className="px-0.5 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
                     onClick={() => handleSort('entry_no')}
                   >
                     E.No {sortConfig.key === 'entry_no' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-2 w-[80px] font-bold text-left whitespace-nowrap">File</th>
-                  <th className="px-2 w-[120px] font-bold text-left whitespace-nowrap">Activity</th>
+                  <th className="px-0.5 w-[80px] font-bold text-left select-none whitespace-nowrap">File</th>
+                  <th className="px-0.5 w-[120px] font-bold text-left select-none whitespace-nowrap">Activity</th>
                 </tr>
                 {showFilters && (
-                  <tr className="bg-white border-b border-gray-200">
-                    <th className="">
+                  <tr ref={filterRowRef} className="bg-[#FAF6ED]">
+                    <th className="py-3 w-44 min-w-0">
                       <input
                         type="date"
                         value={selectTimeStampDate}
                         onChange={(e) => setSelectTimeStampDate(e.target.value)}
-                        className="p-1  mt-3 mb-3 rounded-md bg-transparent w-[170px] border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                        placeholder="Date..."
+                        className="w-full min-w-0 max-w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-1.5 text-xs"
                       />
                     </th>
-                    <th className="">
+                    <th className="py-3 w-36 min-w-0">
                       <input
                         type="date"
                         value={selectDatabaseDate}
                         onChange={(e) => setSelectDatabaseDate(e.target.value)}
-                        className="p-1  mt-3 mb-3 rounded-md bg-transparent w-32 border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                        placeholder="Date..."
+                        className="w-full min-w-0 max-w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-1.5 text-xs"
                       />
                     </th>
-                    <th className="">
+                    <th className="py-3">
                       <Select
+                        className="w-full"
                         options={filterOptionsFromData.vendorContractorOptions}
                         value={selectDatabaseContractororVendorName ? { value: selectDatabaseContractororVendorName, label: selectDatabaseContractororVendorName } : null}
-                        onChange={(opt) => setSelectDatabaseContractororVendorName(opt ? opt.value : "")}
-                        className=" w-[220px] focus:outline-none text-xs"
-                        placeholder="Contractor/Ven..."
+                        onChange={(opt) => setSelectDatabaseContractororVendorName(opt ? opt.value : '')}
+                        placeholder="Contractor/Vendor"
                         isSearchable
-                        menuPortalTarget={document.body}
                         isClearable
-                        styles={{
-                          control: (provided, state) => ({
-                            ...provided,
-                            backgroundColor: 'transparent',
-                            borderWidth: '3px',
-                            borderColor: state.isFocused
-                              ? 'rgba(191, 152, 83, 0.2)'
-                              : 'rgba(191, 152, 83, 0.2)',
-                            borderRadius: '6px',
-                            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                            '&:hover': {
-                              borderColor: 'rgba(191, 152, 83, 0.2)',
-                            },
-                          }),
-                          placeholder: (provided) => ({
-                            ...provided,
-                            color: '#999',
-                            textAlign: 'left',
-                          }),
-                          menu: (provided) => ({
-                            ...provided,
-                            zIndex: 9,
-                          }),
-                          option: (provided, state) => ({
-                            ...provided,
-                            textAlign: 'left',
-                            fontWeight: 'normal',
-                            fontSize: '15px',
-                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                            color: 'black',
-                          }),
-                          singleValue: (provided) => ({
-                            ...provided,
-                            textAlign: 'left',
-                            fontWeight: 'normal',
-                            color: 'black',
-                          }),
-                        }}
+                        menuPlacement="bottom"
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        styles={customStyles}
                       />
                     </th>
-                    <th className="">
+                    <th className="py-3">
                       <Select
+                        className="w-full"
                         options={filterOptionsFromData.projectOptions}
                         value={selectDatabaseProjectName ? { value: selectDatabaseProjectName, label: selectDatabaseProjectName } : null}
-                        onChange={(opt) => setSelectDatabaseProjectName(opt ? opt.value : "")}
-                        className="w-[250px] focus:outline-none text-xs"
-                        placeholder="Project Name..."
+                        onChange={(opt) => setSelectDatabaseProjectName(opt ? opt.value : '')}
+                        placeholder="Project Name"
                         isSearchable
-                        menuPortalTarget={document.body}
                         isClearable
-                        styles={{
-                          control: (provided, state) => ({
-                            ...provided,
-                            backgroundColor: 'transparent',
-                            borderWidth: '3px',
-                            borderColor: state.isFocused
-                              ? 'rgba(191, 152, 83, 0.2)'
-                              : 'rgba(191, 152, 83, 0.2)',
-                            borderRadius: '6px',
-                            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                            '&:hover': {
-                              borderColor: 'rgba(191, 152, 83, 0.2)',
-                            },
-                          }),
-                          placeholder: (provided) => ({
-                            ...provided,
-                            color: '#999',
-                            textAlign: 'left',
-                          }),
-                          menu: (provided) => ({
-                            ...provided,
-                            zIndex: 9,
-                          }),
-                          option: (provided, state) => ({
-                            ...provided,
-                            textAlign: 'left',
-                            fontWeight: 'normal',
-                            fontSize: '15px',
-                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                            color: 'black',
-                          }),
-                          singleValue: (provided) => ({
-                            ...provided,
-                            textAlign: 'left',
-                            fontWeight: 'normal',
-                            color: 'black',
-                          }),
-                        }}
+                        menuPlacement="bottom"
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        styles={customStyles}
                       />
                     </th>
-                    <th className="">
+                    <th className="py-3">
                       <Select
+                        className="w-full"
                         options={filterOptionsFromData.transferSiteOptions}
                         value={selectDatabaseTransfer ? { value: selectDatabaseTransfer, label: selectDatabaseTransfer } : null}
-                        onChange={(opt) => setSelectDatabaseTransfer(opt ? opt.value : "")}
-                        className="w-[250px] focus:outline-none text-xs"
-                        placeholder="Transfer Site..."
+                        onChange={(opt) => setSelectDatabaseTransfer(opt ? opt.value : '')}
+                        placeholder="Transfer Site"
                         isSearchable
-                        menuPortalTarget={document.body}
                         isClearable
-                        styles={{
-                          control: (provided, state) => ({
-                            ...provided,
-                            backgroundColor: 'transparent',
-                            borderWidth: '3px',
-                            borderColor: state.isFocused
-                              ? 'rgba(191, 152, 83, 0.2)'
-                              : 'rgba(191, 152, 83, 0.2)',
-                            borderRadius: '6px',
-                            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                            '&:hover': {
-                              borderColor: 'rgba(191, 152, 83, 0.2)',
-                            },
-                          }),
-                          placeholder: (provided) => ({
-                            ...provided,
-                            color: '#999',
-                            textAlign: 'left',
-                          }),
-                          menu: (provided) => ({
-                            ...provided,
-                            zIndex: 9,
-                          }),
-                          option: (provided, state) => ({
-                            ...provided,
-                            textAlign: 'left',
-                            fontWeight: 'normal',
-                            fontSize: '15px',
-                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                            color: 'black',
-                          }),
-                          singleValue: (provided) => ({
-                            ...provided,
-                            textAlign: 'left',
-                            fontWeight: 'normal',
-                            color: 'black',
-                          }),
-                        }}
+                        menuPlacement="bottom"
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        styles={customStyles}
                       />
                     </th>
-                    <th className='w-[100px] pt-2 pb-2 text-right'>{totals.amount.toLocaleString("en-IN")}</th>
-                    <th className='w-[150px] pt-2 pb-2 text-right'>{totals.bill_amount.toLocaleString("en-IN")}</th>
-                    <th className='w-[120px] pt-2 pb-2 text-right'>{totals.refund_amount.toLocaleString("en-IN")}</th>
-                    <th className="">
-                      <select
-                        value={selectDatabaseType}
-                        onChange={(e) => setSelectDatabaseType(e.target.value)}
-                        className="p-1  mt-3 mb-3 rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                        placeholder="Type..."
+                    <th className="text-base text-right font-bold py-3 pl-4 pr-2">
+                      ₹{Number(totals.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </th>
+                    <th className="text-base text-right font-bold py-3 pl-2 pr-1.5 ">
+                      ₹{Number(totals.bill_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </th>
+                    <th className="text-base text-right font-bold py-3 pl-2 pr-3 ">
+                      ₹{Number(totals.refund_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </th>
+                    <th className="py-3 pl-3">
+                      <Select
+                        className="w-full"
+                        options={filterOptionsFromData.typeOptions.map((t) => ({ value: t, label: t }))}
+                        value={selectDatabaseType ? { value: selectDatabaseType, label: selectDatabaseType } : null}
+                        onChange={(opt) => setSelectDatabaseType(opt ? opt.value : '')}
+                        placeholder="Type"
+                        isClearable
+                        menuPlacement="bottom"
                         menuPortalTarget={document.body}
-                      >
-                        <option value=''>Select Type...</option>
-                        {filterOptionsFromData.typeOptions.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                    </th>
-                    <th className='w-[80px]'></th>
-                    <th className="">
-                      <select
-                        value={selectDatabaseMode}
-                        onChange={(e) => setSelectDatabaseMode(e.target.value)}
-                        className="mt-3 mb-3 rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                        placeholder="Mode..."
-                        menuPortalTarget={document.body}
-                      >
-                        <option value=''>Select</option>
-                        {filterOptionsFromData.modeOptions.map(mode => (
-                          <option key={mode} value={mode}>{mode}</option>
-                        ))}
-                      </select>
-                    </th>
-                    <th className='w-[150px] '>
-                      <select
-                        value={selectDatabaseSourceFrom}
-                        onChange={(e) => setSelectDatabaseSourceFrom(e.target.value)}
-                        className="mt-3 mb-3 rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                      >
-                        <option value=''>Select</option>
-                        {filterOptionsFromData.sourceFromOptions.map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    </th>
-                    <th className='w-[150px] '>
-                      <select
-                        value={selectDatabaseBranch}
-                        onChange={(e) => setSelectDatabaseBranch(e.target.value)}
-                        className="mt-3 mb-3 rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                      >
-                        <option value=''>Select</option>
-                        {filterOptionsFromData.branchOptions.map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    </th>
-                    <th className='w-[150px] '>
-                      <select
-                        value={selectDatabaseEnteredBy}
-                        onChange={(e) => setSelectDatabaseEnteredBy(e.target.value)}
-                        className="mt-3 mb-3 rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                      >
-                        <option value=''>Select</option>
-                        {filterOptionsFromData.enteredByOptions.map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    </th>
-                    <th className='w-[140px] '>
-                      <input
-                        type="text"
-                        value={selectDatabaseEntryNo}
-                        onChange={(e) => setSelectDatabaseEntryNo(e.target.value)}
-                        className="mt-3 mb-3 rounded-md bg-transparent w-[140px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                        placeholder="Entry No..."
+                        menuPosition="fixed"
+                        styles={customStyles}
                       />
                     </th>
-                    <th className='w-[80px] '></th>
-                    <th className='w-[120px] '></th>
+                    <th className="py-3" />
+                    <th className="py-3">
+                      <Select
+                        className="w-full"
+                        options={filterOptionsFromData.modeOptions.map((m) => ({ value: m, label: m }))}
+                        value={selectDatabaseMode ? { value: selectDatabaseMode, label: selectDatabaseMode } : null}
+                        onChange={(opt) => setSelectDatabaseMode(opt ? opt.value : '')}
+                        placeholder="Mode"
+                        isClearable
+                        menuPlacement="bottom"
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        styles={customStyles}
+                      />
+                    </th>
+                    <th className="py-3">
+                      <Select
+                        className="w-full"
+                        options={filterOptionsFromData.sourceFromOptions.map((v) => ({ value: v, label: v }))}
+                        value={selectDatabaseSourceFrom ? { value: selectDatabaseSourceFrom, label: selectDatabaseSourceFrom } : null}
+                        onChange={(opt) => setSelectDatabaseSourceFrom(opt ? opt.value : '')}
+                        placeholder="Source From"
+                        isClearable
+                        menuPlacement="bottom"
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        styles={customStyles}
+                      />
+                    </th>
+                    <th className="py-3">
+                      <Select
+                        className="w-full"
+                        options={filterOptionsFromData.branchOptions}
+                        value={selectDatabaseBranch ? filterOptionsFromData.branchOptions.find((opt) => String(opt.value) === String(selectDatabaseBranch)) || { value: selectDatabaseBranch, label: getBranchName(selectDatabaseBranch) || selectDatabaseBranch } : null}
+                        onChange={(opt) => setSelectDatabaseBranch(opt ? String(opt.value) : '')}
+                        placeholder="Branch"
+                        isClearable
+                        menuPlacement="bottom"
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        styles={customStyles}
+                      />
+                    </th>
+                    <th className="py-3">
+                      <Select
+                        className="w-full"
+                        options={filterOptionsFromData.enteredByOptions.map((v) => ({ value: v, label: v }))}
+                        value={selectDatabaseEnteredBy ? { value: selectDatabaseEnteredBy, label: selectDatabaseEnteredBy } : null}
+                        onChange={(opt) => setSelectDatabaseEnteredBy(opt ? opt.value : '')}
+                        placeholder="Entered By"
+                        isClearable
+                        menuPlacement="bottom"
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        styles={customStyles}
+                      />
+                    </th>
+                    <th className="py-3">
+                      <Select
+                        className="w-full"
+                        options={filterOptionsFromData.entryNoOptions.map((eno) => ({ value: String(eno), label: String(eno) }))}
+                        value={selectDatabaseEntryNo ? { value: String(selectDatabaseEntryNo), label: String(selectDatabaseEntryNo) } : null}
+                        onChange={(opt) => setSelectDatabaseEntryNo(opt ? opt.value : '')}
+                        placeholder="E.No"
+                        isClearable
+                        menuPlacement="bottom"
+                        menuPortalTarget={document.body}
+                        menuPosition="fixed"
+                        styles={customStyles}
+                      />
+                    </th>
+                    <th className="py-3" />
+                    <th className="py-3" />
                   </tr>
                 )}
               </thead>
@@ -1927,42 +1864,42 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                 {currentData.length > 0 ? (
                   currentData.map((entry) => (
                     <tr key={entry.id} className="odd:bg-white even:bg-[#FAF6ED]">
-                      <td className="text-sm text-left p-2 w-[340px] font-semibold">{formatDate(entry.timestamp)}</td>
-                      <td className="text-sm text-left p-2 w-[220px] font-semibold">{formatDateOnly(entry.date)}</td>
-                      <td className="text-sm text-left font-semibold">
+                      <td className="px-3 text-sm text-left whitespace-nowrap">{formatDate(entry.timestamp)}</td>
+                      <td className="px-3 text-sm text-left whitespace-nowrap">{formatDateOnly(entry.date)}</td>
+                      <td className="text-sm text-left">
                         {entry.vendor_id
                           ? getVendorName(entry.vendor_id)
                           : getContractorName(entry.contractor_id)}
                       </td>
-                      <td className="text-sm text-left w-60 font-semibold">
+                      <td className="text-sm text-left px-0.5 min-w-0 max-w-[300px] break-words whitespace-normal">
                         {getSiteName(entry.project_id)}
                       </td>
-                      <td className="text-sm text-left font-semibold">
+                      <td className="text-sm text-left px-0.5 min-w-0 max-w-[280px] break-words whitespace-normal">
                         {getSiteName(entry.transfer_site_id)}
                       </td>
-                      <td className="text-sm text-right font-semibold">
-                        {entry.amount != null && entry.amount !== ""
-                          ? Number(entry.amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
-                          : ""}
+                      <td className="text-sm text-right pl-4 pr-2 tabular-nums">
+                        {entry.amount != null && entry.amount !== ''
+                          ? `₹${Number(entry.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : ''}
                       </td>
-                      <td className="text-sm text-right font-semibold">
-                        {entry.bill_amount != null && entry.bill_amount !== ""
-                          ? Number(entry.bill_amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
-                          : ""}
+                      <td className="text-sm text-right pl-2 pr-1.5 tabular-nums">
+                        {entry.bill_amount != null && entry.bill_amount !== ''
+                          ? `₹${Number(entry.bill_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : ''}
                       </td>
-                      <td className="text-sm text-right pr-2 font-semibold">
-                        {entry.refund_amount != null && entry.refund_amount !== ""
-                          ? Number(entry.refund_amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
-                          : ""}
+                      <td className="text-sm text-right pl-2 pr-3 tabular-nums">
+                        {entry.refund_amount != null && entry.refund_amount !== ''
+                          ? `₹${Number(entry.refund_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : ''}
                       </td>
-                      <td className="text-sm text-left font-semibold">{entry.type}</td>
-                      <td className="text-sm text-left font-semibold">{entry.description}</td>
-                      <td className="text-sm text-left font-semibold">{entry.payment_mode}</td>
-                      <td className="text-sm text-left font-semibold">{entry.source_from ?? entry.sourceFrom ?? entry.source ?? ''}</td>
-                      <td className="text-sm text-left font-semibold">{entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? ''}</td>
-                      <td className="text-sm text-left font-semibold">{entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? ''}</td>
-                      <td className="text-sm text-left pl-3 font-semibold">{entry.entry_no}</td>
-                      <td className="text-sm text-left pl-1">
+                      <td className="text-sm text-left pl-3">{entry.type}</td>
+                      <td className="text-sm text-left w-[120px] max-w-[120px] break-words overflow-hidden whitespace-normal px-1">{entry.description}</td>
+                      <td className="text-sm text-left min-w-0 max-w-[140px] break-words whitespace-normal px-0.5">{entry.payment_mode}</td>
+                      <td className="text-sm text-left">{entry.source_from ?? entry.sourceFrom ?? entry.source ?? ''}</td>
+                      <td className="text-sm text-left">{getBranchName(entry.branch_id ?? entry.branchId ?? '') || (entry.branch ?? entry.branch_name ?? entry.branchName ?? '')}</td>
+                      <td className="text-sm text-left">{entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? ''}</td>
+                      <td className="text-sm text-left pl-3">{entry.entry_no}</td>
+                      <td className="px-1 text-sm">
                         {entry.file_url ? (
                           <a
                             href={entry.file_url}
@@ -1976,7 +1913,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                           <span></span>
                         )}
                       </td>
-                      <td className=" flex w-[100px] justify-between py-2">
+                      <td className="flex w-[100px] justify-between py-1.5">
                         <button
                           className={`rounded-full transition duration-200 ml-2 mr-3 ${entry.not_allow_to_edit && !isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
                           disabled={entry.not_allow_to_edit && !isAdmin}
@@ -2023,14 +1960,18 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
           </div>
         </div>
         {sortedData.length > 0 && (
-          <div className="flex flex-col sm:flex-row justify-between items-center px-5 py-4 bg-white border-t border-gray-200">
+          <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">Show:</label>
+              <span className="text-sm text-gray-700">Items per page:</span>
               <select
                 value={itemsPerPage}
-                onChange={handleItemsPerPageChange}
-                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent"
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853]"
               >
+                <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
                 <option value={200}>200</option>
@@ -2043,61 +1984,59 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                 <option value={900}>900</option>
                 <option value={1000}>1000</option>
               </select>
-              <span className="text-sm text-gray-700">entries</span>
-            </div>
-            <div className="text-sm text-gray-700">
-              Showing {startIndex + 1} to {Math.min(endIndex, sortedData.length)} of {sortedData.length} entries
             </div>
             <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-700">
+                Showing {startIndex + 1} to {Math.min(endIndex, sortedData.length)} of {sortedData.length} entries
+              </span>
+            </div>
+            <div className="flex items-center space-x-1">
               <button
-                onClick={goToPreviousPage}
+                type="button"
+                onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`px-3 py-1 text-sm font-medium rounded-md ${currentPage === 1
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white text-[#BF9853] border border-[#BF9853] hover:bg-[#BF9853] hover:text-white transition-colors'
-                  }`}
+                className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#BF9853] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#BF9853]"
               >
                 Previous
               </button>
-              <div className="flex items-center space-x-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => goToPage(pageNum)}
-                      className={`px-3 py-1 text-sm font-medium rounded-md ${currentPage === pageNum
-                        ? 'bg-[#BF9853] text-white'
-                        : 'bg-white text-[#BF9853] border border-[#BF9853] hover:bg-[#BF9853] hover:text-white transition-colors'
-                        }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    type="button"
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-3 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-[#BF9853] ${currentPage === pageNum
+                      ? 'bg-[#BF9853] text-white border-[#BF9853]'
+                      : 'border-gray-300 hover:bg-[#BF9853] hover:text-white'
+                      }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
               <button
-                onClick={goToNextPage}
+                type="button"
+                onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className={`px-3 py-1 text-sm font-medium rounded-md ${currentPage === totalPages
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white text-[#BF9853] border border-[#BF9853] hover:bg-[#BF9853] hover:text-white transition-colors'
-                  }`}
+                className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#BF9853] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#BF9853]"
               >
                 Next
               </button>
             </div>
           </div>
         )}
+        </div>
+      </div>
         {isOpen && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
             <div className="bg-white rounded-md shadow-lg p-6 w-[400px]">
@@ -2372,7 +2311,6 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
         )}
         <AuditModal show={showAdvancePortalModal} onClose={() => setShowAdvancePortalModal(false)} audits={advancePortalAudits} vendorOptions={vendorOptions} contractorOptions={contractorOptions}
           siteOptions={siteOptions} />
-      </div>
     </div>
 
   )

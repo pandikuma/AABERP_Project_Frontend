@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import Select from 'react-select';
 import Filter from '../Images/filter (3).png'
 import Reload from '../Images/rotate-right.png'
+import Pdf from '../Images/pdf.png';
+import XL from '../Images/sheets.png';
 import edit from '../Images/Edit.svg';
 import Attach from '../Images/Attachfile.svg';
 import cross from '../Images/cross.png';
@@ -73,7 +75,27 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     { value: 'Direct', label: 'Direct' }
   ];
   const [backendPaymentModeOptions, setBackendPaymentModeOptions] = useState([]);
+  const [branchOptions, setBranchOptions] = useState([]);
   const finalPaymentModeOptions = backendPaymentModeOptions.length > 0 ? backendPaymentModeOptions : paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/branch/getAll', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) throw new Error('Failed to fetch branches');
+        const data = await response.json();
+        setBranchOptions(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error fetching branches:', error);
+        setBranchOptions([]);
+      }
+    };
+    fetchBranches();
+  }, []);
 
   useEffect(() => {
     const fetchPaymentModes = async () => {
@@ -175,6 +197,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
   }, [resolveActiveBranchId]);
 
   const scrollRef = useRef(null);
+  const filterRowRef = useRef(null);
   const isDragging = useRef(false);
   const start = useRef({ x: 0, y: 0 });
   const scroll = useRef({ left: 0, top: 0 });
@@ -617,6 +640,8 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     contractorOptions.find(c => c.id === id)?.value || "";
   const getSiteName = (id) =>
     siteOptions.find(s => String(s.id) === String(id))?.value || "";
+  const getBranchName = (id) =>
+    branchOptions.find(b => String(b.id) === String(id))?.branch || "";
   const filteredData = advanceData.filter((entry) => {
     if (startDate && endDate) {
       const s = new Date(startDate);
@@ -674,8 +699,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
       if (String(sourceVal).toLowerCase() !== String(selectSourceFrom).toLowerCase()) return false;
     }
     if (selectBranch) {
-      const branchVal = entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? "";
-      if (String(branchVal).toLowerCase() !== String(selectBranch).toLowerCase()) return false;
+      if (String(entry.branch_id ?? entry.branchId ?? '') !== String(selectBranch)) return false;
     }
     if (selectEnteredBy) {
       const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
@@ -692,7 +716,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     const uniqueModes = new Set();
     const uniqueEntryNos = new Set();
     const uniqueSources = new Set();
-    const uniqueBranches = new Set();
+    const uniqueBranchIds = new Set();
     const uniqueEnteredBy = new Set();
     advanceData.forEach(entry => {
       if (entry.vendor_id) {
@@ -722,8 +746,8 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
       }
       const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
       if (sourceVal) uniqueSources.add(String(sourceVal));
-      const branchVal = entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? "";
-      if (branchVal) uniqueBranches.add(String(branchVal));
+      const branchId = entry.branch_id ?? entry.branchId;
+      if (branchId != null && branchId !== '') uniqueBranchIds.add(String(branchId));
       const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
       if (enteredVal) uniqueEnteredBy.add(String(enteredVal));
     });
@@ -760,10 +784,15 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
       modeOptions,
       entryNoOptions,
       sourceFromOptions: Array.from(uniqueSources).sort(),
-      branchOptions: Array.from(uniqueBranches).sort(),
+      branchOptions: Array.from(uniqueBranchIds)
+        .map((id) => ({
+          value: id,
+          label: branchOptions.find((br) => String(br.id) === String(id))?.branch || String(id),
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
       enteredByOptions: Array.from(uniqueEnteredBy).sort(),
     };
-  }, [advanceData, vendorOptions, contractorOptions, siteOptions]);
+  }, [advanceData, vendorOptions, contractorOptions, siteOptions, branchOptions]);
   const sortedData = React.useMemo(() => {
     let sortableData = [...filteredData];
     if (sortConfig.key) {
@@ -799,8 +828,8 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
             bValue = String(b.source_from ?? b.sourceFrom ?? b.source ?? '');
             break;
           case 'branch':
-            aValue = String(a.branch ?? a.branch_name ?? a.branchName ?? a.branch_id ?? a.branchId ?? '');
-            bValue = String(b.branch ?? b.branch_name ?? b.branchName ?? b.branch_id ?? b.branchId ?? '');
+            aValue = String(branchOptions.find((br) => String(br.id) === String(a.branch_id ?? a.branchId ?? ''))?.branch || (a.branch ?? a.branch_name ?? a.branchName ?? '')).toLowerCase();
+            bValue = String(branchOptions.find((br) => String(br.id) === String(b.branch_id ?? b.branchId ?? ''))?.branch || (b.branch ?? b.branch_name ?? b.branchName ?? '')).toLowerCase();
             break;
           case 'enteredBy':
             aValue = String(a.enteredBy ?? a.entered_by ?? a.request_send_by ?? a.requested_by ?? a.createdBy ?? a.created_by ?? '');
@@ -834,7 +863,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
       });
     }
     return sortableData;
-  }, [filteredData, sortConfig]);
+  }, [filteredData, sortConfig, branchOptions]);
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -842,23 +871,20 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
   useEffect(() => {
     setCurrentPage(1);
   }, [selectDate, selectContractororVendorName, selectProjectName, selectTransfer, selectType, selectMode, selectEntryNo, selectSourceFrom, selectBranch, selectEnteredBy, startDate, endDate]);
-  const goToPage = (page) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  };
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-  const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-  const handleItemsPerPageChange = (e) => {
-    const newItemsPerPage = parseInt(e.target.value);
-    setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1);
+  const clearFilters = () => {
+    setSelectDate('');
+    setSelectContractororVendorName('');
+    setSelectProjectName('');
+    setSelectTransfer('');
+    setSelectType('');
+    setSelectMode('');
+    setSelectEntryNo('');
+    setSelectSourceFrom('');
+    setSelectBranch('');
+    setSelectEnteredBy('');
+    setStartDate('');
+    setEndDate('');
+    sessionStorage.removeItem('advanceTableViewFilters');
   };
   const totalAdvance = advanceData.reduce(
     (sum, entry) => sum + (Number(entry.amount) || 0),
@@ -943,23 +969,21 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
   const sortedSiteOptions = siteOptions.sort((a, b) =>
     a.label.localeCompare(b.label)
   );
-  const customStyles = {
+  const customStyles = useMemo(() => ({
     control: (provided, state) => ({
       ...provided,
       borderWidth: '2px',
+      lineHeight: '20px',
+      fontSize: '12px',
       height: '45px',
       borderRadius: '8px',
-      borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'rgba(191, 152, 83, 0.2)',
-      boxShadow: state.isFocused ? '0 0 0 1px rgba(101, 102, 53, 0.1)' : 'none',
+      padding: '0.25rem',
+      textAlign: 'left',
+      borderColor: 'rgba(191, 152, 83, 0.2)',
+      boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
       '&:hover': {
-        borderColor: 'rgba(191, 152, 83, 0.2)',
-      }
-    }),
-    indicatorSeparator: () => ({
-      display: 'none',
-    }),
-    dropdownIndicator: () => ({
-      display: 'none',
+        borderColor: 'rgba(191, 152, 83, 0.4)',
+      },
     }),
     clearIndicator: (provided) => ({
       ...provided,
@@ -967,7 +991,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     }),
     menu: (provided) => ({
       ...provided,
-      zIndex: 9999,
+      zIndex: 999,
       maxHeight: '300px',
     }),
     menuPortal: (provided) => ({
@@ -984,34 +1008,32 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     }),
     singleValue: (provided) => ({
       ...provided,
-      fontWeight: '500',
-      color: 'black',
-      textAlign: 'left',
+      color: '#111827',
     }),
     option: (provided, state) => ({
       ...provided,
-      fontWeight: '500',
-      backgroundColor: state.isSelected 
-        ? 'rgba(191, 152, 83, 0.3)' 
-        : state.isFocused 
-          ? 'rgba(191, 152, 83, 0.1)' 
-          : 'white',
-      color: 'black',
       textAlign: 'left',
+      fontWeight: 'normal',
+      fontSize: '15px',
+      backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+      color: 'black',
     }),
     input: (provided) => ({
       ...provided,
-      fontWeight: '500',
+      fontWeight: '300',
       color: 'black',
       textAlign: 'left',
     }),
     placeholder: (provided) => ({
       ...provided,
-      fontWeight: '500',
-      color: '#999',
+      color: '#6B7280',
       textAlign: 'left',
     }),
-  };
+    indicatorSeparator: (provided) => ({
+      ...provided,
+      display: 'none',
+    }),
+  }), []);
   const handleUpdate = async () => {
     try {
       const currentEntry = advanceData.find(entry => entry.advancePortalId === editingId);
@@ -1308,18 +1330,32 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
             </div>
           </div>
         </div>
-        <div className='rounded-md max-w-[1850px] ml-10 mr-10 px-4 bg-white mt-4 pt-5 h-[650px]'>
+        <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg overflow-x-auto mt-4">
           <div
             className={`text-left flex ${selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || selectSourceFrom || selectBranch || selectEnteredBy || startDate || endDate
               ? 'flex-col sm:flex-row sm:justify-between'
               : 'flex-row justify-between items-center'
               } mb-3 gap-2`}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
-              <button className='pl-2' onClick={() => setShowFilters(!showFilters)}>
+              <button
+                className='pl-2'
+                onClick={() => {
+                  const willOpen = !showFilters;
+                  setShowFilters(willOpen);
+                  if (!willOpen) return;
+                  const scroller = scrollRef.current;
+                  if (!scroller) return;
+                  if (scroller.scrollTop <= 0) return;
+                  requestAnimationFrame(() => {
+                    const h = filterRowRef.current?.offsetHeight || 0;
+                    if (h > 0) scroller.scrollTop = scroller.scrollTop + h;
+                  });
+                }}
+              >
                 <img
                   src={Filter}
                   alt="Toggle Filter"
-                  className="w-7 h-7 border border-[#BF9853] rounded-md ml-3"
+                  className="w-7 h-7 border border-[#BF9853] rounded-md"
                 />
               </button>
               {(selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || selectSourceFrom || selectBranch || selectEnteredBy || startDate || endDate) && (
@@ -1397,7 +1433,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                   {selectBranch && (
                     <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
                       <span className="font-normal">Branch: </span>
-                      <span className="font-bold">{selectBranch}</span>
+                      <span className="font-bold">{getBranchName(selectBranch) || selectBranch}</span>
                       <button onClick={() => setSelectBranch('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                     </span>
                   )}
@@ -1411,360 +1447,195 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                 </div>
               )}
             </div>
-            <div className='space-x-4 flex justify-end mr-4'>
-              {(selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || selectSourceFrom || selectBranch || selectEnteredBy || startDate || endDate) && (
-                <button
-                  onClick={() => {
-                    setSelectDate('');
-                    setSelectContractororVendorName('');
-                    setSelectProjectName('');
-                    setSelectTransfer('');
-                    setSelectType('');
-                    setSelectMode('');
-                    setSelectEntryNo('');
-                    setSelectSourceFrom('');
-                    setSelectBranch('');
-                    setSelectEnteredBy('');
-                    setStartDate('');
-                    setEndDate('');
-                    sessionStorage.removeItem('advanceTableViewFilters');
-                  }}
-                  className='text-sm text-red-600 hover:underline font-bold'
-                >
-                  Clear All Filters
-                </button>
-              )}
-              <button onClick={exportPDF} className='text-sm text-[#E4572E] hover:underline font-bold'>Export PDF</button>
-              <button onClick={exportCSV} className='text-sm text-[#007233] hover:underline font-bold'>Export XL</button>
-              <button className='text-sm text-[#BF9853] hover:underline font-bold'>Print</button>
+            <div className='flex items-center gap-2'>
+              <button onClick={clearFilters}
+                className='w-10 h-9 border border-[#BF9853] rounded-md font-semibold text-sm text-[#BF9853] flex items-center justify-center gap-2' >
+                <img className='w-4 h-4' src={Reload} alt="Reload" />
+              </button>
+              <div className=' text-left md:text-right md:items-center items-start cursor-default flex max-w-screen-2xl table-auto overflow-auto w-full'>
+                <div className='flex items-center'>
+                  <span className='text-[#E4572E] mr-4 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
+                  <span className='text-[#007233] mr-1 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className='border-l-8 border-l-[#BF9853] rounded-lg mx-2 lg:mx-5'>
+          <div>
             <div
               ref={scrollRef}
-              className='overflow-auto max-h-[485px] thin-scrollbar'
+              className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[600px] overflow-scroll select-none thin-scrollbar"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
-              <table className="min-w-[1805px] w-full border-collapse">
-                <thead className="sticky top-0 z-10 bg-white ">
+              <table className="table-fixed min-w-[1805px] w-full border-collapse">
+                <thead className="sticky top-0 z-20 bg-white ">
                   <tr className="bg-[#FAF6ED]">
-                    <th className="pt-2 pl-3 py-2 w-44 font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('date')}>
+                    <th className="pt-2 pl-3 w-36 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('date')}>
                       Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[320px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('vendor')}>
+                    <th className="px-0.5 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('vendor')}>
                       Contractor/Vendor {sortConfig.key === 'vendor' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[400px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('project')}>
+                    <th className="px-0.5 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('project')}>
                       Project Name {sortConfig.key === 'project' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[450px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('transfer')}>
+                    <th className="px-0.5 w-[280px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('transfer')}>
                       Transfer Site {sortConfig.key === 'transfer' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[100px] font-bold text-right whitespace-nowrap">Advance</th>
-                    <th className="px-2 w-[170px] font-bold text-right whitespace-nowrap">Bill Payment</th>
-                    <th className="px-2 w-[120px] font-bold text-right whitespace-nowrap">Refund</th>
-                    <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('type')}>
+                    <th className="px-0.5 w-[100px] font-bold text-right select-none">Advance</th>
+                    <th className="px-0.5 w-[120px] font-bold text-right select-none">Bill Payment</th>
+                    <th className="px-0.5 w-[100px] font-bold text-right select-none">Refund</th>
+                    <th className="px-0.5 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('type')}>
                       Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[120px] font-bold text-left whitespace-nowrap">Description</th>
-                    <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('mode')}>
+                    <th className="px-0.5 w-[120px] font-bold text-left select-none">Description</th>
+                    <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('mode')}>
                       Mode {sortConfig.key === 'mode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('source')}>
+                    <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('source')}>
                       Source From {sortConfig.key === 'source' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('branch')}>
+                    <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('branch')}>
                       Branch {sortConfig.key === 'branch' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('enteredBy')}>
+                    <th className="px-0.5 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('enteredBy')}>
                       Entered By {sortConfig.key === 'enteredBy' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-2 w-[80px] font-bold text-left whitespace-nowrap">E.No</th>
-                    <th className="px-2 w-[80px] font-bold text-left whitespace-nowrap">File</th>
-                    <th className="px-2 w-[120px] font-bold text-left whitespace-nowrap">Activity</th>
+                    <th className="px-0.5 w-[100px] font-bold text-left select-none">E.No</th>
+                    <th className="px-0.5 w-[60px] font-bold text-left select-none">File</th>
+                    <th className="px-0.5 w-[60px] font-bold text-left select-none">Edit</th>
                   </tr>
                   {showFilters && (
-                    <tr className="bg-white border-b border-gray-200">
-                      <th className="pt-2 pb-2">
-                        
-                      </th>
-                      <th className="pt-2 pb-2">
+                    <tr ref={filterRowRef} className="bg-[#FAF6ED]">
+                      <th className="py-3"></th>
+                      <th className=" py-3">
                         <Select
                           options={filterOptionsFromData.vendorContractorOptions}
                           value={selectContractororVendorName ? { value: selectContractororVendorName, label: selectContractororVendorName } : null}
                           onChange={(opt) => setSelectContractororVendorName(opt ? opt.value : "")}
-                          className="text-xs focus:outline-none w-[180px]"
+                          className="w-full"
                           placeholder="Contractor/Ven..."
                           isSearchable
                           menuPortalTarget={document.body}
+                          menuPlacement="bottom"
                           isClearable
-                          styles={{
-                            control: (provided, state) => ({
-                              ...provided,
-                              backgroundColor: 'transparent',
-                              borderWidth: '3px',
-                              borderColor: state.isFocused
-                                ? 'rgba(191, 152, 83, 0.2)'
-                                : 'rgba(191, 152, 83, 0.2)',
-                              borderRadius: '6px',
-                              boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                              '&:hover': {
-                                borderColor: 'rgba(191, 152, 83, 0.2)',
-                              },
-                            }),
-                            placeholder: (provided) => ({
-                              ...provided,
-                              color: '#999',
-                              textAlign: 'left',
-                            }),
-                            menu: (provided) => ({
-                              ...provided,
-                              zIndex: 9,
-                            }),
-                            option: (provided, state) => ({
-                              ...provided,
-                              textAlign: 'left',
-                              fontWeight: '600',
-                              fontSize: '15px',
-                              backgroundColor: state.isSelected 
-                                ? 'rgba(191, 152, 83, 0.3)' 
-                                : state.isFocused 
-                                  ? 'rgba(191, 152, 83, 0.1)' 
-                                  : 'white',
-                              color: 'black',
-                            }),
-                            singleValue: (provided) => ({
-                              ...provided,
-                              textAlign: 'left',
-                              fontWeight: '600',
-                              color: 'black',
-                            }),
-                            input: (provided) => ({
-                              ...provided,
-                              fontWeight: '600',
-                              color: 'black',
-                              textAlign: 'left',
-                            }),
-                            placeholder: (provided) => ({
-                              ...provided,
-                              fontWeight: '600',
-                              color: '#999',
-                            }),
-                          }}
+                          styles={customStyles}
                         />
                       </th>
-                      <th className="pt-2 pb-2">
+                      <th className=" py-3">
                         <Select
                           options={filterOptionsFromData.projectOptions}
                           value={selectProjectName ? { value: selectProjectName, label: selectProjectName } : null}
                           onChange={(opt) => setSelectProjectName(opt ? opt.value : "")}
-                          className="focus:outline-none text-xs"
+                          className="w-full"
                           placeholder="Project Name..."
                           isSearchable
                           menuPortalTarget={document.body}
+                          menuPlacement="bottom"
                           isClearable
-                          styles={{
-                            control: (provided, state) => ({
-                              ...provided,
-                              backgroundColor: 'transparent',
-                              borderWidth: '3px',
-                              borderColor: state.isFocused
-                                ? 'rgba(191, 152, 83, 0.2)'
-                                : 'rgba(191, 152, 83, 0.2)',
-                              borderRadius: '6px',
-                              boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                              '&:hover': {
-                                borderColor: 'rgba(191, 152, 83, 0.2)',
-                              },
-                            }),
-                            placeholder: (provided) => ({
-                              ...provided,
-                              color: '#999',
-                              textAlign: 'left',
-                            }),
-                            menu: (provided) => ({
-                              ...provided,
-                              zIndex: 9,
-                            }),
-                            option: (provided, state) => ({
-                              ...provided,
-                              textAlign: 'left',
-                              fontWeight: '600',
-                              fontSize: '15px',
-                              backgroundColor: state.isSelected 
-                                ? 'rgba(191, 152, 83, 0.3)' 
-                                : state.isFocused 
-                                  ? 'rgba(191, 152, 83, 0.1)' 
-                                  : 'white',
-                              color: 'black',
-                            }),
-                            singleValue: (provided) => ({
-                              ...provided,
-                              textAlign: 'left',
-                              fontWeight: '600',
-                              color: 'black',
-                            }),
-                            input: (provided) => ({
-                              ...provided,
-                              fontWeight: '600',
-                              color: 'black',
-                              textAlign: 'left',
-                            }),
-                            placeholder: (provided) => ({
-                              ...provided,
-                              fontWeight: '600',
-                              color: '#999',
-                            }),
-                          }}
+                          styles={customStyles}
                         />
                       </th>
-                      <th className="pt-2 pb-2">
+                      <th className=" py-3">
                         <Select
                           options={filterOptionsFromData.transferSiteOptions}
                           value={selectTransfer ? { value: selectTransfer, label: selectTransfer } : null}
                           onChange={(opt) => setSelectTransfer(opt ? opt.value : "")}
-                          className="focus:outline-none text-xs"
+                          className="w-full"
                           placeholder="Transfer Site..."
                           isSearchable
                           menuPortalTarget={document.body}
+                          menuPlacement="bottom"
                           isClearable
-                          styles={{
-                            control: (provided, state) => ({
-                              ...provided,
-                              backgroundColor: 'transparent',
-                              borderWidth: '3px',
-                              borderColor: state.isFocused
-                                ? 'rgba(191, 152, 83, 0.2)'
-                                : 'rgba(191, 152, 83, 0.2)',
-                              borderRadius: '6px',
-                              boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                              '&:hover': {
-                                borderColor: 'rgba(191, 152, 83, 0.2)',
-                              },
-                            }),
-                            placeholder: (provided) => ({
-                              ...provided,
-                              color: '#999',
-                              textAlign: 'left',
-                            }),
-                            menu: (provided) => ({
-                              ...provided,
-                              zIndex: 9,
-                            }),
-                            option: (provided, state) => ({
-                              ...provided,
-                              textAlign: 'left',
-                              fontWeight: '600',
-                              fontSize: '15px',
-                              backgroundColor: state.isSelected 
-                                ? 'rgba(191, 152, 83, 0.3)' 
-                                : state.isFocused 
-                                  ? 'rgba(191, 152, 83, 0.1)' 
-                                  : 'white',
-                              color: 'black',
-                            }),
-                            singleValue: (provided) => ({
-                              ...provided,
-                              textAlign: 'left',
-                              fontWeight: '600',
-                              color: 'black',
-                            }),
-                            input: (provided) => ({
-                              ...provided,
-                              fontWeight: '600',
-                              color: 'black',
-                              textAlign: 'left',
-                            }),
-                            placeholder: (provided) => ({
-                              ...provided,
-                              fontWeight: '600',
-                              color: '#999',
-                            }),
-                          }}
+                          styles={customStyles}
                         />
                       </th>
-                      <th className='w-[100px] pt-2 pb-2 text-right'>{totals.amount.toLocaleString("en-IN")}</th>
-                      <th className='w-[180px] pt-2 pb-2 text-right'>{totals.bill_amount.toLocaleString("en-IN")}</th>
-                      <th className='w-[120px] pt-2 pb-2 text-right'>{totals.refund_amount.toLocaleString("en-IN")}</th>
-                      <th className="pt-2 pb-2">
-                        <select
-                          value={selectType}
-                          onChange={(e) => setSelectType(e.target.value)}
-                          className="rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                          placeholder="Type..."
+                      <th className="text-base text-right font-bold py-3">{totals.amount.toLocaleString("en-IN")}</th>
+                      <th className="text-base text-right font-bold py-3">{totals.bill_amount.toLocaleString("en-IN")}</th>
+                      <th className="text-base text-right font-bold py-3">{totals.refund_amount.toLocaleString("en-IN")}</th>
+                      <th className=" py-3">
+                        <Select
+                          className="w-full"
+                          options={filterOptionsFromData.typeOptions.map((t) => ({ value: t, label: t }))}
+                          value={selectType ? { value: selectType, label: selectType } : null}
+                          onChange={(opt) => setSelectType(opt ? opt.value : '')}
+                          placeholder="Type"
+                          menuPlacement="bottom"
                           menuPortalTarget={document.body}
-                        >
-                          <option value=''>Select Type...</option>
-                          {filterOptionsFromData.typeOptions.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                          ))}
-                        </select>
-                      </th>
-                      <th className="pt-2 pb-2"></th>
-                      <th className="pt-2 pb-2">
-                        <select
-                          value={selectMode}
-                          onChange={(e) => setSelectMode(e.target.value)}
-                          className="rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                          placeholder="Mode..."
-                          menuPortalTarget={document.body}
-                        >
-                          <option value=''>Select</option>
-                          {filterOptionsFromData.modeOptions.map(mode => (
-                            <option key={mode} value={mode}>{mode}</option>
-                          ))}
-                        </select>
-                      </th>
-                      <th className='w-[150px] pt-2 pb-2'>
-                        <select
-                          value={selectSourceFrom}
-                          onChange={(e) => setSelectSourceFrom(e.target.value)}
-                          className="rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                        >
-                          <option value=''>Select</option>
-                          {filterOptionsFromData.sourceFromOptions.map(v => (
-                            <option key={v} value={v}>{v}</option>
-                          ))}
-                        </select>
-                      </th>
-                      <th className='w-[120px] pt-2 pb-2'>
-                        <select
-                          value={selectBranch}
-                          onChange={(e) => setSelectBranch(e.target.value)}
-                          className="rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                        >
-                          <option value=''>Select</option>
-                          {filterOptionsFromData.branchOptions.map(v => (
-                            <option key={v} value={v}>{v}</option>
-                          ))}
-                        </select>
-                      </th>
-                      <th className='w-[150px] pt-2 pb-2'>
-                        <select
-                          value={selectEnteredBy}
-                          onChange={(e) => setSelectEnteredBy(e.target.value)}
-                          className="rounded-md bg-transparent w-[150px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                        >
-                          <option value=''>Select</option>
-                          {filterOptionsFromData.enteredByOptions.map(v => (
-                            <option key={v} value={v}>{v}</option>
-                          ))}
-                        </select>
-                      </th>
-                      <th className="pt-2 pb-2">
-                        <input
-                          type="text"
-                          value={selectEntryNo}
-                          onChange={(e) => setSelectEntryNo(e.target.value)}
-                          className="rounded-md bg-transparent w-[80px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                          placeholder="Entry No..."
+                          isClearable
+                          styles={customStyles}
                         />
                       </th>
-                      <th className='w-[80px] pt-2 pb-2'></th>
-                      <th className='w-[120px] pt-2 pb-2'></th>
+                      <th className=" py-3"></th>
+                      <th className=" py-3">
+                        <Select
+                          className="w-full"
+                          options={filterOptionsFromData.modeOptions.map((m) => ({ value: m, label: m }))}
+                          value={selectMode ? { value: selectMode, label: selectMode } : null}
+                          onChange={(opt) => setSelectMode(opt ? opt.value : '')}
+                          placeholder="Mode"
+                          menuPlacement="bottom"
+                          menuPortalTarget={document.body}
+                          isClearable
+                          styles={customStyles}
+                        />
+                      </th>
+                      <th className=" py-3">
+                        <Select
+                          className="w-full"
+                          options={filterOptionsFromData.sourceFromOptions.map((v) => ({ value: v, label: v }))}
+                          value={selectSourceFrom ? { value: selectSourceFrom, label: selectSourceFrom } : null}
+                          onChange={(opt) => setSelectSourceFrom(opt ? opt.value : '')}
+                          placeholder="Source From"
+                          menuPlacement="bottom"
+                          menuPortalTarget={document.body}
+                          isClearable
+                          styles={customStyles}
+                        />
+                      </th>
+                      <th className=" py-3">
+                        <Select
+                          className="w-full"
+                          options={filterOptionsFromData.branchOptions}
+                          value={selectBranch ? (filterOptionsFromData.branchOptions.find((o) => String(o.value) === String(selectBranch)) || { value: String(selectBranch), label: getBranchName(selectBranch) || String(selectBranch) }) : null}
+                          onChange={(opt) => setSelectBranch(opt ? String(opt.value) : '')}
+                          placeholder="Branch"
+                          menuPlacement="bottom"
+                          menuPortalTarget={document.body}
+                          isClearable
+                          styles={customStyles}
+                        />
+                      </th>
+                      <th className=" py-3">
+                        <Select
+                          className="w-full"
+                          options={filterOptionsFromData.enteredByOptions.map((v) => ({ value: v, label: v }))}
+                          value={selectEnteredBy ? { value: selectEnteredBy, label: selectEnteredBy } : null}
+                          onChange={(opt) => setSelectEnteredBy(opt ? opt.value : '')}
+                          placeholder="Entered By"
+                          menuPlacement="bottom"
+                          menuPortalTarget={document.body}
+                          isClearable
+                          styles={customStyles}
+                        />
+                      </th>
+                      <th className=" py-3">
+                        <Select
+                          className="w-full"
+                          options={filterOptionsFromData.entryNoOptions.map((n) => ({ value: String(n), label: String(n) }))}
+                          value={selectEntryNo ? { value: String(selectEntryNo), label: String(selectEntryNo) } : null}
+                          onChange={(opt) => setSelectEntryNo(opt ? opt.value : '')}
+                          placeholder="E.No"
+                          menuPlacement="bottom"
+                          menuPortalTarget={document.body}
+                          isClearable
+                          styles={customStyles}
+                        />
+                      </th>
+                      <th className=" py-3"></th>
+                      <th className=" py-3"></th>
                     </tr>
                   )}
                 </thead>
@@ -1772,41 +1643,37 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                   {currentData.length > 0 ? (
                     currentData.map((entry) => (
                       <tr key={entry.id} className="odd:bg-white even:bg-[#FAF6ED]">
-                        <td className="text-sm text-left p-2 w-32 font-semibold">{formatDateOnly(entry.date)}</td>
-                        <td className="text-sm text-left w-[150px] font-semibold">
+                        <td className=" text-sm text-left pl-3 w-32 ">{formatDateOnly(entry.date)}</td>
+                        <td className=" text-sm text-left ">
                           {entry.vendor_id
                             ? getVendorName(entry.vendor_id)
                             : getContractorName(entry.contractor_id)}
                         </td>
-                        <td className="text-sm text-left w-[250px] font-semibold">
-                          {getSiteName(entry.project_id)}
-                        </td>
-                        <td className="text-sm text-left font-semibold">
-                          {getSiteName(entry.transfer_site_id)}
-                        </td>
-                        <td className="text-sm text-right font-semibold">
+                        <td className=" text-sm text-left w-60 ">{getSiteName(entry.project_id)}</td>
+                        <td className=" text-sm text-left ">{getSiteName(entry.transfer_site_id)}</td>
+                        <td className="text-sm text-right pr-5 ">
                           {entry.amount != null && entry.amount !== ""
-                            ? Number(entry.amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
+                            ? `₹${Number(entry.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : ""}
                         </td>
-                        <td className="text-sm text-right font-semibold">
+                        <td className="text-sm text-right pr-5 ">
                           {entry.bill_amount != null && entry.bill_amount !== ""
-                            ? Number(entry.bill_amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
+                            ? `₹${Number(entry.bill_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : ""}
                         </td>
-                        <td className="text-sm text-right pr-1 font-semibold">
+                        <td className="text-sm text-right pr-5 ">
                           {entry.refund_amount != null && entry.refund_amount !== ""
-                            ? Number(entry.refund_amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })
+                            ? `₹${Number(entry.refund_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : ""}
                         </td>
-                        <td className="text-sm text-left font-semibold">{entry.type}</td>
-                        <td className="text-sm text-left font-semibold">{entry.description}</td>
-                        <td className="text-sm text-left font-semibold">{entry.payment_mode}</td>
-                        <td className="text-sm text-left font-semibold">{entry.source_from ?? entry.sourceFrom ?? entry.source ?? ''}</td>
-                        <td className="text-sm text-left font-semibold">{entry.branch ?? entry.branch_name ?? entry.branchName ?? entry.branch_id ?? entry.branchId ?? ''}</td>
-                        <td className="text-sm text-left font-semibold">{entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? ''}</td>
-                        <td className="text-sm text-left pl-3 font-semibold">{entry.entry_no}</td>
-                        <td className="text-sm text-left pl-">
+                        <td className=" text-sm text-left ">{entry.type}</td>
+                        <td className="text-sm text-left w-[120px] max-w-[120px] break-words overflow-hidden whitespace-normal px-1">{entry.description || ''}</td>
+                        <td className=" text-sm text-left ">{entry.payment_mode}</td>
+                        <td className=" text-sm text-left ">{entry.source_from ?? entry.sourceFrom ?? entry.source ?? ''}</td>
+                        <td className=" text-sm text-left ">{getBranchName(entry.branch_id ?? entry.branchId ?? '') || (entry.branch ?? entry.branch_name ?? entry.branchName ?? '')}</td>
+                        <td className=" text-sm text-left ">{entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? ''}</td>
+                        <td className=" text-sm text-left pl-3 ">{entry.entry_no}</td>
+                        <td className="px-1 text-sm">
                           {entry.file_url ? (
                             <a
                               href={entry.file_url}
@@ -1820,16 +1687,16 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                             <span></span>
                           )}
                         </td>
-                        <td className="flex py-2">
+                        <td className=" py-1.5">
                           <button
                             className={`rounded-full transition duration-200 ml-2 mr-3 ${entry.not_allow_to_edit && !isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
                             disabled={entry.not_allow_to_edit && !isAdmin}
+                            onClick={entry.not_allow_to_edit && !isAdmin ? undefined : () => handleEditClick(entry)}
                           >
                             <img
                               src={edit}
-                              onClick={entry.not_allow_to_edit && !isAdmin ? undefined : () => handleEditClick(entry)}
                               alt="Edit"
-                              className={`w-4 h-6 transition duration-200 ${entry.not_allow_to_edit && !isAdmin ? '' : 'transform hover:scale-110 hover:brightness-110'}`}
+                              className={` w-4 h-6 transform hover:scale-110 hover:brightness-110 transition duration-200 ${entry.not_allow_to_edit && !isAdmin ? '' : ''}`}
                             />
                           </button>
                         </td>
@@ -1847,15 +1714,19 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
             </div>
           </div>
           {sortedData.length > 0 && (
-            <div className="flex flex-col sm:flex-row justify-between items-center px-5 py-5 bg-white border-t border-gray-200">
+            <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
               <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-700">Show:</label>
+                <span className="text-sm text-gray-700">Items per page:</span>
                 <select
                   value={itemsPerPage}
-                  onChange={handleItemsPerPageChange}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853] focus:border-transparent"
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853]"
                 >
-
+                  <option value={16}>16</option>
+                  <option value={25}>25</option>
                   <option value={50}>50</option>
                   <option value={100}>100</option>
                   <option value={200}>200</option>
@@ -1868,55 +1739,48 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                   <option value={900}>900</option>
                   <option value={1000}>1000</option>
                 </select>
-                <span className="text-sm text-gray-700">entries</span>
-              </div>
-              <div className="text-sm text-gray-700">
-                Showing {startIndex + 1} to {Math.min(endIndex, sortedData.length)} of {sortedData.length} entries
               </div>
               <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700">
+                  Showing {startIndex + 1} to {Math.min(endIndex, sortedData.length)} of {sortedData.length} entries
+                </span>
+              </div>
+              <div className="flex items-center space-x-1">
                 <button
-                  onClick={goToPreviousPage}
+                  onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className={`px-3 py-1 text-sm font-medium rounded-md ${currentPage === 1
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-white text-[#BF9853] border border-[#BF9853] hover:bg-[#BF9853] hover:text-white transition-colors'
-                    }`}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#BF9853] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#BF9853]"
                 >
                   Previous
                 </button>
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => goToPage(pageNum)}
-                        className={`px-3 py-1 text-sm font-medium rounded-md ${currentPage === pageNum
-                          ? 'bg-[#BF9853] text-white'
-                          : 'bg-white text-[#BF9853] border border-[#BF9853] hover:bg-[#BF9853] hover:text-white transition-colors'
-                          }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-[#BF9853] ${currentPage === pageNum
+                        ? 'bg-[#BF9853] text-white border-[#BF9853]'
+                        : 'border-gray-300 hover:bg-[#BF9853] hover:text-white'
+                        }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
                 <button
-                  onClick={goToNextPage}
+                  onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className={`px-3 py-1 text-sm font-medium rounded-md ${currentPage === totalPages
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-white text-[#BF9853] border border-[#BF9853] hover:bg-[#BF9853] hover:text-white transition-colors'
-                    }`}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#BF9853] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#BF9853]"
                 >
                   Next
                 </button>

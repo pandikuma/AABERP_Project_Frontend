@@ -99,6 +99,8 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
     const [thirdInput, setThirdInput] = useState('');
     const [validityType, setValidityType] = useState('');
     const [serviceStartingDate, setServiceStartingDate] = useState('');
+    /** Bill Payments / Bill Refund — sent as `billArrivalDate` (yyyy-MM-dd) to expenses_form API */
+    const [billArrivalDate, setBillArrivalDate] = useState('');
     const [summaryBillTotal, setSummaryBillTotal] = useState(null);
     const [summaryBillRemaining, setSummaryBillRemaining] = useState(null);
     const summaryBillMode = summaryBillTotal != null && Number(summaryBillTotal) > 0;
@@ -556,6 +558,12 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
                     }
                     if (prefillData.date) {
                         setDate(prefillData.date);
+                    }
+                    const prefillBillArrival =
+                        prefillData.billArrivalDate ?? prefillData.bill_arrival_date ?? '';
+                    if (prefillBillArrival) {
+                        const s = String(prefillBillArrival).trim().slice(0, 10);
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) setBillArrivalDate(s);
                     }
                     // Summary Bill flow: treat weekly bill amount as "total" and allow splitting into multiple entries.
                     const summaryTotalNum =
@@ -1336,6 +1344,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
             alert('PDF file is required for Bill Refund.');
             return false;
         }
+        if ((selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund') && !String(billArrivalDate || '').trim()) {
+            alert('Please select Bill Arrival Date for Bill Payments and Bill Refund.');
+            return false;
+        }
         if ((selectedAccountType === 'Utility Bills' || selectedAccountType === 'Bill Payments') && !selectedFile) {
             alert('PDF file is required for this account type.');
             return false;
@@ -1510,6 +1522,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
                 utilityValidityDays: thirdInput || '',
                 utilityValidityType: validityType || '',
                 serviceStartingDate: serviceStartingDate || '',
+                billArrivalDate:
+                    selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund'
+                        ? (String(billArrivalDate || '').trim() || '')
+                        : '',
                 branchId: activeBranchId,
                 enteredBy: username
             };
@@ -1734,6 +1750,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
         setThirdInput('');
         setValidityType('');
         setServiceStartingDate('');
+        setBillArrivalDate('');
         setUtilityType('');
         setProjectData(null);
         setEbNumberOptions([]);
@@ -1754,6 +1771,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
         }
         if ((selectedAccountType === 'Utility Bills' || selectedAccountType === 'Bill Payments') && !selectedFile) {
             alert('PDF file is required for this account type.');
+            return;
+        }
+        if (selectedAccountType === 'Bill Payments' && !String(billArrivalDate || '').trim()) {
+            alert('Please select Bill Arrival Date for Bill Payments.');
             return;
         }
         setIsSubmitting(true);
@@ -1842,6 +1863,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
                 utilityValidityDays: thirdInput || '',
                 utilityValidityType: validityType || '',
                 serviceStartingDate: serviceStartingDate || '',
+                billArrivalDate:
+                    selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund'
+                        ? (String(billArrivalDate || '').trim() || '')
+                        : '',
                 branchId: activeBranchId,
                 enteredBy: username
             };
@@ -2030,6 +2055,12 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
     }
     if (selectedType === 'Contractor' && selectedOption?.id) {
         reviewDetails.push({ label: 'Contractor ID', value: selectedOption.id });
+    }
+    if (selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund') {
+        reviewDetails.push({
+            label: 'Bill Arrival Date',
+            value: formatDateForReview(billArrivalDate) || billArrivalDate || '-',
+        });
     }
     reviewDetails.push(
         { label: 'Quantity', value: quantity || '-' },
@@ -2397,6 +2428,21 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
                                         </div>
                                     )}
                                 </>
+                            )}
+                            {(selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund') && (
+                                <div className="flex gap-10 mb-3">
+                                    <div className="text-left">
+                                        <label className="text-md font-semibold mb-2 block">
+                                            Bill Arrival Date <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={billArrivalDate}
+                                            onChange={(e) => setBillArrivalDate(e.target.value)}
+                                            className="border-2 border-[#BF9853] rounded-lg px-4 py-2 w-[290px] h-[45px] focus:outline-none border-opacity-[0.20]"
+                                        />
+                                    </div>
+                                </div>
                             )}
                             {/* Comments + Attach + Submit kept in left column so there is no empty gap next to the advance table */}
                             <div className="mt-6 text-left">
@@ -2897,6 +2943,19 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess }) => {
                                                         </div>
                                                     )}
                                                 </>
+                                            )}
+                                            {(selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund') && (
+                                                <div>
+                                                    <label className="text-sm font-semibold mb-1 block">
+                                                        Bill Arrival Date <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        value={billArrivalDate}
+                                                        onChange={(e) => setBillArrivalDate(e.target.value)}
+                                                        className="w-full h-[45px] border-2 border-[#BF9853] rounded-lg px-3 border-opacity-20"
+                                                    />
+                                                </div>
                                             )}
                                             <div className="col-span-2">
                                                 <label className="text-sm font-semibold mb-1 block">Comments</label>

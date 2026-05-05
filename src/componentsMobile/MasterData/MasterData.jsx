@@ -97,6 +97,7 @@ const MasterData = ({ user, onLogout }) => {
   const [projects, setProjects] = useState([]);
   const [projectSearch, setProjectSearch] = useState('');
   const [projectNameCategoryFilter, setProjectNameCategoryFilter] = useState('All');
+  const [employeeIdToNameMap, setEmployeeIdToNameMap] = useState({});
   const [listData, setListData] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [itemSearch, setItemSearch] = useState('');
@@ -118,6 +119,34 @@ const MasterData = ({ user, onLogout }) => {
   const [isBankTypeFormOpen, setIsBankTypeFormOpen] = useState(false);
   const [bankTypeFormMode, setBankTypeFormMode] = useState('new');
   const [bankTypeForm, setBankTypeForm] = useState({ accountType: '' });
+
+  useEffect(() => {
+    // Used to resolve IDs like `siteEngineerId` -> employee name in Project Name view.
+    const fetchEmployeeIdToName = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = response.ok ? await response.json() : [];
+        const rows = Array.isArray(data) ? data : [];
+        const map = {};
+        rows.forEach((emp) => {
+          const id = emp?.id ?? emp?.employeeId ?? emp?.employee_id;
+          const name = emp?.employee_name ?? emp?.employeeName ?? emp?.name;
+          if (id == null) return;
+          const key = String(id);
+          if (String(name || '').trim()) map[key] = String(name).trim();
+        });
+        setEmployeeIdToNameMap(map);
+      } catch (err) {
+        console.error('Error fetching employee details for ID mapping:', err);
+        setEmployeeIdToNameMap({});
+      }
+    };
+    fetchEmployeeIdToName();
+  }, []);
   const [isBankLocationFormOpen, setIsBankLocationFormOpen] = useState(false);
   const [bankLocationFormMode, setBankLocationFormMode] = useState('new');
   const [bankLocationForm, setBankLocationForm] = useState({ branchName: '' });
@@ -1598,6 +1627,15 @@ const MasterData = ({ user, onLogout }) => {
     const property = Array.isArray(item?.propertyDetails) ? item.propertyDetails[0] || {} : {};
     const account = Array.isArray(item?.accountDetails) ? item.accountDetails[0] || {} : {};
 
+    const resolveEngineerLabel = (value) => {
+      const raw = String(value ?? '').trim();
+      if (!raw) return '';
+      if (/^\d+$/.test(raw)) {
+        return employeeIdToNameMap[raw] || raw;
+      }
+      return raw;
+    };
+
     return {
       projectDbId: valueOr(item?.id, item?.projectDbId),
       projectName: valueOr(item?.projectName, item?.project_name, item?.name),
@@ -1607,13 +1645,15 @@ const MasterData = ({ user, onLogout }) => {
       branch: valueOr(item?.branch, item?.branch_name),
       projectAddress: valueOr(item?.projectAddress, item?.project_address, item?.address),
       latitudeLongitude: valueOr(item?.location, item?.latitudeLongitude, item?.latitude_longitude, item?.latLong, item?.lat_long),
-      siteEngineerName: valueOr(
-        item?.siteEngineerName,
-        item?.site_engineer_name,
-        item?.siteEngineer,
-        item?.site_engineer,
-        item?.siteEngineerId,
-        item?.site_engineer_id
+      siteEngineerName: resolveEngineerLabel(
+        valueOr(
+          item?.siteEngineerName,
+          item?.site_engineer_name,
+          item?.siteEngineer,
+          item?.site_engineer,
+          item?.siteEngineerId,
+          item?.site_engineer_id
+        )
       ),
       clientName: valueOr(owner?.clientName, owner?.client_name, item?.clientName, item?.client_name),
       fatherName: valueOr(owner?.fatherName, owner?.father_name, item?.fatherName, item?.father_name),
@@ -3148,7 +3188,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${bankNameFormMode === 'edit' && !uploadFileRowShowsSaveIcon
+        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${bankNameFormMode === 'edit' && !uploadFileRowShowsSaveIcon
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3195,7 +3235,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${bankTypeFormMode === 'edit' && !uploadFileRowShowsSaveIcon
+        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${bankTypeFormMode === 'edit' && !uploadFileRowShowsSaveIcon
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3242,7 +3282,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${bankLocationFormMode === 'edit' && !uploadFileRowShowsSaveIcon
+        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${bankLocationFormMode === 'edit' && !uploadFileRowShowsSaveIcon
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3377,7 +3417,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${contractorFormMode === 'edit' && (isContractorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${contractorFormMode === 'edit' && (isContractorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3715,7 +3755,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${categoryFormMode === 'edit' && (isCategoryViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${categoryFormMode === 'edit' && (isCategoryViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3867,7 +3907,7 @@ const MasterData = ({ user, onLogout }) => {
   const renderAddEmployeeView = () => (
     <>
       <div className="bg-white">
-        <div className="flex items-center justify-between mt-[4px] text-[12px] font-medium text-black">
+        <div className="flex items-center justify-between text-[12px] font-medium text-black">
           <button type="button" onClick={() => setIsEmployeeAadhaarModalOpen(true)}>
             Aadhaar Upload
           </button>
@@ -3876,7 +3916,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${employeeFormMode === 'edit' && (isEmployeeViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${employeeFormMode === 'edit' && (isEmployeeViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -4266,7 +4306,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${accountFormMode === 'edit' && (isAccountViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${accountFormMode === 'edit' && (isAccountViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -4438,7 +4478,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${labourFormMode === 'edit' && (isLabourViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${labourFormMode === 'edit' && (isLabourViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -4732,7 +4772,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${vendorFormMode === 'edit' && (isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${vendorFormMode === 'edit' && (isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -5130,7 +5170,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 mt-[8px] ${projectFormMode === 'edit' && (isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 mt-[2.2px] ${projectFormMode === 'edit' && (isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -6228,7 +6268,7 @@ const MasterData = ({ user, onLogout }) => {
 
       return (
         <>
-          <div className="px-[2px] pt-[8px]">
+          <div className="px-[2px] mt-[2.2px]">
             <div className="flex items-center gap-[10px]">
               <div className="relative flex-1">
                 <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -6247,7 +6287,7 @@ const MasterData = ({ user, onLogout }) => {
               </div>
               <button
                 type="button"
-                className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-black text-white"
+                className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-black text-white"
                 aria-label="Add"
                 onClick={() => {
                   if (expandedBankDetailsSection === 'bank-name') {
@@ -6277,7 +6317,7 @@ const MasterData = ({ user, onLogout }) => {
             </div>
           </div>
 
-          <div className="px-[2px] pt-[12px]">
+          <div className="px-[2px] mt-[8px]">
             <div className="space-y-0">
               {renderBankDetailsAccordion('bank-name', 'Bank Name', renderSimpleList(bankNameList, 'bank-name'))}
               {renderBankDetailsAccordion(
@@ -6320,7 +6360,7 @@ const MasterData = ({ user, onLogout }) => {
             </div>
             <button
               type="button"
-              className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-black text-white"
+              className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-black text-white"
               aria-label="Add"
               onClick={() => {
                 if (selectedItem === 'Vendor Name') {
@@ -6899,7 +6939,7 @@ const MasterData = ({ user, onLogout }) => {
           </div>
           <button
             type="button"
-            className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-black text-white"
+            className="flex h-[36px] w-[36px] items-center justify-center rounded-full bg-black text-white"
             aria-label="Add"
             onClick={() => {
               setProjectFormMode('new');
@@ -6945,8 +6985,8 @@ const MasterData = ({ user, onLogout }) => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-start px-[2px] pt-[12px] pb-[4px]">
-        <div className="flex max-h-full w-full flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
+      <div className="flex min-h-0 flex-1 items-start px-[2px] mt-[8px] pb-[4px]">
+        <div className="flex max-h-full w-full flex-col overflow-hidden rounded-[10px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
           <div className="h-[32px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px]">
             <div className="flex items-center">
               <span className="w-[28px]" />
@@ -7063,7 +7103,7 @@ const MasterData = ({ user, onLogout }) => {
                         className={`text-[12px] font-medium text-left ${item.projectCategory === 'Client Project'
                           ? 'text-[#C79B53]'
                           : item.projectCategory === 'Own Project'
-                            ? 'text-[#111111]'
+                            ? 'text-[#7A7A7A]'
                             : 'text-[#7A7A7A]'
                           }`}
                       >

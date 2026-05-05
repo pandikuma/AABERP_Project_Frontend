@@ -1005,9 +1005,13 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
     useEffect(() => { setCombinedOptions([...vendorOptions, ...contractorOptions, ...employeeOptions]); }, [vendorOptions, contractorOptions, employeeOptions]);
 
     const siteOptionsForNewEntry = useMemo(() => {
-        return (siteOptions || []).filter(
-            (opt) => String(opt?.label || opt?.value || "").trim() !== "Multi-Project Batch"
-        );
+        const hiddenPredefinedIds = new Set([1, 2, 3, 4, 5, 6, 8, 9, 10, 11]);
+        return (siteOptions || []).filter((opt) => {
+            if (String(opt?.label || opt?.value || "").trim() === "Multi-Project Batch") return false;
+            const idNum = Number(opt?.id);
+            if (Number.isFinite(idNum) && hiddenPredefinedIds.has(idNum)) return false;
+            return true;
+        });
     }, [siteOptions]);
     useEffect(() => {
         const predefinedSiteOptions = [
