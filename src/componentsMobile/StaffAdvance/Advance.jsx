@@ -36,7 +36,7 @@ const uploadAttachment = async (selectedFile, employeeName) => {
   uploadFormData.append('file_name', `${timestamp} ${employeeName || 'Staff Advance'}`);
 
   const response = await fetch(
-    'https://backendaab.in/aabuilderDash/expenses/googleUploader/uploadToGoogleDrive',
+    'https://backendaab.in/demoAabuilderDash/expenses/googleUploader/uploadToGoogleDrive',
     {
       method: 'POST',
       body: uploadFormData
@@ -415,7 +415,7 @@ const Advance = ({ activeBranchId, peopleOptions, purposeOptions, records, onSav
       };
 
       const saveResponse = await fetch(
-        withBranchUrl('https://backendaab.in/aabuildersDash/api/staff-advance/save', activeBranchId),
+        withBranchUrl('https://backendaab.in/demoAabuildersDash/api/staff-advance/save', activeBranchId),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -436,7 +436,7 @@ const Advance = ({ activeBranchId, peopleOptions, purposeOptions, records, onSav
         try {
           await fetch(
             withBranchUrl(
-              'https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save',
+              'https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save',
               activeBranchId
             ),
             {

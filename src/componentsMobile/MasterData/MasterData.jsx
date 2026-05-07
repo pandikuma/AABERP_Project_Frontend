@@ -124,7 +124,7 @@ const MasterData = ({ user, onLogout }) => {
     // Used to resolve IDs like `siteEngineerId` -> employee name in Project Name view.
     const fetchEmployeeIdToName = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll', {
+        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/employee_details/getAll', {
           method: 'GET',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' }
@@ -223,8 +223,8 @@ const MasterData = ({ user, onLogout }) => {
 
     const isEdit = vendorFormMode === 'edit' && String(vendorForm.vendorId || '').trim() !== '';
     const url = isEdit
-      ? `https://backendaab.in/aabuilderDash/api/vendor_Names/edit/${vendorForm.vendorId}`
-      : 'https://backendaab.in/aabuilderDash/api/vendor_Names/save';
+      ? `https://backendaab.in/demoAabuilderDash/api/vendor_Names/edit/${vendorForm.vendorId}`
+      : 'https://backendaab.in/demoAabuilderDash/api/vendor_Names/save';
 
     const res = await fetch(url, {
       method: isEdit ? 'PUT' : 'POST',
@@ -289,8 +289,8 @@ const MasterData = ({ user, onLogout }) => {
 
     const isEdit = contractorFormMode === 'edit' && String(contractorForm.contractorId || '').trim() !== '';
     const url = isEdit
-      ? `https://backendaab.in/aabuilderDash/api/contractor_Names/edit/${contractorForm.contractorId}`
-      : 'https://backendaab.in/aabuilderDash/api/contractor_Names/save';
+      ? `https://backendaab.in/demoAabuilderDash/api/contractor_Names/edit/${contractorForm.contractorId}`
+      : 'https://backendaab.in/demoAabuilderDash/api/contractor_Names/save';
 
     const res = await fetch(url, {
       method: isEdit ? 'PUT' : 'POST',
@@ -306,8 +306,8 @@ const MasterData = ({ user, onLogout }) => {
   const submitCategoryToBackend = async () => {
     const isEdit = categoryFormMode === 'edit' && String(categoryForm.categoryId || '').trim() !== '';
     const url = isEdit
-      ? `https://backendaab.in/aabuilderDash/api/expenses_categories/update/${categoryForm.categoryId}`
-      : 'https://backendaab.in/aabuilderDash/api/expenses_categories/save';
+      ? `https://backendaab.in/demoAabuilderDash/api/expenses_categories/update/${categoryForm.categoryId}`
+      : 'https://backendaab.in/demoAabuilderDash/api/expenses_categories/save';
 
     const res = await fetch(url, {
       method: isEdit ? 'PUT' : 'POST',
@@ -324,8 +324,8 @@ const MasterData = ({ user, onLogout }) => {
   const submitMachineToBackend = async () => {
     const isEdit = machineFormMode === 'edit' && String(machineForm.machineId || '').trim() !== '';
     const url = isEdit
-      ? `https://backendaab.in/aabuilderDash/api/machine_tools/update/${machineForm.machineId}`
-      : 'https://backendaab.in/aabuilderDash/api/machine_tools/save';
+      ? `https://backendaab.in/demoAabuilderDash/api/machine_tools/update/${machineForm.machineId}`
+      : 'https://backendaab.in/demoAabuilderDash/api/machine_tools/save';
 
     const res = await fetch(url, {
       method: isEdit ? 'PUT' : 'POST',
@@ -405,8 +405,8 @@ const MasterData = ({ user, onLogout }) => {
 
     const isEdit = employeeFormMode === 'edit' && String(employeeForm.employeeDbId || '').trim() !== '';
     const url = isEdit
-      ? `https://backendaab.in/aabuildersDash/api/employee_details/edit/${employeeForm.employeeDbId}`
-      : 'https://backendaab.in/aabuildersDash/api/employee_details/save';
+      ? `https://backendaab.in/demoAabuildersDash/api/employee_details/edit/${employeeForm.employeeDbId}`
+      : 'https://backendaab.in/demoAabuildersDash/api/employee_details/save';
 
     const res = await fetch(url, {
       method: isEdit ? 'PUT' : 'POST',
@@ -451,7 +451,7 @@ const MasterData = ({ user, onLogout }) => {
     formData.append("folder", "FileUpload/Master_Data_Files");
     formData.append("fileName", safeFinalName);
 
-    const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
+    const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
       method: "POST",
       body: formData,
     });
@@ -542,7 +542,7 @@ const MasterData = ({ user, onLogout }) => {
       branch: branch || ''
     };
 
-    const projectNamesRes = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/getAll', {
+    const projectNamesRes = await fetch('https://backendaab.in/demoAabuilderDash/api/project_Names/getAll', {
       method: 'GET',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' }
@@ -558,7 +558,7 @@ const MasterData = ({ user, onLogout }) => {
     const existingSiteName = existingById || existingBySiteNo;
 
     if (existingSiteName?.id) {
-      const editRes = await fetch(`https://backendaab.in/aabuilderDash/api/project_Names/edit/${existingSiteName.id}`, {
+      const editRes = await fetch(`https://backendaab.in/demoAabuilderDash/api/project_Names/edit/${existingSiteName.id}`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -571,7 +571,7 @@ const MasterData = ({ user, onLogout }) => {
       return;
     }
 
-    const saveRes = await fetch('https://backendaab.in/aabuilderDash/api/project_Names/save', {
+    const saveRes = await fetch('https://backendaab.in/demoAabuilderDash/api/project_Names/save', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -601,8 +601,8 @@ const MasterData = ({ user, onLogout }) => {
 
     const isEdit = projectFormMode === 'edit' && String(projectForm.projectDbId || '').trim() !== '';
     const url = isEdit
-      ? `https://backendaab.in/aabuilderDash/api/projects/edit/${projectForm.projectDbId}`
-      : 'https://backendaab.in/aabuilderDash/api/projects/save';
+      ? `https://backendaab.in/demoAabuilderDash/api/projects/edit/${projectForm.projectDbId}`
+      : 'https://backendaab.in/demoAabuilderDash/api/projects/save';
 
     const res = await fetch(url, {
       method: isEdit ? 'PUT' : 'POST',
@@ -628,7 +628,7 @@ const MasterData = ({ user, onLogout }) => {
   };
 
   const fetchProjectsData = async () => {
-    const response = await fetch('https://backendaab.in/aabuilderDash/api/projects/getAll', {
+    const response = await fetch('https://backendaab.in/demoAabuilderDash/api/projects/getAll', {
       method: 'GET',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' }
@@ -721,22 +721,22 @@ const MasterData = ({ user, onLogout }) => {
   const getListApiUrl = (item) => {
     switch (item) {
       case 'Vendor Name':
-        return 'https://backendaab.in/aabuilderDash/api/vendor_Names/getAll';
+        return 'https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll';
       case 'Contractor Name':
-        return 'https://backendaab.in/aabuilderDash/api/contractor_Names/getAll';
+        return 'https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll';
       case 'Categories':
-        return 'https://backendaab.in/aabuilderDash/api/expenses_categories/getAll';
+        return 'https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll';
       case 'Machine tools':
-        return 'https://backendaab.in/aabuilderDash/api/machine_tools/getAll';
+        return 'https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll';
       case 'Employee Details':
-        return 'https://backendaab.in/aabuildersDash/api/employee_details/getAll';
+        return 'https://backendaab.in/demoAabuildersDash/api/employee_details/getAll';
       case 'Company Labour':
-        return 'https://backendaab.in/aabuildersDash/api/labours-details/getAll';
+        return 'https://backendaab.in/demoAabuildersDash/api/labours-details/getAll';
       case 'Account Details':
       case 'Bank Details':
-        return 'https://backendaab.in/aabuildersDash/api/account-details/getAll';
+        return 'https://backendaab.in/demoAabuildersDash/api/account-details/getAll';
       case 'Support Associate Name':
-        return 'https://backendaab.in/aabuildersDash/api/support_staff/getAll';
+        return 'https://backendaab.in/demoAabuildersDash/api/support_staff/getAll';
       default:
         return null;
     }
@@ -1127,7 +1127,7 @@ const MasterData = ({ user, onLogout }) => {
       }
 
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll', {
+        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll', {
           method: 'GET',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' }
@@ -1429,7 +1429,7 @@ const MasterData = ({ user, onLogout }) => {
       setIsProjectsLoading(true);
 
       try {
-        const response = await fetch('https://backendaab.in/aabuilderDash/api/projects/getAll');
+        const response = await fetch('https://backendaab.in/demoAabuilderDash/api/projects/getAll');
         if (!response.ok) {
           throw new Error('Failed to fetch projects');
         }
@@ -1461,7 +1461,7 @@ const MasterData = ({ user, onLogout }) => {
     let isMounted = true;
     const fetchExpenseCategories = async () => {
       try {
-        const response = await fetch('https://backendaab.in/aabuilderDash/api/expenses_categories/getAll', {
+        const response = await fetch('https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll', {
           method: 'GET',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' }
@@ -1546,7 +1546,7 @@ const MasterData = ({ user, onLogout }) => {
     const fetchBankTypes = async () => {
       setIsBankTypesLoading(true);
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/bank_type/getAll');
+        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/bank_type/getAll');
         if (!response.ok) throw new Error('Failed to fetch bank account types');
         const data = await response.json();
         if (isMounted) setBankAccountTypes(Array.isArray(data) ? data : []);
@@ -1677,7 +1677,7 @@ const MasterData = ({ user, onLogout }) => {
     async (onSelect) => {
       projectSiteEngineerSelectRef.current = typeof onSelect === 'function' ? onSelect : null;
       try {
-        const response = await fetch('https://backendaab.in/aabuildersDash/api/employee_details/getAll', {
+        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/employee_details/getAll', {
           method: 'GET',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' }
@@ -2450,6 +2450,7 @@ const MasterData = ({ user, onLogout }) => {
       formMode === 'edit' && (isViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon);
     const hasFieldValue = (value) => String(value ?? '').trim() !== '';
     const canOpenBranchModal = !fieldReadOnly && isFormInteractionEnabled(formMode, isViewOnly);
+    const canOpenBankNameModal = !fieldReadOnly && isFormInteractionEnabled(formMode, isViewOnly);
     const isAccountHolderMandatory = isFieldMandatory('Account Holder Name', true);
     const isAccountNumberMandatory = isFieldMandatory('Account Number', true);
 
@@ -2494,6 +2495,7 @@ const MasterData = ({ user, onLogout }) => {
             <button
               type="button"
               onClick={() => {
+                if (!canOpenBankNameModal) return;
                 if (typeof onOpenBankNamePicker === 'function') {
                   onOpenBankNamePicker((value) => {
                     setHasFormChanges(true);
@@ -2501,7 +2503,7 @@ const MasterData = ({ user, onLogout }) => {
                   });
                 }
               }}
-              disabled={fieldReadOnly}
+              disabled={fieldReadOnly || !canOpenBankNameModal}
               className="text-[12px] font-medium text-black disabled:opacity-100"
             >
               {form.bankName || bankNameText || 'Bank Name'}
@@ -2630,7 +2632,7 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleProjectSection(sectionId)}
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#EDEDED]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
@@ -3055,7 +3057,7 @@ const MasterData = ({ user, onLogout }) => {
     return (
       <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
         <div
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'border-b border-[#EFEFEF] bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'border-b border-[#EFEFEF] bg-[#EDEDED]' : 'bg-white'}`}
         >
           <button type="button" onClick={() => toggleBankDetailsSection(sectionId)} className="flex min-w-0 flex-1 items-center gap-[6px]">
             <span className="truncate text-[14px] font-medium text-black">{title}</span>
@@ -3084,7 +3086,7 @@ const MasterData = ({ user, onLogout }) => {
 
   const renderStaticBankDetailsCard = (title, content) => (
     <div className="overflow-hidden rounded-[10px] border border-[#F0F0F0] bg-white shadow-[0px_1px_4px_rgba(0,0,0,0.04)]">
-      <div className="flex h-[40px] w-full items-center justify-between bg-[#FAFAFA] px-[14px] text-left">
+      <div className="flex h-[40px] w-full items-center justify-between bg-[#EDEDED] px-[14px] text-left">
         <span className="text-[12px] font-medium text-black">{title}</span>
         <span className="text-[#2B2B2B]">{renderChevron(true)}</span>
       </div>
@@ -3104,7 +3106,7 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleBankFormSection(sectionId)}
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#EDEDED]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
@@ -3188,7 +3190,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${bankNameFormMode === 'edit' && !uploadFileRowShowsSaveIcon
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8] ${bankNameFormMode === 'edit' && !uploadFileRowShowsSaveIcon
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3235,7 +3237,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${bankTypeFormMode === 'edit' && !uploadFileRowShowsSaveIcon
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${bankTypeFormMode === 'edit' && !uploadFileRowShowsSaveIcon
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3282,7 +3284,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${bankLocationFormMode === 'edit' && !uploadFileRowShowsSaveIcon
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${bankLocationFormMode === 'edit' && !uploadFileRowShowsSaveIcon
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3334,7 +3336,7 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleVendorSection(sectionId)}
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#EDEDED]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
@@ -3378,7 +3380,7 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleContractorSection(sectionId)}
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#EDEDED]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
@@ -3417,7 +3419,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${contractorFormMode === 'edit' && (isContractorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${contractorFormMode === 'edit' && (isContractorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3590,6 +3592,11 @@ const MasterData = ({ user, onLogout }) => {
               <input
                 value={contractorForm.upiId || ''}
                 onChange={(e) => setContractorForm((s) => ({ ...s, upiId: e.target.value }))}
+                readOnly={
+                  contractorFormMode === 'edit'
+                    ? isContractorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 placeholder=""
                 className="mb-[10px] h-[34px] w-full rounded-[6px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none"
               />
@@ -3599,6 +3606,11 @@ const MasterData = ({ user, onLogout }) => {
                 accept="image/*"
                 id="contractorQrUpload"
                 className="hidden"
+                disabled={
+                  contractorFormMode === 'edit'
+                    ? isContractorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
@@ -3613,17 +3625,23 @@ const MasterData = ({ user, onLogout }) => {
                 }}
               />
 
-              <button
-                type="button"
-                onClick={() => document.getElementById('contractorQrUpload')?.click()}
-                className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
-              >
-                Update QR Code
-              </button>
+              {!(contractorFormMode === 'edit'
+                ? isContractorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                : false) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('contractorQrUpload')?.click()}
+                    className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
+                  >
+                    Update QR Code
+                  </button>
 
-              <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
-                Update
-              </button>
+                  <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
+                    Update
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -3738,7 +3756,7 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleCategorySection(sectionId)}
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#EDEDED]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
@@ -3755,7 +3773,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${categoryFormMode === 'edit' && (isCategoryViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${categoryFormMode === 'edit' && (isCategoryViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -3805,7 +3823,7 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleMachineSection(sectionId)}
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#EDEDED]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="text-[#2B2B2B]">{renderChevron(isExpanded)}</span>
@@ -3872,7 +3890,7 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleEmployeeSection(sectionId)}
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#EDEDED]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
@@ -3906,7 +3924,7 @@ const MasterData = ({ user, onLogout }) => {
 
   const renderAddEmployeeView = () => (
     <>
-      <div className="bg-white">
+      <div className="bg-white  mt-[8px]">
         <div className="flex items-center justify-between text-[12px] font-medium text-black">
           <button type="button" onClick={() => setIsEmployeeAadhaarModalOpen(true)}>
             Aadhaar Upload
@@ -3916,7 +3934,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${employeeFormMode === 'edit' && (isEmployeeViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] ${employeeFormMode === 'edit' && (isEmployeeViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -4105,6 +4123,11 @@ const MasterData = ({ user, onLogout }) => {
               <input
                 value={employeeForm.upiId || ''}
                 onChange={(e) => setEmployeeForm((s) => ({ ...s, upiId: e.target.value }))}
+                readOnly={
+                  employeeFormMode === 'edit'
+                    ? isEmployeeViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 placeholder=""
                 className="mb-[10px] h-[34px] w-full rounded-[6px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none"
               />
@@ -4114,6 +4137,11 @@ const MasterData = ({ user, onLogout }) => {
                 accept="image/*"
                 id="employeeQrUpload"
                 className="hidden"
+                disabled={
+                  employeeFormMode === 'edit'
+                    ? isEmployeeViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
@@ -4128,17 +4156,23 @@ const MasterData = ({ user, onLogout }) => {
                 }}
               />
 
-              <button
-                type="button"
-                onClick={() => document.getElementById('employeeQrUpload')?.click()}
-                className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
-              >
-                Update QR Code
-              </button>
+              {!(employeeFormMode === 'edit'
+                ? isEmployeeViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                : false) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('employeeQrUpload')?.click()}
+                    className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
+                  >
+                    Update QR Code
+                  </button>
 
-              <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
-                Update
-              </button>
+                  <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
+                    Update
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -4267,7 +4301,7 @@ const MasterData = ({ user, onLogout }) => {
         <button
           type="button"
           onClick={() => toggleAccountSection(sectionId)}
-          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+          className={`flex h-[40px] w-full items-center justify-between px-[14px] text-left ${isExpanded ? 'bg-[#EDEDED]' : 'bg-white'}`}
         >
           <span className="text-[12px] font-medium text-black">{title}</span>
           <span className="flex items-center gap-[8px] text-[#2B2B2B]">
@@ -4306,7 +4340,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${accountFormMode === 'edit' && (isAccountViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${accountFormMode === 'edit' && (isAccountViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -4384,6 +4418,11 @@ const MasterData = ({ user, onLogout }) => {
               <input
                 value={accountForm.upiId || ''}
                 onChange={(e) => setAccountForm((s) => ({ ...s, upiId: e.target.value }))}
+                readOnly={
+                  accountFormMode === 'edit'
+                    ? isAccountViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 placeholder=""
                 className="mb-[10px] h-[34px] w-full rounded-[6px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none"
               />
@@ -4393,6 +4432,11 @@ const MasterData = ({ user, onLogout }) => {
                 accept="image/*"
                 id="accountQrUpload"
                 className="hidden"
+                disabled={
+                  accountFormMode === 'edit'
+                    ? isAccountViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
@@ -4406,17 +4450,23 @@ const MasterData = ({ user, onLogout }) => {
                 }}
               />
 
-              <button
-                type="button"
-                onClick={() => document.getElementById('accountQrUpload')?.click()}
-                className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
-              >
-                Update QR Code
-              </button>
+              {!(accountFormMode === 'edit'
+                ? isAccountViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                : false) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('accountQrUpload')?.click()}
+                    className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
+                  >
+                    Update QR Code
+                  </button>
 
-              <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
-                Update
-              </button>
+                  <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
+                    Update
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -4478,7 +4528,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${labourFormMode === 'edit' && (isLabourViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${labourFormMode === 'edit' && (isLabourViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -4725,6 +4775,11 @@ const MasterData = ({ user, onLogout }) => {
               <input
                 value={labourForm.upiId || ''}
                 onChange={(e) => setLabourForm((s) => ({ ...s, upiId: e.target.value }))}
+                readOnly={
+                  labourFormMode === 'edit'
+                    ? isLabourViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 placeholder=""
                 className="mb-[10px] h-[34px] w-full rounded-[6px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none"
               />
@@ -4734,6 +4789,11 @@ const MasterData = ({ user, onLogout }) => {
                 accept="image/*"
                 id="labourQrUpload"
                 className="hidden"
+                disabled={
+                  labourFormMode === 'edit'
+                    ? isLabourViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
@@ -4747,17 +4807,23 @@ const MasterData = ({ user, onLogout }) => {
                 }}
               />
 
-              <button
-                type="button"
-                onClick={() => document.getElementById('labourQrUpload')?.click()}
-                className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
-              >
-                Update QR Code
-              </button>
+              {!(labourFormMode === 'edit'
+                ? isLabourViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                : false) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('labourQrUpload')?.click()}
+                    className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
+                  >
+                    Update QR Code
+                  </button>
 
-              <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
-                Update
-              </button>
+                  <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
+                    Update
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -4772,7 +4838,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 pb-[18px] mt-[2.2px] ${vendorFormMode === 'edit' && (isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 pb-[18px] mt-[8px] ${vendorFormMode === 'edit' && (isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -5019,6 +5085,11 @@ const MasterData = ({ user, onLogout }) => {
               <input
                 value={vendorForm.upiId || ''}
                 onChange={(e) => setVendorForm((s) => ({ ...s, upiId: e.target.value }))}
+                readOnly={
+                  vendorFormMode === 'edit'
+                    ? isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 placeholder=""
                 className="mb-[10px] h-[34px] w-full rounded-[6px] border border-[#D9D9D9] bg-white px-[12px] text-[12px] text-black outline-none"
               />
@@ -5028,6 +5099,11 @@ const MasterData = ({ user, onLogout }) => {
                 accept="image/*"
                 id="vendorQrUpload"
                 className="hidden"
+                disabled={
+                  vendorFormMode === 'edit'
+                    ? isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                    : false
+                }
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
@@ -5042,17 +5118,23 @@ const MasterData = ({ user, onLogout }) => {
                 }}
               />
 
-              <button
-                type="button"
-                onClick={() => document.getElementById('vendorQrUpload')?.click()}
-                className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
-              >
-                Update QR Code
-              </button>
+              {!(vendorFormMode === 'edit'
+                ? isVendorViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon
+                : false) && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('vendorQrUpload')?.click()}
+                    className="mb-[12px] h-[36px] w-full rounded-[6px] border border-[#D9D9D9] bg-white text-[13px] font-medium text-black"
+                  >
+                    Update QR Code
+                  </button>
 
-              <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
-                Update
-              </button>
+                  <button type="button" className="h-[44px] w-full rounded-[8px] bg-black text-[14px] font-semibold text-white">
+                    Update
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -5170,7 +5252,7 @@ const MasterData = ({ user, onLogout }) => {
       </div>
 
       <div
-        className={`w-full px-0 pt-0 mt-[2.2px] ${projectFormMode === 'edit' && (isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
+        className={`w-full px-0 pt-0 mt-[8px] ${projectFormMode === 'edit' && (isProjectViewOnly || !canEditMasterData || !uploadFileRowShowsSaveIcon)
           ? '[&_input]:bg-[#EDEDED] [&_select]:bg-[#EDEDED] [&_textarea]:bg-[#EDEDED] [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none'
           : ''
           }`}
@@ -6133,6 +6215,7 @@ const MasterData = ({ user, onLogout }) => {
         options={FLOOR_NAME_OPTIONS}
         fieldName="Floor Name"
         showStarIcon={false}
+        preserveOrder
       />
 
       <SelectVendorModal
@@ -6268,7 +6351,7 @@ const MasterData = ({ user, onLogout }) => {
 
       return (
         <>
-          <div className="px-[2px] mt-[2.2px]">
+          <div className="px-[2px] mt-[8px]">
             <div className="flex items-center gap-[10px]">
               <div className="relative flex-1">
                 <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -6341,7 +6424,7 @@ const MasterData = ({ user, onLogout }) => {
         className="flex flex-col overflow-hidden"
         style={{ height: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="shrink-0 px-[2px]">
+        <div className="shrink-0 px-[2px] mt-[8px]">
           <div className="flex items-center gap-[10px]">
             <div className="relative flex-1">
               <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -6920,7 +7003,7 @@ const MasterData = ({ user, onLogout }) => {
       className="flex flex-col overflow-hidden"
       style={{ height: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))' }}
     >
-      <div className="shrink-0 px-[2px]">
+      <div className="shrink-0 px-[2px] mt-[8px]">
         <div className="flex items-center gap-[10px]">
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -7735,7 +7818,7 @@ const MasterData = ({ user, onLogout }) => {
               minHeight: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))'
             }}
           >
-            <div className=" shrink-0 pt-[2px]">
+            <div className=" shrink-0 mt-[8px]">
               <div className="relative">
                 <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">

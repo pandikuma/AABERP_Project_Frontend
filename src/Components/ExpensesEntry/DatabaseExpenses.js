@@ -15,10 +15,10 @@ import autoTable from "jspdf-autotable";
 import XL from '../Images/sheets.png'
 import Pdf from '../Images/pdf.png'
 Modal.setAppElement('#root');
-const TOOLS_API_BASE = 'https://backendaab.in/aabuildersDash';
+const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 
 const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
-    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-telecom/getAll';
+    const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
     const resolveActiveBranchId = useCallback(() => {
         try {
             const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -127,7 +127,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchPaymentModes = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/payment_mode/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setPaymentModeOptions(Array.isArray(data) ? data : []);
@@ -141,7 +141,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchUserRoles = async () => {
             try {
-                const response = await axios.get("https://backendaab.in/aabuilderDash/api/user_roles/all");
+                const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
                 const allRoles = response.data;
                 const userRoleNames = userRoles.map(r => r.roles);
                 const matchedRoles = allRoles.filter(role =>
@@ -301,7 +301,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchAccountDetails = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/account-details/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     setAccountDetails(data);
@@ -426,7 +426,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const fetchProjectData = async (projectId) => {
         try {
             if (!projectId) return null;
-            const response = await fetch(`https://backendaab.in/aabuilderDash/api/projects/get/${projectId}`);
+            const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/get/${projectId}`);
             if (!response.ok) return null;
             const data = await response.json();
             setProjectData(data);
@@ -540,7 +540,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         };
     }, [resolveActiveBranchId]);
     const refetchExpenses = useCallback(async () => {
-        const response = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
+        const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
             params: activeBranchId ? { branchId: activeBranchId } : {},
         });
         const sortedExpenses = response.data.sort((a, b) => {
@@ -580,7 +580,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchSites = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -607,7 +607,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -634,7 +634,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchContractorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -661,7 +661,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -686,7 +686,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchMachinTools = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/machine_tools/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -771,7 +771,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchAccountType = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/account_type/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/account_type/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -798,7 +798,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchLaboursList = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/labours-details/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/labours-details/getAll');
                 if (response.ok) {
                     const data = await response.json();
                     const formattedData = data.map(item => ({
@@ -823,7 +823,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchEmployeeDetails = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuildersDash/api/employee_details/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuildersDash/api/employee_details/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -851,7 +851,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchBranches = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/branch/getAll', {
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/branch/getAll', {
                     method: 'GET',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' }
@@ -1076,7 +1076,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                 // ✅ CHANGE 3: optional filename
                 uploadFormData.append("fileName", finalName);
 
-                const uploadResponse = await fetch("https://backendaab.in/aabuildersDash/api/files/upload", {
+                const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
                     method: "POST",
                     body: uploadFormData,
                 });
@@ -1141,7 +1141,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
             ...updatedFormData,
             billArrivalDate: billArrivalForApi
         };
-        const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`, {
+        const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatePayload)
@@ -1172,7 +1172,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                     transaction_number: (modalPaymentData && modalPaymentData.transactionNumber) || null,
                     account_number: (modalPaymentData && modalPaymentData.accountNumber) || null
                 };
-                const weeklyResponse = await fetch('https://backendaab.in/aabuildersDash/api/weekly-payment-bills/save', {
+                const weeklyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -1432,7 +1432,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         if (window.confirm('Are you sure you want to delete this expense?')) {
             try {
                 const response = await fetch(
-                    `https://backendaab.in/aabuilderDash/expenses_form/delete/${id}?editedBy=${encodeURIComponent(username)}`,
+                    `https://backendaab.in/demoAabuilderDash/expenses_form/delete/${id}?editedBy=${encodeURIComponent(username)}`,
                     {
                         method: 'POST',
                     }
@@ -1458,7 +1458,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     };
     const fetchAuditDetails = async (expenseId) => {
         try {
-            const response = await fetch(`https://backendaab.in/aabuilderDash/expenses_form/audit/${expenseId}`);
+            const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/audit/${expenseId}`);
             const data = await response.json();
             setAudits(data);
             setShowModal(true);
