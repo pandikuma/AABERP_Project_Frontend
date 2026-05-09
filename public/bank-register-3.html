@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>AA Builders ERP — Bank Register</title>
+<meta name="theme-color" content="#FBF7F0" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gold:#D6AB60; --gold-soft:#E6C68A; --gold-deep:#B8924B; --gold-darker:#9C7A3A;
+    --ink:#212121; --ink-2:#3a3a3a; --muted:#8a8275; --muted-2:#a59c8a;
+    --cream:#FBF7F0; --cream-2:#F5EFE3; --cream-3:#FAF4E8; --row-alt:#FAF4E8;
+    --line:#EADFC8; --line-soft:#f0e9d8;
+    --green:#2f9e6e; --green-soft:#3eb37f; --red:#d23b3b;
+    --shadow: 0 1px 0 rgba(33,33,33,0.04), 0 8px 24px -12px rgba(33,33,33,0.10);
+  }
+  html,body{background:#fff;color:var(--ink);font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;}
+  html{overflow-y:auto;} body{overflow-y:visible;}
+  .font-display{font-family:'Fraunces',serif;letter-spacing:-0.01em;}
+  .text-gold{color:var(--gold);} .text-gold-deep{color:var(--gold-deep);}
+  .bg-gold{background:var(--gold);} .bg-cream{background:var(--cream);} .bg-cream-2{background:var(--cream-2);}
+  .ink{color:var(--ink);} .muted{color:var(--muted);}
+
+  /* Fixed top bar — same as cash register */
+  .topbar{background:#fff;border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:30;}
+  .branch-select{background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 32px 7px 12px;font-size:13px;font-weight:600;color:var(--ink-2);appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 4l3 3 3-3' stroke='%238a8275' stroke-width='1.5' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 10px center;cursor:pointer;min-width:140px;}
+  .branch-select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(214,171,96,0.15);}
+  .icon-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink-2);cursor:pointer;transition:all .15s;}
+  .icon-btn:hover{background:var(--cream-2);}
+  .icon-btn.gold{color:var(--gold-deep);}
+  .avatar-mark{width:38px;height:38px;border-radius:50%;background:var(--cream-2);border:1.5px solid var(--gold);display:inline-flex;align-items:center;justify-content:center;}
+  .user-pill{display:inline-flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;}
+
+  /* Tabs row — sticky below topbar */
+  .tabs-row{background:var(--cream);border-bottom:1px solid var(--line);display:flex;align-items:flex-end;gap:0;padding:0 18px;position:sticky;top:58px;z-index:25;}
+  .tab{padding:12px 18px;font-size:14px;font-weight:600;color:#7a7163;border-bottom:2.5px solid transparent;cursor:pointer;white-space:nowrap;background:transparent;border-left:none;border-right:none;border-top:none;}
+  .tab.active{color:var(--ink);border-bottom-color:var(--gold);}
+  .tab:hover:not(.active){color:var(--ink-2);}
+  .tabs-balance{margin-left:auto;padding:12px 0;font-size:14px;font-weight:600;color:var(--ink);}
+  .tabs-balance .v{color:var(--green);font-weight:700;font-family:'Fraunces',serif;font-size:17px;letter-spacing:-0.01em;}
+
+  .shell{background:var(--cream);min-height:calc(100vh - 100px);padding:18px;}
+  @media(max-width:768px){.shell{padding:12px;}}
+
+  .filter-btn{width:36px;height:36px;border:1px solid var(--gold);border-radius:8px;background:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;}
+  .filter-btn:hover{background:var(--cream-2);}
+
+  .stat-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;min-width:0;}
+  .stat-label{font-size:13px;font-weight:600;color:var(--ink);}
+  .stat-value{font-family:'Fraunces',serif;font-weight:600;color:var(--gold-deep);font-size:18px;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;}
+  .icon-chip{width:34px;height:34px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+  .input{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:14px;width:100%;color:var(--ink);}
+  .input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(214,171,96,0.15);}
+  .label-text{font-size:12px;font-weight:600;color:var(--muted);}
+
+  .ledger-card{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;}
+  .ledger-card .accent{width:5px;background:var(--gold);flex-shrink:0;}
+  .ledger-card .body{flex:1;min-width:0;}
+
+  .ledger-table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;}
+  .ledger-table th{font-size:12px;font-weight:700;color:var(--ink);text-align:left;padding:12px 10px;background:#fff;white-space:nowrap;border-bottom:1px solid var(--line);letter-spacing:0.005em;position:sticky;top:0;z-index:2;}
+  .ledger-table td{font-size:12.5px;color:var(--ink-2);padding:12px 10px;vertical-align:middle;border-top:1px solid var(--line-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ledger-table tbody tr:nth-child(even){background:var(--row-alt);}
+  .num-cell{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .truncate-cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .table-scroll{max-height:560px;overflow-y:auto;overflow-x:auto;}
+  .table-scroll::-webkit-scrollbar{width:8px;height:8px;}
+  .table-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+  .table-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold-soft);}
+  .table-scroll::-webkit-scrollbar-track{background:transparent;}
+  @media(max-width:1279px) and (min-width:1024px){
+    .expenses-table-wrap .ledger-table{min-width:880px;}
+  }
+
+  .chip{font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;display:inline-block;}
+  .chip-tenant{background:#FFF3D9;color:#8a6a1f;}
+  .chip-contractor{background:#E6F0FF;color:#2a5fb0;}
+  .chip-vendor{background:#F0E6FF;color:#6a3aaf;}
+  .chip-other{background:#EFEFEF;color:#555;}
+  .chip-mode{background:var(--cream-2);color:var(--ink-2);}
+
+  .act-cell{display:flex;align-items:center;justify-content:flex-start;gap:7px;}
+  .act-cell button{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;background:transparent;border:none;padding:0;}
+  .act-cell button:hover{opacity:0.75;}
+
+  .btn-add{border:1px solid var(--green);color:var(--green);font-weight:600;border-radius:8px;padding:7px 12px;font-size:13px;background:#fff;transition:all .15s;cursor:pointer;}
+  .btn-add:hover{background:#eafaf2;}
+  .btn-ghost{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 10px;color:var(--ink-2);cursor:pointer;font-size:13px;font-weight:600;}
+  .btn-ghost:hover{background:var(--cream);}
+
+  .stat-inline{font-size:13px;font-weight:600;color:var(--ink-2);}
+  .stat-inline .v{color:var(--gold-deep);font-weight:700;font-family:'Fraunces',serif;font-size:16px;}
+  .stat-inline.income .v{color:var(--green);}
+
+  .mob-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;position:relative;overflow:hidden;}
+  .mob-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--gold);}
+  @media(max-width:1023px){
+    .desk-table{display:none;}
+    .mob-cards{display:block;}
+  }
+  @media(min-width:1024px){
+    .desk-table{display:block;}
+    .mob-cards{display:none;}
+  }
+
+  .modal-bg{position:fixed;inset:0;background:rgba(33,33,33,0.55);backdrop-filter:blur(2px);z-index:50;display:flex;align-items:flex-end;justify-content:center;}
+  @media (min-width:640px){.modal-bg{align-items:center;}}
+  .modal{background:#fff;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:20px;max-height:92vh;overflow-y:auto;}
+  @media (min-width:640px){.modal{border-radius:18px;}}
+
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:70;box-shadow:0 8px 24px -8px rgba(0,0,0,.4);}
+  .badge-build{position:fixed;bottom:10px;right:12px;background:rgba(33,33,33,0.85);color:#fff;font-size:10px;letter-spacing:.05em;padding:4px 8px;border-radius:6px;z-index:60;font-weight:600;}
+
+  .side-col{transition:transform .25s ease;}
+  @media(max-width:1023px){
+    .side-col{position:fixed;top:0;right:0;bottom:0;width:90%;max-width:380px;background:var(--cream);z-index:40;overflow-y:auto;padding:18px;transform:translateX(100%);box-shadow:-12px 0 32px -8px rgba(0,0,0,0.18);}
+    .side-col.open{transform:translateX(0);}
+  }
+  .side-overlay{display:none;}
+  @media(max-width:1023px){
+    .side-overlay.open{display:block;position:fixed;inset:0;background:rgba(33,33,33,0.4);z-index:35;}
+  }
+  .side-fab{display:none;position:fixed;right:16px;bottom:16px;background:var(--gold);color:#fff;border-radius:999px;padding:12px 18px;font-weight:600;font-size:13px;box-shadow:0 8px 24px -6px rgba(214,171,96,0.55);z-index:30;border:none;cursor:pointer;align-items:center;gap:8px;}
+  @media(max-width:1023px){.side-fab{display:flex;}}
+
+  @media(max-width:768px){
+    .tabs-row{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 12px;}
+    .tabs-row::-webkit-scrollbar{display:none;}
+    .tab{padding:12px 12px;font-size:13px;}
+    .tabs-balance{padding:8px 0;font-size:12px;}
+    .tabs-balance .v{font-size:14px;}
+    .topbar{padding:10px 12px;gap:8px;}
+    .topbar .brand-text{display:none;}
+    .topbar .desktop-only{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo, useEffect } = React;
+const BUILD = "2.0";
+
+const I = {
+  Logo: ({size=28}) => (
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
+      <circle cx="32" cy="32" r="30" fill="none" stroke="#D6AB60" strokeWidth="2.5"/>
+      <path d="M32 16 L46 46 H38 L35 39 H29 L26 46 H18 Z M30.5 33 H33.5 L32 28 Z" fill="#D6AB60"/>
+    </svg>
+  ),
+  Download: ()=> <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#d23b3b" strokeWidth="1.8"><path d="M12 4v12M6 11l6 6 6-6M5 21h14"/></svg>,
+  Edit: ()=> <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#2f9e6e" strokeWidth="1.8"><path d="M14 4l6 6-10 10H4v-6z"/></svg>,
+  EditPad: ()=> <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#2f9e6e" strokeWidth="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M14 4l4 4-7 7H7v-4z" fill="#2f9e6e" fillOpacity="0.08"/></svg>,
+  Trash: ()=> <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#d23b3b" strokeWidth="1.8"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>,
+  Filter: ()=> <svg viewBox="0 0 24 24" width="16" height="16" fill="#D6AB60"><path d="M3 4h18l-7 8v7l-4-2v-5z"/></svg>,
+  Plus: ()=> <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>,
+  Close: ()=> <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 5l14 14M19 5L5 19"/></svg>,
+  SignOut: ()=> <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l-5-5 5-5M5 12h11"/></svg>,
+  UPI: ()=> <svg viewBox="0 0 24 24" width="18" height="18" fill="#D6AB60"><path d="M14 2L4 14h6l-2 8 10-12h-6z"/></svg>,
+  Cheque: ()=> <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#D6AB60" strokeWidth="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h10M7 14h6"/></svg>,
+  NetBank: ()=> <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#2f9e6e" strokeWidth="1.8"><path d="M3 10 12 4l9 6"/><path d="M5 10v8M19 10v8"/><path d="M3 20h18"/></svg>,
+  Wallet: ()=> <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#7c3aed" strokeWidth="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12h3"/></svg>,
+  Coin: ()=> <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" strokeWidth="1.9"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>,
+};
+
+const fmtINR = (n) => Number(n).toLocaleString("en-IN", {minimumFractionDigits:0, maximumFractionDigits:0});
+const fmtINR2 = (n) => Number(n).toLocaleString("en-IN", {minimumFractionDigits:2, maximumFractionDigits:2});
+
+const BRANCHES = [
+  {id:"srivilliputtur", name:"Srivilliputtur"},
+  {id:"madurai", name:"Madurai"},
+];
+const BANKS = [
+  {name:"State Bank of India", branch:"Srivilliputtur", accounts:["XXXX 1234 — Current", "XXXX 9821 — OD"]},
+  {name:"HDFC Bank", branch:"Srivilliputtur", accounts:["XXXX 4421 — Current"]},
+  {name:"ICICI Bank", branch:"Madurai", accounts:["XXXX 7780 — Current"]},
+  {name:"Axis Bank", branch:"Madurai", accounts:["XXXX 2210 — Current"]},
+  {name:"Kotak Mahindra", branch:"Madurai", accounts:["XXXX 5512 — Current"]},
+];
+const MODES = ["G-Pay","PhonePe","Paytm","Net Banking","Cheque","Cash","RTGS","NEFT"];
+const PARTY_TYPES = ["Tenant","Contractor","Vendor","Employee","Other"];
+const PROJECTS = ["AA Office - Kappalur, Madurai","Row vilas - kappalur, Madurai","AA plot - Paraipatti","Malli Complex","Anandam Gardens","Velavan Hyper City","Surya Residences","Lakshmi Heights"];
+
+const SEED_EXPENSES = [
+  {id:1, date:"20/03/2026", project:"AA Office - Kappalur, Madurai", party:"Local Shop", partyType:"Tenant", type:"Rent Payment", amount:600, mode:"G-Pay", chequeNo:"-", chequeDate:"-"},
+  {id:2, date:"19/03/2026", project:"Row vilas - kappalur, Madurai", party:"Sivan Centring", partyType:"Tenant", type:"Rent Payment", amount:6000, mode:"Net Banking", chequeNo:"-", chequeDate:"-"},
+  {id:3, date:"19/03/2026", project:"AA Office - Kappalur, Madurai", party:"Welding Perumal", partyType:"Contractor", type:"Weekly Payment", amount:1600, mode:"Cheque", chequeNo:"545467", chequeDate:"20/03/2026"},
+  {id:4, date:"18/03/2026", project:"AA plot - Paraipatti", party:"Welding Perumal", partyType:"Tenant", type:"Rent Payment", amount:4000, mode:"Net Banking", chequeNo:"-", chequeDate:"-"},
+  {id:5, date:"17/03/2026", project:"Malli Complex", party:"Gym Manikandan", partyType:"Vendor", type:"Weekly Payment", amount:2600, mode:"G-Pay", chequeNo:"-", chequeDate:"-"},
+  {id:6, date:"17/03/2026", project:"Anandam Gardens", party:"Welding Perumal", partyType:"Contractor", type:"Weekly Payment", amount:5000, mode:"Cheque", chequeNo:"653488", chequeDate:"20/03/2026"},
+  {id:7, date:"16/03/2026", project:"Velavan Hyper City", party:"Sika India", partyType:"Vendor", type:"Material", amount:18000, mode:"Net Banking", chequeNo:"-", chequeDate:"-"},
+  {id:8, date:"15/03/2026", project:"Surya Residences", party:"Bismi Shutters", partyType:"Vendor", type:"Material", amount:42000, mode:"RTGS", chequeNo:"-", chequeDate:"-"},
+];
+const SEED_INCOME = [
+  {id:101, date:"20/03/2026", accountNo:"2029644256332", amount:2000},
+  {id:102, date:"19/03/2026", accountNo:"202944456332", amount:20000},
+  {id:103, date:"18/03/2026", accountNo:"180264425632", amount:200000},
+  {id:104, date:"18/03/2026", accountNo:"1462964256332", amount:150000},
+  {id:105, date:"17/03/2026", accountNo:"209644256145", amount:75000},
+  {id:106, date:"15/03/2026", accountNo:"305644256778", amount:46320},
+];
+
+// ---------- Top Bar ----------
+const TopBar = ({branch,setBranch}) => (
+  <div className="topbar">
+    <div className="flex items-center gap-2">
+      <I.Logo size={28}/>
+      <span className="brand-text font-display text-gold text-base tracking-[0.22em] font-semibold">BUILDERS</span>
+    </div>
+    <div className="flex items-center gap-2 ml-auto">
+      <select value={branch} onChange={e=>setBranch(e.target.value)} className="branch-select">
+        {BRANCHES.map(b=> <option key={b.id} value={b.id}>{b.name}</option>)}
+      </select>
+      <button className="icon-btn desktop-only" title="Export"><I.Download/></button>
+      <button className="icon-btn gold desktop-only" title="Notes"><I.EditPad/></button>
+      <span className="user-pill">
+        <span className="avatar-mark"><I.Logo size={20}/></span>
+        <span className="hidden sm:flex flex-col leading-tight">
+          <span className="text-[13px] font-semibold ink">Admin</span>
+          <span className="text-[10.5px] muted">AA Builders</span>
+        </span>
+        <button className="icon-btn ml-1" title="Sign out"><I.SignOut/></button>
+      </span>
+    </div>
+  </div>
+);
+
+const TABS = ["Bank Payments","History","Reconcile"];
+const TabsRow = ({tab,setTab,balance}) => (
+  <div className="tabs-row">
+    {TABS.map(t=>(
+      <button key={t} className={`tab ${tab===t?'active':''}`} onClick={()=>setTab(t)}>{t}</button>
+    ))}
+    <div className="tabs-balance">
+      Net Balance: <span className="v">₹{fmtINR2(balance)}</span>
+    </div>
+  </div>
+);
+
+const StatCard = ({icon, tone, label, value}) => (
+  <div className="stat-card">
+    <div className="flex items-start justify-between gap-2">
+      <div className="stat-label">{label}</div>
+      <div className="icon-chip" style={{background:tone}}>{icon}</div>
+    </div>
+    <div className="stat-value truncate">₹{value}</div>
+  </div>
+);
+
+const BankSelector = ({banks, bank, setBank, account, setAccount}) => {
+  const accounts = banks.find(b=>b.name===bank)?.accounts || [];
+  return (
+    <div className="bg-white rounded-xl p-4 border" style={{borderColor:"var(--line)"}}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <div className="label-text mb-1">Bank</div>
+          <select value={bank} onChange={e=>{setBank(e.target.value); setAccount("");}} className="input">
+            {banks.length===0 && <option value="">No banks for this branch</option>}
+            {banks.map(b=> <option key={b.name}>{b.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <div className="label-text mb-1">Account</div>
+          <select value={account} onChange={e=>setAccount(e.target.value)} className="input">
+            <option value="">Account Number</option>
+            {accounts.map(a=> <option key={a}>{a}</option>)}
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PartyChip = ({type}) => {
+  const cls = type==="Tenant"?"chip-tenant":type==="Contractor"?"chip-contractor":type==="Vendor"?"chip-vendor":"chip-other";
+  return <span className={`chip ${cls}`}>{type}</span>;
+};
+
+// ---------- Expense Register ----------
+const ExpenseRegister = ({rows, total, onAdd, onEdit, onDelete, onFilter}) => (
+  <div className="ledger-card">
+    <div className="accent"/>
+    <div className="body">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <button className="filter-btn" onClick={onFilter} title="Filter"><I.Filter/></button>
+          <h3 className="font-display text-base ink font-semibold">Expenses</h3>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="stat-inline">Total: <span className="v">₹{fmtINR2(total)}</span></div>
+          <button onClick={onAdd} className="btn-add flex items-center gap-1.5"><I.Plus/> Add Expense</button>
+        </div>
+      </div>
+
+      <div className="desk-table expenses-table-wrap table-scroll px-2">
+        <table className="ledger-table">
+          <colgroup>
+            <col style={{width:"4%"}}/>
+            <col style={{width:"10%"}}/>
+            <col style={{width:"20%"}}/>
+            <col style={{width:"13%"}}/>
+            <col style={{width:"9%"}}/>
+            <col style={{width:"12%"}}/>
+            <col style={{width:"10%"}}/>
+            <col style={{width:"10%"}}/>
+            <col style={{width:"7%"}}/>
+            <col style={{width:"5%"}}/>
+          </colgroup>
+          <thead>
+            <tr>
+              <th>#</th><th>Date</th><th>Project</th><th>Party</th><th>Type</th><th>Purpose</th><th className="text-right">Amount</th><th>Mode</th><th>Cheque</th><th className="text-right">·</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r,i)=>(
+              <tr key={r.id}>
+                <td className="font-semibold ink">{String(i+1).padStart(2,"0")}</td>
+                <td className="num-cell">{r.date}</td>
+                <td className="ink truncate-cell" title={r.project}>{r.project}</td>
+                <td className="truncate-cell" title={r.party}>{r.party}</td>
+                <td><PartyChip type={r.partyType}/></td>
+                <td className="truncate-cell" title={r.type}>{r.type}</td>
+                <td className="font-semibold ink num-cell text-right">₹{fmtINR(r.amount)}</td>
+                <td><span className="chip chip-mode truncate-cell" style={{maxWidth:"100%"}}>{r.mode}</span></td>
+                <td className="num-cell truncate-cell" title={r.chequeNo!=="-"?`${r.chequeNo} · ${r.chequeDate}`:""}>
+                  {r.chequeNo!=="-" ? <span className="ink font-semibold">{r.chequeNo}</span> : <span className="muted">—</span>}
+                </td>
+                <td>
+                  <div className="act-cell">
+                    <button onClick={()=>onEdit(r)} title="Edit"><I.Edit/></button>
+                    <button onClick={()=>onDelete(r)} title="Delete"><I.Trash/></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {rows.length===0 && <tr><td colSpan={10} className="text-center py-8 muted">No matching expenses.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mob-cards px-3 pb-4 pt-2">
+        {rows.map((r,i)=>(
+          <div key={r.id} className="mob-card">
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <div>
+                <div className="text-[11px] muted">#{String(i+1).padStart(2,"0")} · {r.date}</div>
+                <div className="ink font-semibold text-sm leading-snug mt-0.5">{r.project}</div>
+              </div>
+              <div className="font-bold ink num-cell">₹{fmtINR(r.amount)}</div>
+            </div>
+            <div className="text-xs muted">{r.party} • {r.type}</div>
+            <div className="flex items-center justify-between mt-2.5 gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <PartyChip type={r.partyType}/>
+                <span className="chip chip-mode">{r.mode}</span>
+                {r.chequeNo!=="-" && <span className="chip chip-mode">#{r.chequeNo}</span>}
+              </div>
+              <div className="act-cell">
+                <button onClick={()=>onEdit(r)}><I.Edit/></button>
+                <button onClick={()=>onDelete(r)}><I.Trash/></button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {rows.length===0 && <div className="text-center py-8 muted text-sm">No matching expenses.</div>}
+      </div>
+    </div>
+  </div>
+);
+
+// ---------- Income Register ----------
+const IncomeRegister = ({rows, total, onAdd, onEdit, onDelete}) => (
+  <div className="ledger-card">
+    <div className="accent"/>
+    <div className="body">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 gap-3 flex-wrap">
+        <h3 className="font-display text-base ink font-semibold">Income</h3>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="stat-inline income">Total: <span className="v">₹{fmtINR2(total)}</span></div>
+          <button onClick={onAdd} className="btn-add flex items-center gap-1.5"><I.Plus/> Add Income</button>
+        </div>
+      </div>
+
+      <div className="desk-table table-scroll px-2">
+        <table className="ledger-table">
+          <colgroup>
+            <col style={{width:"28%"}}/>
+            <col style={{width:"40%"}}/>
+            <col style={{width:"20%"}}/>
+            <col style={{width:"12%"}}/>
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Date</th><th>Account No</th><th className="text-right">Amount</th><th className="text-right">·</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r=>(
+              <tr key={r.id}>
+                <td className="num-cell">{r.date}</td>
+                <td className="font-mono text-[11.5px] truncate-cell" title={r.accountNo}>{r.accountNo}</td>
+                <td className="font-semibold ink num-cell text-right">₹{fmtINR(r.amount)}</td>
+                <td>
+                  <div className="act-cell">
+                    <button onClick={()=>onEdit(r)}><I.Edit/></button>
+                    <button onClick={()=>onDelete(r)}><I.Trash/></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {rows.length===0 && <tr><td colSpan={4} className="text-center py-8 muted">No income entries.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mob-cards px-3 pb-4 pt-2">
+        {rows.map(r=>(
+          <div key={r.id} className="mob-card">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-xs muted">{r.date}</div>
+                <div className="font-mono text-xs ink mt-0.5">{r.accountNo}</div>
+              </div>
+              <div className="act-cell">
+                <button onClick={()=>onEdit(r)}><I.Edit/></button>
+                <button onClick={()=>onDelete(r)}><I.Trash/></button>
+              </div>
+            </div>
+            <div className="font-bold ink mt-2 text-right num-cell">₹{fmtINR(r.amount)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// ---------- Modals ----------
+const ExpenseModal = ({open, initial, onClose, onSave}) => {
+  const empty = {date:new Date().toLocaleDateString("en-GB"), project:PROJECTS[0], party:"", partyType:"Tenant", type:"Rent Payment", amount:"", mode:"G-Pay", chequeNo:"-", chequeDate:"-"};
+  const [f,setF] = useState(initial||empty);
+  useEffect(()=>{ setF(initial||empty); }, [initial,open]);
+  if(!open) return null;
+  const set = (k,v)=>setF(s=>({...s,[k]:v}));
+  const save = () => { if(!f.party || !f.amount) return; onSave({...f, amount:Number(f.amount), id: f.id || Date.now()}); };
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-xl ink">{initial?"Edit Expense":"Add Expense"}</h3>
+          <button onClick={onClose} className="ink"><I.Close/></button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><div className="label-text mb-1">Date</div><input className="input num-cell" value={f.date} onChange={e=>set("date",e.target.value)} placeholder="DD/MM/YYYY"/></div>
+          <div><div className="label-text mb-1">Amount (₹)</div><input className="input num-cell" type="number" value={f.amount} onChange={e=>set("amount",e.target.value)} placeholder="0"/></div>
+          <div className="col-span-2"><div className="label-text mb-1">Project</div>
+            <select className="input" value={f.project} onChange={e=>set("project",e.target.value)}>{PROJECTS.map(p=><option key={p}>{p}</option>)}</select>
+          </div>
+          <div className="col-span-2 sm:col-span-1"><div className="label-text mb-1">Party Name</div><input className="input" value={f.party} onChange={e=>set("party",e.target.value)} placeholder="e.g. Welding Perumal"/></div>
+          <div className="col-span-2 sm:col-span-1"><div className="label-text mb-1">Party Type</div>
+            <select className="input" value={f.partyType} onChange={e=>set("partyType",e.target.value)}>{PARTY_TYPES.map(p=><option key={p}>{p}</option>)}</select>
+          </div>
+          <div className="col-span-2 sm:col-span-1"><div className="label-text mb-1">Purpose</div><input className="input" value={f.type} onChange={e=>set("type",e.target.value)} placeholder="Rent Payment"/></div>
+          <div className="col-span-2 sm:col-span-1"><div className="label-text mb-1">Payment Mode</div>
+            <select className="input" value={f.mode} onChange={e=>set("mode",e.target.value)}>{MODES.map(m=><option key={m}>{m}</option>)}</select>
+          </div>
+          {f.mode==="Cheque" && <>
+            <div><div className="label-text mb-1">Cheque No</div><input className="input num-cell" value={f.chequeNo==="-"?"":f.chequeNo} onChange={e=>set("chequeNo",e.target.value||"-")}/></div>
+            <div><div className="label-text mb-1">Cheque Date</div><input className="input num-cell" value={f.chequeDate==="-"?"":f.chequeDate} onChange={e=>set("chequeDate",e.target.value||"-")} placeholder="DD/MM/YYYY"/></div>
+          </>}
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-add" onClick={save}>{initial?"Save Changes":"Add Expense"}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const IncomeModal = ({open, initial, onClose, onSave}) => {
+  const empty = {date:new Date().toLocaleDateString("en-GB"), accountNo:"", amount:""};
+  const [f,setF] = useState(initial||empty);
+  useEffect(()=>{ setF(initial||empty); }, [initial,open]);
+  if(!open) return null;
+  const set = (k,v)=>setF(s=>({...s,[k]:v}));
+  const save = () => { if(!f.accountNo || !f.amount) return; onSave({...f, amount:Number(f.amount), id:f.id||Date.now()}); };
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-xl ink">{initial?"Edit Income":"Add Income"}</h3>
+          <button onClick={onClose} className="ink"><I.Close/></button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><div className="label-text mb-1">Date</div><input className="input num-cell" value={f.date} onChange={e=>set("date",e.target.value)} placeholder="DD/MM/YYYY"/></div>
+          <div><div className="label-text mb-1">Amount (₹)</div><input className="input num-cell" type="number" value={f.amount} onChange={e=>set("amount",e.target.value)} placeholder="0"/></div>
+          <div className="col-span-2"><div className="label-text mb-1">From Account No</div><input className="input num-cell" value={f.accountNo} onChange={e=>set("accountNo",e.target.value)} placeholder="e.g. 2029644256332"/></div>
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-add" onClick={save}>{initial?"Save Changes":"Add Income"}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FilterModal = ({open, value, onClose, onApply, onReset}) => {
+  const [f,setF] = useState(value);
+  useEffect(()=>{ setF(value); }, [value, open]);
+  if(!open) return null;
+  const set = (k,v)=>setF(s=>({...s,[k]:v}));
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-xl ink">Filter Expenses</h3>
+          <button onClick={onClose} className="ink"><I.Close/></button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2"><div className="label-text mb-1">Search</div><input className="input" value={f.q} onChange={e=>set("q",e.target.value)} placeholder="Project, party, type..."/></div>
+          <div><div className="label-text mb-1">Party Type</div>
+            <select className="input" value={f.partyType} onChange={e=>set("partyType",e.target.value)}><option value="">All</option>{PARTY_TYPES.map(p=><option key={p}>{p}</option>)}</select>
+          </div>
+          <div><div className="label-text mb-1">Payment Mode</div>
+            <select className="input" value={f.mode} onChange={e=>set("mode",e.target.value)}><option value="">All</option>{MODES.map(m=><option key={m}>{m}</option>)}</select>
+          </div>
+          <div><div className="label-text mb-1">Min Amount</div><input className="input num-cell" type="number" value={f.min} onChange={e=>set("min",e.target.value)}/></div>
+          <div><div className="label-text mb-1">Max Amount</div><input className="input num-cell" type="number" value={f.max} onChange={e=>set("max",e.target.value)}/></div>
+        </div>
+        <div className="flex justify-between gap-2 mt-5">
+          <button className="btn-ghost" onClick={()=>{onReset(); onClose();}}>Reset</button>
+          <div className="flex gap-2">
+            <button className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button className="btn-add" onClick={()=>{onApply(f); onClose();}}>Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---------- App ----------
+const App = () => {
+  const [tab,setTab] = useState('Bank Payments');
+  const [branch,setBranch] = useState('srivilliputtur');
+  const banksForBranch = useMemo(()=> BANKS.filter(b=>b.branch===BRANCHES.find(x=>x.id===branch)?.name), [branch]);
+  const [bank,setBank] = useState(banksForBranch[0]?.name || "");
+  const [account,setAccount] = useState("");
+  useEffect(()=>{ if(banksForBranch.length){ setBank(banksForBranch[0].name); setAccount(""); } },[branch]);
+
+  const [expenses,setExpenses] = useState(SEED_EXPENSES);
+  const [income,setIncome] = useState(SEED_INCOME);
+  const [expModal,setExpModal] = useState({open:false, initial:null});
+  const [incModal,setIncModal] = useState({open:false, initial:null});
+  const [filter,setFilter] = useState({q:"",partyType:"",mode:"",min:"",max:""});
+  const [filterOpen,setFilterOpen] = useState(false);
+  const [toast,setToast] = useState("");
+  const [sideOpen,setSideOpen] = useState(false);
+
+  const filteredExpenses = useMemo(()=>{
+    return expenses.filter(r=>{
+      if(filter.q && !`${r.project} ${r.party} ${r.type} ${r.mode}`.toLowerCase().includes(filter.q.toLowerCase())) return false;
+      if(filter.partyType && r.partyType!==filter.partyType) return false;
+      if(filter.mode && r.mode!==filter.mode) return false;
+      if(filter.min && r.amount < Number(filter.min)) return false;
+      if(filter.max && r.amount > Number(filter.max)) return false;
+      return true;
+    });
+  },[expenses,filter]);
+
+  const totalExpense = filteredExpenses.reduce((s,r)=>s+r.amount,0);
+  const totalIncome = income.reduce((s,r)=>s+r.amount,0);
+  const upiTotal = expenses.filter(r=>["G-Pay","PhonePe","Paytm"].includes(r.mode)).reduce((s,r)=>s+r.amount,0);
+  const chequeTotal = expenses.filter(r=>r.mode==="Cheque").reduce((s,r)=>s+r.amount,0);
+  const netbankTotal = expenses.filter(r=>["Net Banking","RTGS","NEFT"].includes(r.mode)).reduce((s,r)=>s+r.amount,0);
+  const balance = totalIncome - totalExpense;
+
+  const showToast = (m) => { setToast(m); setTimeout(()=>setToast(""),2000); };
+  const saveExpense = (r) => { setExpenses(prev=> prev.some(x=>x.id===r.id) ? prev.map(x=>x.id===r.id?r:x) : [r,...prev]); setExpModal({open:false,initial:null}); showToast("Saved"); };
+  const saveIncome = (r) => { setIncome(prev=> prev.some(x=>x.id===r.id) ? prev.map(x=>x.id===r.id?r:x) : [r,...prev]); setIncModal({open:false,initial:null}); showToast("Saved"); };
+  const deleteExp = (r) => { if(!confirm(`Delete expense for ${r.party} (₹${fmtINR(r.amount)})?`)) return; setExpenses(prev=>prev.filter(x=>x.id!==r.id)); showToast("Deleted"); };
+  const deleteInc = (r) => { if(!confirm(`Delete income of ₹${fmtINR(r.amount)}?`)) return; setIncome(prev=>prev.filter(x=>x.id!==r.id)); showToast("Deleted"); };
+
+  const combined = useMemo(()=>{
+    const a = expenses.map(r=>({...r,kind:"out"}));
+    const b = income.map(r=>({...r,kind:"in"}));
+    return [...a,...b].sort((x,y)=> y.date.split("/").reverse().join("").localeCompare(x.date.split("/").reverse().join("")));
+  },[expenses,income]);
+
+  return (
+    <div>
+      <TopBar branch={branch} setBranch={setBranch}/>
+      <TabsRow tab={tab} setTab={setTab} balance={balance}/>
+
+      <div className="shell">
+        {tab==='Bank Payments' && (
+          <>
+            <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+              <div>
+                <h1 className="font-display text-2xl sm:text-3xl ink">Bank Records</h1>
+                <p className="text-xs muted mt-0.5">From: <span className="font-semibold ink">01-04-2026</span> &nbsp;To <span className="font-semibold ink">04-05-2026</span></p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 mb-5">
+              <div className="lg:col-span-4">
+                <BankSelector banks={banksForBranch} bank={bank} setBank={setBank} account={account} setAccount={setAccount}/>
+              </div>
+              <div className="lg:col-span-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <StatCard label="UPI Amount" tone="#FFF1D6" icon={<I.UPI/>} value={fmtINR2(upiTotal)}/>
+                <StatCard label="Cheque Amount" tone="#FBE9D6" icon={<I.Cheque/>} value={fmtINR2(chequeTotal)}/>
+                <StatCard label="Net Banking" tone="#E0F1E5" icon={<I.NetBank/>} value={fmtINR2(netbankTotal)}/>
+                <StatCard label="Total Balance" tone="#EFE2FF" icon={<I.Wallet/>} value={fmtINR2(balance)}/>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-9">
+                <ExpenseRegister
+                  rows={filteredExpenses}
+                  total={totalExpense}
+                  onAdd={()=>setExpModal({open:true,initial:null})}
+                  onEdit={(r)=>setExpModal({open:true,initial:r})}
+                  onDelete={deleteExp}
+                  onFilter={()=>setFilterOpen(true)}
+                />
+              </div>
+              <aside className={`lg:col-span-3 side-col ${sideOpen?'open':''}`}>
+                <div className="lg:hidden flex items-center justify-between mb-3">
+                  <h2 className="font-display text-lg ink">Income</h2>
+                  <button className="icon-btn" onClick={()=>setSideOpen(false)}><I.Close/></button>
+                </div>
+                <IncomeRegister rows={income} total={totalIncome} onAdd={()=>setIncModal({open:true,initial:null})} onEdit={(r)=>setIncModal({open:true,initial:r})} onDelete={deleteInc}/>
+              </aside>
+              <div className={`side-overlay ${sideOpen?'open':''}`} onClick={()=>setSideOpen(false)}></div>
+            </div>
+          </>
+        )}
+
+        {tab==='History' && (
+          <div className="ledger-card"><div className="accent"/><div className="body p-4">
+            <h2 className="font-display text-xl ink mb-3">Transaction History</h2>
+            {combined.map(t=>(
+              <div key={`${t.kind}-${t.id}`} className="flex items-center justify-between gap-3 py-2.5 border-b" style={{borderColor:"var(--line-soft)"}}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="icon-chip" style={{background:t.kind==='in'?'#E0F1E5':'#FFE7E7',width:32,height:32,borderRadius:8}}>
+                    <span style={{color:t.kind==='in'?'var(--green)':'var(--red)',fontWeight:700,fontSize:14}}>{t.kind==='in'?'+':'−'}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold ink truncate-cell">{t.kind==='in' ? `Income — ${t.accountNo}` : `${t.party} • ${t.project}`}</div>
+                    <div className="text-xs muted">{t.date} {t.kind==='out' && `• ${t.mode}`}</div>
+                  </div>
+                </div>
+                <div className="font-semibold whitespace-nowrap num-cell" style={{color:t.kind==='in'?'var(--green)':'var(--ink)'}}>
+                  {t.kind==='in'?'+':'−'} ₹{fmtINR(t.amount)}
+                </div>
+              </div>
+            ))}
+          </div></div>
+        )}
+
+        {tab==='Reconcile' && (
+          <div className="ledger-card"><div className="accent"/><div className="body p-5">
+            <h2 className="font-display text-xl ink mb-1">Reconcile</h2>
+            <p className="text-sm muted mb-5">Match bank statement entries against the ERP ledger.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="stat-card"><div className="stat-label">Total Income</div><div className="stat-value">₹{fmtINR2(totalIncome)}</div></div>
+              <div className="stat-card"><div className="stat-label">Total Expense</div><div className="stat-value" style={{color:"var(--red)"}}>₹{fmtINR2(totalExpense)}</div></div>
+              <div className="stat-card"><div className="stat-label">Net Balance</div><div className="stat-value" style={{color:balance>=0?"var(--green)":"var(--red)"}}>₹{fmtINR2(balance)}</div></div>
+            </div>
+            <p className="text-xs muted mt-4 italic">Bank statement upload &amp; match — coming soon.</p>
+          </div></div>
+        )}
+      </div>
+
+      {tab==='Bank Payments' && (
+        <button className="side-fab" onClick={()=>setSideOpen(true)}>
+          <I.Coin/>
+          <span>Income · ₹{fmtINR(totalIncome)}</span>
+        </button>
+      )}
+
+      <ExpenseModal open={expModal.open} initial={expModal.initial} onClose={()=>setExpModal({open:false,initial:null})} onSave={saveExpense}/>
+      <IncomeModal open={incModal.open} initial={incModal.initial} onClose={()=>setIncModal({open:false,initial:null})} onSave={saveIncome}/>
+      <FilterModal open={filterOpen} value={filter} onClose={()=>setFilterOpen(false)} onApply={setFilter} onReset={()=>setFilter({q:"",partyType:"",mode:"",min:"",max:""})}/>
+
+      {toast && <div className="toast">{toast}</div>}
+      <div className="badge-build">BANK · BUILD {BUILD}</div>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+console.log("%cAA Builders ERP — Bank Register","color:#D6AB60;font-weight:700;font-size:13px;","build", BUILD);
+</script>
+</body>
+</html>

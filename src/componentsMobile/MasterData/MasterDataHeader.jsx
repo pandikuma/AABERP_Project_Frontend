@@ -231,7 +231,7 @@ const MasterDataHeader = ({
               </svg>
               <span>Back</span>
             </button>
-            <button type="button" onClick={onDrillDownload} className="text-[12px] font-medium text-black">
+            <button type="button" onClick={onDrillDownload} className="text-[12px] font-semibold text-black">
               Download
             </button>
           </>

@@ -379,8 +379,15 @@ const MasterData = ({ username, userRoles = [] }) => {
 
   const projectSiteEngineerSelectStyles = useMemo(
     () => ({
+      container: (provided) => ({
+        ...provided,
+        width: '100%',
+        minWidth: 0,
+      }),
       control: (provided, state) => ({
         ...provided,
+        width: '100%',
+        minWidth: 0,
         minHeight: '56px',
         height: '56px',
         border: '2px solid rgba(191, 152, 83, 0.3)',
@@ -389,8 +396,25 @@ const MasterData = ({ username, userRoles = [] }) => {
         '&:hover': { borderColor: 'rgba(191, 152, 83, 0.5)' },
         ...(state.isFocused && { borderColor: '#BF9853', boxShadow: 'none' }),
       }),
-      valueContainer: (provided) => ({ ...provided, height: '52px', padding: '2px 8px' }),
-      indicatorsContainer: (provided) => ({ ...provided, height: '52px' }),
+      valueContainer: (provided) => ({
+        ...provided,
+        height: '52px',
+        minWidth: 0,
+        overflow: 'hidden',
+        padding: '2px 8px',
+      }),
+      singleValue: (provided) => ({
+        ...provided,
+        maxWidth: '100%',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }),
+      indicatorsContainer: (provided) => ({
+        ...provided,
+        height: '52px',
+        flexDirection: 'row-reverse',
+      }),
       menuPortal: (base, portalProps) => ({
         ...base,
         zIndex: 9999,
