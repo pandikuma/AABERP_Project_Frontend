@@ -6425,7 +6425,7 @@ const MasterData = ({ user, onLogout }) => {
         className="flex flex-col overflow-hidden"
         style={{ height: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="shrink-0 mt-[6px]">
+        <div className="shrink-0 mt-[4px]">
           <div className="flex items-center gap-[10px]">
             <div className="relative flex-1">
               <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -6603,8 +6603,8 @@ const MasterData = ({ user, onLogout }) => {
 
         <div className="flex min-h-0 flex-1 items-start px-[2px] pt-[6px] pb-[4px]">
           <div className="flex max-h-full w-full flex-col overflow-hidden rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
-            <div className="h-[32px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px]">
-              <div className="flex w-full min-w-0 items-center justify-between gap-[8px]">
+            <div className="h-[45px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px] py-[25px]">
+              <div className="flex h-full min-w-0 items-center justify-between gap-[8px]">
                 <div className="flex min-w-0 items-center">
                   <span className="w-[28px] shrink-0" />
                   <div className="flex min-w-0 items-center gap-[6px]">
@@ -7004,7 +7004,7 @@ const MasterData = ({ user, onLogout }) => {
       className="flex flex-col overflow-hidden"
       style={{ height: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))' }}
     >
-      <div className="shrink-0 mt-[6px]">
+      <div className="shrink-0 mt-[4px] mb-[6px]">
         <div className="flex items-center gap-[10px]">
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -7069,10 +7069,10 @@ const MasterData = ({ user, onLogout }) => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-start px-[2px] mt-[6px] pb-[4px]">
+      <div className="flex min-h-0 flex-1 items-start px-[2px] pb-[4px]">
         <div className="flex max-h-full w-full flex-col overflow-hidden rounded-[10px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)]">
-          <div className="h-[32px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px]">
-            <div className="flex items-center gap-[4px]">
+          <div className="h-[45px] border-b border-[#EFEFEF] bg-[#F8F8F8] px-[14px] py-[25px]">
+            <div className="flex h-full items-center gap-[4px]">
               <span className="w-[28px]" />
               <div className="flex items-center">
                 <span className="text-[14px] font-semibold text-black">Project Name</span>
@@ -7819,7 +7819,7 @@ const MasterData = ({ user, onLogout }) => {
               minHeight: 'calc(100vh - 126px - 60px - 18px - env(safe-area-inset-bottom, 0px))'
             }}
           >
-            <div className=" shrink-0 mt-[6px]">
+            <div className=" shrink-0 mt-[4px]">
               <div className="relative">
                 <span className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]">
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -7837,7 +7837,7 @@ const MasterData = ({ user, onLogout }) => {
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-start overflow-y-auto pt-[6px]">
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-start overflow-y-auto pt-[8px]">
               <div className="w-full rounded-[14px] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.08)] overflow-hidden">
                 {filteredItems.map((item, index) => (
                   <button
