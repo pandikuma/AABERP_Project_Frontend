@@ -9,7 +9,16 @@ import XL from '../Images/sheets.png';
 import edit from '../Images/Edit.svg';
 import Attach from '../Images/Attachfile.svg';
 import cross from '../Images/cross.png';
-const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] }) => {
+const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], refreshSignal }) => {
+  const BLANK_VALUE = 'BLANK';
+  const BLANK_LABEL = 'Blank';
+  const blankOption = { value: BLANK_VALUE, label: BLANK_LABEL };
+  const isBlankish = (value) =>
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && value.trim() === '') ||
+    value === 0 ||
+    value === '0';
   const resolveActiveBranchId = useCallback(() => {
     try {
       const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -607,26 +616,34 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     };
     fetchSites();
   }, []);
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setProgress(85);
-        const response = await fetch(buildBranchUrl('https://backendaab.in/demoAabuildersDash/api/advance_portal/getAll'));
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const data = await response.json();
-        setAdvanceData(data);
-        setProgress(100);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching advance portal data:', error);
-        setError('Failed to load advance data');
-        setLoading(false);
+  const fetchAdvanceData = useCallback(async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      setProgress(85);
+      const response = await fetch(buildBranchUrl('https://backendaab.in/demoAabuildersDash/api/advance_portal/getAll'));
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-    };
-    fetchData();
+      const data = await response.json();
+      setAdvanceData(Array.isArray(data) ? data : []);
+      setProgress(100);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching advance portal data:', error);
+      setError('Failed to load advance data');
+      setLoading(false);
+    }
   }, [buildBranchUrl]);
+
+  useEffect(() => {
+    fetchAdvanceData();
+  }, [fetchAdvanceData]);
+
+  useEffect(() => {
+    if (refreshSignal === undefined) return;
+    fetchAdvanceData();
+  }, [refreshSignal, fetchAdvanceData]);
   const formatDateOnly = (dateString) => {
     const date = new Date(dateString);
     const day = String(date.getDate()).padStart(2, '0');
@@ -672,38 +689,72 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
         entry.vendor_id
           ? getVendorName(entry.vendor_id)
           : getContractorName(entry.contractor_id) || "";
-      if (name.toLowerCase() !== selectContractororVendorName.toLowerCase())
-        return false;
+      if (selectContractororVendorName === BLANK_VALUE) {
+        if (!isBlankish(name)) return false;
+      } else {
+        if (name.toLowerCase() !== selectContractororVendorName.toLowerCase()) return false;
+      }
     }
     if (selectProjectName) {
       const projectName = getSiteName(entry.project_id) || "";
-      if (projectName.toLowerCase() !== selectProjectName.toLowerCase())
-        return false;
+      if (selectProjectName === BLANK_VALUE) {
+        if (!isBlankish(projectName)) return false;
+      } else {
+        if (projectName.toLowerCase() !== selectProjectName.toLowerCase()) return false;
+      }
     }
     if (selectTransfer) {
       const transferName = getSiteName(entry.transfer_site_id) || "";
-      if (transferName.toLowerCase() !== selectTransfer.toLowerCase())
-        return false;
+      if (selectTransfer === BLANK_VALUE) {
+        if (!isBlankish(transferName)) return false;
+      } else {
+        if (transferName.toLowerCase() !== selectTransfer.toLowerCase()) return false;
+      }
     }
     if (selectType) {
-      if (entry.type?.toLowerCase() !== selectType.toLowerCase()) return false;
+      if (selectType === BLANK_VALUE) {
+        if (!isBlankish(entry.type)) return false;
+      } else {
+        if (entry.type?.toLowerCase() !== selectType.toLowerCase()) return false;
+      }
     }
     if (selectMode) {
-      if (entry.payment_mode?.toLowerCase() !== selectMode.toLowerCase()) return false;
+      if (selectMode === BLANK_VALUE) {
+        if (!isBlankish(entry.payment_mode)) return false;
+      } else {
+        if (entry.payment_mode?.toLowerCase() !== selectMode.toLowerCase()) return false;
+      }
     }
     if (selectEntryNo) {
-      if (!entry.entry_no?.toString().includes(selectEntryNo.toString())) return false;
+      if (selectEntryNo === BLANK_VALUE) {
+        if (!isBlankish(entry.entry_no)) return false;
+      } else {
+        if (!entry.entry_no?.toString().includes(selectEntryNo.toString())) return false;
+      }
     }
     if (selectSourceFrom) {
       const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
-      if (String(sourceVal).toLowerCase() !== String(selectSourceFrom).toLowerCase()) return false;
+      if (selectSourceFrom === BLANK_VALUE) {
+        if (!isBlankish(sourceVal)) return false;
+      } else {
+        if (String(sourceVal).toLowerCase() !== String(selectSourceFrom).toLowerCase()) return false;
+      }
     }
     if (selectBranch) {
-      if (String(entry.branch_id ?? entry.branchId ?? '') !== String(selectBranch)) return false;
+      const branchVal = entry.branch_id ?? entry.branchId ?? '';
+      if (selectBranch === BLANK_VALUE) {
+        if (!isBlankish(branchVal)) return false;
+      } else {
+        if (String(branchVal) !== String(selectBranch)) return false;
+      }
     }
     if (selectEnteredBy) {
       const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
-      if (String(enteredVal).toLowerCase() !== String(selectEnteredBy).toLowerCase()) return false;
+      if (selectEnteredBy === BLANK_VALUE) {
+        if (!isBlankish(enteredVal)) return false;
+      } else {
+        if (String(enteredVal).toLowerCase() !== String(selectEnteredBy).toLowerCase()) return false;
+      }
     }
     return true;
   });
@@ -718,6 +769,15 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     const uniqueSources = new Set();
     const uniqueBranchIds = new Set();
     const uniqueEnteredBy = new Set();
+    let hasBlankVendorContractor = false;
+    let hasBlankProject = false;
+    let hasBlankTransfer = false;
+    let hasBlankType = false;
+    let hasBlankMode = false;
+    let hasBlankEntryNo = false;
+    let hasBlankSource = false;
+    let hasBlankBranch = false;
+    let hasBlankEnteredBy = false;
     advanceData.forEach(entry => {
       if (entry.vendor_id) {
         const vendorName = getVendorName(entry.vendor_id);
@@ -727,29 +787,34 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
         const contractorName = getContractorName(entry.contractor_id);
         if (contractorName) uniqueContractors.add(contractorName);
       }
+      if (!entry.vendor_id && !entry.contractor_id) hasBlankVendorContractor = true;
       if (entry.project_id) {
         const projectName = getSiteName(entry.project_id);
         if (projectName) uniqueProjectIds.add(projectName);
+      } else {
+        hasBlankProject = true;
       }
       if (entry.transfer_site_id) {
         const transferName = getSiteName(entry.transfer_site_id);
         if (transferName) uniqueTransferSiteIds.add(transferName);
+      } else {
+        hasBlankTransfer = true;
       }
-      if (entry.type) {
-        uniqueTypes.add(entry.type);
-      }
-      if (entry.payment_mode) {
-        uniqueModes.add(entry.payment_mode);
-      }
-      if (entry.entry_no) {
-        uniqueEntryNos.add(entry.entry_no.toString());
-      }
+      if (entry.type) uniqueTypes.add(entry.type);
+      else hasBlankType = true;
+      if (entry.payment_mode) uniqueModes.add(entry.payment_mode);
+      else hasBlankMode = true;
+      if (entry.entry_no) uniqueEntryNos.add(entry.entry_no.toString());
+      else hasBlankEntryNo = true;
       const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
       if (sourceVal) uniqueSources.add(String(sourceVal));
+      else hasBlankSource = true;
       const branchId = entry.branch_id ?? entry.branchId;
       if (branchId != null && branchId !== '') uniqueBranchIds.add(String(branchId));
+      else hasBlankBranch = true;
       const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
       if (enteredVal) uniqueEnteredBy.add(String(enteredVal));
+      else hasBlankEnteredBy = true;
     });
     const vendorContractorOptions = [
       ...Array.from(uniqueVendors).map(name => {
@@ -761,21 +826,24 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
         return contractor || { value: name, label: name, type: 'Contractor' };
       })
     ].sort((a, b) => a.label.localeCompare(b.label));
+    if (hasBlankVendorContractor) vendorContractorOptions.unshift(blankOption);
     const projectOptions = Array.from(uniqueProjectIds)
       .map(name => {
         const site = siteOptions.find(s => s.value === name);
         return site || { value: name, label: name, id: null };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
+    if (hasBlankProject) projectOptions.unshift(blankOption);
     const transferSiteOptions = Array.from(uniqueTransferSiteIds)
       .map(name => {
         const site = siteOptions.find(s => s.value === name);
         return site || { value: name, label: name, id: null };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
-    const typeOptions = Array.from(uniqueTypes).sort();
-    const modeOptions = Array.from(uniqueModes).sort();
-    const entryNoOptions = Array.from(uniqueEntryNos).sort((a, b) => Number(a) - Number(b));
+    if (hasBlankTransfer) transferSiteOptions.unshift(blankOption);
+    const typeOptions = (hasBlankType ? [BLANK_VALUE] : []).concat(Array.from(uniqueTypes).sort());
+    const modeOptions = (hasBlankMode ? [BLANK_VALUE] : []).concat(Array.from(uniqueModes).sort());
+    const entryNoOptions = (hasBlankEntryNo ? [BLANK_VALUE] : []).concat(Array.from(uniqueEntryNos).sort((a, b) => Number(a) - Number(b)));
     return {
       vendorContractorOptions,
       projectOptions,
@@ -783,14 +851,14 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
       typeOptions,
       modeOptions,
       entryNoOptions,
-      sourceFromOptions: Array.from(uniqueSources).sort(),
+      sourceFromOptions: (hasBlankSource ? [BLANK_VALUE] : []).concat(Array.from(uniqueSources).sort()),
       branchOptions: Array.from(uniqueBranchIds)
         .map((id) => ({
           value: id,
           label: branchOptions.find((br) => String(br.id) === String(id))?.branch || String(id),
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
-      enteredByOptions: Array.from(uniqueEnteredBy).sort(),
+      enteredByOptions: (hasBlankEnteredBy ? [BLANK_VALUE] : []).concat(Array.from(uniqueEnteredBy).sort()),
     };
   }, [advanceData, vendorOptions, contractorOptions, siteOptions, branchOptions]);
   const sortedData = React.useMemo(() => {
@@ -835,6 +903,10 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
             aValue = String(a.enteredBy ?? a.entered_by ?? a.request_send_by ?? a.requested_by ?? a.createdBy ?? a.created_by ?? '');
             bValue = String(b.enteredBy ?? b.entered_by ?? b.request_send_by ?? b.requested_by ?? b.createdBy ?? b.created_by ?? '');
             break;
+          case 'entryNo':
+            aValue = Number(a.entry_no) || 0;
+            bValue = Number(b.entry_no) || 0;
+            break;
           default:
             return 0;
         }
@@ -845,21 +917,30 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
           if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
           return sortConfig.direction === 'asc' ? entryA - entryB : entryB - entryA;
         }
+        if (sortConfig.key === 'entryNo') {
+          if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+          // tie-break: newer date first, then entry_no desc
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          const dateDiff = dateB - dateA;
+          if (dateDiff !== 0) return dateDiff;
+          return entryB - entryA;
+        }
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return entryA - entryB;
       });
     } else {
       sortableData.sort((a, b) => {
+        // Default: latest entry_no first (descending)
+        const entryA = Number(a.entry_no) || 0;
+        const entryB = Number(b.entry_no) || 0;
+        if (entryB !== entryA) return entryB - entryA;
+        // tie-break: newer date first
         const dateA = new Date(a.date);
         const dateB = new Date(b.date);
-        const dateDiff = dateB - dateA;
-        if (dateDiff === 0) {
-          const entryA = Number(a.entry_no) || 0;
-          const entryB = Number(b.entry_no) || 0;
-          return entryB - entryA;
-        }
-        return dateDiff;
+        return dateB - dateA;
       });
     }
     return sortableData;
@@ -1224,7 +1305,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
           )
         );
       }
-      window.location.reload();
+      await fetchAdvanceData();
       setIsEditModalOpen(false);
       setSelectedFile(null);
       if (fileInputRef.current) {
@@ -1244,25 +1325,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
     },
     { amount: 0, bill_amount: 0, refund_amount: 0 }
   );
-  if (loading) {
-    return (
-      <body className='bg-[#FAF6ED]'>
-        <div className='bg-white w-full max-w-[1850px] h-[500px] rounded-md p-10 ml-4 mr-4 sm:ml-6 lg:ml-10 lg:mr-10 flex flex-col items-center justify-center'>
-          <div className="text-lg mb-4">Loading advance table data...</div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#BF9853] mb-4"></div>
-          <div className="text-sm text-gray-600">
-            Progress: {progress}%
-          </div>
-          <div className="w-64 bg-gray-200 rounded-full h-2 mt-2">
-            <div
-              className="bg-[#BF9853] h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-        </div>
-      </body>
-    );
-  }
+  // Keep rendering the page while loading; data will populate once fetched.
   if (error) {
     return (
       <body className='bg-[#FAF6ED]'>
@@ -1330,7 +1393,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
             </div>
           </div>
         </div>
-        <div className="w-full max-w-[1860px] mx-auto p-4 bg-white shadow-lg overflow-x-auto mt-4">
+        <div className="max-w-[1850px] bg-white shadow-lg overflow-x-auto mt-4 ml-10 mr-10 p-4">
           <div
             className={`text-left flex ${selectDate || selectContractororVendorName || selectProjectName || selectTransfer || selectType || selectMode || selectEntryNo || selectSourceFrom || selectBranch || selectEnteredBy || startDate || endDate
               ? 'flex-col sm:flex-row sm:justify-between'
@@ -1503,7 +1566,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                     <th className="px-0.5 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('enteredBy')}>
                       Entered By {sortConfig.key === 'enteredBy' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </th>
-                    <th className="px-0.5 w-[100px] font-bold text-left select-none">E.No</th>
+                    <th className="px-0.5 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('entryNo')}>
+                      E.No {sortConfig.key === 'entryNo' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
                     <th className="px-0.5 w-[60px] font-bold text-left select-none">File</th>
                     <th className="px-0.5 w-[60px] font-bold text-left select-none">Edit</th>
                   </tr>
@@ -1558,7 +1623,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                       <th className=" py-3">
                         <Select
                           className="w-full"
-                          options={filterOptionsFromData.typeOptions.map((t) => ({ value: t, label: t }))}
+                          options={filterOptionsFromData.typeOptions.map((t) =>
+                            t === BLANK_VALUE ? blankOption : { value: t, label: t }
+                          )}
                           value={selectType ? { value: selectType, label: selectType } : null}
                           onChange={(opt) => setSelectType(opt ? opt.value : '')}
                           placeholder="Type"
@@ -1572,7 +1639,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                       <th className=" py-3">
                         <Select
                           className="w-full"
-                          options={filterOptionsFromData.modeOptions.map((m) => ({ value: m, label: m }))}
+                          options={filterOptionsFromData.modeOptions.map((m) =>
+                            m === BLANK_VALUE ? blankOption : { value: m, label: m }
+                          )}
                           value={selectMode ? { value: selectMode, label: selectMode } : null}
                           onChange={(opt) => setSelectMode(opt ? opt.value : '')}
                           placeholder="Mode"
@@ -1585,7 +1654,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                       <th className=" py-3">
                         <Select
                           className="w-full"
-                          options={filterOptionsFromData.sourceFromOptions.map((v) => ({ value: v, label: v }))}
+                          options={filterOptionsFromData.sourceFromOptions.map((v) =>
+                            v === BLANK_VALUE ? blankOption : { value: v, label: v }
+                          )}
                           value={selectSourceFrom ? { value: selectSourceFrom, label: selectSourceFrom } : null}
                           onChange={(opt) => setSelectSourceFrom(opt ? opt.value : '')}
                           placeholder="Source From"
@@ -1611,7 +1682,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                       <th className=" py-3">
                         <Select
                           className="w-full"
-                          options={filterOptionsFromData.enteredByOptions.map((v) => ({ value: v, label: v }))}
+                          options={filterOptionsFromData.enteredByOptions.map((v) =>
+                            v === BLANK_VALUE ? blankOption : { value: v, label: v }
+                          )}
                           value={selectEnteredBy ? { value: selectEnteredBy, label: selectEnteredBy } : null}
                           onChange={(opt) => setSelectEnteredBy(opt ? opt.value : '')}
                           placeholder="Entered By"
@@ -1624,7 +1697,9 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [] })
                       <th className=" py-3">
                         <Select
                           className="w-full"
-                          options={filterOptionsFromData.entryNoOptions.map((n) => ({ value: String(n), label: String(n) }))}
+                          options={filterOptionsFromData.entryNoOptions.map((n) =>
+                            String(n) === BLANK_VALUE ? blankOption : { value: String(n), label: String(n) }
+                          )}
                           value={selectEntryNo ? { value: String(selectEntryNo), label: String(selectEntryNo) } : null}
                           onChange={(opt) => setSelectEntryNo(opt ? opt.value : '')}
                           placeholder="E.No"

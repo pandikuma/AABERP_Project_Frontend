@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import edit from '../Images/Edit.svg';
+import { useUtilityHubTableDragScroll } from './useUtilityHubTableDragScroll';
 
 const SUBSCRIPTION_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-subscription/getAll';
 const PROJECTS_ENDPOINT = 'https://backendaab.in/demoAabuilderDash/api/projects/getAll';
@@ -26,6 +27,36 @@ const monthMap = {
   Oct: '10',
   Nov: '11',
   Dec: '12'
+};
+
+const normalizeShopNoKey = (shopNo) => {
+  const raw = (shopNo ?? '').toString().trim();
+  if (!raw || raw === '-') return { empty: true, letters: '', number: 0, raw: '' };
+  const str = raw.replace(/\s+/g, '').toUpperCase();
+  if (!str) return { empty: true, letters: '', number: 0, raw: '' };
+  const letterMatch = str.match(/^([A-Z]{1,2})/);
+  const letters = letterMatch ? letterMatch[1] : '';
+  const numberMatch = str.match(/(\d+)/);
+  const number = numberMatch ? parseInt(numberMatch[1], 10) : 0;
+  return { empty: false, letters, number, raw: str };
+};
+
+const comparePropertyShopNoAsc = (a, b) => {
+  const pa = normalizeShopNoKey(a?.shopNo);
+  const pb = normalizeShopNoKey(b?.shopNo);
+  if (pa.empty !== pb.empty) return pa.empty ? 1 : -1;
+  if (pa.empty && pb.empty) return 0;
+  if (pa.letters !== pb.letters) return pa.letters < pb.letters ? -1 : pa.letters > pb.letters ? 1 : 0;
+  if (pa.number !== pb.number) return pa.number - pb.number;
+  return pa.raw.localeCompare(pb.raw, undefined, { numeric: true, sensitivity: 'base' });
+};
+
+const sortProjectsSubscriptionDetailsByShopNo = (projects) => {
+  if (!Array.isArray(projects)) return [];
+  return projects.map((p) => ({
+    ...p,
+    subscriptionDetails: [...(p.subscriptionDetails || [])].sort(comparePropertyShopNoAsc)
+  }));
 };
 
 const customSelectStyles = {
@@ -51,7 +82,9 @@ const customSelectStyles = {
   placeholder: (provided) => ({
     ...provided,
     color: '#9CA3AF'
-  })
+  }),
+  menuPortal: (base) => ({ ...base, zIndex: 100000 }),
+  menu: (base) => ({ ...base, zIndex: 100000 })
 };
 
 const toLower = (value) => (value ? value.toString().toLowerCase() : '');
@@ -84,6 +117,8 @@ const formatAmount = (value) => {
 const SubscriptionTab = () => {
   const [filters, setFilters] = useState({
     year: new Date().getFullYear().toString(),
+    month: monthLabels[new Date().getMonth()],
+    paymentStatus: '',
     provider: '',
     serviceNumber: '',
     registered: '',
@@ -109,6 +144,16 @@ const SubscriptionTab = () => {
   });
   const [selectedRowData, setSelectedRowData] = useState(null);
   const [submittedFrequencyData, setSubmittedFrequencyData] = useState({});
+  const paymentStatusOptions = [
+    { value: 'Paid', label: 'Paid' },
+    { value: 'Unpaid', label: 'Unpaid' }
+  ];
+  const selectPortalProps = {
+    menuPortalTarget: document.body,
+    menuPosition: 'fixed'
+  };
+
+  const { scrollRef, onMouseDown, onMouseMove, onMouseUp, onMouseLeave } = useUtilityHubTableDragScroll();
 
   useEffect(() => {
     const fetchSubscriptionData = async () => {
@@ -178,6 +223,18 @@ const SubscriptionTab = () => {
               planNumber: entry.plan_number ?? entry.planNumber ?? '',
               serviceType: entry.service_type ?? entry.serviceType ?? '',
               serviceNumber,
+              shopNo:
+                entry.shop_no ??
+                entry.shopNo ??
+                entry.shop_number ??
+                entry.shopNumber ??
+                '',
+              doorNo:
+                entry.door_no ??
+                entry.doorNo ??
+                entry.door_number ??
+                entry.doorNumber ??
+                '',
               purpose: entry.purpose ?? '',
               serviceProvider: providerName,
               amount: entry.amount ?? '',
@@ -196,8 +253,9 @@ const SubscriptionTab = () => {
           project.subscriptionDetails.some((detail) => detail.serviceNumber && detail.serviceNumber.trim() !== '')
         );
 
-        setProjects(groupedProjects);
-        setFilteredProjects(groupedProjects);
+        const sortedGrouped = sortProjectsSubscriptionDetailsByShopNo(groupedProjects);
+        setProjects(sortedGrouped);
+        setFilteredProjects(sortedGrouped);
         setHiddenProjects([]);
         setProviderOptions(
           Array.from(providerSet)
@@ -243,6 +301,26 @@ const SubscriptionTab = () => {
     const purposeFilter = toLower(filters.purpose);
     const projectNameFilter = toLower(filters.projectName);
 
+    const matchesPaymentFilters = (detail) => {
+      const selectedMonth = filters.month;
+      const selectedStatus = filters.paymentStatus;
+      if (!selectedMonth && !selectedStatus) return true;
+
+      const subscriptionKey = detail.utilitySubscriptionId ?? detail.id;
+
+      const evaluateMonth = (month) => {
+        const paymentData = getPaymentData(detail.serviceNumber, month, subscriptionKey);
+        const isPaid = paymentData.amount !== '-' && paymentData.amount !== '0';
+        const isUnpaid = paymentData.amount === '0';
+        if (selectedStatus === 'Paid') return isPaid;
+        if (selectedStatus === 'Unpaid') return isUnpaid;
+        return true;
+      };
+
+      if (selectedMonth) return evaluateMonth(selectedMonth);
+      return monthLabels.some((m) => evaluateMonth(m));
+    };
+
     const filtered = projects.reduce((acc, project) => {
       if (selectedCategory && project.projectCategory !== selectedCategory) {
         return acc;
@@ -283,6 +361,10 @@ const SubscriptionTab = () => {
           }
         }
 
+        if (!matchesPaymentFilters(detail)) {
+          return false;
+        }
+
         return true;
       });
 
@@ -292,14 +374,14 @@ const SubscriptionTab = () => {
 
       acc.push({
         ...project,
-        subscriptionDetails: filteredDetails
+        subscriptionDetails: [...filteredDetails].sort(comparePropertyShopNoAsc)
       });
 
       return acc;
     }, []);
 
     setFilteredProjects(filtered);
-  }, [filters, projects, selectedCategory]);
+  }, [filters, projects, selectedCategory, subscriptionPayments]);
 
   const handleFilterChange = (filterType, selectedOption) => {
     setFilters((prev) => ({
@@ -367,9 +449,7 @@ const SubscriptionTab = () => {
       freqData.subscriptionFrequencyNo ?? freqData.SubscriptionFrequencyNo ?? freqData.subscription_frequency_no ?? 0,
       10
     );
-    if (!frequency || Number.isNaN(frequency) || frequency <= 0) {
-      return true;
-    }
+    if (Number.isNaN(frequency) || frequency < 0) return true;
 
     const startMonthKey =
       freqData.startingMonthOfSubscriptionFrequency ??
@@ -389,6 +469,8 @@ const SubscriptionTab = () => {
     const currentMonth = parseInt(month, 10);
     const currentYear = parseInt(year, 10);
     const monthsSinceStart = (currentYear - startYear) * 12 + (currentMonth - startMonth);
+    // Frequency 0 means: from starting month onwards, no payment required (show "-")
+    if (frequency === 0) return monthsSinceStart < 0;
     return monthsSinceStart >= 0 && monthsSinceStart % frequency === 0;
   };
 
@@ -463,36 +545,61 @@ const SubscriptionTab = () => {
     return unpaidCount;
   };
 
-  const buildExportRows = () => {
-    const rows = [];
-    let rowNumber = 0;
+  const sortedFilteredProjects = useMemo(
+    () => sortProjectsSubscriptionDetailsByShopNo(filteredProjects),
+    [filteredProjects]
+  );
 
-    filteredProjects.forEach((project) => {
-      const details = Array.isArray(project.subscriptionDetails) ? project.subscriptionDetails : [];
-      details
+  const subscriptionTableRows = useMemo(() => {
+    const rows = sortedFilteredProjects.flatMap((project) =>
+      (project.subscriptionDetails || [])
         .filter((detail) => detail.serviceNumber && detail.serviceNumber.trim() !== '')
-        .forEach((detail) => {
-          rowNumber += 1;
-          const row = {
-            slNo: rowNumber,
-            pid: project.projectId || '-',
-            projectName: project.projectName || '-',
-            category: detail.serviceType || project.projectCategory || '-',
-            registered: detail.registeredPerson || '-',
-            serviceNo: detail.serviceNumber || '-'
-          };
-
-          monthLabels.forEach((month) => {
-            const paymentData = getPaymentData(detail.serviceNumber, month, detail.utilitySubscriptionId);
-            row[month] = paymentData && paymentData.amount !== undefined ? paymentData.amount : '-';
-          });
-
-          row.unpaid = getUnpaidCount(detail.serviceNumber, detail.utilitySubscriptionId);
-          rows.push(row);
-        });
-    });
-
+        .map((detail) => ({ project, detail }))
+    );
+    rows.sort((a, b) => comparePropertyShopNoAsc(a.detail, b.detail));
     return rows;
+  }, [sortedFilteredProjects]);
+
+  const hiddenSubscriptionTableRows = useMemo(() => {
+    const rows = sortProjectsSubscriptionDetailsByShopNo(hiddenProjects).flatMap((project) =>
+      (project.subscriptionDetails || [])
+        .filter((detail) => detail.serviceNumber && detail.serviceNumber.trim() !== '')
+        .map((detail) => ({ project, detail }))
+    );
+    rows.sort((a, b) => comparePropertyShopNoAsc(a.detail, b.detail));
+    return rows;
+  }, [hiddenProjects]);
+
+  const buildExportRows = () => {
+    const pairs = sortedFilteredProjects.flatMap((project) =>
+      (project.subscriptionDetails || [])
+        .filter((detail) => detail.serviceNumber && detail.serviceNumber.trim() !== '')
+        .map((detail) => ({ project, detail }))
+    );
+    pairs.sort((a, b) => comparePropertyShopNoAsc(a.detail, b.detail));
+
+    return pairs.map(({ project, detail }, index) => {
+      const rowNumber = index + 1;
+      const subscriptionKey = detail.utilitySubscriptionId ?? detail.id;
+      const row = {
+        slNo: rowNumber,
+        pid: project.projectId || '-',
+        projectName: project.projectName || '-',
+        category: detail.serviceType || project.projectCategory || '-',
+        shopNo: detail.shopNo || '-',
+        doorNo: detail.doorNo || '-',
+        registered: detail.registeredPerson || '-',
+        serviceNo: detail.serviceNumber || '-'
+      };
+
+      monthLabels.forEach((month) => {
+        const paymentData = getPaymentData(detail.serviceNumber, month, subscriptionKey);
+        row[month] = paymentData && paymentData.amount !== undefined ? paymentData.amount : '-';
+      });
+
+      row.unpaid = getUnpaidCount(detail.serviceNumber, subscriptionKey);
+      return row;
+    });
   };
 
   const handleExportPDF = () => {
@@ -503,12 +610,14 @@ const SubscriptionTab = () => {
     doc.setFontSize(14);
     doc.text('Subscription Services Overview', 14, 20);
 
-    const headers = ['Sl.No', 'PID', 'Project Name', 'Category', 'Registered', 'Service No', ...monthLabels, 'Unpaid'];
+    const headers = ['Sl.No', 'PID', 'Project Name', 'Category', 'Shop No', 'D.No', 'Registered', 'Service No', ...monthLabels, 'Unpaid'];
     const body = rows.map((row) => [
       row.slNo,
       row.pid,
       row.projectName,
       row.category,
+      row.shopNo,
+      row.doorNo,
       row.registered,
       row.serviceNo,
       ...monthLabels.map((month) => row[month]),
@@ -545,6 +654,8 @@ const SubscriptionTab = () => {
         PID: row.pid,
         'Project Name': row.projectName,
         Category: row.category,
+        'Shop No': row.shopNo,
+        'D.No': row.doorNo,
         Registered: row.registered,
         'Service No': row.serviceNo
       };
@@ -563,11 +674,7 @@ const SubscriptionTab = () => {
     XLSX.writeFile(workbook, 'SubscriptionServices.xlsx');
   };
 
-  const hasExportableData = filteredProjects.some(
-    (project) =>
-      Array.isArray(project.subscriptionDetails) &&
-      project.subscriptionDetails.some((detail) => detail.serviceNumber && detail.serviceNumber.trim() !== '')
-  );
+  const hasExportableData = subscriptionTableRows.length > 0;
 
   const toggleProjectHideStatus = (projectId, isHide) => {
     if (isHide) {
@@ -739,9 +846,9 @@ const SubscriptionTab = () => {
 
   return (
     <div className="bg-[#FAF6ED] rounded-lg shadow-sm">
-      <div className="bg-white rounded-md mb-5 h-[128px] ml-5 mr-5">
+      <div className="bg-white rounded-md mb-5 min-h-[128px] ml-5 mr-5">
         <div className="p-6">
-          <div className="flex text-left gap-4">
+          <div className="grid grid-cols-6 gap-4 text-left">
             <div>
               <label className="block font-semibold mb-1">Year</label>
               <Select
@@ -754,7 +861,37 @@ const SubscriptionTab = () => {
                 onChange={(selectedOption) => handleFilterChange('year', selectedOption)}
                 placeholder="Select Year"
                 isClearable
+                isSearchable
                 styles={customSelectStyles}
+                {...selectPortalProps}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold mb-1">Month</label>
+              <Select
+                options={monthLabels.map((m) => ({ value: m, label: m }))}
+                value={filters.month ? { value: filters.month, label: filters.month } : null}
+                onChange={(selectedOption) => handleFilterChange('month', selectedOption)}
+                placeholder="Select Month"
+                isClearable
+                isSearchable
+                styles={customSelectStyles}
+                {...selectPortalProps}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold mb-1">Payment Status</label>
+              <Select
+                options={paymentStatusOptions}
+                value={filters.paymentStatus ? { value: filters.paymentStatus, label: filters.paymentStatus } : null}
+                onChange={(selectedOption) => handleFilterChange('paymentStatus', selectedOption)}
+                placeholder="Select Status"
+                isClearable
+                isSearchable
+                styles={customSelectStyles}
+                {...selectPortalProps}
                 className="w-full"
               />
             </div>
@@ -768,6 +905,7 @@ const SubscriptionTab = () => {
                 isClearable
                 isSearchable
                 styles={customSelectStyles}
+                {...selectPortalProps}
                 className="w-full"
               />
             </div>
@@ -781,6 +919,7 @@ const SubscriptionTab = () => {
                 isClearable
                 isSearchable
                 styles={customSelectStyles}
+                {...selectPortalProps}
                 className="w-full"
               />
             </div>
@@ -794,6 +933,7 @@ const SubscriptionTab = () => {
                 isClearable
                 isSearchable
                 styles={customSelectStyles}
+                {...selectPortalProps}
                 className="w-full"
               />
             </div>
@@ -807,6 +947,7 @@ const SubscriptionTab = () => {
                 isClearable
                 isSearchable
                 styles={customSelectStyles}
+                {...selectPortalProps}
                 className="w-full"
               />
             </div>
@@ -820,6 +961,7 @@ const SubscriptionTab = () => {
                 isClearable
                 isSearchable
                 styles={customSelectStyles}
+                {...selectPortalProps}
                 className="w-full"
               />
             </div>
@@ -833,6 +975,7 @@ const SubscriptionTab = () => {
                 isClearable
                 isSearchable
                 styles={customSelectStyles}
+                {...selectPortalProps}
                 className="w-full"
               />
             </div>
@@ -846,6 +989,7 @@ const SubscriptionTab = () => {
                 isClearable
                 isSearchable
                 styles={customSelectStyles}
+                {...selectPortalProps}
                 className="w-full"
               />
             </div>
@@ -902,15 +1046,24 @@ const SubscriptionTab = () => {
             </button>
           </div>
         </div>
-        <div className="border-l-8 border-l-[#BF9853] rounded-lg">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
+        <div className="rounded-lg">
+          <div
+            ref={scrollRef}
+            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[480px] overflow-auto select-none thin-scrollbar"
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseLeave}
+          >
+            <table className="w-full border-collapse table-auto min-w-max">
+              <thead className="sticky top-0 z-10 bg-[#FAF6ED]">
                 <tr className="bg-[#FAF6ED]">
                   <td className="px-4 py-2 text-left font-semibold">Sl.No</td>
                   <td className="px-4 py-2 text-left font-semibold">PID</td>
                   <td className="px-4 py-2 text-left font-semibold">Project Name</td>
                   <td className="px-4 py-2 text-left font-semibold">Category</td>
+                  <td className="px-4 py-2 text-left font-semibold">Shop No</td>
+                  <td className="px-4 py-2 text-left font-semibold">D.No</td>
                   <td className="px-4 py-2 text-left font-semibold">Registered</td>
                   <td className="px-4 py-2 text-left font-semibold">Service No</td>
                   {monthLabels.map((month) => (
@@ -927,32 +1080,28 @@ const SubscriptionTab = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={20} className="text-center py-4">
+                    <td colSpan={23} className="text-center py-4">
                       Loading...
                     </td>
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={20} className="text-center py-4 text-red-500">
+                    <td colSpan={23} className="text-center py-4 text-red-500">
                       {error}
                     </td>
                   </tr>
-                ) : filteredProjects.length === 0 ? (
+                ) : subscriptionTableRows.length === 0 ? (
                   <tr>
-                    <td colSpan={20} className="text-center py-4">
+                    <td colSpan={23} className="text-center py-4">
                       No subscription services found
                     </td>
                   </tr>
                 ) : (
-                  filteredProjects.map((project, projectIndex) =>
-                    project.subscriptionDetails
-                      .filter((detail) => detail.serviceNumber && detail.serviceNumber.trim() !== '')
-                      .map((detail, detailIndex) => {
-                        const rowIndex = projectIndex * project.subscriptionDetails.length + detailIndex;
+                  subscriptionTableRows.map(({ project, detail }, index) => {
                         const subscriptionKey = detail.utilitySubscriptionId ?? detail.id;
                         return (
                           <tr key={`${project.id}-${detail.id}`} className="odd:bg-white even:bg-[#FAF6ED]">
-                            <td className="px-4 py-2">{rowIndex + 1}</td>
+                            <td className="px-4 py-2">{index + 1}</td>
                             <td className="px-4 py-2">{project.projectId}</td>
                             <td className="px-4 py-2 text-left">{project.projectName}</td>
                             <td className="px-4 py-2">
@@ -964,6 +1113,8 @@ const SubscriptionTab = () => {
                                 {project.projectCategory || '-'}
                               </span>
                             </td>
+                            <td className="px-4 py-2 whitespace-nowrap">{detail.shopNo || '-'}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{detail.doorNo || '-'}</td>
                             <td className="px-4 py-2">{detail.registeredPerson || '-'}</td>
                             <td className="px-4 py-2 text-left">
                               <div className="relative inline-block group">
@@ -1052,7 +1203,6 @@ const SubscriptionTab = () => {
                           </tr>
                         );
                       })
-                  )
                 )}
               </tbody>
             </table>
@@ -1078,22 +1228,22 @@ const SubscriptionTab = () => {
                       <td className="px-4 py-2 text-left font-semibold">Sl.No</td>
                       <td className="px-4 py-2 text-left font-semibold">PID</td>
                       <td className="px-4 py-2 text-left font-semibold">Project Name</td>
+                      <td className="px-4 py-2 text-left font-semibold">Shop No</td>
+                      <td className="px-4 py-2 text-left font-semibold">D.No</td>
                       <td className="px-4 py-2 text-left font-semibold">Registered</td>
                       <td className="px-4 py-2 text-left font-semibold">Service No</td>
                       <td className="px-4 py-2 text-left font-semibold">Unhide</td>
                     </tr>
                   </thead>
                   <tbody>
-                    {hiddenProjects.map((project, projectIndex) =>
-                      project.subscriptionDetails
-                        .filter((detail) => detail.serviceNumber && detail.serviceNumber.trim() !== '')
-                        .map((detail, detailIndex) => {
-                          const rowIndex = projectIndex * project.subscriptionDetails.length + detailIndex;
+                    {hiddenSubscriptionTableRows.map(({ project, detail }, index) => {
                           return (
                             <tr key={`${project.id}-${detail.id}`} className="odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="px-4 py-2">{rowIndex + 1}</td>
+                              <td className="px-4 py-2">{index + 1}</td>
                               <td className="px-4 py-2">{project.projectId}</td>
                               <td className="px-4 py-2">{project.projectName}</td>
+                              <td className="px-4 py-2">{detail.shopNo || '-'}</td>
+                              <td className="px-4 py-2">{detail.doorNo || '-'}</td>
                               <td className="px-4 py-2">{detail.registeredPerson || '-'}</td>
                               <td className="px-4 py-2">{detail.serviceNumber}</td>
                               <td className="px-4 py-2">
@@ -1106,8 +1256,7 @@ const SubscriptionTab = () => {
                               </td>
                             </tr>
                           );
-                        })
-                    )}
+                        })}
                   </tbody>
                 </table>
               </div>
@@ -1143,6 +1292,12 @@ const SubscriptionTab = () => {
                   </p>
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Service No:</span> {selectedRowData.detail.serviceNumber}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Shop No:</span> {selectedRowData.detail.shopNo || '-'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Door No:</span> {selectedRowData.detail.doorNo || '-'}
                   </p>
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Registered:</span> {selectedRowData.detail.registeredPerson || '-'}

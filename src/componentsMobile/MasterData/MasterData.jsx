@@ -3047,6 +3047,90 @@ const MasterData = ({ user, onLogout }) => {
     downloadLabourListTablePdf(bodyRows);
   };
 
+  const downloadMasterListTablePdf = ({ title, subtitle, head, body, fileBase }) => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.setTextColor(191, 152, 83);
+    doc.text(title, 105, 20, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text(subtitle, 14, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.autoTable({
+      startY: 35,
+      head: [head],
+      body: body.length ? body : [head.map(() => 'N/A')],
+      theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 3 },
+      headStyles: { fillColor: [191, 152, 83], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 11 }
+    });
+    const stamp = new Date().toISOString().slice(0, 10);
+    doc.save(`${fileBase}_${stamp}.pdf`);
+  };
+
+  const handleProjectListShare = () => {
+    const source = Array.isArray(displayedProjects) ? displayedProjects : [];
+    const filterKey = String(projectNameCategoryFilter || 'All').trim();
+    const filterTitle =
+      filterKey === 'Own' ? 'Own Project' : filterKey === 'Client' ? 'Client Project' : 'All Projects';
+
+    const includeCategory = filterKey === 'All';
+    const head = includeCategory
+      ? ['PID', 'Project Name', 'Type', 'Category', 'Branch', 'Project Incharge']
+      : ['PID', 'Project Name', 'Type', 'Branch', 'Project Incharge'];
+
+    const body = source.map((item) => {
+      const n = normalizeProjectForForm(item);
+      const base = [
+        getPdfValue(n.projectId),
+        getPdfValue(n.projectName),
+        getPdfValue(n.referenceName),
+      ];
+      const tail = [getPdfValue(n.branch), getPdfValue(n.siteEngineerName)];
+      if (includeCategory) return [...base, getPdfValue(n.projectCategory), ...tail];
+      return [...base, ...tail];
+    });
+
+    downloadMasterListTablePdf({
+      title: 'Project Name',
+      subtitle: filterKey === 'All' ? 'Projects' : filterTitle,
+      head,
+      body,
+      fileBase: `Project_Name_${filterTitle.replace(/\s+/g, '_')}`
+    });
+  };
+
+  const handleVendorListShare = () => {
+    const source = Array.isArray(displayedList) ? displayedList : [];
+    const body = source.map((item) => {
+      const n = normalizeVendorForForm(item);
+      return [getPdfValue(n.vendorId), getPdfValue(n.vendorName), getPdfValue(n.vendorCategory), getPdfValue(n.branch)];
+    });
+    downloadMasterListTablePdf({
+      title: 'Vendor Name',
+      subtitle: 'Vendor List',
+      head: ['Vendor ID', 'Vendor Name', 'Category', 'Branch'],
+      body,
+      fileBase: 'Vendor_Name_List'
+    });
+  };
+
+  const handleContractorListShare = () => {
+    const source = Array.isArray(displayedList) ? displayedList : [];
+    const body = source.map((item) => {
+      const n = normalizeContractorForForm(item);
+      return [getPdfValue(n.contractorId), getPdfValue(n.contractorName), getPdfValue(n.contractorCategory), getPdfValue(n.branch)];
+    });
+    downloadMasterListTablePdf({
+      title: 'Contractor Name',
+      subtitle: 'Contractor List',
+      head: ['Contractor ID', 'Contractor Name', 'Category', 'Branch'],
+      body,
+      fileBase: 'Contractor_Name_List'
+    });
+  };
+
   const toggleBankDetailsSection = (sectionId) => {
     setExpandedBankDetailsSection((current) => (current === sectionId ? null : sectionId));
   };
@@ -6628,6 +6712,24 @@ const MasterData = ({ user, onLogout }) => {
                   >
                     <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
                   </button>
+                ) : selectedItem === 'Vendor Name' ? (
+                  <button
+                    type="button"
+                    aria-label="Share vendor list as PDF"
+                    className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[6px]"
+                    onClick={handleVendorListShare}
+                  >
+                    <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
+                  </button>
+                ) : selectedItem === 'Contractor Name' ? (
+                  <button
+                    type="button"
+                    aria-label="Share contractor list as PDF"
+                    className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[6px]"
+                    onClick={handleContractorListShare}
+                  >
+                    <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
+                  </button>
                 ) : null}
               </div>
             </div>
@@ -7092,6 +7194,14 @@ const MasterData = ({ user, onLogout }) => {
                 aria-label="Project category filter"
               >
                 {projectNameCategoryFilter}
+              </button>
+              <button
+                type="button"
+                aria-label="Share project list as PDF"
+                className="flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[6px]"
+                onClick={handleProjectListShare}
+              >
+                <img src={Share} alt="Share" className="h-[12px] w-[12px]" />
               </button>
             </div>
           </div>

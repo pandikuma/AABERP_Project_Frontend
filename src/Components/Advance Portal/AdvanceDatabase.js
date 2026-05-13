@@ -13,7 +13,16 @@ import remove from '../Images/Delete.svg';
 import Attach from '../Images/Attachfile.svg';
 import cross from '../Images/cross.png';
 
-const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) => {
+const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], refreshSignal }) => {
+  const BLANK_VALUE = 'BLANK';
+  const BLANK_LABEL = 'Blank';
+  const blankOption = { value: BLANK_VALUE, label: BLANK_LABEL };
+  const isBlankish = (value) =>
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && value.trim() === '') ||
+    value === 0 ||
+    value === '0';
   const resolveActiveBranchId = useCallback(() => {
     try {
       const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -566,26 +575,34 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       window.removeEventListener("branchSelectionChanged", syncBranch);
     };
   }, [resolveActiveBranchId]);
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setProgress(85);
-        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/advance_portal/getAll');
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const data = await response.json();
-        setAdvanceData(data);
-        setProgress(100);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching advance portal data:', error);
-        setError('Failed to load advance data');
-        setLoading(false);
+  const fetchAdvanceData = useCallback(async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      setProgress(85);
+      const response = await fetch(buildBranchUrl('https://backendaab.in/demoAabuildersDash/api/advance_portal/getAll'));
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-    };
-    fetchData();
-  }, []);
+      const data = await response.json();
+      setAdvanceData(Array.isArray(data) ? data : []);
+      setProgress(100);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching advance portal data:', error);
+      setError('Failed to load advance data');
+      setLoading(false);
+    }
+  }, [buildBranchUrl]);
+
+  useEffect(() => {
+    fetchAdvanceData();
+  }, [fetchAdvanceData]);
+
+  useEffect(() => {
+    if (refreshSignal === undefined) return;
+    fetchAdvanceData();
+  }, [refreshSignal, fetchAdvanceData]);
   const sortedSiteOptions = siteOptions.sort((a, b) =>
     a.label.localeCompare(b.label)
   );
@@ -680,7 +697,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       if (response.ok) {
         const result = await response.text(); 
         alert("File uploaded successfully!");
-        window.location.reload(); 
+        await fetchAdvanceData();
       } else {
         const errorText = await response.text();
         alert("Upload failed: " + errorText);
@@ -749,38 +766,72 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       const name = entry.vendor_id
         ? getVendorName(entry.vendor_id)
         : getContractorName(entry.contractor_id) || "";
-      if (name.toLowerCase() !== selectDatabaseContractororVendorName.toLowerCase())
-        return false;
+      if (selectDatabaseContractororVendorName === BLANK_VALUE) {
+        if (!isBlankish(name)) return false;
+      } else {
+        if (name.toLowerCase() !== selectDatabaseContractororVendorName.toLowerCase()) return false;
+      }
     }
     if (selectDatabaseProjectName) {
       const projectName = getSiteName(entry.project_id) || "";
-      if (projectName.toLowerCase() !== selectDatabaseProjectName.toLowerCase())
-        return false;
+      if (selectDatabaseProjectName === BLANK_VALUE) {
+        if (!isBlankish(projectName)) return false;
+      } else {
+        if (projectName.toLowerCase() !== selectDatabaseProjectName.toLowerCase()) return false;
+      }
     }
     if (selectDatabaseTransfer) {
       const transferName = getSiteName(entry.transfer_site_id) || "";
-      if (transferName.toLowerCase() !== selectDatabaseTransfer.toLowerCase())
-        return false;
+      if (selectDatabaseTransfer === BLANK_VALUE) {
+        if (!isBlankish(transferName)) return false;
+      } else {
+        if (transferName.toLowerCase() !== selectDatabaseTransfer.toLowerCase()) return false;
+      }
     }
     if (selectDatabaseType) {
-      if (entry.type?.toLowerCase() !== selectDatabaseType.toLowerCase()) return false;
+      if (selectDatabaseType === BLANK_VALUE) {
+        if (!isBlankish(entry.type)) return false;
+      } else {
+        if (entry.type?.toLowerCase() !== selectDatabaseType.toLowerCase()) return false;
+      }
     }
     if (selectDatabaseMode) {
-      if (entry.payment_mode?.toLowerCase() !== selectDatabaseMode.toLowerCase()) return false;
+      if (selectDatabaseMode === BLANK_VALUE) {
+        if (!isBlankish(entry.payment_mode)) return false;
+      } else {
+        if (entry.payment_mode?.toLowerCase() !== selectDatabaseMode.toLowerCase()) return false;
+      }
     }
     if (selectDatabaseEntryNo) {
-      if (!entry.entry_no?.toString().includes(selectDatabaseEntryNo.toString())) return false;
+      if (selectDatabaseEntryNo === BLANK_VALUE) {
+        if (!isBlankish(entry.entry_no)) return false;
+      } else {
+        if (!entry.entry_no?.toString().includes(selectDatabaseEntryNo.toString())) return false;
+      }
     }
     if (selectDatabaseSourceFrom) {
       const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
-      if (String(sourceVal).toLowerCase() !== String(selectDatabaseSourceFrom).toLowerCase()) return false;
+      if (selectDatabaseSourceFrom === BLANK_VALUE) {
+        if (!isBlankish(sourceVal)) return false;
+      } else {
+        if (String(sourceVal).toLowerCase() !== String(selectDatabaseSourceFrom).toLowerCase()) return false;
+      }
     }
     if (selectDatabaseBranch) {
-      if (String(entry.branch_id ?? entry.branchId ?? '') !== String(selectDatabaseBranch)) return false;
+      const branchVal = entry.branch_id ?? entry.branchId ?? '';
+      if (selectDatabaseBranch === BLANK_VALUE) {
+        if (!isBlankish(branchVal)) return false;
+      } else {
+        if (String(branchVal) !== String(selectDatabaseBranch)) return false;
+      }
     }
     if (selectDatabaseEnteredBy) {
       const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
-      if (String(enteredVal).toLowerCase() !== String(selectDatabaseEnteredBy).toLowerCase()) return false;
+      if (selectDatabaseEnteredBy === BLANK_VALUE) {
+        if (!isBlankish(enteredVal)) return false;
+      } else {
+        if (String(enteredVal).toLowerCase() !== String(selectDatabaseEnteredBy).toLowerCase()) return false;
+      }
     }
     return true;
   });
@@ -796,6 +847,15 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
     const uniqueSources = new Set();
     const uniqueBranchIds = new Set();
     const uniqueEnteredBy = new Set();
+    let hasBlankVendorContractor = false;
+    let hasBlankProject = false;
+    let hasBlankTransfer = false;
+    let hasBlankType = false;
+    let hasBlankMode = false;
+    let hasBlankEntryNo = false;
+    let hasBlankSource = false;
+    let hasBlankBranch = false;
+    let hasBlankEnteredBy = false;
 
     advanceData.forEach(entry => {
       // Extract vendors and contractors
@@ -807,42 +867,47 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
         const contractorName = getContractorName(entry.contractor_id);
         if (contractorName) uniqueContractors.add(contractorName);
       }
+      if (!entry.vendor_id && !entry.contractor_id) hasBlankVendorContractor = true;
       
       // Extract project IDs
       if (entry.project_id) {
         const projectName = getSiteName(entry.project_id);
         if (projectName) uniqueProjectIds.add(projectName);
+      } else {
+        hasBlankProject = true;
       }
       
       // Extract transfer site IDs
       if (entry.transfer_site_id) {
         const transferName = getSiteName(entry.transfer_site_id);
         if (transferName) uniqueTransferSiteIds.add(transferName);
+      } else {
+        hasBlankTransfer = true;
       }
       
       // Extract types
-      if (entry.type) {
-        uniqueTypes.add(entry.type);
-      }
+      if (entry.type) uniqueTypes.add(entry.type);
+      else hasBlankType = true;
       
       // Extract payment modes
-      if (entry.payment_mode) {
-        uniqueModes.add(entry.payment_mode);
-      }
+      if (entry.payment_mode) uniqueModes.add(entry.payment_mode);
+      else hasBlankMode = true;
       
       // Extract entry numbers
-      if (entry.entry_no) {
-        uniqueEntryNos.add(entry.entry_no.toString());
-      }
+      if (entry.entry_no) uniqueEntryNos.add(entry.entry_no.toString());
+      else hasBlankEntryNo = true;
 
       const sourceVal = entry.source_from ?? entry.sourceFrom ?? entry.source ?? "";
       if (sourceVal) uniqueSources.add(String(sourceVal));
+      else hasBlankSource = true;
 
       const branchId = entry.branch_id ?? entry.branchId;
       if (branchId != null && branchId !== '') uniqueBranchIds.add(String(branchId));
+      else hasBlankBranch = true;
 
       const enteredVal = entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? "";
       if (enteredVal) uniqueEnteredBy.add(String(enteredVal));
+      else hasBlankEnteredBy = true;
     });
 
     // Create options arrays for Select components
@@ -856,6 +921,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
         return contractor || { value: name, label: name, type: 'Contractor' };
       })
     ].sort((a, b) => a.label.localeCompare(b.label));
+    if (hasBlankVendorContractor) vendorContractorOptions.unshift(blankOption);
 
     const projectOptions = Array.from(uniqueProjectIds)
       .map(name => {
@@ -863,6 +929,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
         return site || { value: name, label: name, id: null };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
+    if (hasBlankProject) projectOptions.unshift(blankOption);
 
     const transferSiteOptions = Array.from(uniqueTransferSiteIds)
       .map(name => {
@@ -870,10 +937,13 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
         return site || { value: name, label: name, id: null };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
+    if (hasBlankTransfer) transferSiteOptions.unshift(blankOption);
 
-    const typeOptions = Array.from(uniqueTypes).sort();
-    const modeOptions = Array.from(uniqueModes).sort();
-    const entryNoOptions = Array.from(uniqueEntryNos).sort((a, b) => Number(a) - Number(b));
+    const typeOptions = (hasBlankType ? [BLANK_VALUE] : []).concat(Array.from(uniqueTypes).sort());
+    const modeOptions = (hasBlankMode ? [BLANK_VALUE] : []).concat(Array.from(uniqueModes).sort());
+    const entryNoOptions = (hasBlankEntryNo ? [BLANK_VALUE] : []).concat(
+      Array.from(uniqueEntryNos).sort((a, b) => Number(a) - Number(b))
+    );
 
     return {
       vendorContractorOptions,
@@ -882,14 +952,14 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
       typeOptions,
       modeOptions,
       entryNoOptions,
-      sourceFromOptions: Array.from(uniqueSources).sort(),
+      sourceFromOptions: (hasBlankSource ? [BLANK_VALUE] : []).concat(Array.from(uniqueSources).sort()),
       branchOptions: Array.from(uniqueBranchIds)
         .map((id) => ({
           value: id,
           label: branchOptions.find((br) => String(br.id) === String(id))?.branch || String(id),
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
-      enteredByOptions: Array.from(uniqueEnteredBy).sort(),
+      enteredByOptions: (hasBlankEnteredBy ? [BLANK_VALUE] : []).concat(Array.from(uniqueEnteredBy).sort()),
     };
   }, [advanceData, vendorOptions, contractorOptions, siteOptions, branchOptions]);
   const sortedData = React.useMemo(() => {
@@ -1323,7 +1393,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
           )
         );
       }
-      window.location.reload();
+      await fetchAdvanceData();
       setIsEditModalOpen(false);
       setSelectedFile(null);
       if (fileInputRef.current) {
@@ -1385,7 +1455,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
           throw new Error('Failed to clear record');
         }
       }
-      window.location.reload();
+      await fetchAdvanceData();
     } catch (error) {
       console.error('Delete error:', error);
     }
@@ -1399,25 +1469,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
     },
     { amount: 0, bill_amount: 0, refund_amount: 0 }
   );
-  if (loading) {
-    return (
-      <body className='bg-[#FAF6ED]'>
-        <div className='bg-white w-[1850px] h-[500px] p-10 ml-10 flex flex-col items-center justify-center'>
-          <div className="text-lg mb-4">Loading advance database...</div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#BF9853] mb-4"></div>
-          <div className="text-sm text-gray-600">
-            Progress: {progress}%
-          </div>
-          <div className="w-64 bg-gray-200 rounded-full h-2 mt-2">
-            <div
-              className="bg-[#BF9853] h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-        </div>
-      </body>
-    );
-  }
+  // Keep rendering the page while loading; data will populate once fetched.
   if (error) {
     return (
       <body className='bg-[#FAF6ED]'>
@@ -1773,7 +1825,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                     <th className="py-3 pl-3">
                       <Select
                         className="w-full"
-                        options={filterOptionsFromData.typeOptions.map((t) => ({ value: t, label: t }))}
+                        options={filterOptionsFromData.typeOptions.map((t) =>
+                          t === BLANK_VALUE ? blankOption : { value: t, label: t }
+                        )}
                         value={selectDatabaseType ? { value: selectDatabaseType, label: selectDatabaseType } : null}
                         onChange={(opt) => setSelectDatabaseType(opt ? opt.value : '')}
                         placeholder="Type"
@@ -1788,7 +1842,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                     <th className="py-3">
                       <Select
                         className="w-full"
-                        options={filterOptionsFromData.modeOptions.map((m) => ({ value: m, label: m }))}
+                        options={filterOptionsFromData.modeOptions.map((m) =>
+                          m === BLANK_VALUE ? blankOption : { value: m, label: m }
+                        )}
                         value={selectDatabaseMode ? { value: selectDatabaseMode, label: selectDatabaseMode } : null}
                         onChange={(opt) => setSelectDatabaseMode(opt ? opt.value : '')}
                         placeholder="Mode"
@@ -1802,7 +1858,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                     <th className="py-3">
                       <Select
                         className="w-full"
-                        options={filterOptionsFromData.sourceFromOptions.map((v) => ({ value: v, label: v }))}
+                        options={filterOptionsFromData.sourceFromOptions.map((v) =>
+                          v === BLANK_VALUE ? blankOption : { value: v, label: v }
+                        )}
                         value={selectDatabaseSourceFrom ? { value: selectDatabaseSourceFrom, label: selectDatabaseSourceFrom } : null}
                         onChange={(opt) => setSelectDatabaseSourceFrom(opt ? opt.value : '')}
                         placeholder="Source From"
@@ -1830,7 +1888,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                     <th className="py-3">
                       <Select
                         className="w-full"
-                        options={filterOptionsFromData.enteredByOptions.map((v) => ({ value: v, label: v }))}
+                        options={filterOptionsFromData.enteredByOptions.map((v) =>
+                          v === BLANK_VALUE ? blankOption : { value: v, label: v }
+                        )}
                         value={selectDatabaseEnteredBy ? { value: selectDatabaseEnteredBy, label: selectDatabaseEnteredBy } : null}
                         onChange={(opt) => setSelectDatabaseEnteredBy(opt ? opt.value : '')}
                         placeholder="Entered By"
@@ -1844,7 +1904,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [] }) 
                     <th className="py-3">
                       <Select
                         className="w-full"
-                        options={filterOptionsFromData.entryNoOptions.map((eno) => ({ value: String(eno), label: String(eno) }))}
+                        options={filterOptionsFromData.entryNoOptions.map((eno) =>
+                          String(eno) === BLANK_VALUE ? blankOption : { value: String(eno), label: String(eno) }
+                        )}
                         value={selectDatabaseEntryNo ? { value: String(selectDatabaseEntryNo), label: String(selectDatabaseEntryNo) } : null}
                         onChange={(opt) => setSelectDatabaseEntryNo(opt ? opt.value : '')}
                         placeholder="E.No"

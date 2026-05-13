@@ -22,7 +22,7 @@ const getCurrentWeekYear = () => {
   return thursday.getFullYear();
 };
 
-const AdvanceReport = ({ username, userRoles = [], paymentModeOptions = [] }) => {
+const AdvanceReport = ({ username, userRoles = [], paymentModeOptions = [], refreshSignal }) => {
   const resolveActiveBranchId = useCallback(() => {
     try {
       const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -347,24 +347,32 @@ const AdvanceReport = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     };
   }, [resolveActiveBranchId]);
 
+  const fetchAdvanceData = useCallback(async () => {
+    try {
+      setError(null);
+      setLoading(true);
+      setProgress(85);
+      const res = await fetch(buildBranchUrl("https://backendaab.in/demoAabuildersDash/api/advance_portal/getAll"));
+      const data = await res.json();
+      setAdvanceData(Array.isArray(data) ? data : []);
+      setProgress(100);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching advance data", err);
+      setError("Failed to load advance data");
+      setLoading(false);
+    }
+  }, [buildBranchUrl]);
+
   // Fetch Advance Data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setProgress(85);
-        const res = await fetch("https://backendaab.in/demoAabuildersDash/api/advance_portal/getAll");
-        const data = await res.json();
-        setAdvanceData(data);
-        setProgress(100);
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching advance data", err);
-        setError("Failed to load advance data");
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+    fetchAdvanceData();
+  }, [fetchAdvanceData]);
+
+  useEffect(() => {
+    if (refreshSignal === undefined) return;
+    fetchAdvanceData();
+  }, [refreshSignal, fetchAdvanceData]);
 
   useEffect(() => {
     const loadProjectAndEmployeeMasters = async () => {
@@ -1215,25 +1223,7 @@ const AdvanceReport = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       `AdvanceReport_${fromDate.replace(/\//g, "-")}_to_${toDate.replace(/\//g, "-")}_${timestamp}.xlsx`
     );
   };
-  if (loading) {
-    return (
-      <div className='bg-[#FAF6ED]'>
-        <div className='bg-white w-full max-w-[1850px] h-[500px] rounded-md p-10 ml-4 sm:ml-6 lg:ml-10 flex flex-col items-center justify-center mx-auto'>
-          <div className="text-lg mb-4">Loading advance report...</div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#BF9853] mb-4"></div>
-          <div className="text-sm text-gray-600">
-            Progress: {progress}%
-          </div>
-          <div className="w-64 bg-gray-200 rounded-full h-2 mt-2">
-            <div
-              className="bg-[#BF9853] h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Keep rendering the page while loading; data will populate once fetched.
   if (error) {
     return (
       <div className='bg-[#FAF6ED]'>

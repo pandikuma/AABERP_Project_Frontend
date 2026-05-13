@@ -12,6 +12,11 @@ import Filter from '../Images/filter (3).png'
 import Reload from '../Images/rotate-right.png'
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+    postBankRegisterLogSave,
+    bankRegisterLogSaveUrlMatchingRequest,
+    isPaymentModeRequiringBankRegisterLog,
+} from '../../utils/bankRegisterLogBeforeWeeklyBill';
 import XL from '../Images/sheets.png'
 import Pdf from '../Images/pdf.png'
 Modal.setAppElement('#root');
@@ -1141,7 +1146,24 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
             ...updatedFormData,
             billArrivalDate: billArrivalForApi
         };
-        const response = await fetch(`https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`, {
+        const updateUrl = `https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`;
+        const isPaymentTypeForWeekly = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
+        if (
+            isPaymentTypeForWeekly &&
+            isPaymentModeRequiringBankRegisterLog(updatedFormData.paymentMode) &&
+            editId &&
+            !sentToWeeklyPaymentBillsRef.current.has(editId)
+        ) {
+            await postBankRegisterLogSave(
+                bankRegisterLogSaveUrlMatchingRequest(updateUrl),
+                "Expense Entry",
+                {
+                    bill_payment_mode: updatedFormData.paymentMode,
+                    amount: updatedFormData.amount,
+                }
+            );
+        }
+        const response = await fetch(updateUrl, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatePayload)

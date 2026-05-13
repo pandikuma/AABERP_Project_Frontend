@@ -11,6 +11,11 @@ import download from '../Images/file_download.png'
 import file from '../Images/file.png';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+    postBankRegisterLogSave,
+    bankRegisterLogSaveUrlMatchingRequest,
+    isPaymentModeRequiringBankRegisterLog,
+} from '../../utils/bankRegisterLogBeforeWeeklyBill';
 import Change from '../Images/dropdownchange.png';
 import ExpenseEntryForm from '../ExpensesEntry/Form';
 import AdvancePortalForm from '../Advance Portal/AdvancePortal';
@@ -80,6 +85,17 @@ function getStartAndEndDateOfISOWeek(weekNo, year) {
     return { startDate: ISOweekStart, endDate: ISOweekEnd };
 }
 const WeeklyPayment = ({ username, userRoles = [] }) => {
+    const resolveEnteredBy = () => {
+        const propUsername = typeof username === 'string' ? username.trim() : '';
+        if (propUsername) return propUsername;
+        try {
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            return user?.name || user?.username || user?.userName || '';
+        } catch {
+            return '';
+        }
+    };
+    const enteredBy = resolveEnteredBy();
     const normalizedUsername = username?.trim();
     const canRemoveBillCopyUrl = normalizedUsername === 'Admin' || normalizedUsername === 'Mahalingam M';
     const resolveActiveBranchId = () => {
@@ -552,7 +568,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             const finalPaymentData = {
                 ...paymentData,
                 branch_id: paymentData?.branch_id ?? activeBranchId ?? null,
-                enteredBy: username,
+                entered_by: enteredBy,
             };
             const response = await fetch("https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save", {
                 method: "POST",
@@ -1178,7 +1194,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     }, []);
 
     const siteOptionsForNewEntry = useMemo(() => {
-        const hiddenPredefinedIds = new Set([1, 2, 3, 4, 5, 6, 8, 9, 10,11]);
+        const hiddenPredefinedIds = new Set([1, 2, 3, 4, 5, 6, 8, 9, 10, 11]);
         return (siteOptions || []).filter((opt) => {
             if (String(opt?.label || opt?.value || "").trim() === "Multi-Project Batch") return false;
             const idNum = Number(opt?.id);
@@ -1700,7 +1716,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             description: description || "",
             file_url: "",
             branch_id: activeBranchId ?? null,
-            enteredBy: username,
+            entered_by: enteredBy,
         };
         const response = await fetch("https://backendaab.in/demoAabuildersDash/api/loans/save", {
             method: "POST",
@@ -1757,7 +1773,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 projectId: pendingLoanData.project_id || 0,
                 purposeId: selectedPurpose.id,
                 description: trimmedDescription,
-                enteredBy: username,
+                entered_by: enteredBy,
             });
             expenseForBackend.loan_portal_id = loanResponse?.id || loanResponse?.loanPortalId || null;
             const res = await fetch("https://backendaab.in/demoAabuildersDash/api/weekly-expenses/save", {
@@ -2021,7 +2037,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                 staff_advance_portal_id: null,
                 loan_portal_id: null,
                 branch_id: activeBranchId,
-                enteredBy: username,
+                entered_by: enteredBy,
             };
             if (newExpense.type === "Loan") {
                 const loanProjectId = selectedProjectName ? Number(selectedProjectName.id) : 0;
@@ -2064,7 +2080,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                     source: "Cash Register",
                     file_url: "",
                     branch_id: activeBranchId ?? null,
-                    enteredBy: username,
+                    entered_by: enteredBy,
                 };
                 expenseForBackend.employee_id = null;
                 const saveAdvance = await fetch("https://backendaab.in/demoAabuildersDash/api/advance_portal/save", {
@@ -2102,7 +2118,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                     entry_no: nextEntryNo,
                     source: "Cash Register",
                     branch_id: activeBranchId ?? null,
-                    enteredBy: username,
+                    entered_by: enteredBy,
                 };
                 const saveStaffAdvance = await fetch("https://backendaab.in/demoAabuildersDash/api/staff-advance/save", {
                     method: "POST",
@@ -2206,7 +2222,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             weekly_number: operationalWeekNumber,
             status: false,
             branch_id: activeBranchId,
-            enteredBy: username,
+            entered_by: enteredBy,
         };
         fetch("https://backendaab.in/demoAabuildersDash/api/payments-received/save", {
             method: "POST",
@@ -2374,7 +2390,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                         description: editFormData.description || "",
                         file_url: editFormData.file_url || "",
                         branch_id: activeBranchId ?? null,
-                        enteredBy: username
+                        entered_by: enteredBy
                     };
                     const saveAdvance = await fetch(
                         "https://backendaab.in/demoAabuildersDash/api/advance_portal/save",
@@ -2427,7 +2443,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                         staff_refund_amount: 0,
                         file_url: null,
                         branch_id: activeBranchId ?? null,
-                        enteredBy: username
+                        entered_by: enteredBy
                     };
                     const saveStaffAdvance = await fetch(
                         "https://backendaab.in/demoAabuildersDash/api/staff-advance/save",
@@ -5050,6 +5066,23 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                     onClick={async () => {
                                         try {
                                             if (currentProjectAdvanceRow && paymentPopupData.paymentMode && paymentPopupData.amount) {
+                                                if (isPaymentModeRequiringBankRegisterLog(paymentPopupData.paymentMode)) {
+                                                    let mainRefUrl = "https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save";
+                                                    if (currentProjectAdvanceRow.type === "Project Advance" && currentProjectAdvanceRow.advance_portal_id) {
+                                                        mainRefUrl = "https://backendaab.in/demoAabuildersDash/api/advance_portal/save";
+                                                    } else if (currentProjectAdvanceRow.type === "Staff Advance") {
+                                                        mainRefUrl = "https://backendaab.in/demoAabuildersDash/api/staff-advance/save";
+                                                    }
+                                                    await postBankRegisterLogSave(
+                                                        bankRegisterLogSaveUrlMatchingRequest(mainRefUrl),
+                                                        "Cash Register — Weekly Payment",
+                                                        {
+                                                            bill_payment_mode: paymentPopupData.paymentMode,
+                                                            amount: paymentPopupData.amount,
+                                                            entered_by: enteredBy,
+                                                        }
+                                                    );
+                                                }
                                                 let advancePortalId = null;
                                                 let staffAdvancePortalId = null;
                                                 if (currentProjectAdvanceRow.type === "Project Advance" && currentProjectAdvanceRow.advance_portal_id) {
@@ -5084,7 +5117,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                             not_allow_to_edit: true,
                                                             source: "Cash Register",
                                                             branch_id: activeBranchId ?? null,
-                                                            enteredBy: username
+                                                            entered_by: enteredBy
                                                         };
                                                         const advanceResponse = await fetch(
                                                             "https://backendaab.in/demoAabuildersDash/api/advance_portal/save",
@@ -5134,7 +5167,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                             labour_id: 0,
                                                             not_allow_to_edit: true,
                                                             branch_id: activeBranchId ?? null,
-                                                            enteredBy: username
+                                                            entered_by: enteredBy
                                                         };
                                                         const staffAdvanceResponse = await fetch(
                                                             "https://backendaab.in/demoAabuildersDash/api/staff-advance/save",
@@ -5235,6 +5268,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                 username={username}
                                 userRoles={userRoles}
                                 embedded
+                                disableWeeklyExpensesSave
                                 onSuccess={async () => {
                                     setShowBillExpenseEntryModal(false);
                                     localStorage.removeItem('expenseEntryPrefill');
@@ -5541,7 +5575,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                             source: "Cash Register",
                                             billCopyUrl: cleanUrl(currentProjectAdvanceRow.bill_copy_url),
                                             branchId: activeBranchId ?? null,
-                                            enteredBy: username
+                                            enteredBy: enteredBy
                                         };
                                         const expensesFormResponse = await fetch('https://backendaab.in/demoAabuilderDash/expenses_form/save', {
                                             method: 'POST',
