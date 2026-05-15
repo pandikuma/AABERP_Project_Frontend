@@ -19,6 +19,7 @@ import sidesaving from '../Images/Master Data Black.svg'
 import sidesetting from '../Images/Utility Hub Black.svg'
 import sideMasterData from '../Images/Master Data White.svg'
 import sideUtilityHub from '../Images/Utility Hub White.svg'
+import aabLogo from '../Images/aablogo.png';
 function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
   const [activeMenu, setActiveMenu] = useState('');
   const [activeSubmenuItem, setActiveSubmenuItem] = useState('');
@@ -83,6 +84,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
       '/expense-entry': { menu: 'account', submenu: 'Expense Entry' },
       '/expense-dashboard': { menu: 'account', submenu: 'Expense Dashboard' },
       '/bankreconciliation': { menu: 'account', submenu: 'Bank Reconciliation' },
+      '/orbit-erp/bill-payment': { menu: 'account', submenu: 'Orbit ERP' },
 
       // Procurement routes
       '/purchaseorder': { menu: 'procurement', submenu: 'Purchase Order' },
@@ -141,10 +143,43 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
     return roleModels.some(model => model.models === modelName);
   };
   return (
-    <aside ref={sidebarRef}
-      className={`fixed h-screen w-[250px] bg-[#FFFFFF] mt-14 z-40 overflow-y-auto transition-transform duration-1000 ease-in-out transform ${isVisible ? 'translate-x-0' : '-translate-x-full'
-        }`}>
-      <nav className="h-full flex flex-col">
+    <>
+      <style>{`
+        @keyframes erp-orbit-drawer-bg-fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .erp-orbit-drawer-bg {
+          animation: erp-orbit-drawer-bg-fade-in 0.15s ease;
+          background: rgba(33, 33, 33, 0.45);
+          backdrop-filter: blur(2px);
+        }
+        .erp-orbit-drawer {
+          transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+          box-shadow: 8px 0 24px -8px rgba(33, 33, 33, 0.18);
+        }
+      `}</style>
+      {isVisible && (
+        <div
+          className="erp-orbit-drawer-bg fixed inset-0 z-[55]"
+          onClick={() => onCloseSidebar && onCloseSidebar()}
+          role="presentation"
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        ref={sidebarRef}
+        className={`erp-orbit-drawer fixed left-0 top-0 bottom-0 z-[56] flex w-[280px] flex-col overflow-hidden bg-[#FFFFFF] ${isVisible ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-3">
+          <img
+            src={aabLogo}
+            alt="AA Builder"
+            className="h-10 w-10 shrink-0 rounded-full object-cover"
+          />
+          <p className="text-[#BF9853] font-medium text-lg leading-tight">AA Builder</p>
+        </div>
+        <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <Link
           to="/"
           className={`flex items-center gap-[11px] py-[15px] px-3 cursor-pointer ${activeMenu === 'home' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
@@ -431,6 +466,21 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
             >
               <p className="text-sm cursor-pointer"><li>Bank Reconciliation</li></p>
             </Link>
+            <Link
+              to={hasAccessToModel('Bank Register') ? '/orbit-erp/bill-payment' : '#'}
+              className={`submenu-link flex items-center gap-[1px] p-2 ${activeSubmenuItem === 'Orbit ERP' ? 'text-red-500' : ''}`}
+              onClick={(e) => {
+                if (!hasAccessToModel('Bank Register')) {
+                  e.preventDefault();
+                  alert("No permissions for this page");
+                  return;
+                }
+                handleSubmenuItemClick('Orbit ERP');
+                if (onCloseSidebar) onCloseSidebar();
+              }}
+            >
+              <p className="text-sm cursor-pointer"><li>Testing</li></p>
+            </Link>
           </div>
         )}
         <div
@@ -713,6 +763,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
         </div>
       </nav>
     </aside>
+    </>
   );
 }
 export default Sidebar;

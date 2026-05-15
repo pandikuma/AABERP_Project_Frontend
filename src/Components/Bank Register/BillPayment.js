@@ -10,7 +10,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from 'xlsx';
 
-const BillPayment = ({ username, userRoles = [] }) => {
+const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
     const [billPayments, setBillPayments] = useState([]);
     const [vendorOptions, setVendorOptions] = useState([]);
     const [contractorOptions, setContractorOptions] = useState([]);
@@ -801,10 +801,12 @@ const BillPayment = ({ username, userRoles = [] }) => {
         <body className="bg-[#FAF6ED]">
             <div className="bg-white ml-10 mr-10 min-h-screen">
                 <div className="p-6">
+                    {!hideTopHeading && (
                     <div className="mb-6">
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">Bank Records</h1>
                         <p className="text-gray-600">Manage and track all Bank records</p>
                     </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                         <div className="bg-white rounded-lg shadow-md p-6">
                             <div className="flex items-center justify-between">

@@ -1,12 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useSidebar } from '../../context/SidebarContext';
 import axios from "axios";
 import * as XLSX from 'xlsx';
 import logo from '../Images/aablogo.png';
 import Sidebar from './Sidebar';
 import Logout from '../Images/Logout.png'
 import DownloadIcon from '../Images/download.png';
+import { isOrbitAppChromeRoute } from '../OrbitERP/orbitAppChromePaths';
 const Navbar = ({ username, userImage, position, email, onLogout, userRoles = [], branchId, brachId }) => {
-  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const location = useLocation();
+  const hideMainNavForOrbitChrome = isOrbitAppChromeRoute(location.pathname);
+  /** Same pattern as Orbit ERP 1.6.html: one drawerOpen at app root — here SidebarProvider owns visibility for TopBar + legacy Navbar + OrbitAppChrome. */
+  const { isSidebarVisible, toggleSidebar, closeSidebar } = useSidebar();
   const [isProfileDropdownVisible, setIsProfileDropdownVisible] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isEditRequestsDropdownOpen, setIsEditRequestsDropdownOpen] = useState(false);
@@ -46,9 +52,6 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       fetchUserRoles();
     }
   }, [userRoles]);
-  const toggleSidebar = () => {
-    setIsSidebarVisible((prev) => !prev);
-  };
   const normalizedUsername = username?.trim().toLowerCase();
   const canDownloadExpenses = normalizedUsername === 'admin' || normalizedUsername === 'mahalingam m';
   const canViewEditRequests = normalizedUsername === 'admin' || normalizedUsername === 'mahalingam m';
@@ -884,7 +887,7 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
       sidebarRef.current && !sidebarRef.current.contains(event.target) &&
       profileRef.current && !profileRef.current.contains(event.target)
     ) {
-      setIsSidebarVisible(false);
+      closeSidebar();
       setIsProfileDropdownVisible(false);
       setIsEditRequestsDropdownOpen(false);
     }
@@ -1197,23 +1200,39 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
   return (
     <>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700&display=swap');
         .navbar-notification-scroll::-webkit-scrollbar { width: 8px; }
         .navbar-notification-scroll::-webkit-scrollbar-track { background: #e8e4dc; border-radius: 6px; margin: 4px 0; }
         .navbar-notification-scroll::-webkit-scrollbar-thumb { background: #b8b3a8; border-radius: 6px; }
         .navbar-notification-scroll::-webkit-scrollbar-thumb:hover { background: #9c968a; }
         .navbar-notification-scroll { scrollbar-width: thin; scrollbar-color: #b8b3a8 #e8e4dc; }
       `}</style>
-      <nav className="navbar fixed w-full top-0 z-50 bg-white h-14 shadow-md">
-        <div className="flex justify-between items-center h-full px-4">
-          <div className="flex items-center">
+      {!hideMainNavForOrbitChrome && (
+      <nav className="navbar fixed top-0 z-50 flex w-full min-h-[42px] items-center border-b border-[#EADFC8] bg-white px-4 py-[5px]">
+        <div className="flex w-full items-center justify-between">
+          <button
+            type="button"
+            className="group flex cursor-pointer items-center gap-[9px] rounded-lg border-0 bg-transparent px-1.5 py-[3px] text-[#a59c8a] hover:bg-[#F5EFE3] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#BF9853]"
+            aria-label="Open menu"
+            title="Open menu"
+            onClick={toggleSidebar}
+          >
+            <span className="transition-colors group-hover:text-[#B8924B]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </span>
             <img
               src={logo}
-              alt="Logo"
-              className="cursor-pointer w-[42px] h-[40px] rounded-full"
-              onClick={toggleSidebar}
+              alt="AA Builders"
+              width={24}
+              height={24}
+              className="block h-8 w-8 shrink-0 object-contain"
             />
-            <p className="hidden md:block text-[#BF9853] ml-2 font-medium text-lg">BUILDERS</p>
-          </div>
+            <span className="hidden whitespace-nowrap font-['Outfit',sans-serif] text-[15.5px] font-bold uppercase leading-none tracking-[0.16em] text-[#B8924B] md:inline">
+              AA Builders
+            </span>
+          </button>
           <div className="relative flex items-center space-x-4" ref={profileRef}>
             {canSelectBranch ? (
               <div className="flex items-center">
@@ -1382,7 +1401,7 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
               className="w-8 h-8 cursor-pointer"
             />
             {isProfileDropdownVisible && (
-              <div className="absolute right-0 top-14 bg-white shadow-lg rounded-md p-4 w-72 z-20">
+              <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-md bg-white p-4 shadow-lg">
                 <div className="items-center">
                   {userImage ? (
                     <img
@@ -1406,6 +1425,7 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           </div>
         </div>
       </nav>
+      )}
       {selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl w-[90%]  overflow-hidden">
@@ -1501,7 +1521,7 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           </div>
         </div>
       )}
-      <Sidebar isVisible={isSidebarVisible} sidebarRef={sidebarRef} userRoles={userRoles} onCloseSidebar={() => setIsSidebarVisible(false)} />
+      <Sidebar isVisible={isSidebarVisible} sidebarRef={sidebarRef} userRoles={userRoles} onCloseSidebar={closeSidebar} />
     </>
   );
 };
