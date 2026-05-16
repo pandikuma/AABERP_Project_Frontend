@@ -22,7 +22,6 @@ const getTenantLinkPhone = (tenant) =>
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** Shop sort: letters + numeric (like Rent Dashboard); blank / "-" shop numbers sort last. */
 const normalizeShopNoKey = (shopNo) => {
     const raw = (shopNo ?? '').toString().trim();
     if (!raw || raw === '-') return { empty: true, letters: '', number: 0, raw: '' };
@@ -53,9 +52,11 @@ const sortProjectsPropertyDetailsByShopNo = (projects) => {
     }));
 };
 
-const ElectricityTab = ({ username, userRoles = [] }) => {
-    const [showExpenseEntryModal, setShowExpenseEntryModal] = useState(false);
-    const [expenseEntryPrefill, setExpenseEntryPrefill] = useState(null);
+const getProfessionServiceNo = (property) =>
+    String(property?.professionTaxNo ?? '').trim();
+
+const ProfessionTab = ({ username, userRoles = [] }) => {
+    
     const [filters, setFilters] = useState({
         year: new Date().getFullYear().toString(),
         month: MONTH_LABELS[new Date().getMonth()],
@@ -69,13 +70,14 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
         tenant: '',
         occupancyStatus: ''
     });
+
     const [projects, setProjects] = useState([]);
-    const [electricityPayments, setElectricityPayments] = useState([]);
+    const [professionPayments, setProfessionPayments] = useState([]);
     const [frequencyHistory, setFrequencyHistory] = useState([]);
     const [filteredProjects, setFilteredProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [selectedCategory, setSelectedCategory] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState(''); // Show all by default
     const [showHideModal, setShowHideModal] = useState(false);
     const [hiddenProjects, setHiddenProjects] = useState([]);
     const [vendorOptions, setVendorOptions] = useState([]);
@@ -83,11 +85,13 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
     const [tenantOptions, setTenantOptions] = useState([]);
     const [showActivityModal, setShowActivityModal] = useState(false);
     const [activityFormData, setActivityFormData] = useState({
-        electricityFrequency: '',
-        electricityStartingMonth: ''
+        waterFrequency: '',
+        waterStartingMonth: ''
     });
     const [selectedRowData, setSelectedRowData] = useState(null);
     const [submittedFrequencyData, setSubmittedFrequencyData] = useState({});
+    const [showExpenseEntryModal, setShowExpenseEntryModal] = useState(false);
+    const [expenseEntryPrefill, setExpenseEntryPrefill] = useState(null);
     const monthLabels = MONTH_LABELS;
     const paymentStatusOptions = [
         { value: 'Paid', label: 'Paid' },
@@ -100,53 +104,34 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
 
     const { scrollRef, onMouseDown, onMouseMove, onMouseUp, onMouseLeave } = useUtilityHubTableDragScroll();
 
+    // Profession table: show empty until properties have professionTaxNo (not water data)
     useEffect(() => {
-        const fetchProjects = async () => {
-            try {
-                const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/projects/getAll');
-                const projectsWithEbNo = response.data.filter(project =>
-                    project.propertyDetails &&
-                    project.propertyDetails.some(property => property.ebNo && property.ebNo.trim() !== '')
-                );
-                const visibleProjects = projectsWithEbNo.filter(project => !project.hide);
-                const hiddenProjects = projectsWithEbNo.filter(project => project.hide);
-                const sortedVisible = sortProjectsPropertyDetailsByShopNo(visibleProjects);
-                const sortedHidden = sortProjectsPropertyDetailsByShopNo(hiddenProjects);
-                setProjects(sortedVisible);
-                setHiddenProjects(sortedHidden);
-                setFilteredProjects(sortedVisible);
-            } catch (error) {
-                console.error('Error fetching projects:', error);
-                setError('Failed to fetch projects data');
-            }
-        };
-        fetchProjects();
+        setProjects([]);
+        setHiddenProjects([]);
+        setFilteredProjects([]);
+        setLoading(false);
     }, []);
+
     useEffect(() => {
-        const fetchElectricityPayments = async () => {
-            try {
-                const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/electricity');
-                setElectricityPayments(response.data || []);
-            } catch (error) {
-                console.error('Error fetching electricity payments:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchElectricityPayments();
+        setProfessionPayments([]);
     }, []);
+
+    // Fetch frequency history data
     useEffect(() => {
         const fetchFrequencyHistory = async () => {
             try {
                 const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/frequency-history/getAll');
-                console.log('[ElectricityTab] frequency-history/getAll response:', response.data);
                 setFrequencyHistory(response.data || []);
             } catch (error) {
                 console.error('Error fetching frequency history:', error);
+                // Don't set error for this as it might not be critical
             }
         };
+
         fetchFrequencyHistory();
     }, []);
+
+    // Fetch vendor names
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
@@ -259,26 +244,36 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
         [filteredProjects]
     );
 
-    const electricityTableRows = useMemo(() => {
-        const rows = sortedFilteredProjects.flatMap((project) =>
-            (project.propertyDetails || [])
-                .filter((property) => property.ebNo && property.ebNo.trim() !== '')
-                .map((property) => ({ project, property }))
-        );
-        rows.sort((a, b) => comparePropertyShopNoAsc(a.property, b.property));
-        return rows;
-    }, [sortedFilteredProjects]);
+    const professionTableRows = useMemo(() => [], []);
 
-    const hiddenElectricityTableRows = useMemo(() => {
-        const rows = sortProjectsPropertyDetailsByShopNo(hiddenProjects).flatMap((project) =>
-            (project.propertyDetails || [])
-                .filter((property) => property.ebNo && property.ebNo.trim() !== '')
-                .map((property) => ({ project, property }))
-        );
-        rows.sort((a, b) => comparePropertyShopNoAsc(a.property, b.property));
-        return rows;
-    }, [hiddenProjects]);
+    const hiddenProfessionTableRows = useMemo(() => [], []);
 
+    const matchesPaymentFilters = (property) => {
+        const selectedMonth = filters.month;
+        const selectedStatus = filters.paymentStatus;
+
+        if (!selectedMonth && !selectedStatus) {
+            return true;
+        }
+
+        const evaluateMonth = (month) => {
+            const paymentData = getPaymentData(getProfessionServiceNo(property), month, property.id);
+            const isPaid = paymentData.amount !== '-' && paymentData.amount !== '0';
+            const isUnpaid = paymentData.amount === '0';
+
+            if (selectedStatus === 'Paid') return isPaid;
+            if (selectedStatus === 'Unpaid') return isUnpaid;
+            return true;
+        };
+
+        if (selectedMonth) {
+            return evaluateMonth(selectedMonth);
+        }
+
+        return monthLabels.some((month) => evaluateMonth(month));
+    };
+
+    // Apply filters (match ElectricityTab behavior)
     useEffect(() => {
         const toLower = (value) => (value ? value.toString().toLowerCase() : '');
         const vendorFilter = toLower(filters.vendor);
@@ -297,6 +292,7 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
         };
         const selectedMonthNumber = filters.month ? monthMap[filters.month] : null;
         const selectedYearMonthForFilters = selectedMonthNumber ? `${selectedYearForFilters}-${selectedMonthNumber}` : null;
+
         const getPaymentVendorValue = (payment) => toLower(
             payment?.vendorName ??
             payment?.vendor ??
@@ -305,18 +301,19 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
             payment?.party ??
             ''
         );
+
         const propertyMatchesVendorFromPayments = (property) => {
             if (!vendorFilter) return true;
-            const ebNo = property?.ebNo;
-            if (!ebNo) return false;
-            const paymentsForService = electricityPayments.filter(p => p?.utilityTypeNumber === ebNo);
+            const serviceNo = getProfessionServiceNo(property);
+            if (!serviceNo) return false;
+            const paymentsForService = professionPayments.filter(p => p?.utilityTypeNumber === serviceNo);
             const scopedPayments = selectedYearMonthForFilters
                 ? paymentsForService.filter(p => p?.utilityForTheMonth === selectedYearMonthForFilters)
                 : paymentsForService.filter(p => typeof p?.utilityForTheMonth === 'string' && p.utilityForTheMonth.startsWith(`${selectedYearForFilters}-`));
             return scopedPayments.some(p => getPaymentVendorValue(p).includes(vendorFilter));
         };
 
-        // Tenant ↔ Shop link lookup (same source as RentManagement Dashboard)
+        // Tenant ↔ Shop link lookup
         const tenantLinksByPropertyId = new Map();
         if (Array.isArray(tenantShopData) && tenantShopData.length) {
             tenantShopData.forEach(tenant => {
@@ -353,15 +350,15 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
             if (selectedCategory && project.projectCategory !== selectedCategory) {
                 return acc;
             }
+
             if (projectNameFilter && !toLower(project.projectName).includes(projectNameFilter)) {
                 return acc;
             }
 
             const filteredProperties = (project.propertyDetails || []).filter(property => {
-                if (!property || !property.ebNo || !property.ebNo.trim()) {
+                if (!property || !getProfessionServiceNo(property) || !getProfessionServiceNo(property).trim()) {
                     return false;
                 }
-
                 if (doorFilter && !toLower(property.doorNo).includes(doorFilter)) {
                     return false;
                 }
@@ -371,23 +368,18 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                 if (projectTypeFilter && !toLower(property.projectType).includes(projectTypeFilter)) {
                     return false;
                 }
-                if (serviceFilter && !toLower(property.ebNo).includes(serviceFilter)) {
+                if (serviceFilter && !toLower(getProfessionServiceNo(property)).includes(serviceFilter)) {
                     return false;
                 }
-                if (!matchesTenantFromLinks(property.id)) return false;
-                if (!matchesOccupancyFromLinks(property.id)) return false;
-                if (vendorFilter) {
-                    // Vendor is stored on each electricity payment record (expenses_form API),
-                    // so filter by matching payments for this EB No (optionally scoped to selected month/year).
-                    if (!propertyMatchesVendorFromPayments(property)) {
-                        return false;
-                    }
+                if (vendorFilter && !propertyMatchesVendorFromPayments(property)) {
+                    return false;
                 }
-
                 if (!matchesPaymentFilters(property)) {
                     return false;
                 }
-
+                const propertyId = property?.id ?? property?.propertyId ?? property?.projectNamePropertyDetailsId;
+                if (!matchesTenantFromLinks(propertyId)) return false;
+                if (!matchesOccupancyFromLinks(propertyId)) return false;
                 return true;
             });
 
@@ -404,13 +396,16 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
         }, []);
 
         setFilteredProjects(filtered);
-    }, [filters, projects, selectedCategory, electricityPayments, frequencyHistory, tenantShopData]);
+    }, [filters, projects, selectedCategory, professionPayments, frequencyHistory, tenantShopData]);
+
     const handleFilterChange = (filterType, selectedOption) => {
         setFilters(prev => ({
             ...prev,
             [filterType]: selectedOption ? selectedOption.value : ''
         }));
     };
+
+    // Custom styles for react-select
     const customSelectStyles = {
         control: (provided, state) => ({
             ...provided,
@@ -437,6 +432,8 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
             color: '#9CA3AF',
         }),
     };
+
+    // Get unique values for filter options
     const getUniqueValues = (key) => {
         const values = new Set();
         projects.forEach(project => {
@@ -456,7 +453,7 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                 });
             } else if (key === 'serviceNo') {
                 project.propertyDetails.forEach(property => {
-                    if (property.ebNo) values.add(property.ebNo);
+                    if (getProfessionServiceNo(property)) values.add(getProfessionServiceNo(property));
                 });
             }
         });
@@ -465,6 +462,8 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
             label: value
         }));
     };
+
+    // Get frequency data for a specific property
     const getFrequencyData = (propertyId) => {
         console.log('Looking for frequency data for property ID:', propertyId);
         console.log('Available frequency history:', frequencyHistory);
@@ -472,13 +471,21 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
         console.log('Found frequency data:', found);
         return found;
     };
+
+    // Determine if a month needs payment based on frequency
     const shouldPayInMonth = (propertyId, month, year) => {
         if (!propertyId) return true;
         if (!frequencyHistory || frequencyHistory.length === 0) return true;
 
-        const records = frequencyHistory.filter(
-            (f) => f.projectNamePropertyDetailsId === propertyId && f.startingMonthOfElectricityFrequency
-        );
+        const propertyIdStr = String(propertyId);
+        const records = frequencyHistory.filter((f) => {
+            const freqPropertyId = f?.projectNamePropertyDetailsId;
+            const freqPropertyIdStr = freqPropertyId !== undefined && freqPropertyId !== null ? String(freqPropertyId) : null;
+            return (
+                freqPropertyIdStr === propertyIdStr &&
+                f.startingMonthOfWaterFrequency
+            );
+        });
         if (records.length === 0) return true;
 
         const currentYear = parseInt(year, 10);
@@ -487,51 +494,60 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
 
         const currentVal = currentYear * 12 + currentMonth;
         const sorted = records.slice().sort((a, b) => {
-            const [aY, aM] = a.startingMonthOfElectricityFrequency.split('-').map(Number);
-            const [bY, bM] = b.startingMonthOfElectricityFrequency.split('-').map(Number);
+            const [aY, aM] = a.startingMonthOfWaterFrequency.split('-').map(Number);
+            const [bY, bM] = b.startingMonthOfWaterFrequency.split('-').map(Number);
             return aY * 12 + aM - (bY * 12 + bM);
         });
 
         let active = null;
         for (const rec of sorted) {
-            const [rY, rM] = rec.startingMonthOfElectricityFrequency.split('-').map(Number);
+            const [rY, rM] = rec.startingMonthOfWaterFrequency.split('-').map(Number);
             const recVal = rY * 12 + rM;
             if (recVal <= currentVal) active = rec;
             else break;
         }
-        const activeFreqMissing = active?.electricityFrequencyNo === undefined || active?.electricityFrequencyNo === null;
-        if (!active || activeFreqMissing || !active.startingMonthOfElectricityFrequency) return true;
+        if (!active) return true;
 
-        const frequency = parseInt(active.electricityFrequencyNo, 10);
-        if (Number.isNaN(frequency)) return true;
+        const activeFreqRaw = active.waterFrequencyNo;
+        const activeFreqMissing = activeFreqRaw === undefined || activeFreqRaw === null;
+        const activeStart = active.startingMonthOfWaterFrequency;
+        if (activeFreqMissing || !activeStart) return true;
 
-        // If frequency is 0 from its starting month, we should show "-" from that month onwards.
-        if (frequency === 0) {
-            return false;
-        }
+        const frequency = parseInt(activeFreqRaw, 10);
+        if (Number.isNaN(frequency) || frequency < 0) return true;
 
-        const [startYear, startMonth] = active.startingMonthOfElectricityFrequency.split('-').map(Number);
+        const [startYear, startMonth] = String(activeStart).trim().split('-').map(Number);
         const monthsSinceStart = (currentYear - startYear) * 12 + (currentMonth - startMonth);
-        if (monthsSinceStart >= 0) {
-            console.log(
-                `[ElectricityTab] property=${propertyId} month=${month}/${year} activeFrequency=${frequency} start=${active.startingMonthOfElectricityFrequency} monthsSinceStart=${monthsSinceStart}`
-            );
-        }
+
+        // Frequency 0 means: from starting month onwards, no payment required (show "-")
+        if (frequency === 0) return monthsSinceStart < 0;
+
         return monthsSinceStart >= 0 && monthsSinceStart % frequency === 0;
     };
-    const getPaymentData = (ebNo, month, propertyId) => {
+
+    // Check if payment is made for a specific profession service number and month
+    const isPaymentMade = (professionServiceNo, month) => {
+        return professionPayments.some(payment =>
+            payment.utilityTypeNumber === professionServiceNo &&
+            payment.utilityForTheMonth === month
+        );
+    };
+
+    const getPaymentData = (professionServiceNo, month, propertyId) => {
         const selectedYear = filters.year || new Date().getFullYear().toString();
         const monthMap = {
             'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
             'May': '05', 'June': '06', 'July': '07', 'Aug': '08',
             'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
         };
+
         const monthNumber = monthMap[month];
         if (!monthNumber) return { amount: '-', date: null };
+
         const yearMonth = `${selectedYear}-${monthNumber}`;
         // If a payment exists for this month, always show it (even when frequency=0).
-        const existingPayment = electricityPayments.find(p =>
-            p.utilityTypeNumber === ebNo &&
+        const existingPayment = professionPayments.find(p =>
+            p.utilityTypeNumber === professionServiceNo &&
             p.utilityForTheMonth === yearMonth
         );
         if (existingPayment) {
@@ -542,21 +558,35 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                     existingPayment.billCopyUrl || existingPayment.billCopy || existingPayment.fileUrl || null
             };
         }
+        // ✅ Helper: find the active frequency record for this month
         const getActiveFrequencyData = (propertyId, year, monthNumber) => {
             if (!frequencyHistory || frequencyHistory.length === 0) return null;
-            const records = frequencyHistory.filter(
-                f => f.projectNamePropertyDetailsId === propertyId && f.startingMonthOfElectricityFrequency
-            );
+
+            const propertyIdStr = String(propertyId);
+            const records = frequencyHistory.filter((f) => {
+                const freqPropertyId = f?.projectNamePropertyDetailsId;
+                const freqPropertyIdStr = freqPropertyId !== undefined && freqPropertyId !== null ? String(freqPropertyId) : null;
+                return (
+                    freqPropertyIdStr === propertyIdStr &&
+                    f.startingMonthOfWaterFrequency
+                );
+            });
+
             if (records.length === 0) return null;
+
             const currentVal = year * 12 + parseInt(monthNumber);
+
+            // Sort ascending
             const sorted = records.sort((a, b) => {
-                const [aY, aM] = a.startingMonthOfElectricityFrequency.split('-').map(Number);
-                const [bY, bM] = b.startingMonthOfElectricityFrequency.split('-').map(Number);
+                const [aY, aM] = a.startingMonthOfWaterFrequency.split('-').map(Number);
+                const [bY, bM] = b.startingMonthOfWaterFrequency.split('-').map(Number);
                 return aY * 12 + aM - (bY * 12 + bM);
             });
+
+            // Pick the most recent record before or equal to current month
             let active = sorted[0];
             for (const rec of sorted) {
-                const [rY, rM] = rec.startingMonthOfElectricityFrequency.split('-').map(Number);
+                const [rY, rM] = rec.startingMonthOfWaterFrequency.split('-').map(Number);
                 const recVal = rY * 12 + rM;
                 if (recVal <= currentVal) {
                     active = rec;
@@ -564,17 +594,15 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                     break;
                 }
             }
-            if (propertyId === 80) {
-                console.log('[ElectricityTab] propertyId=80 frequency records(sorted):', sorted);
-                console.log('[ElectricityTab] propertyId=80 selected active frequency:', active, 'for', `${year}-${monthNumber}`);
-            }
             return active;
         };
+        // ✅ Get the correct frequency record
         const freqData = getActiveFrequencyData(propertyId, parseInt(selectedYear), parseInt(monthNumber));
-        const freqMissing = freqData?.electricityFrequencyNo === undefined || freqData?.electricityFrequencyNo === null;
-        if (!freqData || freqMissing || !freqData.startingMonthOfElectricityFrequency) {
-            const payment = electricityPayments.find(p =>
-                p.utilityTypeNumber === ebNo &&
+        const freqValue = freqData?.waterFrequencyNo;
+        const freqMissing = freqValue === undefined || freqValue === null;
+        if (!freqData || freqMissing || !freqData.startingMonthOfWaterFrequency) {
+            const payment = professionPayments.find(p =>
+                p.utilityTypeNumber === professionServiceNo &&
                 p.utilityForTheMonth === yearMonth
             );
             if (payment) {
@@ -584,31 +612,42 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                     billCopyUrl: payment.billCopyUrl || payment.billCopy || payment.fileUrl || null
                 };
             }
-            return { amount: '0', date: null };
+            return { amount: '0', date: null }; // Default: monthly
         }
-        const frequency = parseInt(freqData.electricityFrequencyNo, 10);
-        const startingMonth = freqData.startingMonthOfElectricityFrequency.trim();
+        const frequency = parseInt(freqValue, 10);
+        const startingMonth = freqData.startingMonthOfWaterFrequency.trim();
+        // Parse YYYY-MM safely
         const [startYear, startMonth] = startingMonth.split('-').map(Number);
         const currentMonth = parseInt(monthNumber);
         const currentYear = parseInt(selectedYear);
+        // ✅ Get today's year and month
+        const now = new Date();
+        const thisYear = now.getFullYear();
+        const thisMonth = now.getMonth() + 1;
+        // ✅ Don't ask payment for future months
+        if (currentYear > thisYear || (currentYear === thisYear && currentMonth > thisMonth)) {
+            return { amount: '-', date: null, isNotRequired: true }; // Future month → skip
+        }
+        // ✅ Calculate months since start
         const monthsSinceStart = (currentYear - startYear) * 12 + (currentMonth - startMonth);
-        // Frequency 0 means: from starting month onwards, ignore even existing "0" payments and show "-"
+        // ✅ Frequency 0 means: from starting month onwards, not required ("-")
         if (frequency === 0 && monthsSinceStart >= 0) {
             console.log(
-                `[ElectricityTab] getPaymentData: property=${propertyId} ebNo=${ebNo} ym=${yearMonth} frequency=0 start=${startingMonth} -> "-" (override payments)`
+                `[ProfessionTab] getPaymentData: property=${propertyId} service=${professionServiceNo} ym=${yearMonth} frequency=0 start=${startingMonth} -> "-" (override payments)`
             );
             return { amount: '-', date: null, isNotRequired: true };
         }
-
+        // ✅ Include starting month as payable
         const shouldPay = monthsSinceStart >= 0 && monthsSinceStart % frequency === 0;
-        
         if (shouldPay) {
-            return { amount: '0', date: null }; 
+            return { amount: '0', date: null }; // Payment required (unpaid)
         } else {
-            return { amount: '-', date: null, isNotRequired: true }; 
+            return { amount: '-', date: null, isNotRequired: true }; // Not due this month
         }
     };
-    const getUnpaidCount = (ebNo, propertyId) => {
+    // Get unpaid count for a Profession Tax number
+    const getUnpaidCount = (professionServiceNo, propertyId) => {
+        // Use selected year or current year as fallback
         const selectedYear = filters.year || new Date().getFullYear().toString();
         const monthMap = {
             'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
@@ -621,8 +660,8 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
             const monthNumber = monthMap[month];
             if (shouldPayInMonth(propertyId, monthNumber, selectedYear)) {
                 const yearMonth = `${selectedYear}-${monthNumber}`;
-                const payment = electricityPayments.find(p =>
-                    p.utilityTypeNumber === ebNo &&
+                const payment = professionPayments.find(p =>
+                    p.utilityTypeNumber === professionServiceNo &&
                     p.utilityForTheMonth === yearMonth
                 );
                 if (!payment) {
@@ -632,35 +671,11 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
         });
         return unpaidCount;
     };
-    const matchesPaymentFilters = (property) => {
-        const selectedMonth = filters.month;
-        const selectedStatus = filters.paymentStatus;
-
-        if (!selectedMonth && !selectedStatus) {
-            return true;
-        }
-
-        const evaluateMonth = (month) => {
-            const paymentData = getPaymentData(property.ebNo, month, property.id);
-            const isPaid = paymentData.amount !== '-' && paymentData.amount !== '0';
-            const isUnpaid = paymentData.amount === '0';
-
-            if (selectedStatus === 'Paid') return isPaid;
-            if (selectedStatus === 'Unpaid') return isUnpaid;
-            return true;
-        };
-
-        if (selectedMonth) {
-            return evaluateMonth(selectedMonth);
-        }
-
-        return monthLabels.some((month) => evaluateMonth(month));
-    };
 
     const buildExportRows = () => {
         const pairs = sortedFilteredProjects.flatMap((project) =>
             (project.propertyDetails || [])
-                .filter((property) => property.ebNo && property.ebNo.trim() !== '')
+                .filter((property) => getProfessionServiceNo(property) !== '')
                 .map((property) => ({ project, property }))
         );
         pairs.sort((a, b) => comparePropertyShopNoAsc(a.property, b.property));
@@ -672,18 +687,17 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                 pid: project.projectId || '-',
                 projectName: project.projectName || '-',
                 category: property.projectType || project.projectCategory || '-',
-                shopNo: property.shopNo || '-',
                 doorNo: property.doorNo || '-',
-                phase: property.ebNoPhase ? `Phase ${property.ebNoPhase.replace('P', '')}` : '-',
-                serviceNo: property.ebNo || '-'
+                shopNo: property.shopNo || '-',
+                serviceNo: getProfessionServiceNo(property) || '-'
             };
 
-            monthLabels.forEach(month => {
-                const paymentData = getPaymentData(property.ebNo, month, property.id);
+            monthLabels.forEach((month) => {
+                const paymentData = getPaymentData(getProfessionServiceNo(property), month, property.id);
                 row[month] = paymentData && paymentData.amount !== undefined ? paymentData.amount : '-';
             });
 
-            row.unpaid = getUnpaidCount(property.ebNo, property.id);
+            row.unpaid = getUnpaidCount(getProfessionServiceNo(property), property.id);
             return row;
         });
     };
@@ -694,19 +708,18 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
 
         const doc = new jsPDF({ orientation: 'landscape' });
         doc.setFontSize(14);
-        doc.text('Electricity Projects Overview', 14, 20);
+        doc.text('Profession Tax Projects Overview', 14, 20);
 
-        const headers = ['Sl.No', 'PID', 'Project Name', 'Category', 'Shop No', 'Door No', 'Phase', 'Service No', ...monthLabels, 'Unpaid'];
-        const body = rows.map(row => [
+        const headers = ['Sl.No', 'PID', 'Project Name', 'Category', 'Shop No', 'D.No', 'Service No', ...monthLabels, 'Unpaid'];
+        const body = rows.map((row) => [
             row.slNo,
             row.pid,
             row.projectName,
             row.category,
             row.shopNo,
             row.doorNo,
-            row.phase,
             row.serviceNo,
-            ...monthLabels.map(month => row[month]),
+            ...monthLabels.map((month) => row[month]),
             row.unpaid
         ]);
 
@@ -727,43 +740,40 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
             }
         });
 
-        doc.save('ElectricityProjects.pdf');
+        doc.save('ProfessionTaxProjects.pdf');
     };
 
     const handleExportExcel = () => {
         const rows = buildExportRows();
         if (!rows.length) return;
 
-        const worksheetData = rows.map(row => {
+        const worksheetData = rows.map((row) => {
             const base = {
                 'Sl.No': row.slNo,
                 PID: row.pid,
                 'Project Name': row.projectName,
                 Category: row.category,
                 'Shop No': row.shopNo,
-                'Door No': row.doorNo,
-                'Phase': row.phase,
+                'D.No': row.doorNo,
                 'Service No': row.serviceNo
             };
 
-            monthLabels.forEach(month => {
+            monthLabels.forEach((month) => {
                 base[month] = row[month];
             });
 
-            base['Unpaid'] = row.unpaid;
+            base.Unpaid = row.unpaid;
             return base;
         });
 
         const worksheet = XLSX.utils.json_to_sheet(worksheetData);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'ElectricityProjects');
-        XLSX.writeFile(workbook, 'ElectricityProjects.xlsx');
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'ProfessionTax');
+        XLSX.writeFile(workbook, 'ProfessionTaxProjects.xlsx');
     };
 
-    const hasExportableData = sortedFilteredProjects.some(project =>
-        Array.isArray(project.propertyDetails) &&
-        project.propertyDetails.some(property => property.ebNo && property.ebNo.trim() !== '')
-    );
+    const hasExportableData = professionTableRows.length > 0;
+
     const toggleProjectHideStatus = async (projectId, isHide) => {
         try {
             const response = await axios.put(`https://backendaab.in/demoAabuilderDash/api/projects/hide/${projectId}`, null, {
@@ -807,51 +817,50 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
     const handleActivityEdit = (project, property) => {
         setSelectedRowData({ project, property });
         setActivityFormData({
-            electricityFrequency: '',
-            electricityStartingMonth: ''
+            waterFrequency: '',
+            waterStartingMonth: ''
         });
         setShowActivityModal(true);
     };
     const handleActivitySubmit = async () => {
-        if (!activityFormData.electricityFrequency.trim() || !activityFormData.electricityStartingMonth) {
+        if (!activityFormData.waterFrequency.trim() || !activityFormData.waterStartingMonth) {
             alert('Please fill in all required fields');
             return;
         }
         try {
             const frequencyHistoryData = {
-                projectNamePropertyDetailsId: selectedRowData.property.id, 
-                electricityFrequencyNo: parseInt(activityFormData.electricityFrequency),
-                startingMonthOfElectricityFrequency: activityFormData.electricityStartingMonth,
-                propertyFrequencyNo: null, 
-                startingMonthOfPropertyFrequency: null,
-                waterFrequencyNo: null, 
-                startingMonthOfWaterFrequency: null 
+                projectNamePropertyDetailsId: selectedRowData.property.id, // Property ID from the selected row
+                waterFrequencyNo: parseInt(activityFormData.waterFrequency, 10),
+                startingMonthOfWaterFrequency: activityFormData.waterStartingMonth,
+                electricityFrequencyNo: null,
+                startingMonthOfElectricityFrequency: null,
+                propertyFrequencyNo: null,
+                startingMonthOfPropertyFrequency: null
             };
             const response = await axios.post('https://backendaab.in/demoAabuilderDash/api/frequency-history/save', frequencyHistoryData);
             if (response.data) {
                 setSubmittedFrequencyData(prev => ({
                     ...prev,
                     [selectedRowData.property.id]: {
-                        electricityFrequency: activityFormData.electricityFrequency,
-                        electricityStartingMonth: activityFormData.electricityStartingMonth
+                        waterFrequency: activityFormData.waterFrequency,
+                        waterStartingMonth: activityFormData.waterStartingMonth
                     }
                 }));
                 const fetchFrequencyHistory = async () => {
                     try {
                         const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/frequency-history/getAll');
                         setFrequencyHistory(response.data || []);
-                        console.log(response.data);
                     } catch (error) {
                         console.error('Error fetching frequency history:', error);
                     }
                 };
                 fetchFrequencyHistory();
-                alert('Electricity frequency history saved successfully!');
+                alert('Profession frequency history saved successfully!');
                 setShowActivityModal(false);
                 setSelectedRowData(null);
                 setActivityFormData({
-                    electricityFrequency: '',
-                    electricityStartingMonth: ''
+                    waterFrequency: '',
+                    waterStartingMonth: ''
                 });
             }
         } catch (error) {
@@ -860,19 +869,24 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
         }
     };
 
-    const handleOpenExpenseEntryPopup = ({ ebNo, project, property }) => {
+    const handleOpenExpenseEntryPopup = ({ professionServiceNo, project, property }) => {
         const prefillData = {
-            utilityType: 'Electricity',
+            utilityType: 'Profession',
             siteName: project?.projectName || project?.siteName || '',
-            projectId: project?.id || project?.projectId || null,
-            propertyId: property?.id || null,
-            utilityIdentifier: { key: 'ebNo', value: ebNo },
-            ebNo
+            projectId: project?.id ?? project?.projectId ?? null,
+            propertyId: property?.id ?? null,
+            utilityIdentifier: { key: 'professionTaxNo', value: professionServiceNo },
+            professionTaxNo: professionServiceNo
         };
-        localStorage.setItem('expenseEntryPrefill', JSON.stringify(prefillData));
+        try {
+            localStorage.setItem('expenseEntryPrefill', JSON.stringify(prefillData));
+        } catch {
+            // ignore storage errors
+        }
         setExpenseEntryPrefill(prefillData);
         setShowExpenseEntryModal(true);
     };
+
     return (
         <div className="bg-[#FAF6ED] rounded-lg shadow-sm">
             {showExpenseEntryModal ? (
@@ -885,7 +899,7 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                 onClick={() => {
                                     setShowExpenseEntryModal(false);
                                     setExpenseEntryPrefill(null);
-                                    localStorage.removeItem('expenseEntryPrefill');
+                                    try { localStorage.removeItem('expenseEntryPrefill'); } catch { /* ignore */ }
                                 }}
                                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors duration-200 text-gray-500 text-xl"
                             >
@@ -900,10 +914,10 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                 onSuccess={async () => {
                                     setShowExpenseEntryModal(false);
                                     setExpenseEntryPrefill(null);
-                                    localStorage.removeItem('expenseEntryPrefill');
+                                    try { localStorage.removeItem('expenseEntryPrefill'); } catch { /* ignore */ }
                                     try {
-                                        const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/electricity');
-                                        setElectricityPayments(response.data || []);
+                                        const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/profession');
+                                        setProfessionPayments(response.data || []);
                                     } catch {
                                         // ignore refresh errors
                                     }
@@ -1144,7 +1158,9 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-black">
                             <button
-                                type="button" onClick={handleExportPDF} disabled={loading || !hasExportableData}
+                                type="button"
+                                onClick={handleExportPDF}
+                                disabled={loading || !hasExportableData}
                                 className="flex items-center font-semibold gap-2 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-current"
                             >
                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -1169,9 +1185,7 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                 </svg>
                                 Print
                             </button>
-                            <button onClick={() => setShowHideModal(true)}
-                                className="px-4 py-2 bg-[#BF9853] text-white rounded-lg font-semibold hover:bg-[#A68B4A] transition-colors"
-                            >
+                            <button onClick={() => setShowHideModal(true)} className="px-4 py-2 bg-[#BF9853] text-white rounded-lg font-semibold hover:bg-[#A68B4A] transition-colors" >
                                 Hide Items
                             </button>
                         </div>
@@ -1188,61 +1202,57 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                             <table className="w-full border-collapse table-auto min-w-max">
                                 <thead className="sticky top-0 z-10 bg-[#FAF6ED]">
                                     <tr className="bg-[#FAF6ED]">
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Sl.No</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">PID</td>
-                                        <td className="px-4 py-2 text-left font-semibold">Project Name</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap"></td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Shop No</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">D.No</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Phase</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Service No</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Jan</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Feb</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Mar</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Apr</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">May</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">June</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">July</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Aug</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Sep</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Oct</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Nov</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Dec</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Unpaid</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Activity</td>
-                                        <td className="px-4 py-2 text-left font-semibold whitespace-nowrap">Hide</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Sl.No</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">PID</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Project Name</td>
+                                        <td className=" px-4 py-2 text-left font-semibold"></td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Shop No</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">D.No</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Service No</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Jan</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Feb</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Mar</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Apr</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">May</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">June</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">July</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Aug</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Sep</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Oct</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Nov</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Dec</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Unpaid</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Activity</td>
+                                        <td className=" px-4 py-2 text-left font-semibold">Hide</td>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {loading ? (
                                         <tr>
-                                            <td colSpan="20" className="text-center py-4">
+                                            <td colSpan="22" className="text-center py-4">
                                                 Loading...
                                             </td>
                                         </tr>
                                     ) : error ? (
                                         <tr>
-                                            <td colSpan="20" className="text-center py-4 text-red-500">
+                                            <td colSpan="22" className="text-center py-4 text-red-500">
                                                 {error}
                                             </td>
                                         </tr>
-                                    ) : electricityTableRows.length === 0 ? (
+                                    ) : professionTableRows.length === 0 ? (
                                         <tr>
-                                            <td colSpan="20" className="text-center py-4">
-                                                No projects found with electricity connections
+                                            <td colSpan="22" className="text-center py-4">
+                                                No projects found with profession tax connections
                                             </td>
                                         </tr>
                                     ) : (
-                                        electricityTableRows
-                                            .map(({ project, property }, index) => {
-                                                return (
+                                        professionTableRows.map(({ project, property }, index) => {
+                                                    return (
                                                         <tr key={`${project.id}-${property.id}`} className="odd:bg-white even:bg-[#FAF6ED]">
-                                                            <td className="px-2 py-2">{index + 1}</td>
-                                                            <td className="px-2 py-2">{project.projectId}</td>
-                                                            <td className="px-2 py-2 text-left whitespace-normal break-words max-w-[220px]">
-                                                                {project.projectName}
-                                                            </td>
-                                                            <td className="px-2 py-2">
+                                                            <td className="px-4 py-2">{index + 1}</td>
+                                                            <td className="px-4 py-2">{project.projectId}</td>
+                                                            <td className="px-4 py-2 text-left">{project.projectName}</td>
+                                                            <td className="px-4 py-2">
                                                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${project.projectCategory === 'Client Project'
                                                                     ? 'bg-orange-100 text-orange-800'
                                                                     : project.projectCategory === 'Own Project'
@@ -1253,32 +1263,26 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                                                 </span>
                                                             </td>
                                                             <td
-                                                                className="px-2 py-2 cursor-default"
+                                                                className="px-4 py-2 whitespace-nowrap cursor-default"
                                                                 title={tenantNamesTooltipByPropertyId.get(property.id != null ? String(property.id) : '') || undefined}
                                                             >
                                                                 {property.shopNo || '-'}
                                                             </td>
-                                                            <td className="px-2 py-2">{property.doorNo || '-'}</td>
-                                                            <td className="px-2 py-2">
-                                                                {property.ebNoPhase ? 
-                                                                    ` ${property.ebNoPhase.replace('P', '')}` : 
-                                                                    '-'
-                                                                }
-                                                            </td>
+                                                            <td className="px-4 py-2">{property.doorNo || '-'}</td>
                                                             <td
-                                                                className="px-2 py-2 text-left text-sm font-semibold text-black cursor-pointer hover:text-[#BF9853] hover:underline"
+                                                                className="px-4 py-2 text-left text-sm font-semibold text-black cursor-pointer hover:text-[#BF9853] hover:underline"
                                                                 onClick={() =>
                                                                     handleOpenExpenseEntryPopup({
-                                                                        ebNo: property.ebNo,
+                                                                        professionServiceNo: getProfessionServiceNo(property),
                                                                         project,
                                                                         property
                                                                     })
                                                                 }
                                                             >
-                                                                {property.ebNo}
+                                                                {getProfessionServiceNo(property)}
                                                             </td>
                                                             {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(month => {
-                                                                const paymentData = getPaymentData(property.ebNo, month, property.id);
+                                                                const paymentData = getPaymentData(getProfessionServiceNo(property), month, property.id);
                                                                 const isPaid = paymentData.amount !== '-' && paymentData.amount !== '0';
                                                                 const isNotRequired = paymentData.isNotRequired;
                                                                 return (
@@ -1300,12 +1304,12 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                                                     </td>
                                                                 );
                                                             })}
-                                                            <td className="px-2 py-2">
+                                                            <td className="px-4 py-2">
                                                                 <span className="text-sm font-medium text-gray-700">
-                                                                    {getUnpaidCount(property.ebNo, property.id)}
+                                                                    {getUnpaidCount(getProfessionServiceNo(property), property.id)}
                                                                 </span>
                                                             </td>
-                                                            <td className="px-2 py-2">
+                                                            <td className="px-4 py-2">
                                                                 <button onClick={() => handleActivityEdit(project, property)}
                                                                     className="rounded-full transition duration-200 hover:scale-110 hover:brightness-110"
                                                                 >
@@ -1316,7 +1320,7 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                                                     />
                                                                 </button>
                                                             </td>
-                                                            <td className="px-2 py-2">
+                                                            <td className="px-4 py-2">
                                                                 <button onClick={() => toggleProjectHideStatus(project.id, true)} className="text-red-600 hover:text-red-800 text-sm" >
                                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1326,10 +1330,10 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                                             </td>
                                                         </tr>
                                                     );
-                                                })
+                                        })
                                     )}
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -1339,15 +1343,13 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                     <div className="bg-white rounded-lg p-6 w-4/5 max-w-6xl max-h-[80vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-semibold text-gray-800">Hide Items</h2>
-                            <button
-                                onClick={() => setShowHideModal(false)}
-                                className="text-red-600 hover:text-red-800"
-                            >
+                            <button onClick={() => setShowHideModal(false)} className="text-red-600 hover:text-red-800" >
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
                         </div>
+
                         {hiddenProjects.length === 0 ? (
                             <p className="text-gray-500 text-center py-8">No hidden items</p>
                         ) : (
@@ -1360,21 +1362,17 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                             <td className="px-4 py-2 text-left font-semibold">Project Name</td>
                                             <td className="px-4 py-2 text-left font-semibold">Shop No</td>
                                             <td className="px-4 py-2 text-left font-semibold">D.No</td>
-                                            <td className="px-4 py-2 text-left font-semibold">Phase</td>
                                             <td className="px-4 py-2 text-left font-semibold">Service No</td>
                                             <td className="px-4 py-2 text-left font-semibold">Unhide</td>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {hiddenElectricityTableRows
-                                            .map(({ project, property }, index) => {
+                                        {hiddenProfessionTableRows.map(({ project, property }, index) => {
                                                     return (
                                                         <tr key={`${project.id}-${property.id}`} className="odd:bg-white even:bg-[#FAF6ED]">
                                                             <td className="px-4 py-2">{index + 1}</td>
                                                             <td className="px-4 py-2">{project.projectId}</td>
-                                                            <td className="px-4 py-2 whitespace-normal break-words max-w-[220px]">
-                                                                {project.projectName}
-                                                            </td>
+                                                            <td className="px-4 py-2">{project.projectName}</td>
                                                             <td
                                                                 className="px-4 py-2 cursor-default"
                                                                 title={tenantNamesTooltipByPropertyId.get(property.id != null ? String(property.id) : '') || undefined}
@@ -1382,29 +1380,20 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                                                 {property.shopNo || '-'}
                                                             </td>
                                                             <td className="px-4 py-2">{property.doorNo || '-'}</td>
-                                                            <td className="px-4 py-2">
-                                                                {property.ebNoPhase ? 
-                                                                    `Phase ${property.ebNoPhase.replace('P', '')}` : 
-                                                                    '-'
-                                                                }
-                                                            </td>
                                                             <td
-                                                                className="px-4 py-2 text-sm font-semibold text-black cursor-pointer hover:text-[#BF9853] hover:underline"
+                                                                className="px-4 py-2 text-left text-sm font-semibold text-black cursor-pointer hover:text-[#BF9853] hover:underline"
                                                                 onClick={() =>
                                                                     handleOpenExpenseEntryPopup({
-                                                                        ebNo: property.ebNo,
+                                                                        professionServiceNo: getProfessionServiceNo(property),
                                                                         project,
                                                                         property
                                                                     })
                                                                 }
                                                             >
-                                                                {property.ebNo}
+                                                                {getProfessionServiceNo(property)}
                                                             </td>
                                                             <td className="px-4 py-2">
-                                                                <button
-                                                                    onClick={() => toggleProjectHideStatus(project.id, false)}
-                                                                    className="text-red-600 hover:text-red-800"
-                                                                >
+                                                                <button onClick={() => toggleProjectHideStatus(project.id, false)} className="text-red-600 hover:text-red-800" >
                                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                                                                     </svg>
@@ -1412,7 +1401,7 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                                             </td>
                                                         </tr>
                                                     );
-                                                })}
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
@@ -1426,14 +1415,7 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-semibold text-gray-800">Activity Entry</h2>
                             <button
-                                onClick={() => {
-                                    setShowActivityModal(false);
-                                    setSelectedRowData(null);
-                                    setActivityFormData({
-                                        electricityFrequency: '',
-                                        electricityStartingMonth: ''
-                                    });
-                                }}
+                                onClick={() => { setShowActivityModal(false); setSelectedRowData(null); setActivityFormData({ waterFrequency: '', waterStartingMonth: '' }); }}
                                 className="text-red-600 hover:text-red-800"
                             >
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1449,7 +1431,10 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                         <span className="font-medium">Project:</span> {selectedRowData.project.projectName}
                                     </p>
                                     <p className="text-sm text-gray-600">
-                                        <span className="font-medium">Service No:</span> {selectedRowData.property.ebNo}
+                                        <span className="font-medium">Service No:</span>{' '}
+                                        {selectedRowData?.property
+                                            ? getProfessionServiceNo(selectedRowData.property)
+                                            : '-'}
                                     </p>
                                     <p className="text-sm text-gray-600">
                                         <span className="font-medium">Door No:</span> {selectedRowData.property.doorNo || '-'}
@@ -1464,35 +1449,37 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                                  const freqPropertyId = freq?.projectNamePropertyDetailsId;
                                                  const freqPropertyIdStr =
                                                      freqPropertyId !== undefined && freqPropertyId !== null ? String(freqPropertyId) : null;
-                                                 // NOTE: electricityFrequencyNo can be 0 — still valid and should show in history.
-                                                 const hasFreq = freq?.electricityFrequencyNo !== undefined && freq?.electricityFrequencyNo !== null;
-                                                 const hasStart = !!freq?.startingMonthOfElectricityFrequency;
+                                                 const freqRaw = freq?.waterFrequencyNo;
+                                                 const hasFreq = freqRaw !== undefined && freqRaw !== null; // allow 0
+                                                 const hasStart = !!freq?.startingMonthOfWaterFrequency;
                                                  return !!propertyIdStr && freqPropertyIdStr === propertyIdStr && hasFreq && hasStart;
                                              })
                                              .sort((a, b) => {
-                                                 const aKey = String(a.startingMonthOfElectricityFrequency || '');
-                                                 const bKey = String(b.startingMonthOfElectricityFrequency || '');
+                                                 const aKey = String(a.startingMonthOfWaterFrequency || '');
+                                                 const bKey = String(b.startingMonthOfWaterFrequency || '');
                                                  return aKey.localeCompare(bKey);
                                              });
                                          const submittedData = submittedFrequencyData[selectedRowData.property.id];
-                                         if (submittedData?.electricityFrequency && submittedData?.electricityStartingMonth) {
+                                         if (submittedData?.waterFrequency && submittedData?.waterStartingMonth) {
                                              allFrequencyData.push({
-                                                 electricityFrequencyNo: submittedData.electricityFrequency,
-                                                 startingMonthOfElectricityFrequency: submittedData.electricityStartingMonth
+                                                 waterFrequencyNo: submittedData.waterFrequency,
+                                                 startingMonthOfWaterFrequency: submittedData.waterStartingMonth
                                              });
                                          }
                                          // Dedupe: backend refresh + optimistic push can show duplicates until reload
                                          const dedupedFrequencyData = Array.from(
                                              new Map(
                                                  allFrequencyData.map((row) => {
-                                                     const freqVal = row?.electricityFrequencyNo;
-                                                     const startVal = String(row?.startingMonthOfElectricityFrequency || '').trim();
+                                                     const freqVal = row?.waterFrequencyNo;
+                                                     const startVal = String(
+                                                         row?.startingMonthOfWaterFrequency || ''
+                                                     ).trim();
                                                      return [`${startVal}__${freqVal}`, row];
                                                  })
                                              ).values()
                                          ).sort((a, b) => {
-                                             const aKey = String(a.startingMonthOfElectricityFrequency || '');
-                                             const bKey = String(b.startingMonthOfElectricityFrequency || '');
+                                             const aKey = String(a.startingMonthOfWaterFrequency || '');
+                                             const bKey = String(b.startingMonthOfWaterFrequency || '');
                                              return aKey.localeCompare(bKey);
                                          });
                                          if (allFrequencyData.length > 0) {
@@ -1508,8 +1495,8 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                                          <tbody>
                                                              {dedupedFrequencyData.map((freqData, index) => (
                                                                  <tr key={index}>
-                                                                     <td className="border border-gray-300 px-2 py-1 text-xs">{freqData.electricityFrequencyNo}</td>
-                                                                     <td className="border border-gray-300 px-2 py-1 text-xs">{new Date(freqData.startingMonthOfElectricityFrequency + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</td>
+                                                                    <td className="border border-gray-300 px-2 py-1 text-xs">{freqData.waterFrequencyNo}</td>
+                                                                    <td className="border border-gray-300 px-2 py-1 text-xs">{new Date((freqData.startingMonthOfWaterFrequency) + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</td>
                                                                  </tr>
                                                              ))}
                                                          </tbody>
@@ -1524,29 +1511,28 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                             <div className='flex gap-4'>
                                 <div>
                                     <label className="text-md font-semibold mb-2 block">
-                                        Electricity Frequency <span className="text-red-500">*</span>
+                                        Profession Frequency <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                        type="number"
-                                        value={activityFormData.electricityFrequency}
+                                    <input type="number"
+                                        value={activityFormData.waterFrequency}
                                         onChange={(e) => setActivityFormData(prev => ({
                                             ...prev,
-                                            electricityFrequency: e.target.value
+                                            waterFrequency: e.target.value
                                         }))}
-                                        placeholder="Enter electricity frequency"
+                                        placeholder="Enter profession frequency"
                                         className="border-2 border-[#BF9853] rounded-lg px-4 py-2 w-[290px] h-[45px] focus:outline-none border-opacity-[0.20]"
                                     />
                                 </div>
                                 <div>
                                     <label className="text-md font-semibold mb-2 block">
-                                        Electricity Starting Month <span className="text-red-500">*</span>
+                                        Profession Starting Month <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="month"
-                                        value={activityFormData.electricityStartingMonth}
+                                        value={activityFormData.waterStartingMonth}
                                         onChange={(e) => setActivityFormData(prev => ({
                                             ...prev,
-                                            electricityStartingMonth: e.target.value
+                                            waterStartingMonth: e.target.value
                                         }))}
                                         className="border-2 border-[#BF9853] rounded-lg px-4 py-2 w-[250px] h-[45px] focus:outline-none border-opacity-[0.20]"
                                     />
@@ -1557,27 +1543,21 @@ const ElectricityTab = ({ username, userRoles = [] }) => {
                                     onClick={() => {
                                         setShowActivityModal(false);
                                         setSelectedRowData(null);
-                                        setActivityFormData({
-                                            electricityFrequency: '',
-                                            electricityStartingMonth: ''
-                                        });
+                                        setActivityFormData({ waterFrequency: '', waterStartingMonth: '' });
                                     }}
                                     className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                                 >
                                     Cancel
                                 </button>
-                                <button
-                                    onClick={handleActivitySubmit}
-                                    className="px-4 py-2 bg-[#BF9853] text-white rounded-lg hover:bg-[#A68B4A] transition-colors"
-                                >
+                                <button onClick={handleActivitySubmit} className="px-4 py-2 bg-[#BF9853] text-white rounded-lg hover:bg-[#A68B4A] transition-colors">
                                     Save
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
-            )}
+            )}           
         </div>
     );
 };
-export default ElectricityTab;
+export default ProfessionTab;
