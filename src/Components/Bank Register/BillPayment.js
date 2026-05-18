@@ -10,6 +10,83 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from 'xlsx';
 
+const BILL_PAYMENT_TABLE_CSS = `
+.bill-payment-page{text-align:left;}
+.bill-payment-page .bill-records-ledger{display:flex;border:1px solid #EADFC8;border-radius:12px;overflow:hidden;background:#fff;}
+.bill-payment-page .bill-records-ledger-accent{width:5px;flex-shrink:0;background:#BF9853;}
+.bill-payment-page .bill-records-scroll{flex:1;min-width:0;overflow-x:hidden;overflow-y:auto;max-height:24rem;}
+.bill-payment-page .bill-records-table{
+  width:100%;
+  min-width:100%;
+  max-width:100%;
+  table-layout:fixed;
+  border-collapse:collapse;
+  border-spacing:0;
+  display:table;
+}
+.bill-payment-page .bill-records-table thead{display:table-header-group;background:#FAF6ED;}
+.bill-payment-page .bill-records-table tbody{display:table-row-group;}
+.bill-payment-page .bill-records-table tr{display:table-row;}
+.bill-payment-page .bill-records-table th,
+.bill-payment-page .bill-records-table td{
+  display:table-cell;
+  padding:10px 12px;
+  text-align:left;
+  vertical-align:middle;
+  font-size:12.5px;
+  color:#3a3a3a;
+  border-top:1px solid #f0e9d8;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  box-sizing:border-box;
+}
+.bill-payment-page .bill-records-table thead th{
+  font-size:12px;
+  font-weight:700;
+  color:#212121;
+  text-transform:uppercase;
+  letter-spacing:0.02em;
+  border-top:none;
+  border-bottom:1px solid #EADFC8;
+  background:#FAF6ED;
+  position:sticky;
+  top:0;
+  z-index:2;
+}
+.bill-payment-page .bill-records-table th:nth-child(1),
+.bill-payment-page .bill-records-table td:nth-child(1){width:4%;}
+.bill-payment-page .bill-records-table th:nth-child(2),
+.bill-payment-page .bill-records-table td:nth-child(2){width:9%;}
+.bill-payment-page .bill-records-table th:nth-child(3),
+.bill-payment-page .bill-records-table td:nth-child(3){width:7%;}
+.bill-payment-page .bill-records-table th:nth-child(4),
+.bill-payment-page .bill-records-table td:nth-child(4){width:12%;}
+.bill-payment-page .bill-records-table th:nth-child(5),
+.bill-payment-page .bill-records-table td:nth-child(5){width:11%;}
+.bill-payment-page .bill-records-table th:nth-child(6),
+.bill-payment-page .bill-records-table td:nth-child(6){width:7%;}
+.bill-payment-page .bill-records-table th:nth-child(7),
+.bill-payment-page .bill-records-table td:nth-child(7){width:7%;}
+.bill-payment-page .bill-records-table th:nth-child(8),
+.bill-payment-page .bill-records-table td:nth-child(8){width:7%;}
+.bill-payment-page .bill-records-table th:nth-child(9),
+.bill-payment-page .bill-records-table td:nth-child(9){width:8%;}
+.bill-payment-page .bill-records-table th:nth-child(10),
+.bill-payment-page .bill-records-table td:nth-child(10){width:8%;}
+.bill-payment-page .bill-records-table th:nth-child(11),
+.bill-payment-page .bill-records-table td:nth-child(11){width:6%;}
+.bill-payment-page .bill-records-table th:nth-child(12),
+.bill-payment-page .bill-records-table td:nth-child(12){width:6%;}
+.bill-payment-page .bill-records-table th:nth-child(13),
+.bill-payment-page .bill-records-table td:nth-child(13){width:8%;}
+.bill-payment-page .bill-records-table tbody tr:nth-child(even){background:#FAF6ED;}
+.bill-payment-page .bill-records-table tbody tr:hover{background:#F5EFE3;}
+.bill-payment-page .bill-records-table td.bill-records-actions{white-space:normal;overflow:visible;}
+.bill-payment-page .bill-records-table .bill-records-actions-wrap{display:flex;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:nowrap;}
+.bill-payment-page .bill-records-table .bill-records-actions-wrap button{padding:4px;background:transparent;border:none;cursor:pointer;line-height:0;}
+`;
+
 const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
     const [billPayments, setBillPayments] = useState([]);
     const [vendorOptions, setVendorOptions] = useState([]);
@@ -88,7 +165,7 @@ const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
             y: (e.clientY - lastMove.current.y) / dt,
         };
         lastMove.current = { time: now, x: e.clientX, y: e.clientY };
-        scrollRef.current.scrollLeft = scroll.current.left - dx;
+        scrollRef.current.scrollLeft = 0;
         scrollRef.current.scrollTop = scroll.current.top - dy;
     };
     const handleMouseUp = () => {
@@ -109,7 +186,7 @@ const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
                 cancelMomentum();
                 return;
             }
-            scrollRef.current.scrollLeft -= velocity.current.x * 16;
+            scrollRef.current.scrollLeft = 0;
             scrollRef.current.scrollTop -= velocity.current.y * 16;
             animationFrame.current = requestAnimationFrame(animate);
         };
@@ -620,6 +697,11 @@ const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const currentItems = filteredData.slice(startIndex, endIndex);
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollLeft = 0;
+        }
+    }, [currentPage, itemsPerPage, currentItems.length]);
     // Extract unique type values from the data for dropdown options
     const getUniqueTypes = () => {
         const uniqueTypes = [...new Set(billPayments.map(item => item.type).filter(type => type && type.trim() !== ''))];
@@ -798,11 +880,12 @@ const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
         printWindow.print();
     };
     return (
-        <body className="bg-[#FAF6ED]">
+        <body className="bg-[#FAF6ED] bill-payment-page">
+            <style>{BILL_PAYMENT_TABLE_CSS}</style>
             <div className="bg-white ml-10 mr-10 min-h-screen">
                 <div className="p-6">
                     {!hideTopHeading && (
-                    <div className="mb-6">
+                    <div className="mb-6 text-center">
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">Bank Records</h1>
                         <p className="text-gray-600">Manage and track all Bank records</p>
                     </div>
@@ -909,14 +992,14 @@ const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
                             </div>
                         )}
                     </div>
-                    <div className="bg-white rounded-lg p-4 shadow-md overflow-hidden">
-                        <div className="p-6 border-b border-gray-200">
-                            <div>
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden border border-[#EADFC8]">
+                        <div className="px-4 py-3 border-b border-[#EADFC8]">
+                            <div className="text-center">
                                 <h3 className="text-lg font-semibold text-gray-800">Bank Records</h3>
                                 <p className="text-sm text-gray-600 mt-1">Showing {startIndex + 1}-{Math.min(endIndex, filteredData.length)} of {filteredData.length} records</p>
                             </div>
-                            <div className="flex justify-end items-center">
-                                <div className="flex gap-3">
+                            <div className="flex justify-end items-center mt-3">
+                                <div className="flex flex-wrap gap-3">
                                     <button
                                         onClick={handleExportPDF}
                                         className="text-sm font-medium text-[#E4572E] hover:text-gray-900 focus:outline-none"
@@ -938,80 +1021,55 @@ const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
                                 </div>
                             </div>
                         </div>
-                        <div ref={scrollRef} className="overflow-y-auto overflow-x-auto max-h-96 rounded-lg border-l-8 border-l-[#BF9853] no-scrollbar"
-                            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
-                        >
-                            <table className="w-full min-w-max">
-                                <thead className="bg-[#FAF6ED] sticky text-sm top-0">
+                        <div className="bill-records-ledger">
+                            <div className="bill-records-ledger-accent" aria-hidden="true" />
+                            <div
+                                ref={scrollRef}
+                                className="bill-records-scroll no-scrollbar"
+                                onMouseDown={handleMouseDown}
+                                onMouseMove={handleMouseMove}
+                                onMouseUp={handleMouseUp}
+                                onMouseLeave={handleMouseUp}
+                            >
+                            <table className="bill-records-table">
+                                <thead>
                                     <tr>
-                                        <th className="px-6 py-3 text-left font-semibold  uppercase tracking-wider whitespace-nowrap min-w-[80px]"
-                                        >
-                                            S.NO
-                                        </th>
-                                        <th className="px-6 py-3 text-left font-semibold  uppercase tracking-wider whitespace-nowrap min-w-[80px]"
-                                        >
-                                            TIMESTAMP
-                                        </th>
-                                        <th className="px-6 py-3 text-left font-semibold uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap min-w-[100px]"
-                                            onClick={() => handleSort('date')}
-                                        >
+                                        <th>S.NO</th>
+                                        <th>TIMESTAMP</th>
+                                        <th className="cursor-pointer" onClick={() => handleSort('date')}>
                                             DATE {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-6 py-3 text-left font-semibold uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap min-w-[200px]"
-                                            onClick={() => handleSort('project_name')}
-                                        >
+                                        <th className="cursor-pointer" onClick={() => handleSort('project_name')}>
                                             PROJECT {sortConfig.key === 'project_name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-6 py-3 text-left font-semibold uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap min-w-[150px]"
-                                            onClick={() => handleSort('party_name')}
-                                        >
+                                        <th className="cursor-pointer" onClick={() => handleSort('party_name')}>
                                             PARTY NAME {sortConfig.key === 'party_name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th
-                                            className="px-6 py-3 text-left font-semibold uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap min-w-[120px]"
-                                            onClick={() => handleSort('party_type')}
-                                        >
+                                        <th className="cursor-pointer" onClick={() => handleSort('party_type')}>
                                             PARTY TYPE {sortConfig.key === 'party_type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th
-                                            className="px-6 py-3 text-left font-semibold uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap min-w-[100px]"
-                                            onClick={() => handleSort('type')}
-                                        >
+                                        <th className="cursor-pointer" onClick={() => handleSort('type')}>
                                             TYPE {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th
-                                            className="px-6 py-3 text-left font-semibold uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap min-w-[120px]"
-                                            onClick={() => handleSort('amount')}
-                                        >
+                                        <th className="cursor-pointer" onClick={() => handleSort('amount')}>
                                             AMOUNT {sortConfig.key === 'amount' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th
-                                            className="px-6 py-3 text-left font-semibold uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap min-w-[140px]"
-                                            onClick={() => handleSort('bill_payment_mode')}
-                                        >
+                                        <th className="cursor-pointer" onClick={() => handleSort('bill_payment_mode')}>
                                             PAYMENT MODE {sortConfig.key === 'bill_payment_mode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-6 py-3 text-left font-semibold uppercase tracking-wider whitespace-nowrap min-w-[140px]">
-                                            ACCOUNT NO
-                                        </th>
-                                        <th className="px-6 py-3 text-left font-semibold uppercase tracking-wider whitespace-nowrap min-w-[120px]">
-                                            CHEQUE NO
-                                        </th>
-                                        <th className="px-6 py-3 text-left font-semibold uppercase tracking-wider whitespace-nowrap min-w-[120px]">
-                                            CHEQUE DATE
-                                        </th>
-                                        <th className="px-6 py-3 text-left font-semibold uppercase tracking-wider whitespace-nowrap min-w-[180px]">
-                                            ACTIONS
-                                        </th>
+                                        <th>ACCOUNT NO</th>
+                                        <th>CHEQUE NO</th>
+                                        <th>CHEQUE DATE</th>
+                                        <th>ACTIONS</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody>
                                     {currentItems.map((item, index) => (
-                                        <tr key={index} className="hover:bg-gray-50 odd:bg-white even:bg-[#FAF6ED]">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        <tr key={index}>
+                                            <td>
                                                 {startIndex + index + 1}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <td>
                                                 {(() => {
                                                     const date = new Date(item.created_at);
                                                     date.setMinutes(date.getMinutes() + 330);
@@ -1030,53 +1088,50 @@ const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
                                                     );
                                                 })()}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <td>
                                                 {new Date(item.date).toLocaleDateString()}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <td>
                                                 {getProjectOrPurposeName(item)}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <td>
                                                 {getPartyNameAndType(item).name}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td>
                                                 <span className="inline-flex px-2 py-1 text-xs rounded-full">
                                                     {getPartyNameAndType(item).type}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td>
                                                 <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                                                     {item.type}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm ">
+                                            <td>
                                                 ₹{parseFloat(item.amount || 0).toLocaleString()}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm ">
+                                            <td>
                                                 {item.bill_payment_mode || '-'}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <td>
                                                 {item.account_number || '-'}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <td>
                                                 {item.cheque_number || '-'}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <td>
                                                 {item.cheque_date ? new Date(item.cheque_date).toLocaleDateString() : '-'}
                                             </td>
-                                            <td className="">
-                                                <div className="flex">
-                                                    <button onClick={() => showPaymentPopupHandler(item)} className="inline-flex items-center text-sm font-medium rounded-md text-white  focus:outline-none mr-4">
-                                                        <img src={Edit} alt="Edit" className="w-4 h-4" />
-                                                        Edit
+                                            <td className="bill-records-actions">
+                                                <div className="bill-records-actions-wrap">
+                                                    <button type="button" onClick={() => showPaymentPopupHandler(item)} title="Edit" aria-label="Edit">
+                                                        <img src={Edit} alt="" className="w-4 h-4" />
                                                     </button>
-                                                    <button onClick={() => showDeleteConfirmation(item)} className="inline-flex items-centert text-sm  font-medium rounded-md text-white focus:outline-none">
-                                                        <img src={Delete} alt="Delete" className="w-4 h-4" />
-                                                        Delete
+                                                    <button type="button" onClick={() => showDeleteConfirmation(item)} title="Delete" aria-label="Delete">
+                                                        <img src={Delete} alt="" className="w-4 h-4" />
                                                     </button>
-                                                    <button className="inline-flex items-center text-sm  font-medium rounded-md text-white focus:outline-none">
-                                                        <img src={history} alt="Delete" className="w-4 h-4" />
-                                                        History
+                                                    <button type="button" title="History" aria-label="History">
+                                                        <img src={history} alt="" className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -1084,8 +1139,9 @@ const BillPayment = ({ username, userRoles = [], hideTopHeading = false }) => {
                                     ))}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
+                        <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-[#EADFC8]">
                             <div className="flex items-center space-x-2">
                                 <span className="text-sm text-gray-700">Items per page:</span>
                                 <select

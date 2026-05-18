@@ -53,7 +53,18 @@ const sortProjectsPropertyDetailsByShopNo = (projects) => {
 };
 
 const getProfessionServiceNo = (property) =>
-    String(property?.professionTaxNo ?? '').trim();
+    String(property?.professionalTaxNo ?? property?.professionTaxNo ?? '').trim();
+
+const getProfessionServiceFilterKey = (project, property) =>
+    `${project?.id ?? ''}::${property?.id ?? property?.propertyId ?? property?.projectNamePropertyDetailsId ?? ''}`;
+
+const formatProfessionServiceLabel = (project, property, taxNo) => {
+    const projectName = String(project?.projectName ?? '-').trim() || '-';
+    const shopNo = String(property?.shopNo ?? '-').trim() || '-';
+    const doorNo = String(property?.doorNo ?? '-').trim() || '-';
+    const serviceNo = String(taxNo ?? getProfessionServiceNo(property) ?? '-').trim() || '-';
+    return `${projectName} | ${shopNo} | ${doorNo} | ${serviceNo}`;
+};
 
 const ProfessionTab = ({ username, userRoles = [] }) => {
     
@@ -104,23 +115,52 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
 
     const { scrollRef, onMouseDown, onMouseMove, onMouseUp, onMouseLeave } = useUtilityHubTableDragScroll();
 
-    // Profession table: show empty until properties have professionTaxNo (not water data)
+    // Fetch projects that have profession tax numbers on properties
     useEffect(() => {
-        setProjects([]);
-        setHiddenProjects([]);
-        setFilteredProjects([]);
-        setLoading(false);
+        const fetchProjects = async () => {
+            try {
+                const response = await axios.get('https://backendaab.in/aabuilderDash/api/projects/getAll');
+                const projectsWithProfessionTax = (response.data || []).filter(
+                    (project) =>
+                        project.propertyDetails &&
+                        project.propertyDetails.some((property) => getProfessionServiceNo(property) !== '')
+                );
+
+                const visibleProjects = projectsWithProfessionTax.filter((project) => !project.hide);
+                const hiddenList = projectsWithProfessionTax.filter((project) => project.hide);
+
+                setProjects(sortProjectsPropertyDetailsByShopNo(visibleProjects));
+                setHiddenProjects(sortProjectsPropertyDetailsByShopNo(hiddenList));
+                setFilteredProjects(sortProjectsPropertyDetailsByShopNo(visibleProjects));
+            } catch (error) {
+                console.error('Error fetching projects:', error);
+                setError('Failed to fetch projects data');
+            }
+        };
+
+        fetchProjects();
     }, []);
 
     useEffect(() => {
-        setProfessionPayments([]);
+        const fetchProfessionPayments = async () => {
+            try {
+                const response = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/utility/profession');
+                setProfessionPayments(response.data || []);
+            } catch (error) {
+                console.error('Error fetching profession tax payments:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfessionPayments();
     }, []);
 
     // Fetch frequency history data
     useEffect(() => {
         const fetchFrequencyHistory = async () => {
             try {
-                const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/frequency-history/getAll');
+                const response = await axios.get('https://backendaab.in/aabuilderDash/api/frequency-history/getAll');
                 setFrequencyHistory(response.data || []);
             } catch (error) {
                 console.error('Error fetching frequency history:', error);
@@ -135,7 +175,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -161,7 +201,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchTenants = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/tenant_link_shop/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/tenant_link_shop/getAll');
                 if (!response.ok) return;
                 const data = await response.json();
                 const tenants = Array.isArray(data) ? data : [];
@@ -244,9 +284,44 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
         [filteredProjects]
     );
 
-    const professionTableRows = useMemo(() => [], []);
+    const professionServiceOptions = useMemo(() => {
+        const options = [];
+        const seen = new Set();
+        projects.forEach((project) => {
+            (project.propertyDetails || []).forEach((property) => {
+                const taxNo = getProfessionServiceNo(property);
+                if (!taxNo) return;
+                const value = getProfessionServiceFilterKey(project, property);
+                if (!value || seen.has(value)) return;
+                seen.add(value);
+                options.push({
+                    value,
+                    label: formatProfessionServiceLabel(project, property, taxNo),
+                });
+            });
+        });
+        return options.sort((a, b) => a.label.localeCompare(b.label));
+    }, [projects]);
 
-    const hiddenProfessionTableRows = useMemo(() => [], []);
+    const professionTableRows = useMemo(() => {
+        const rows = sortedFilteredProjects.flatMap((project) =>
+            (project.propertyDetails || [])
+                .filter((property) => getProfessionServiceNo(property) !== '')
+                .map((property) => ({ project, property }))
+        );
+        rows.sort((a, b) => comparePropertyShopNoAsc(a.property, b.property));
+        return rows;
+    }, [sortedFilteredProjects]);
+
+    const hiddenProfessionTableRows = useMemo(() => {
+        const rows = sortProjectsPropertyDetailsByShopNo(hiddenProjects).flatMap((project) =>
+            (project.propertyDetails || [])
+                .filter((property) => getProfessionServiceNo(property) !== '')
+                .map((property) => ({ project, property }))
+        );
+        rows.sort((a, b) => comparePropertyShopNoAsc(a.property, b.property));
+        return rows;
+    }, [hiddenProjects]);
 
     const matchesPaymentFilters = (property) => {
         const selectedMonth = filters.month;
@@ -280,7 +355,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
         const doorFilter = toLower(filters.doorNo);
         const shopFilter = toLower(filters.shop);
         const projectTypeFilter = toLower(filters.projectType);
-        const serviceFilter = toLower(filters.service);
+        const serviceFilter = filters.service;
         const tenantFilter = toLower(filters.tenant);
         const projectNameFilter = toLower(filters.projectName);
         const occupancyFilter = toLower(filters.occupancyStatus);
@@ -368,7 +443,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                 if (projectTypeFilter && !toLower(property.projectType).includes(projectTypeFilter)) {
                     return false;
                 }
-                if (serviceFilter && !toLower(getProfessionServiceNo(property)).includes(serviceFilter)) {
+                if (serviceFilter && getProfessionServiceFilterKey(project, property) !== serviceFilter) {
                     return false;
                 }
                 if (vendorFilter && !propertyMatchesVendorFromPayments(property)) {
@@ -451,15 +526,11 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                 project.propertyDetails.forEach(property => {
                     if (property.projectType) values.add(property.projectType);
                 });
-            } else if (key === 'serviceNo') {
-                project.propertyDetails.forEach(property => {
-                    if (getProfessionServiceNo(property)) values.add(getProfessionServiceNo(property));
-                });
             }
         });
-        return Array.from(values).sort().map(value => ({
-            value: value,
-            label: value
+        return Array.from(values).sort().map((value) => ({
+            value,
+            label: value,
         }));
     };
 
@@ -776,7 +847,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
 
     const toggleProjectHideStatus = async (projectId, isHide) => {
         try {
-            const response = await axios.put(`https://backendaab.in/demoAabuilderDash/api/projects/hide/${projectId}`, null, {
+            const response = await axios.put(`https://backendaab.in/aabuilderDash/api/projects/hide/${projectId}`, null, {
                 params: { isHide }
             });
             if (response.data) {
@@ -837,7 +908,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                 propertyFrequencyNo: null,
                 startingMonthOfPropertyFrequency: null
             };
-            const response = await axios.post('https://backendaab.in/demoAabuilderDash/api/frequency-history/save', frequencyHistoryData);
+            const response = await axios.post('https://backendaab.in/aabuilderDash/api/frequency-history/save', frequencyHistoryData);
             if (response.data) {
                 setSubmittedFrequencyData(prev => ({
                     ...prev,
@@ -848,7 +919,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                 }));
                 const fetchFrequencyHistory = async () => {
                     try {
-                        const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/frequency-history/getAll');
+                        const response = await axios.get('https://backendaab.in/aabuilderDash/api/frequency-history/getAll');
                         setFrequencyHistory(response.data || []);
                     } catch (error) {
                         console.error('Error fetching frequency history:', error);
@@ -875,8 +946,10 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
             siteName: project?.projectName || project?.siteName || '',
             projectId: project?.id ?? project?.projectId ?? null,
             propertyId: property?.id ?? null,
-            utilityIdentifier: { key: 'professionTaxNo', value: professionServiceNo },
-            professionTaxNo: professionServiceNo
+            utilityIdentifier: { key: 'professionalTaxNo', value: professionServiceNo },
+            professionalTaxNo: professionServiceNo,
+            professionTaxNo: professionServiceNo,
+            utilityTypeNumber: professionServiceNo,
         };
         try {
             localStorage.setItem('expenseEntryPrefill', JSON.stringify(prefillData));
@@ -911,12 +984,13 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                                 username={username}
                                 userRoles={userRoles}
                                 embedded
+                                lockUtilityPrefillFields
                                 onSuccess={async () => {
                                     setShowExpenseEntryModal(false);
                                     setExpenseEntryPrefill(null);
                                     try { localStorage.removeItem('expenseEntryPrefill'); } catch { /* ignore */ }
                                     try {
-                                        const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/profession');
+                                        const response = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/utility/profession');
                                         setProfessionPayments(response.data || []);
                                     } catch {
                                         // ignore refresh errors
@@ -1009,10 +1083,14 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                         <div>
                             <label className="block font-semibold mb-1">Service</label>
                             <Select
-                                options={getUniqueValues('serviceNo')}
-                                value={filters.service ? { value: filters.service, label: filters.service } : null}
+                                options={professionServiceOptions}
+                                value={
+                                    filters.service
+                                        ? professionServiceOptions.find((o) => o.value === filters.service) ?? null
+                                        : null
+                                }
                                 onChange={(selectedOption) => handleFilterChange('service', selectedOption)}
-                                placeholder="Select Service No"
+                                placeholder="Select Service"
                                 isClearable
                                 isSearchable
                                 menuPortalTarget={document.body}

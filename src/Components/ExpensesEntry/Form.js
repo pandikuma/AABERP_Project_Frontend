@@ -18,6 +18,44 @@ import {
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
 
+/** Orbit ERP 1.6.html — empty page only: html/body #fff, tabs + content area #FBF7F0 */
+const EXPENSE_FORM_LAYOUT_CSS = `
+html:has(body.expense-entry-orbit-layout){
+  --cream:#FBF7F0;
+  --line:#EADFC8;
+  background:#fff;
+}
+body.expense-entry-orbit-layout{
+  background:#fff!important;
+}
+body.expense-entry-orbit-layout .bg-\\[\\#FAF6ED\\]{
+  background:var(--cream)!important;
+}
+body.expense-entry-orbit-layout .expense-entry-tabs{
+  background:var(--cream);
+  border-bottom:1px solid var(--line);
+}
+body.expense-entry-orbit-layout .content{
+  background:var(--cream);
+}
+`;
+
+const EXPENSE_ENTRY_ORBIT_STYLE_ID = 'expense-entry-orbit-layout-css';
+
+function installExpenseEntryOrbitPageStyles() {
+    if (typeof document === 'undefined') return;
+    if (!/\/expense-entry/i.test(window.location.pathname)) return;
+    if (!document.getElementById(EXPENSE_ENTRY_ORBIT_STYLE_ID)) {
+        const styleEl = document.createElement('style');
+        styleEl.id = EXPENSE_ENTRY_ORBIT_STYLE_ID;
+        styleEl.textContent = EXPENSE_FORM_LAYOUT_CSS;
+        document.head.appendChild(styleEl);
+    }
+    document.body.classList.add('expense-entry-orbit-layout');
+}
+
+installExpenseEntryOrbitPageStyles();
+
 const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWeeklyExpensesSave = false }) => {
     const predefinedSiteOptions = [
         { value: "Mason Advance", label: "Mason Advance", id: 1, sNo: "1" },
@@ -2101,6 +2139,16 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
         setDate(formatted);
     }, []);
 
+    useEffect(() => {
+        if (embedded) return undefined;
+        installExpenseEntryOrbitPageStyles();
+        return () => {
+            if (/\/expense-entry/i.test(window.location.pathname)) return;
+            document.body.classList.remove('expense-entry-orbit-layout');
+            document.getElementById(EXPENSE_ENTRY_ORBIT_STYLE_ID)?.remove();
+        };
+    }, [embedded]);
+
     return (
         <div className={embedded ? '' : 'bg-[#FAF6ED]  px-6'}>
             <style jsx>{`
@@ -2111,9 +2159,23 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     border-color: rgba(191, 152, 83, 1) !important;
                     outline: none !important;
                 }
+                :global(.expense-entry-form-fields) input[type="text"]:not(:global(.expense-field-height-exempt)),
+                :global(.expense-entry-form-fields) select {
+                    height: 45px !important;
+                    min-height: 45px !important;
+                    max-height: 45px !important;
+                    box-sizing: border-box !important;
+                    padding-top: 0 !important;
+                    padding-bottom: 0 !important;
+                }
+                :global(.expense-entry-form-fields) :global(.min-h-\\[45px\\]) {
+                    height: 45px !important;
+                    min-height: 45px !important;
+                    max-height: 45px !important;
+                }
             `}</style>
             <div className={`p-6 pb-20 bg-white rounded shadow-lg w-full overflow-x-clip`}>
-                <form onSubmit={handleFormSubmit}>
+                <form className="expense-entry-form-fields" onSubmit={handleFormSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-[max-content_1fr] gap-x-32 min-w-0">
                         <div className="md:col-start-1 md:row-start-1 space-y-3 min-w-0">
                             {summaryBillMode && (
@@ -2140,7 +2202,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                 const normalized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
                                                 setSummaryForceCloseAmount(normalized);
                                             }}
-                                            className="h-[34px] w-[185px] rounded-md border border-orange-300 bg-white px-3 text-[12px] text-black outline-none"
+                                            className="expense-field-height-exempt h-[34px] w-[185px] rounded-md border border-orange-300 bg-white px-3 text-[12px] text-black outline-none"
                                         />
                                         <button
                                             type="button"
@@ -2294,7 +2356,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                 isSearchable={true}
                                                 isClearable={false}
                                                 styles={customStyles}
-                                                className="custom-select rounded-lg w-[290px] h-[43px]"
+                                                className="custom-select rounded-lg w-[290px] h-[45px]"
                                             />
                                         ) : (
                                             <Select
@@ -2311,7 +2373,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                 isSearchable={true}
                                                 isClearable
                                                 styles={customStyles}
-                                                className="custom-select rounded-lg w-[290px] h-[43px]"
+                                                className="custom-select rounded-lg w-[290px] h-[45px]"
                                             />
                                         )}
                                     </div>
@@ -2542,7 +2604,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                             type="text"
                                             readOnly
                                             value={projectAdvance}
-                                            className="border-2 w-[112px] p-2 border-[#E4572E] text-[#E4572E] font-bold border-opacity-10 rounded h-[33px] bg-[#F2F2F2] focus:outline-none text-xs"
+                                            className="border-2 w-[112px] px-2 border-[#E4572E] text-[#E4572E] font-bold border-opacity-10 rounded h-[45px] bg-[#F2F2F2] focus:outline-none text-xs"
                                         />
                                     </div>
                                     <div className="flex flex-wrap gap-4 ml-16">
@@ -3210,9 +3272,13 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
     );
 };
 export default Form;
+const FORM_FIELD_HEIGHT = 45;
+
 const customStyles = {
     control: (provided, state) => ({
         ...provided,
+        minHeight: FORM_FIELD_HEIGHT,
+        height: FORM_FIELD_HEIGHT,
         borderWidth: '2px',
         borderRadius: '8px',
         borderColor: state.isFocused
@@ -3224,6 +3290,20 @@ const customStyles = {
         '&:hover': {
             borderColor: 'rgba(191, 152, 83, 0.2)',
         },
+    }),
+    valueContainer: (provided) => ({
+        ...provided,
+        height: FORM_FIELD_HEIGHT,
+        padding: '0 8px',
+    }),
+    indicatorsContainer: (provided) => ({
+        ...provided,
+        height: FORM_FIELD_HEIGHT,
+    }),
+    input: (provided) => ({
+        ...provided,
+        margin: 0,
+        padding: 0,
     }),
 
     menuList: (provided) => ({

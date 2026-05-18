@@ -8,11 +8,11 @@ import edit from '../Images/Edit.svg';
 import ExpenseEntryForm from '../ExpensesEntry/Form';
 import { useUtilityHubTableDragScroll } from './useUtilityHubTableDragScroll';
 
-const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
-const PROJECTS_ENDPOINT = 'https://backendaab.in/demoAabuilderDash/api/projects/getAll';
-const TELECOM_EXPENSES_ENDPOINT = 'https://backendaab.in/demoAabuilderDash/expenses_form/utility/telecom';
-const FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-frequency/getAll';
-const SAVE_FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-frequency/save';
+const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-telecom/getAll';
+const PROJECTS_ENDPOINT = 'https://backendaab.in/aabuilderDash/api/projects/getAll';
+const TELECOM_EXPENSES_ENDPOINT = 'https://backendaab.in/aabuilderDash/expenses_form/utility/telecom';
+const FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-frequency/getAll';
+const SAVE_FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-frequency/save';
 
 const normalizeShopNoKey = (shopNo) => {
     const raw = (shopNo ?? '').toString().trim();
@@ -282,7 +282,7 @@ const TelecomTab = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchTenants = async () => {
             try {
-                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/tenant_link_shop/getAll');
+                const response = await fetch('https://backendaab.in/aabuildersDash/api/tenant_link_shop/getAll');
                 if (!response.ok) return;
                 const data = await response.json();
                 const tenants = Array.isArray(data) ? data : [];
@@ -1177,6 +1177,7 @@ const TelecomTab = ({ username, userRoles = [] }) => {
                                 username={username}
                                 userRoles={userRoles}
                                 embedded
+                                lockUtilityPrefillFields
                                 onSuccess={async () => {
                                     setShowExpenseEntryModal(false);
                                     setExpenseEntryPrefill(null);

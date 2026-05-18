@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import aaLogo from "../Images/aablogo.png";
+import { ORBIT_ERP_LOGO_URI } from "../Bank Register/BankRegisterPayments";
 
 const BRANCHES = [
   { id: "srivilliputtur", name: "Srivilliputtur" },
@@ -134,6 +136,12 @@ export default function OrbitERPHeading({
   }, [notifOpen]);
 
   const unread = notifications.filter((n) => !n.read).length;
+  const { pathname } = useLocation();
+  const isBankRegister = pathname.startsWith("/bank-register");
+  const navLogoSrc = isBankRegister ? ORBIT_ERP_LOGO_URI : aaLogo;
+  const navLogoStyle = isBankRegister
+    ? { display: "block", flexShrink: 0, objectFit: "contain" }
+    : { display: "block", flexShrink: 0, objectFit: "cover", borderRadius: "50%" };
 
   const handleMarkAll = () => {
     if (onMarkAllRead) onMarkAllRead();
@@ -152,11 +160,11 @@ export default function OrbitERPHeading({
             <IconMenu />
           </span>
           <img
-            src={aaLogo}
-            width={28}
-            height={28}
+            src={navLogoSrc}
+            width={isBankRegister ? 24 : 28}
+            height={isBankRegister ? 24 : 28}
             alt="AA Builders"
-            style={{ display: "block", flexShrink: 0, objectFit: "cover", borderRadius: "50%" }}
+            style={navLogoStyle}
           />
           <span className="brand-text">AA Builders</span>
         </button>
@@ -225,7 +233,7 @@ export default function OrbitERPHeading({
           </div>
           <span className="user-pill">
             <span className="avatar-mark">
-              <img src={aaLogo} width={18} height={18} alt="" style={{ display: "block", objectFit: "contain" }} />
+              <img src={navLogoSrc} width={18} height={18} alt="" style={{ display: "block", objectFit: "contain" }} />
             </span>
             <span className="hidden sm:flex flex-col leading-tight">
               <span className="text-[12px] font-semibold ink">{displayName}</span>

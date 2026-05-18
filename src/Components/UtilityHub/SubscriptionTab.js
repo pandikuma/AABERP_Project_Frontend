@@ -8,11 +8,11 @@ import edit from '../Images/Edit.svg';
 import ExpenseEntryForm from '../ExpensesEntry/Form';
 import { useUtilityHubTableDragScroll } from './useUtilityHubTableDragScroll';
 
-const SUBSCRIPTION_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-subscription/getAll';
-const PROJECTS_ENDPOINT = 'https://backendaab.in/demoAabuilderDash/api/projects/getAll';
-const SUBSCRIPTION_EXPENSES_ENDPOINT = 'https://backendaab.in/demoAabuilderDash/expenses_form/utility/subscription';
-const FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-frequency/getAll';
-const SAVE_FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-frequency/save';
+const SUBSCRIPTION_DIRECTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-subscription/getAll';
+const PROJECTS_ENDPOINT = 'https://backendaab.in/aabuilderDash/api/projects/getAll';
+const SUBSCRIPTION_EXPENSES_ENDPOINT = 'https://backendaab.in/aabuilderDash/expenses_form/utility/subscription';
+const FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-frequency/getAll';
+const SAVE_FREQUENCY_HISTORY_ENDPOINT = 'https://backendaab.in/aabuildersDash/api/utility-frequency/save';
 
 const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthMap = {
@@ -305,7 +305,7 @@ const SubscriptionTab = ({ username, userRoles = [] }) => {
         );
         setSubscriptionPayments(expensesRes.data || []);
         try {
-          const tRes = await axios.get('https://backendaab.in/demoAabuildersDash/api/tenant_link_shop/getAll');
+          const tRes = await axios.get('https://backendaab.in/aabuildersDash/api/tenant_link_shop/getAll');
           setTenantShopData(Array.isArray(tRes.data) ? tRes.data : []);
         } catch {
           setTenantShopData([]);

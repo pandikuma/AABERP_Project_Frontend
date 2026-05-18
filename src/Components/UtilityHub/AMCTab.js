@@ -46,7 +46,7 @@ const AMCTab = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const load = async () => {
             try {
-                const res = await fetch('https://backendaab.in/demoAabuildersDash/api/tenant_link_shop/getAll');
+                const res = await fetch('https://backendaab.in/aabuildersDash/api/tenant_link_shop/getAll');
                 if (!res.ok) {
                     setTenantShopData([]);
                     return;

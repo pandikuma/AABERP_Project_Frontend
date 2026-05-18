@@ -6,8 +6,8 @@ import imports from '../Images/Import.svg';
 import filterIcon from '../Images/filter (3).png';
 import cross from '../Images/cross.png';
 
-const PROJECTS_API = 'https://backendaab.in/demoAabuilderDash/api/projects/getAll';
-const PROPERTY_TYPES_API = 'https://backendaab.in/demoAabuildersDash/api/property_types/getAll';
+const PROJECTS_API = 'https://backendaab.in/aabuilderDash/api/projects/getAll';
+const PROPERTY_TYPES_API = 'https://backendaab.in/aabuildersDash/api/property_types/getAll';
 
 const EMPTY_OWNER = {
   clientName: '',
@@ -26,9 +26,10 @@ const EMPTY_PROPERTY_DETAIL = {
   professionTaxNo: '',
 };
 
+const safeTrim = (value) => String(value ?? '').trim();
+
 const INITIAL_PROFESSION_PROJECT = {
   projectName: '',
-  profession: '',
   projectAddress: '',
   projectId: '',
   projectCategory: '',
@@ -52,7 +53,7 @@ const roInputProps = {
 };
 
 const DirectoryProfession = () => {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL ?? 'https://backendaab.in/demoAabuildersDash';
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL ?? 'https://backendaab.in/aabuildersDash';
   const [isFilterRowVisible, setIsFilterRowVisible] = useState(false);
   const [isProfessionInputsOpen, setIsProfessionInputsOpen] = useState(false);
   const [isProfessionCreateOpen, setIsProfessionCreateOpen] = useState(false);
@@ -67,6 +68,8 @@ const DirectoryProfession = () => {
   const [employeeList, setEmployeeList] = useState([]);
   const [professionProjectForm, setProfessionProjectForm] = useState(INITIAL_PROFESSION_PROJECT);
   const [professionProjectSaving, setProfessionProjectSaving] = useState(false);
+  const [editingProjectDbId, setEditingProjectDbId] = useState(null);
+  const selectedProjectSnapshotRef = useRef(null);
   const fileInputRef = useRef(null);
   const [professionFilters, setProfessionFilters] = useState({
     year: '',
@@ -229,12 +232,21 @@ const DirectoryProfession = () => {
   });
 
   const mapPropertyFromApi = (detail) => ({
+    id: detail?.id,
     projectType: detail?.projectType ?? '',
     floorName: detail?.floorName ?? '',
     shopNo: detail?.shopNo ?? '',
     doorNo: detail?.doorNo ?? '',
     area: detail?.area ?? '',
-    professionTaxNo: detail?.professionTaxNo ?? detail?.waterTaxNo ?? '',
+    ebNo: detail?.ebNo ?? '',
+    ebNoPhase: detail?.ebNoPhase ?? '',
+    ebNoFrequency: detail?.ebNoFrequency ?? '',
+    propertyTaxNo: detail?.propertyTaxNo ?? '',
+    propertyTaxFrequency: detail?.propertyTaxFrequency ?? '',
+    waterTaxNo: detail?.waterTaxNo ?? '',
+    waterTaxFrequency: detail?.waterTaxFrequency ?? '',
+    professionTaxNo:
+      detail?.professionalTaxNo ?? detail?.professionTaxNo ?? detail?.waterTaxNo ?? '',
   });
 
   const fetchProjectsForForm = async () => {
@@ -274,6 +286,8 @@ const DirectoryProfession = () => {
   };
 
   const resetProfessionProjectForm = () => {
+    setEditingProjectDbId(null);
+    selectedProjectSnapshotRef.current = null;
     setProfessionProjectForm({
       ...INITIAL_PROFESSION_PROJECT,
       ownerDetailsList: [{ ...EMPTY_OWNER }],
@@ -294,9 +308,13 @@ const DirectoryProfession = () => {
   const handleProjectNameChange = (projectName) => {
     const found = projectsList.find((p) => (p.projectName ?? p.siteName ?? '') === projectName);
     if (!found) {
+      setEditingProjectDbId(null);
+      selectedProjectSnapshotRef.current = null;
       setProfessionProjectForm((prev) => ({ ...prev, projectName }));
       return;
     }
+    setEditingProjectDbId(found.id ?? null);
+    selectedProjectSnapshotRef.current = found;
     const owners = found.ownerDetails ?? found.ownerDetailsList;
     const properties = found.propertyDetails ?? found.propertyDetailsList;
     const rawSeId =
@@ -352,45 +370,79 @@ const DirectoryProfession = () => {
 
   const handleSubmitProfessionProject = async (e) => {
     e.preventDefault();
-    if (!professionProjectForm.projectName.trim() || !professionProjectForm.profession.trim()) return;
+    if (!safeTrim(professionProjectForm.projectName)) return;
+    if (!editingProjectDbId) {
+      window.alert('Please select a project to update.');
+      return;
+    }
+    const snapshot = selectedProjectSnapshotRef.current;
+    if (!snapshot) {
+      window.alert('Project data is not loaded. Please select the project again.');
+      return;
+    }
+
     setProfessionProjectSaving(true);
-    const propertyDetails = professionProjectForm.propertyDetailsList.map((detail) => ({
-      projectType: detail.projectType,
-      floorName: detail.floorName,
-      shopNo: detail.shopNo,
-      doorNo: detail.doorNo,
-      area: detail.area,
-      professionTaxNo: detail.professionTaxNo,
-      waterTaxNo: detail.professionTaxNo,
-    }));
+    const originalProperties = Array.isArray(snapshot.propertyDetails)
+      ? snapshot.propertyDetails
+      : [];
+
+    const propertyDetails = professionProjectForm.propertyDetailsList.map((detail, index) => {
+      const original = originalProperties[index] ?? {};
+      return {
+        ...original,
+        projectType: original.projectType ?? detail.projectType ?? '',
+        floorName: original.floorName ?? detail.floorName ?? '',
+        shopNo: original.shopNo ?? detail.shopNo ?? '',
+        doorNo: original.doorNo ?? detail.doorNo ?? '',
+        area: original.area ?? detail.area ?? '',
+        ebNo: original.ebNo ?? '',
+        ebNoPhase: original.ebNoPhase ?? '',
+        ebNoFrequency: original.ebNoFrequency ?? '',
+        propertyTaxNo: original.propertyTaxNo ?? '',
+        propertyTaxFrequency: original.propertyTaxFrequency ?? '',
+        waterTaxNo: original.waterTaxNo ?? '',
+        waterTaxFrequency: original.waterTaxFrequency ?? '',
+        professionalTaxNo: safeTrim(detail.professionTaxNo),
+      };
+    });
+
     const payload = {
-      projectName: professionProjectForm.projectName,
-      profession: professionProjectForm.profession,
-      projectAddress: professionProjectForm.projectAddress,
-      projectId: professionProjectForm.projectId,
-      projectCategory: professionProjectForm.projectCategory,
-      projectReferenceName: professionProjectForm.projectReferenceName,
-      branch: professionProjectForm.branch,
+      projectName: snapshot.projectName ?? professionProjectForm.projectName,
+      projectAddress: snapshot.projectAddress ?? professionProjectForm.projectAddress ?? '',
+      projectId: snapshot.projectId ?? professionProjectForm.projectId ?? '',
+      projectCategory: snapshot.projectCategory ?? professionProjectForm.projectCategory ?? '',
+      projectReferenceName:
+        snapshot.projectReferenceName ?? professionProjectForm.projectReferenceName ?? '',
+      branch: snapshot.branch ?? professionProjectForm.branch ?? '',
+      location: snapshot.location ?? '',
       siteEngineerId:
-        professionProjectForm.siteEngineerId === ''
+        snapshot.siteEngineerId ??
+        (professionProjectForm.siteEngineerId === ''
           ? null
-          : String(professionProjectForm.siteEngineerId),
-      ownerDetails: professionProjectForm.ownerDetailsList,
+          : String(professionProjectForm.siteEngineerId)),
+      ownerDetails: snapshot.ownerDetails ?? professionProjectForm.ownerDetailsList,
+      accountDetails: snapshot.accountDetails ?? [],
       propertyDetails,
     };
+
     try {
-      const response = await fetch('https://backendaab.in/demoAabuilderDash/api/projects/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        `https://backendaab.in/aabuilderDash/api/projects/edit/${editingProjectDbId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
       if (!response.ok) {
-        throw new Error('Failed to save profession project');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to update professional tax numbers');
       }
       await fetchProjectsForForm();
       handleCloseProfessionProjectForm();
     } catch (error) {
       console.error(error);
+      window.alert(error?.message || 'Failed to update professional tax numbers.');
     } finally {
       setProfessionProjectSaving(false);
     }
