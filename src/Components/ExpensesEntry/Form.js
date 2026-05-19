@@ -2150,7 +2150,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
     }, [embedded]);
 
     return (
-        <div className={embedded ? '' : 'bg-[#FAF6ED]  px-6'}>
+        <div className={embedded ? '' : 'bg-[#FAF6ED]'}>
             <style jsx>{`
                 input:hover, select:hover {
                     border-color: rgba(191, 152, 83, 0.2) !important;
@@ -2174,7 +2174,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     max-height: 45px !important;
                 }
             `}</style>
-            <div className={`p-6 pb-20 bg-white rounded shadow-lg w-full overflow-x-clip`}>
+            <div className={`p-[18px] pb-[18px] bg-white rounded shadow-lg w-screen overflow-x-clip`}>
                 <form className="expense-entry-form-fields" onSubmit={handleFormSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-[max-content_1fr] gap-x-32 min-w-0">
                         <div className="md:col-start-1 md:row-start-1 space-y-3 min-w-0">

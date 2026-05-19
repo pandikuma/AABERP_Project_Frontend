@@ -280,9 +280,9 @@ const EntryChecking = () => {
     };
     const isAnyFilterSelected = selectedDate || selectedStartDate || selectedEndDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools;
     return (
-        <body className=' bg-[#FAF6ED] px-6'>
+        <body className=' bg-[#FAF6ED] px-[18px]'>
             <div>
-                <div className="w-full p-6 pb-10 h-full bg-white shadow-lg">
+                <div className="w-full p-[18px] pb-10 h-full bg-white shadow-lg">
                     <div
                         className={`text-left flex ${selectedDate || selectedStartDate || selectedEndDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools
                             ? 'flex-col sm:flex-row sm:justify-between'

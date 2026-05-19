@@ -39,7 +39,7 @@ const Heading = ({ username, userRoles = [] }) => {
 
     return (
         <div className="bg-[#FAF6ED]">
-            <div className="topbar-title expense-entry-tabs w-fit max-w-full overflow-x-auto no-scrollbar pt-4 pb-[12px] pr-4">
+            <div className="topbar-title expense-entry-tabs w-full max-w-full overflow-x-auto no-scrollbar">
                 <h2 className={`link whitespace-nowrap ${activeTab === 'expense-entry' ? 'active' : ''}`}
                     onClick={() => setActiveTab('expense-entry')}>
                     Form
@@ -73,7 +73,7 @@ const Heading = ({ username, userRoles = [] }) => {
                     Daily Upload
                 </h2>
             </div>
-            <div className="content px-4">
+            <div className="content px-[18px] pt-[18px]">
                 {visitedTabs.has('expense-entry') && (
                     <div className={activeTab === 'expense-entry' ? '' : 'hidden'}>
                         <Form username={username} userRoles={userRoles} />
