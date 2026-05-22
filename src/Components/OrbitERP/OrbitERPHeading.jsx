@@ -1,18 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
-import aaLogo from "../Images/aablogo.png";
-import { ORBIT_ERP_LOGO_URI } from "../Bank Register/BankRegisterPayments";
+import aaLogo from "../Images/LOGO.svg";
 
 const BRANCHES = [
   { id: "srivilliputtur", name: "Srivilliputtur" },
   { id: "madurai", name: "Madurai" },
 ];
-
-const IconMenu = () => (
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d="M4 7h16M4 12h16M4 17h16" />
-  </svg>
-);
 
 const IconDownload = () => (
   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -58,7 +50,14 @@ const ORBIT_TOPBAR_CSS = `
 @media(max-width:480px){
   .orbit-erp-heading-root .brand-text{font-size:13.5px;letter-spacing:0.13em;}
 }
-.orbit-erp-heading-root .topbar{background:#fff;border-bottom:1px solid var(--line);padding:5px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;min-height:42px;}
+.orbit-erp-heading-root .topbar{background:#fff;border-bottom:1px solid var(--line);padding:5px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;min-height:56px;}
+@media(min-width:1024px){
+  .orbit-erp-heading-root .topbar{
+    margin-left:-56px;
+    width:calc(100% + 56px);
+    padding-left:12px;
+  }
+}
 .orbit-erp-heading-root .branch-select{background:#fff;border:1px solid var(--line);border-radius:7px;padding:5px 28px 5px 10px;font-size:12.5px;font-weight:600;color:var(--ink-2);appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 4l3 3 3-3' stroke='%238a8275' stroke-width='1.5' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 9px center;cursor:pointer;min-width:128px;}
 .orbit-erp-heading-root .branch-select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(214,171,96,0.15);}
 .orbit-erp-heading-root .icon-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink-2);cursor:pointer;transition:all .15s;position:relative;}
@@ -136,12 +135,8 @@ export default function OrbitERPHeading({
   }, [notifOpen]);
 
   const unread = notifications.filter((n) => !n.read).length;
-  const { pathname } = useLocation();
-  const isBankRegister = pathname.startsWith("/bank-register");
-  const navLogoSrc = isBankRegister ? ORBIT_ERP_LOGO_URI : aaLogo;
-  const navLogoStyle = isBankRegister
-    ? { display: "block", flexShrink: 0, objectFit: "contain" }
-    : { display: "block", flexShrink: 0, objectFit: "cover", borderRadius: "50%" };
+  const navLogoSrc = aaLogo;
+  const navLogoStyle = { display: "block", flexShrink: 0, objectFit: "contain" };
 
   const handleMarkAll = () => {
     if (onMarkAllRead) onMarkAllRead();
@@ -155,19 +150,14 @@ export default function OrbitERPHeading({
     <div className="orbit-erp-heading-root">
       <style>{ORBIT_TOPBAR_CSS}</style>
       <div className="topbar">
-        <button type="button" className="brand-button" onClick={onLogoClick} title="Open menu">
-          <span className="menu-icon">
-            <IconMenu />
-          </span>
+        <div className="brand-button w-[147px] h-[32px]">
           <img
             src={navLogoSrc}
-            width={isBankRegister ? 24 : 28}
-            height={isBankRegister ? 24 : 28}
+            className="w-full h-full object-contain"
             alt="AA Builders"
             style={navLogoStyle}
           />
-          <span className="brand-text">AA Builders</span>
-        </button>
+        </div>
         {!hideEndToolbar && (
         <div className="flex items-center gap-2 ml-auto">
           <select value={branch} onChange={(e) => setBranch(e.target.value)} className="branch-select">

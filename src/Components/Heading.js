@@ -73,7 +73,7 @@ const Heading = ({ username, userRoles = [] }) => {
                     Daily Upload
                 </h2>
             </div>
-            <div className="content px-[18px] pt-[18px]">
+            <div className="content">
                 {visitedTabs.has('expense-entry') && (
                     <div className={activeTab === 'expense-entry' ? '' : 'hidden'}>
                         <Form username={username} userRoles={userRoles} />

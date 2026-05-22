@@ -6,15 +6,15 @@
     padding: 0;
     position: relative;
     margin-left: 50px;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 400;
 }
 
 /* Active link styling */
 .link.active {
     color: black;
     /* Ensure text color stays black */
-    font-size: 13.5px;
+    font-size: 18px;
     font-weight: 600;
     text-decoration: none;
     padding: 0;
@@ -52,18 +52,18 @@
 }
 
 .expense-entry-tabs {
-    gap: 24px;
+    gap: 12px;
     border-bottom: 1px solid #EADFC8 !important;
 }
 
 .expense-entry-tabs .link {
     margin-left: 0;
-    padding: 12px 18px !important;
+    padding: 8px 18px !important;
     border-bottom: 2.5px solid transparent;
-    font-size: 13.5px !important;
-    font-weight: 600 !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
     line-height: 21px !important;
-    color: #7a7163 !important;
+    color: #000000 !important;
     font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif !important;
 }
 
@@ -73,10 +73,10 @@
 
 .expense-entry-tabs .link.active {
     border-bottom-color: #D6AB60 !important;
-    font-size: 13.5px !important;
-    font-weight: 600 !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
     line-height: 21px !important;
-    color: #212121 !important;
+    color: #000000 !important;
     font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif !important;
 }
 
@@ -175,6 +175,8 @@
     align-items: flex-end;
     gap: 0 !important;
     padding: 0 18px !important;
+    position: relative;
+    z-index: 45;
     margin: 0 !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
@@ -184,5 +186,5 @@
 
 .topbar-title.expense-entry-tabs h2 {
     margin: 0 !important;
-    padding: 12px 18px !important;
+    padding: 10px 14px !important;
 }

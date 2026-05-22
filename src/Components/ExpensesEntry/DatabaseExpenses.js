@@ -8,7 +8,8 @@ import edit from '../Images/Edit.svg';
 import history from '../Images/History.svg';
 import remove from '../Images/Delete.svg';
 import Select from 'react-select';
-import Filter from '../Images/filter (3).png'
+import Filter from '../Images/TableFilter.svg'
+import CalendarIcon from "../Images/Calendoricon.png";
 import Reload from '../Images/rotate-right.png'
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -345,6 +346,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const [projectData, setProjectData] = useState(null);
     const [ebNumberOptions, setEbNumberOptions] = useState([]);
     const [selectedEbNumber, setSelectedEbNumber] = useState(null);
+    const [expandedCells, setExpandedCells] = useState({});
     const customStyles = useMemo(() => ({
         control: (provided, state) => ({
             ...provided,
@@ -352,9 +354,8 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
             lineHeight: '20px',
             fontSize: '14px',
             fontWeight: 'normal',
-            height: '45px',
+            height: '36px',
             borderRadius: '8px',
-            padding: '0.15rem',
             textAlign: 'left',
             borderColor: 'rgba(191, 152, 83, 0.2)',
             boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
@@ -391,6 +392,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         }),
         valueContainer: (provided) => ({
             ...provided,
+            paddingLeft: '12px',
             paddingRight: '2px',
         }),
         indicatorsContainer: (provided) => ({
@@ -399,7 +401,10 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         }),
         dropdownIndicator: (provided) => ({
             ...provided,
-            padding: '4px',
+            paddingTop: '0px',
+            paddingBottom: '0px',
+            paddingRight: '6px',
+            paddingLeft: '3px',
         }),
         option: (provided, state) => ({
             ...provided,
@@ -417,9 +422,12 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         }),
         placeholder: (provided) => ({
             ...provided,
-            color: '#d3d5db',
+            color: '#A6A5A6',
             textAlign: 'left',
             fontWeight: 'normal',
+            paddingLeft: '0px',
+            paddingTop: '0px',
+            paddingBottom: '0px',
         }),
         indicatorSeparator: (provided) => ({
             ...provided,
@@ -1423,11 +1431,11 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     };
     const formatBillArrivalDisplay = (e) => {
         const raw = getExpenseBillArrivalRaw(e);
-        if (!raw) return '—';
+        if (!raw) return '';
         const head = String(raw).trim().slice(0, 10);
-        if (/^\d{4}-\d{2}-\d{2}$/.test(head)) return formatChipDateDMY(head) || '—';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(head)) return formatChipDateDMY(head) || '';
         try {
-            return formatDateOnly(raw) || '—';
+            return formatDateOnly(raw) || '';
         } catch {
             return String(raw);
         }
@@ -1525,6 +1533,12 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         localStorage.removeItem('expenseFilter_timestampEndDate');
         localStorage.removeItem('expenseFilter_eno');
     };
+    const toggleExpandedCell = (cellKey) => {
+        setExpandedCells((prev) => ({
+            ...prev,
+            [cellKey]: !prev[cellKey],
+        }));
+    };
     const exportToCSV = () => {
         const headers = [
             "Time stamp",
@@ -1604,36 +1618,11 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         doc.save(`Filtered_Expenses_${dateStr}.pdf`);
     };
     return (
-        <body className=' bg-[#FAF6ED]'>
-            <div>
-
+        <div className='min-h-screen bg-[#FAF6ED]'>
+            <div className='px-[18px] pt-[18px]'>
                 {Object.keys(accountTypeSummary).length > 0 && (
-                    <div className="w-full p-6 bg-white shadow-lg mb-4">
-                        <div className="flex flex-wrap gap-5 items-end text-left">
-                            <div>
-                                <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
-                                <div className="w-[168px]">
-                                    <CustomDateField
-                                        value={startDate}
-                                        onChange={setStartDate}
-                                        placeholder="dd/mm/yyyy"
-                                        alwaysOpenBelow
-                                        className={`[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]${!startDate ? ' [&>button]:![font-size:14px] [&>button]:!text-[#d3d5db] [&>button]:!font-normal' : ''}`}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block mb-2 font-semibold text-[#BF9853]">End Date</label>
-                                <div className="w-[168px]">
-                                    <CustomDateField
-                                        value={endDate}
-                                        onChange={setEndDate}
-                                        placeholder="dd/mm/yyyy"
-                                        alwaysOpenBelow
-                                        className={` [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]${!endDate ? ' [&>button]:![font-size:14px] [&>button]:!text-[#d3d5db] [&>button]:!font-normal' : ''}`}
-                                    />
-                                </div>
-                            </div>
+                    <div className="w-full pt-[18px] px-[18px] pb-[18px] rounded-[6px] bg-white mb-[18px]">
+                        <div className="flex flex-wrap gap-[12px] items-end text-left">
                             {Object.entries(accountTypeSummary)
                                 .sort(([a], [b]) => {
                                     if (a === 'Unknown') return 1;
@@ -1642,11 +1631,11 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                 })
                                 .map(([accountType, data]) => (
                                     <div key={accountType} className="cursor-pointer transition-all duration-200 hover:scale-105" onClick={() => setSelectedAccountType(accountType)}>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className={`font-semibold transition-colors duration-200 ${selectedAccountType === accountType ? 'text-[#E4572E]' : 'text-[#BF9853] hover:text-[#E4572E]'}`}>
+                                        <div className="flex items-center justify-between mb-[8px]">
+                                            <label className={`font-semibold text-[16px] transition-colors duration-200 ${selectedAccountType === accountType ? 'text-[#BF9853]' : 'text-[#000000]'}`}>
                                                 {accountType}
                                             </label>
-                                            <span className="text-sm text-red-500 font-medium">
+                                            <span className="text-[14px] text-red-500 font-medium">
                                                 {data.entryCount}
                                             </span>
                                         </div>
@@ -1654,9 +1643,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                             type="text"
                                             value={`₹${Number(data.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                             readOnly
-                                            className={`w-[200px] h-[45px] cursor-pointer rounded-lg border-2 focus:outline-none p-2 text-lg font-bold text-center transition-all duration-200 ${selectedAccountType === accountType
-                                                ? 'border-[#E4572E] bg-[#FEF2F2] text-[#E4572E] shadow-md'
-                                                : 'border-[#BF9853] border-opacity-25 text-gray-800 hover:border-[#BF9853] hover:border-opacity-75 hover:shadow-sm hover:bg-[#FAF6ED]'
+                                            className={`${accountType === 'Bill Payments + Claim' || accountType === 'Weekly Payment' ? 'w-[210px]' : 'w-[150px]'} h-[40px] cursor-pointer rounded-lg border-2 focus:outline-none pl-[12px] text-[14px] font-medium transition-all duration-200 ${selectedAccountType === accountType
+                                                ? 'border-[#BF9853] bg-[#FFFFFF] text-[#000000] shadow-md'
+                                                : 'border-[#BF9853] border-opacity-25 bg-[#FFFFFF] text-[#000000] hover:border-[#BF9853] hover:border-opacity-75 hover:shadow-sm'
                                                 }`}
                                         />
                                     </div>
@@ -1664,45 +1653,15 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                         </div>
                     </div>
                 )}
-                {Object.keys(accountTypeSummary).length === 0 && (
-                    <div className="w-full p-[18px] pb-10 bg-white shadow-lg mb-4">
-                        <div className="flex flex-wrap gap-5 items-end text-left">
-                            <div>
-                                <label className="block mb-2 font-semibold text-[#BF9853]">Start Date</label>
-                                <div className="w-[168px]">
-                                    <CustomDateField
-                                        value={startDate}
-                                        onChange={setStartDate}
-                                        placeholder="dd/mm/yyyy"
-                                        alwaysOpenBelow
-                                        className={`[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]${!startDate ? ' [&>button]:![font-size:14px] [&>button]:!text-[#d3d5db] [&>button]:!font-normal' : ''}`}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block mb-2 font-semibold text-[#BF9853]">End Date</label>
-                                <div className="w-[168px]">
-                                    <CustomDateField
-                                        value={endDate}
-                                        onChange={setEndDate}
-                                        placeholder="dd/mm/yyyy"
-                                        alwaysOpenBelow
-                                        className={`[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]${!endDate ? ' [&>button]:![font-size:14px] [&>button]:!text-[#d3d5db] [&>button]:!font-normal' : ''}`}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                <div className="w-full p-[18px] bg-white shadow-lg overflow-x-auto">
+                <div className="w-full p-[18px] bg-white rounded-[6px] overflow-x-auto">
                     <div
                         className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno
                             ? 'flex-col sm:flex-row sm:justify-between'
                             : 'flex-row justify-between items-center'
-                            } mb-3 gap-2`}>
+                            } mb-[12px] gap-[6px]`}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
                             <button
-                                className='pl-2'
+                                className=''
                                 onClick={() => {
                                     const willOpen = !showFilters;
                                     setShowFilters(willOpen);
@@ -1712,14 +1671,14 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                     if (scroller.scrollTop <= 0) return;
                                     requestAnimationFrame(() => {
                                         const h = filterRowRef.current?.offsetHeight || 0;
-                                        if (h > 0) scroller.scrollTop = scroller.scrollTop + h;
+                                        if (h > 0) scroller.scrollTop = Math.max(0, scroller.scrollTop - h);
                                     });
                                 }}
                             >
                                 <img
                                     src={Filter}
                                     alt="Toggle Filter"
-                                    className="w-7 h-7 border border-[#BF9853] rounded-md"
+                                    className=" border rounded-md"
                                 />
                             </button>
                             {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno) && (
@@ -1833,13 +1792,13 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                             )}
                         </div>
                         <div className='flex items-center gap-2'>
-                            <button onClick={clearFilters} className='w-10 h-9 border border-[#BF9853] rounded-md font-semibold text-sm text-[#BF9853] flex items-center justify-center gap-2'>
-                                <img className='w-4 h-4' src={Reload} alt="Reload" />
+                            <button onClick={clearFilters} className='w-[30px] h-[20px] border border-[#BF9853] rounded-md font-semibold text-sm text-[#BF9853] flex items-center justify-center gap-2'>
+                                <img className='w-[12px] h-[12px]' src={Reload} alt="Reload" />
                             </button>
                             <div className=' text-left md:text-right md:items-center items-start cursor-default flex max-w-screen-2xl table-auto overflow-auto w-full'>
                                 <div className='flex items-center'>
                                     <span className='text-[#E4572E] mr-3 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={generateFilteredPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
-                                    <span className='text-[#007233] mr-1 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportToCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
+                                    <span className='text-[#007233] flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportToCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
                                 </div>
                             </div>
                         </div>
@@ -1847,81 +1806,81 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                     <div>
                         <div
                             ref={scrollRef}
-                            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[600px] overflow-x-auto select-none thin-scrollbar"
+                            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] max-h-[calc(100vh-300px)] overflow-x-auto select-none scrollbar-none no-scrollbar"
                             onMouseDown={handleMouseDown}
                             onMouseMove={handleMouseMove}
                             onMouseUp={handleMouseUp}
                             onMouseLeave={handleMouseUp}>
                             <table className="table-fixed w-full min-w-[1760px] border-collapse">
                                 <thead className="sticky top-0 z-10 bg-white ">
-                                    <tr className="bg-[#FAF6ED]">
-                                        <th className="px-3 w-44 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('timestamp')}>
+                                    <tr className="bg-[#FAF6ED] h-[40px] text-[16px] font-bold text-center">
+                                        <th className="pl-[12px] w-[168px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('timestamp')}>
                                             Time stamp {sortField === 'timestamp' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="pt-2 w-36 font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('date')}>
+                                        <th className="w-[120px] pr-[1px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('date')}>
                                             Date {sortField === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('siteName')}>
+                                        <th className="pl-[1px] pr-[1px] w-[298px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('siteName')}>
                                             Project Name {sortField === 'siteName' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('vendor')}>
+                                        <th className="pl-[1px] pr-[1px] w-[218px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('vendor')}>
                                             Vendor {sortField === 'vendor' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('contractor')}>
+                                        <th className="pl-[1px] pr-[1px] w-[218px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('contractor')}>
                                             Contractor {sortField === 'contractor' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('staff')}>
+                                        <th className="pl-[1px] pr-[1px] w-[218px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('staff')}>
                                             Staff {sortField === 'staff' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('quantity')}>
+                                        <th className="pl-[1px] pr-[1px] w-[78px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('quantity')}>
                                             Quantity {sortField === 'quantity' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('amount')}>
+                                        <th className="pl-[1px] pr-[1px] w-[120px] font-bold text-right cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('amount')}>
                                             Amount {sortField === 'amount' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('comments')}>
+                                        <th className="pl-[9px] pr-[1px] w-[198px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('comments')}>
                                             Description {sortField === 'comments' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[160px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('category')}>
+                                        <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('category')}>
                                             Category {sortField === 'category' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[130px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('accountType')}>
+                                        <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('accountType')}>
                                             A/C Type {sortField === 'accountType' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('machineTools')}>
+                                        <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('machineTools')}>
                                             Machine Tools {sortField === 'machineTools' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('source')}>
+                                        <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('source')}>
                                             Source From {sortField === 'source' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('branch')}>
+                                        <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('branch')}>
                                             Branch {sortField === 'branch' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('enteredBy')}>
+                                        <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('enteredBy')}>
                                             Entered By {sortField === 'enteredBy' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('eno')}>
+                                        <th className="pl-[1px] pr-[1px] w-[98px] font-bold text-right cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('eno')}>
                                             E.No {sortField === 'eno' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('billArrivalDate')}>
+                                        <th className="pl-[1px] pr-[1px] w-[98px] font-bold text-right cursor-pointer hover:bg-gray-200 select-none" onClick={() => handleSort('billArrivalDate')}>
                                             Bill Arrival {sortField === 'billArrivalDate' && (sortDirection === 'asc' ? '↑' : '↓')}
                                         </th>
-                                        <th className="px-0.5 w-[120px] font-bold text-left">Activity</th>
-                                        <th className="px-0.5 w-[50px] font-bold text-left">File</th>
+                                        <th className="pl-[9px] pr-[1px] w-[70px] font-bold text-center">Activity</th>
+                                        <th className="pl-[6px] pr-[12px] w-[70px] font-bold text-center">File</th>
                                     </tr>
                                     {showFilters && (
-                                        <tr ref={filterRowRef} className="bg-[#FAF6ED]">
-                                            <th className="py-3">
-                                                <div className="relative [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]">
+                                        <tr ref={filterRowRef} className="bg-[#eeeeee] h-[44px]">
+                                            <th className="">
+                                                <div className="relative pl-[10px] [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]">
                                                     <button
                                                         type="button"
                                                         onClick={() => setShowDateRangePicker(true)}
-                                                        className="w-full min-w-[140px] h-[45px] px-2 py-0 text-sm font-normal bg-white text-left flex items-center gap-1"
+                                                        className="w-[156px] box-border h-[36px] pl-[12px] pr-[3px] py-0 text-sm font-normal bg-white text-left flex items-center justify-between"
                                                     >
-                                                        <span className={`text-[14px] truncate flex-1 min-w-0 text-left ${timestampStartDate && timestampEndDate ? 'text-black font-normal' : 'text-[#d3d5db] font-normal'}`}>
+                                                        <span className={`text-[14px] font-medium truncate flex-1 text-left ${timestampStartDate && timestampEndDate ? 'text-black font-normal' : 'text-[#A6A5A6] font-normal'}`}>
                                                             {timestampStartDate ? (timestampEndDate ? `${timestampStartDate} – ${timestampEndDate}` : `From ${timestampStartDate}`) : 'Time stamp'}
                                                         </span>
-                                                        <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                        <img src={CalendarIcon} alt="Calendar" className="w-[16px] h-[16px] text-gray-400 flex-shrink-0 mr-[6px] ml-[3px]" />
                                                     </button>
                                                     <DateRangePicker
                                                         isOpen={showDateRangePicker}
@@ -1936,20 +1895,20 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     />
                                                 </div>
                                             </th>
-                                            <th className="py-3">
-                                                <div className="min-w-[100px]">
+                                            <th className=" pr-[1px]">
+                                                <div className="w-[120px]">
                                                     <CustomDateField
                                                         value={selectedDate}
                                                         onChange={setSelectedDate}
-                                                        placeholder="dd/mm/yyyy"
+                                                        placeholder="Date"
                                                         alwaysOpenBelow
-                                                        className={` [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button]:!text-[14px] ${selectedDate ? '[&>button]:!text-black [&>button]:!font-normal' : '[&>button]:!text-[#d3d5db] [&>button]:!font-normal'} [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]`}
+                                                        className={`[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button]:!text-[14px] ${selectedDate ? '[&>button]:!text-black [&>button]:!font-normal' : '[&>button]:!text-[#d3d5db] [&>button]:!font-normal'} [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]`}
                                                     />
                                                 </div>
                                             </th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[298px]"
                                                     options={siteOptions}
                                                     value={selectedSiteName ? { value: selectedSiteName, label: selectedSiteName } : null}
                                                     onChange={(selectedOption) => setSelectedSiteName(selectedOption ? selectedOption.value : '')}
@@ -1958,9 +1917,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[218px]"
                                                     options={vendorOptions}
                                                     value={selectedVendor ? { value: selectedVendor, label: selectedVendor } : null}
                                                     onChange={(selectedOption) => setSelectedVendor(selectedOption ? selectedOption.value : '')}
@@ -1969,9 +1928,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[218px]"
                                                     options={contractorOptions}
                                                     value={selectedContractor ? { value: selectedContractor, label: selectedContractor } : null}
                                                     onChange={(selectedOption) => setSelectedContractor(selectedOption ? selectedOption.value : '')}
@@ -1982,13 +1941,13 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                             </th>
                                             <th></th>
                                             <th></th>
-                                            <th className="text-base text-right font-bold py-3">
+                                            <th className="text-[14px] w-[120px] text-right font-bold ">
                                                 ₹{Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </th>
                                             <th></th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[158px]"
                                                     options={categoryOptions}
                                                     value={selectedCategory ? { value: selectedCategory, label: selectedCategory } : null}
                                                     onChange={(selectedOption) => setSelectedCategory(selectedOption ? selectedOption.value : '')}
@@ -1997,9 +1956,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[158px]"
                                                     options={accountTypeOptions}
                                                     value={selectedAccountType ? { value: selectedAccountType, label: selectedAccountType } : null}
                                                     onChange={(selectedOption) => setSelectedAccountType(selectedOption ? selectedOption.value : '')}
@@ -2008,9 +1967,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[158px]"
                                                     options={machineToolsOptions}
                                                     value={selectedMachineTools ? machineToolsOptions.find(opt => opt.value === String(selectedMachineTools)) : null}
                                                     onChange={(selectedOption) => setSelectedMachineTools(selectedOption ? selectedOption.value : '')}
@@ -2019,9 +1978,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[158px]"
                                                     options={sourceOptions}
                                                     value={selectedSource ? { value: selectedSource, label: selectedSource } : null}
                                                     onChange={(selectedOption) => setSelectedSource(selectedOption ? selectedOption.value : '')}
@@ -2030,9 +1989,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[158px]"
                                                     options={branchFilterOptions}
                                                     value={selectedBranch ? branchFilterOptions.find(opt => opt.value === String(selectedBranch)) : null}
                                                     onChange={(selectedOption) => setSelectedBranch(selectedOption ? selectedOption.value : '')}
@@ -2041,9 +2000,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[158px]"
                                                     options={enteredByOptions}
                                                     value={selectedEnteredBy ? { value: selectedEnteredBy, label: selectedEnteredBy } : null}
                                                     onChange={(selectedOption) => setSelectedEnteredBy(selectedOption ? selectedOption.value : '')}
@@ -2052,9 +2011,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="py-3">
+                                            <th className="pl-[1px] pr-[1px]">
                                                 <Select
-                                                    className="w-full"
+                                                    className="w-[98px]"
                                                     options={enoOptions.map((eno) => ({ value: String(eno), label: String(eno) }))}
                                                     value={selectedEno ? { value: String(selectedEno), label: String(selectedEno) } : null}
                                                     onChange={(selectedOption) => setSelectedEno(selectedOption ? selectedOption.value : '')}
@@ -2063,7 +2022,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     styles={customStyles}
                                                 />
                                             </th>
-                                            <th className="py-3" aria-label="Bill Arrival filter" />
+                                            <th className="" aria-label="Bill Arrival filter" />
                                             <th></th>
                                             <th></th>
                                         </tr>
@@ -2071,42 +2030,179 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                 </thead>
                                 <tbody>
                                     {currentItems.map((expense, index) => (
-                                        <tr key={expense.id} className="odd:bg-white even:bg-[#FAF6ED]">
-                                            <td className="px-3 text-sm text-left ">{formatDate(expense.timestamp)}</td>
-                                            <td className=" text-sm text-left w-32 ">{formatDateOnly(expense.date)}</td>
-                                            <td className=" text-sm text-left w-60 ">{getDisplaySiteName(expense)}</td>
-                                            <td className=" text-sm text-left ">{getDisplayVendorName(expense)}</td>
-                                            <td className=" text-sm text-left ">{getDisplayContractorName(expense)}</td>
-                                            <td className=" text-sm text-left ">{getDisplayStaffName(expense)}</td>
-                                            <td className=" text-sm text-left ">{expense.quantity}</td>
-                                            <td className="text-sm text-right">
-                                                ₹{Number(expense.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        <tr key={expense.id} className="odd:bg-white even:bg-[#FAF6ED] text-[14px] font-semibold h-[40px]">
+                                            <td className="pl-[12px] w-[168px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-timestamp`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-timestamp`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={formatDate(expense.timestamp)}
+                                                >
+                                                    {formatDate(expense.timestamp)}
+                                                </span>
                                             </td>
-                                            <td className="text-sm text-left w-[120px] max-w-[120px] break-words overflow-hidden whitespace-normal px-1">{expense.comments || ''}</td>
-                                            <td className=" text-sm text-left ">{expense.category}</td>
-                                            <td className=" text-sm text-left ">{expense.accountType}</td>
-                                            <td className=" text-sm text-left ">{getMachineToolsItemIdDisplay(expense.machineTools)}</td>
-                                            <td className=" text-sm text-left ">{expense.source}</td>
-                                            <td className=" text-sm text-left ">{getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}</td>
-                                            <td className=" text-sm text-left ">{expense.enteredBy || 'Sivaprakasm'}</td>
-                                            <td className=" text-sm text-right pl-3 ">{expense.eno}</td>
-                                            <td className="text-sm text-left px-1 whitespace-nowrap">{formatBillArrivalDisplay(expense)}</td>
-                                            <td className=" flex w-[100px] justify-between py-2">
-                                                <button onClick={() => handleEditClick(expense)} className="rounded-full transition duration-200 ml-2 mr-3">
+                                            <td className="w-[120px] pr-[1px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-date`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-date`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={formatDateOnly(expense.date)}
+                                                >
+                                                    {formatDateOnly(expense.date)}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[298px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-site`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-site`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={getDisplaySiteName(expense)}
+                                                >
+                                                    {getDisplaySiteName(expense)}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[218px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-vendor`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-vendor`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={getDisplayVendorName(expense)}
+                                                >
+                                                    {getDisplayVendorName(expense)}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[218px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-contractor`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-contractor`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={getDisplayContractorName(expense)}
+                                                >
+                                                    {getDisplayContractorName(expense)}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[218px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-staff`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-staff`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={getDisplayStaffName(expense)}
+                                                >
+                                                    {getDisplayStaffName(expense)}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[78px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-quantity`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-quantity`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={String(expense.quantity ?? '')}
+                                                >
+                                                    {expense.quantity}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[98px] text-right">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-amount`)}
+                                                    className={`block w-full cursor-pointer text-right ${expandedCells[`${expense.id ?? index}-amount`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={`₹${Number(expense.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                                >
+                                                    ₹{Number(expense.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </td>
+                                            <td className="text-left pl-[9px] pr-[1px] w-[198px] px-1">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-comments`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-comments`]
+                                                        ? 'whitespace-normal break-words'
+                                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                                        }`}
+                                                    title={expense.comments || ''}
+                                                >
+                                                    {expense.comments || ''}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[158px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-category`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-category`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={expense.category || ''}
+                                                >
+                                                    {expense.category}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[158px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-accountType`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-accountType`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={expense.accountType || ''}
+                                                >
+                                                    {expense.accountType}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[158px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-machineTools`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-machineTools`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={getMachineToolsItemIdDisplay(expense.machineTools) || ''}
+                                                >
+                                                    {getMachineToolsItemIdDisplay(expense.machineTools)}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[158px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-source`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-source`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={expense.source || ''}
+                                                >
+                                                    {expense.source}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[158px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-branch`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-branch`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}
+                                                >
+                                                    {getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[158px] text-left ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-enteredBy`)}
+                                                    className={`block w-full cursor-pointer ${expandedCells[`${expense.id ?? index}-enteredBy`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={expense.enteredBy || 'Sivaprakasm'}
+                                                >
+                                                    {expense.enteredBy || 'Sivaprakasm'}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[98px] text-right ">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-eno`)}
+                                                    className={`block w-full cursor-pointer text-right ${expandedCells[`${expense.id ?? index}-eno`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={String(expense.eno ?? '')}
+                                                >
+                                                    {expense.eno}
+                                                </span>
+                                            </td>
+                                            <td className="pl-[1px] pr-[1px] w-[98px] text-right whitespace-nowrap">
+                                                <span
+                                                    onClick={() => toggleExpandedCell(`${expense.id ?? index}-billArrival`)}
+                                                    className={`block w-full cursor-pointer text-right ${expandedCells[`${expense.id ?? index}-billArrival`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                                                    title={formatBillArrivalDisplay(expense) || ''}
+                                                >
+                                                    {formatBillArrivalDisplay(expense)}
+                                                </span>
+                                            </td>
+                                            <td className=" flex pl-[9px] pr-[1px] w-[70px] justify-between py-2 gap-[8px]">
+                                                <button onClick={() => handleEditClick(expense)} className="rounded-full transition duration-200">
                                                     <img
                                                         src={edit}
                                                         alt="Edit"
                                                         className=" w-4 h-6 transform hover:scale-110 hover:brightness-110 transition duration-200 "
                                                     />
                                                 </button>
-                                                <button className=" -ml-5 -mr-2">
+                                                <button className="">
                                                     <img
                                                         src={remove}
                                                         alt='delete'
                                                         onClick={() => handleDelete(expense.id, username)}
                                                         className='  w-4 h-4 transform hover:scale-110 hover:brightness-110 transition duration-200 ' />
                                                 </button>
-                                                <button onClick={() => fetchAuditDetails(expense.id)} className="rounded-full transition duration-200 -mr-1" >
+                                                <button onClick={() => fetchAuditDetails(expense.id)} className="rounded-full transition duration-200" >
                                                     <img
                                                         src={history}
                                                         alt="history"
@@ -2114,7 +2210,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                     />
                                                 </button>
                                             </td>
-                                            <td className="px-1 text-sm">
+                                            <td className="pl-[6px] pr-[12px] w-[70px] text-center">
                                                 {expense.billCopy ? (
                                                     <a
                                                         href={expense.billCopy}
@@ -2895,7 +2991,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                     </div>
                 </div>
             </div>
-        </body>
+        </div>
     );
 };
 export default DatabaseExpenses;

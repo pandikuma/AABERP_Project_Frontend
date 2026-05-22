@@ -3,14 +3,14 @@ import { useLocation } from 'react-router-dom';
 import { useSidebar } from '../../context/SidebarContext';
 import axios from "axios";
 import * as XLSX from 'xlsx';
-import logo from '../Images/aablogo.png';
+import logo from '../Images/LOGO.svg';
 import Sidebar from './Sidebar';
 import { isOrbitAppChromeRoute } from '../OrbitERP/orbitAppChromePaths';
 const Navbar = ({ username, userImage, position, email, onLogout, userRoles = [], branchId, brachId }) => {
   const location = useLocation();
   const hideMainNavForOrbitChrome = isOrbitAppChromeRoute(location.pathname);
   /** Same pattern as Orbit ERP 1.6.html: one drawerOpen at app root — here SidebarProvider owns visibility for TopBar + legacy Navbar + OrbitAppChrome. */
-  const { isSidebarVisible, toggleSidebar, closeSidebar } = useSidebar();
+  const { isSidebarVisible, closeSidebar } = useSidebar();
   const [isProfileDropdownVisible, setIsProfileDropdownVisible] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isEditRequestsDropdownOpen, setIsEditRequestsDropdownOpen] = useState(false);
@@ -1214,8 +1214,47 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
           font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;
           color:var(--ink);
         }
+        .navbar-brand-button{
+          display:flex;
+          align-items:center;
+          gap:9px;
+          background:transparent;
+          border:none;
+          padding:3px 6px;
+          margin-left:-14px;
+          border-radius:8px;
+        }
+        .navbar-brand-text{
+          font-family:'Outfit',sans-serif;
+          font-weight:700;
+          font-size:15.5px;
+          color:#BF9853;
+          letter-spacing:0.16em;
+          line-height:1;
+          white-space:nowrap;
+          text-transform:uppercase;
+        }
+        .navbar.navbar-unified{
+          position:fixed !important;
+          top:0 !important;
+          left:0 !important;
+          width:100% !important;
+          background:#fff !important;
+        }
+        .navbar.navbar-unified::after{
+          content:"";
+          position:absolute;
+          left:0;
+          right:0;
+          bottom:-10px;
+          height:10px;
+          background:#fff;
+          pointer-events:none;
+        }
         .navbar-orbit-end .ink{color:var(--ink);}
         .navbar-orbit-end .muted{color:var(--muted);}
+        .navbar-brand-button{display:flex;align-items:center;gap:9px;background:transparent;border:none;padding:3px 6px;margin-left:-14px;border-radius:8px;}
+        .navbar-brand-text{font-family:'Outfit',sans-serif;font-weight:700;font-size:15.5px;color:var(--gold-deep);letter-spacing:0.16em;line-height:1;white-space:nowrap;text-transform:uppercase;}
         .navbar-orbit-end .branch-select{background:#fff;border:1px solid var(--line);border-radius:7px;padding:5px 28px 5px 10px;font-size:12.5px;font-weight:600;color:var(--ink-2);appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 4l3 3 3-3' stroke='%238a8275' stroke-width='1.5' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 9px center;cursor:pointer;min-width:128px;}
         .navbar-orbit-end .branch-select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(214,171,96,0.15);}
         .navbar-orbit-end .branch-select-static{display:inline-flex;align-items:center;background:#fff;border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:12.5px;font-weight:600;color:var(--ink-2);min-width:128px;}
@@ -1229,35 +1268,20 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         .navbar-orbit-end .navbar-orbit-profile-hit{border-radius:8px;}
         .navbar-orbit-end .navbar-orbit-profile-hit:hover{background:var(--cream-2);}
         @media(max-width:768px){
+          .navbar-brand-text{display:none;}
           .navbar-orbit-end .desktop-only{display:none;}
         }
       `}</style>
       {!hideMainNavForOrbitChrome && (
-      <nav className="navbar fixed top-0 z-50 flex w-full min-h-[42px] items-center border-b border-[#EADFC8] bg-white px-4 py-[5px]">
+      <nav className="navbar navbar-unified fixed top-0 z-50 flex w-full min-h-[64px] items-center border-b border-[#EADFC8] bg-white px-4 py-[5px]">
         <div className="flex w-full items-center justify-between">
-          <button
-            type="button"
-            className="group flex cursor-pointer items-center gap-[9px] rounded-lg border-0 bg-transparent px-1.5 py-[3px] text-[#a59c8a] hover:bg-[#F5EFE3] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#BF9853]"
-            aria-label="Open menu"
-            title="Open menu"
-            onClick={toggleSidebar}
-          >
-            <span className="transition-colors group-hover:text-[#B8924B]">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </span>
+          <div className="navbar-brand-button">
             <img
               src={logo}
               alt="AA Builders"
-              width={24}
-              height={24}
-              className="block h-8 w-8 shrink-0 object-contain"
+              className=" rounded-full object-cover"
             />
-            <span className="hidden whitespace-nowrap font-['Outfit',sans-serif] text-[15.5px] font-bold uppercase leading-none tracking-[0.16em] text-[#B8924B] md:inline">
-              AA Builders
-            </span>
-          </button>
+          </div>
           <div className="navbar-orbit-end relative ml-auto flex shrink-0 flex-wrap items-center gap-2" ref={profileRef}>
             {canSelectBranch ? (
               <div className="flex items-center">
