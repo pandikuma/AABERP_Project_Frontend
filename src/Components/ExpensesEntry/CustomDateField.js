@@ -144,7 +144,7 @@ export default function CustomDateField({
     <div className={`relative ${className}`}>
       <div
         className={`relative flex items-center w-[120px] h-[36px] rounded-lg border-2 border-[#BF9853] border-opacity-25 bg-[#FFFFFF] shadow-sm overflow-hidden ${
-          disabled ? "opacity-70 cursor-not-allowed bg-gray-100" : ""
+          disabled ? "opacity-70 cursor-not-allowed bg-gray-100" : "hover:border-[rgba(191,152,83,0.4)]"
         }`}
       >
         <input

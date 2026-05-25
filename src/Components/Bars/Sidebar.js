@@ -5,8 +5,8 @@ import home from '../Images/dashboard.svg';
 import homeWhite from '../Images/dashboard1.svg';
 import billing from '../Images/Billing.svg';
 import billingWhite from '../Images/Billing1.svg';
-import crm from '../Images/CRM.svg';
-import crmWhite from '../Images/CRM1.svg';
+import crm from '../Images/CRM 1.1 B.svg';
+import crmWhite from '../Images/CRM 1.1 W.svg';
 import account from '../Images/Accounts.svg';
 import accountWhite from '../Images/Accounts1.svg';
 import procurement from '../Images/Procurement.svg'
@@ -184,7 +184,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
           border-radius: 10px;
           min-height: 40px;
           height: 40px;
-          margin: 4px 8px !important;
+          margin: 8px 8px !important;
           padding-top: 0 !important;
           padding-bottom: 0 !important;
           transition: background-color 0.1s ease, color 0.1s ease, margin 0.04s ease, padding 0.08s ease, width 0.04s ease;
@@ -205,13 +205,13 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
           padding-left: 0;
         }
         #root {
-          padding-left: 56px;
+          padding-left: 62px;
         }
         .erp-orbit-drawer.sidebar-collapsed .sidebar-primary-item {
           width: 40px;
           height: 40px;
           min-height: 40px !important;
-          margin: 4px auto;
+          margin: 8px auto;
           justify-content: center;
           gap: 0 !important;
           padding: 0 !important;
@@ -242,7 +242,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
         }
         @media (min-width: 1024px) {
           #root {
-            padding-left: 56px;
+            padding-left: 62px;
           }
           .navbar {
             left: 56px !important;
@@ -257,7 +257,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
             width: 40px;
             height: 40px;
             min-height: 40px !important;
-            margin: 4px auto;
+            margin: 8px auto;
             justify-content: center;
             gap: 0 !important;
             padding: 0 !important;
@@ -290,7 +290,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
       `}</style>
       {isVisible && (
         <div
-          className="erp-orbit-drawer-bg fixed left-0 right-0 bottom-0 top-[64px] z-[55] lg:hidden"
+          className="erp-orbit-drawer-bg fixed left-0 right-0 bottom-0 top-[55px] z-[259] lg:hidden"
           onClick={() => onCloseSidebar && onCloseSidebar()}
           role="presentation"
           aria-hidden="true"
@@ -298,7 +298,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
       )}
       <aside
         ref={sidebarRef}
-        className={`erp-orbit-drawer fixed left-0 bottom-0 top-[64px] z-[56] flex ${isSidebarExpanded ? "w-[280px] sidebar-expanded" : "w-[56px] sidebar-collapsed"} flex-col overflow-hidden bg-[#FFFFFF] translate-x-0`}
+        className={`erp-orbit-drawer fixed left-0 bottom-0 top-[65px] z-[260] flex ${isSidebarExpanded ? "w-[280px] sidebar-expanded" : "w-[62px] sidebar-collapsed"} flex-col overflow-hidden bg-[#FFFFFF] translate-x-0`}
       >
         <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar scrollbar-none pt-[6px]">
         <Link
@@ -315,13 +315,13 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
             if (onCloseSidebar) onCloseSidebar();
           }}>
           <img src={activeMenu === 'home' ? homeWhite : home}
-            alt="home" className="h-4 w-4" />
+            alt="home" className="h-[20px] w-[20px]" />
           <p className="sidebar-primary-label text-[12px] leading-[15px] font-medium text-base">Home</p>
         </Link>
         <div title="Billing" className={`sidebar-primary-item flex items-center gap-[11px] py-[15px] px-3 cursor-pointer ${activeMenu === 'billing' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
           onClick={() => handleMenuClick('billing')} >
           <img src={activeMenu === 'billing' ? billingWhite : billing}
-            alt="billing" className="h-4 w-4" />
+            alt="billing" className="h-[20px] w-[20px]" />
           <p className="sidebar-primary-label text-[12px] leading-[15px] font-medium text-base">Billing</p>
         </div>
         {activeMenu === 'billing' && (
@@ -399,10 +399,10 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
         )}
         <div
           title="CRM"
-          className={`sidebar-primary-item flex items-center gap-[11px] py-[15px] px-3 cursor-pointer ${activeMenu === 'crm' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
+          className={`sidebar-primary-item flex items-center gap-[11px] py-[15px] px-[16px] cursor-pointer ${activeMenu === 'crm' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
           onClick={() => handleMenuClick('crm')}
         >
-          <img src={activeMenu === 'crm' ? crmWhite : crm} alt="crm" className="h-4 w-4" />
+          <img src={activeMenu === 'crm' ? crmWhite : crm} alt="crm" className="h-[20px] w-[20px]" />
           <p className="sidebar-primary-label text-[12px] leading-[15px] font-medium text-base ">CRM</p>
         </div>
         {activeMenu === 'crm' && (
@@ -438,7 +438,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
         <div title="Account" className={`sidebar-primary-item flex items-center gap-[11px] py-[15px] px-3 cursor-pointer ${activeMenu === 'account' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
           onClick={() => handleMenuClick('account')}
         >
-          <img src={activeMenu === 'account' ? accountWhite : account} alt="account" className="h-4 w-4" />
+          <img src={activeMenu === 'account' ? accountWhite : account} alt="account" className="h-[20px] w-[20px]" />
           <p className="sidebar-primary-label text-[12px] leading-[15px] font-medium text-base">Account</p>
         </div>
         {activeMenu === 'account' && (
@@ -616,7 +616,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
           className={`sidebar-primary-item flex items-center gap-[11px] py-[15px] px-3 cursor-pointer ${activeMenu === 'procurement' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
           onClick={() => handleMenuClick('procurement')}
         >
-          <img src={activeMenu === 'procurement' ? procurementWhite : procurement} alt="procurement" className="h-4 w-4" />
+          <img src={activeMenu === 'procurement' ? procurementWhite : procurement} alt="procurement" className="h-[20px] w-[20px]" />
           <p className="sidebar-primary-label text-[12px] leading-[15px] font-medium text-base">Procurement</p>
         </div>
         {activeMenu === 'procurement' && (
@@ -665,7 +665,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
           className={`sidebar-primary-item flex items-center gap-[11px] py-[15px] px-3 cursor-pointer ${activeMenu === 'designtools' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
           onClick={() => handleMenuClick('designtools')}
         >
-          <img src={activeMenu === 'designtools' ? designtoolsWhite : designtools} alt="designtools" className="h-4 w-4" />
+          <img src={activeMenu === 'designtools' ? designtoolsWhite : designtools} alt="designtools" className="h-[20px] w-[20px]" />
           <p className="sidebar-primary-label text-[12px] leading-[15px] font-medium text-base">Design Tools</p>
         </div>
         {activeMenu === 'designtools' && (
@@ -763,7 +763,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
         <div title="HRM" className={`sidebar-primary-item flex items-center gap-[11px] py-[15px] px-3 cursor-pointer ${activeMenu === 'hr' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
           onClick={() => handleMenuClick('hr')}
         >
-          <img src={activeMenu === 'hr' ? hrWhite : hr} alt="hr" className="h-4 w-4" />
+          <img src={activeMenu === 'hr' ? hrWhite : hr} alt="hr" className="h-[20px] w-[20px]" />
           <p className="sidebar-primary-label text-[12px] leading-[15px] font-medium text-base">HRM</p>
         </div>
         {activeMenu === 'hr' && (
@@ -823,7 +823,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
         <div title="Utility Hub" className={`sidebar-primary-item flex items-center gap-[11px] py-[15px] px-3 cursor-pointer ${activeMenu === 'utility' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
           onClick={() => handleMenuClick('utility')}
         >
-          <img src={activeMenu === 'utility' ? sideUtilityHub : sidesetting} alt="utility" className="h-4 w-4" />
+          <img src={activeMenu === 'utility' ? sideUtilityHub : sidesetting} alt="utility" className="h-[20px] w-[20px]" />
           <p className="sidebar-primary-label text-[12px] leading-[15px] font-medium text-base">Utility Hub</p>
         </div>
         {activeMenu === 'utility' && (
@@ -863,7 +863,7 @@ function Sidebar({ isVisible, sidebarRef, userRoles = [], onCloseSidebar }) {
         <div title="Master Data" className={`sidebar-primary-item flex items-center gap-[11px] py-[15px] px-3 cursor-pointer ${activeMenu === 'masterdata' ? 'bg-[#BF9853] text-white' : 'text-black'}`}
           onClick={() => handleMenuClick('masterdata')}
         >
-          <img src={activeMenu === 'masterdata' ? sideMasterData : sidesaving} alt="masterdata" className="h-4 w-4" />
+          <img src={activeMenu === 'masterdata' ? sideMasterData : sidesaving} alt="masterdata" className="h-[20px] w-[20px]" />
           <p className="sidebar-primary-label text-[12px] leading-[15px] font-medium text-base">Master Data</p>
         </div>
         {activeMenu === 'masterdata' && (

@@ -1,13 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import edit from '../Images/Edit.svg';
-import deleteIcon from '../Images/Delete.svg';
-import search from '../Images/search.png';
-import imports from '../Images/Import.svg';
+import Select from 'react-select';
 import filterIcon from '../Images/filter (3).png';
 import cross from '../Images/cross.png';
 
-const PROJECTS_API = 'https://backendaab.in/aabuilderDash/api/projects/getAll';
-const PROPERTY_TYPES_API = 'https://backendaab.in/aabuildersDash/api/property_types/getAll';
+const PROJECTS_API = 'https://backendaab.in/demoAabuilderDash/api/projects/getAll';
+const PROPERTY_TYPES_API = 'https://backendaab.in/demoAabuildersDash/api/property_types/getAll';
 
 const EMPTY_OWNER = {
   clientName: '',
@@ -53,16 +50,9 @@ const roInputProps = {
 };
 
 const DirectoryProfession = () => {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL ?? 'https://backendaab.in/aabuildersDash';
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL ?? 'https://backendaab.in/demoAabuildersDash';
   const [isFilterRowVisible, setIsFilterRowVisible] = useState(false);
-  const [isProfessionInputsOpen, setIsProfessionInputsOpen] = useState(false);
-  const [isProfessionCreateOpen, setIsProfessionCreateOpen] = useState(false);
-  const [professionItems, setProfessionItems] = useState([]);
-  const [professionSearch, setProfessionSearch] = useState('');
-  const [isAddPopupOpen, setIsAddPopupOpen] = useState(false);
   const [isProfessionProjectFormOpen, setIsProfessionProjectFormOpen] = useState(false);
-  const [addPopupValue, setAddPopupValue] = useState('');
-  const [editingItem, setEditingItem] = useState(null);
   const [projectsList, setProjectsList] = useState([]);
   const [propertyTypes, setPropertyTypes] = useState([]);
   const [employeeList, setEmployeeList] = useState([]);
@@ -133,64 +123,6 @@ const DirectoryProfession = () => {
   const inputClass =
     'w-full h-10 border border-[#BF9853]/40 rounded-md px-2 text-sm focus:outline-none';
 
-  const professionListConfig = {
-    endpoints: {
-      list: '/api/profession/all',
-      create: '/api/profession/save',
-      update: (id) => `/api/profession/update/${id}`,
-      delete: (id) => `/api/profession/delete/${id}`,
-    },
-    requestKey: 'profession',
-    responseKeys: ['profession', 'profession_name'],
-  };
-
-  const filteredProfessionItems = useMemo(() => {
-    const term = professionSearch.trim().toLowerCase();
-    if (!term) return professionItems;
-    return professionItems.filter((item) => item.name.toLowerCase().includes(term));
-  }, [professionItems, professionSearch]);
-
-  const resolveProfessionName = (item) => {
-    for (const key of professionListConfig.responseKeys) {
-      if (item?.[key] !== undefined && item?.[key] !== null) {
-        return item[key];
-      }
-    }
-    return item?.name ?? '';
-  };
-
-  const fetchProfessionList = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}${professionListConfig.endpoints.list}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch profession list');
-      }
-      const result = await response.json();
-      if (!Array.isArray(result)) {
-        throw new Error('Unexpected profession list response');
-      }
-      setProfessionItems(
-        result.map((item, index) => ({
-          id: item.id ?? index + 1,
-          name: resolveProfessionName(item),
-        }))
-      );
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  useEffect(() => {
-    fetchProfessionList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!isProfessionInputsOpen) return;
-    fetchProfessionList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isProfessionInputsOpen]);
-
   const siteEngineerSelectOptions = useMemo(() => {
     const list = Array.isArray(employeeList) ? employeeList : [];
     return list
@@ -207,14 +139,71 @@ const DirectoryProfession = () => {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [employeeList]);
 
-  const projectNameOptions = useMemo(() => {
-    const names = new Set();
-    projectsList.forEach((p) => {
-      const name = p.projectName ?? p.siteName ?? '';
-      if (name) names.add(name);
-    });
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  const professionProjectSelectStyles = useMemo(
+    () => ({
+      control: (provided, state) => ({
+        ...provided,
+        minHeight: '56px',
+        height: '56px',
+        border: '2px solid rgba(191, 152, 83, 0.3)',
+        borderRadius: '0.5rem',
+        boxShadow: 'none',
+        '&:hover': { borderColor: 'rgba(191, 152, 83, 0.5)' },
+        ...(state.isFocused && { borderColor: '#BF9853', boxShadow: 'none' }),
+      }),
+      valueContainer: (provided) => ({ ...provided, height: '52px', padding: '2px 8px' }),
+      indicatorsContainer: (provided) => ({ ...provided, height: '52px' }),
+      menuPortal: (base, portalProps) => ({
+        ...base,
+        zIndex: 9999,
+        boxSizing: 'border-box',
+        ...(portalProps?.rect?.width != null ? { width: `${portalProps.rect.width}px` } : {}),
+      }),
+      menu: (base) => ({
+        ...base,
+        left: 0,
+        width: '100%',
+        margin: 0,
+        textAlign: 'left',
+        boxSizing: 'border-box',
+      }),
+      menuList: (base) => ({
+        ...base,
+        textAlign: 'left',
+      }),
+      option: (provided, state) => ({
+        ...provided,
+        backgroundColor: state.isSelected ? '#BF9853' : state.isFocused ? '#F5F5F5' : 'white',
+        color: state.isSelected ? 'white' : 'black',
+      }),
+      placeholder: (provided) => ({ ...provided, color: '#9CA3AF' }),
+    }),
+    []
+  );
+
+  const projectSelectOptions = useMemo(() => {
+    const seen = new Set();
+    return projectsList
+      .map((p) => {
+        const label = safeTrim(p.projectName ?? p.siteName);
+        if (!label || seen.has(label)) return null;
+        seen.add(label);
+        return {
+          value: String(p.id ?? label),
+          label,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [projectsList]);
+
+  const selectedProfessionProjectOption = useMemo(() => {
+    const name = safeTrim(professionProjectForm.projectName);
+    if (!name) return null;
+    return (
+      projectSelectOptions.find((o) => o.label === name) ?? { value: name, label: name }
+    );
+  }, [projectSelectOptions, professionProjectForm.projectName]);
 
   const siteEngineerDisplayName = useMemo(() => {
     const match = siteEngineerSelectOptions.find(
@@ -303,6 +292,14 @@ const DirectoryProfession = () => {
   const handleCloseProfessionProjectForm = () => {
     setIsProfessionProjectFormOpen(false);
     resetProfessionProjectForm();
+  };
+
+  const handleProjectSelectChange = (option) => {
+    if (!option) {
+      resetProfessionProjectForm();
+      return;
+    }
+    handleProjectNameChange(option.label);
   };
 
   const handleProjectNameChange = (projectName) => {
@@ -427,7 +424,7 @@ const DirectoryProfession = () => {
 
     try {
       const response = await fetch(
-        `https://backendaab.in/aabuilderDash/api/projects/edit/${editingProjectDbId}`,
+        `https://backendaab.in/demoAabuilderDash/api/projects/edit/${editingProjectDbId}`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -453,133 +450,7 @@ const DirectoryProfession = () => {
     fetchProjectsForForm();
     fetchPropertyTypesForForm();
     fetchEmployeesForForm();
-    fetchProfessionList();
   }, [isProfessionProjectFormOpen]);
-
-  const handleCloseAddPopup = () => {
-    setIsAddPopupOpen(false);
-    setAddPopupValue('');
-    setEditingItem(null);
-  };
-
-  const handleSubmitAddPopup = () => {
-    const trimmedValue = addPopupValue.trim();
-    if (!trimmedValue) return;
-    const payload = { [professionListConfig.requestKey]: trimmedValue };
-    const isEditing = Boolean(editingItem?.id);
-    const saveItem = async () => {
-      const optimisticId = isEditing ? editingItem.id : Date.now();
-      if (!isEditing) {
-        setProfessionItems((prev) => [...prev, { id: optimisticId, name: trimmedValue }]);
-      } else {
-        setProfessionItems((prev) =>
-          prev.map((item) => (item.id === optimisticId ? { ...item, name: trimmedValue } : item))
-        );
-      }
-      try {
-        const url = isEditing
-          ? `${API_BASE_URL}${professionListConfig.endpoints.update(editingItem.id)}`
-          : `${API_BASE_URL}${professionListConfig.endpoints.create}`;
-        const response = await fetch(url, {
-          method: isEditing ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to ${isEditing ? 'update' : 'save'} profession item`);
-        }
-        const savedItem = await response.json();
-        const resolvedName =
-          professionListConfig.responseKeys
-            .map((key) => savedItem?.[key])
-            .find((value) => value !== undefined && value !== null) ?? trimmedValue;
-        setProfessionItems((prev) =>
-          prev.map((item) =>
-            item.id === optimisticId ? { id: savedItem.id ?? optimisticId, name: resolvedName } : item
-          )
-        );
-        await fetchProfessionList();
-      } catch (error) {
-        console.error(error);
-        if (isEditing) {
-          setProfessionItems((prev) =>
-            prev.map((item) =>
-              item.id === editingItem.id ? { id: editingItem.id, name: editingItem.name } : item
-            )
-          );
-        } else {
-          setProfessionItems((prev) => prev.filter((item) => item.id !== optimisticId));
-        }
-      } finally {
-        handleCloseAddPopup();
-      }
-    };
-    saveItem();
-  };
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileImport = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = typeof reader.result === 'string' ? reader.result : '';
-      const lines = text
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-      if (!lines.length) return;
-      const uploadItems = async () => {
-        const existingNames = new Set(professionItems.map((item) => item.name.toLowerCase()));
-        const uniqueValues = lines.filter((line) => !existingNames.has(line.toLowerCase()));
-        if (!uniqueValues.length) return;
-        for (const value of uniqueValues) {
-          const payload = { [professionListConfig.requestKey]: value };
-          try {
-            const response = await fetch(`${API_BASE_URL}${professionListConfig.endpoints.create}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-            });
-            if (!response.ok) {
-              throw new Error(`Failed to import profession item: ${value}`);
-            }
-          } catch (error) {
-            console.error(error);
-          }
-        }
-        await fetchProfessionList();
-      };
-      uploadItems();
-    };
-    reader.readAsText(file);
-    event.target.value = '';
-  };
-
-  const handleEditItem = (item) => {
-    setIsAddPopupOpen(true);
-    setAddPopupValue(item.name ?? '');
-    setEditingItem(item);
-  };
-
-  const handleDeleteItem = async (item) => {
-    const confirmed = window.confirm('Are you sure you want to delete this entry?');
-    if (!confirmed) return;
-    try {
-      const response = await fetch(`${API_BASE_URL}${professionListConfig.endpoints.delete(item.id)}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete profession item');
-      }
-      await fetchProfessionList();
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   return (
     <div>
@@ -651,7 +522,7 @@ const DirectoryProfession = () => {
             <button type="button" className="h-10 text-[#E4572E] hover:underline">Export PDF</button>
             <button type="button" className="h-10 text-[#007233] hover:underline">Export XL</button>
             <button type="button" className="h-10 text-[#BF9853] hover:underline">Print</button>
-            <button type="button" className="h-10 px-4 bg-[#BF9853] text-white rounded-md" onClick={() => setIsProfessionInputsOpen(true)}>Add New</button>
+            <button type="button" className="h-10 px-4 bg-[#BF9853] text-white rounded-md" onClick={handleOpenAddPopup}>Create</button>
           </div>
         </div>
         {hasActiveFilters && (
@@ -735,96 +606,6 @@ const DirectoryProfession = () => {
           </table>
         </div>
       </div>
-      {isProfessionInputsOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setIsProfessionInputsOpen(false)} role="presentation" />
-          <div className="relative z-40 bg-white rounded-lg shadow-xl p-5 w-[400px] max-w-[90vw] overflow-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Profession Inputs</h3>
-              <button type="button" className="text-red-600 text-2xl leading-none" onClick={() => setIsProfessionInputsOpen(false)}>×</button>
-            </div>
-            <div className="px-2 pb-4">
-              <div className=" flex w-full flex-col">
-                <div className="mb-2 flex w-full shrink-0 items-center">
-                  <input
-                    type="text"
-                    placeholder="Search profession..."
-                    value={professionSearch}
-                    onChange={(e) => setProfessionSearch(e.target.value)}
-                    className="border-2 rounded-lg border-[#BF9853] w-full h-[45px] border-opacity-[0.17] pl-3 pr-10 placeholder:text-sm placeholder:text-gray-500 placeholder:font-semibold"
-                  />
-                  <button type="button" className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
-                    <img src={search} alt="search" className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="mb-2 flex w-full shrink-0 items-center justify-between">
-                  <button type="button" className="text-[#E4572E] font-semibold text-sm flex shrink-0 items-center" onClick={handleImportClick}>
-                    <img src={imports} alt="import" className="w-6 h-5 bg-transparent pr-2 mt-1" />
-                    <span className="mt-1.5">Import file</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="shrink-0 whitespace-nowrap rounded border-b-2 border-dashed border-[#BF9853] px-1 font-bold text-black"
-                    onClick={handleOpenAddPopup}
-                  >
-                    + Add
-                  </button>
-                </div>
-                <div className="w-full shrink-0 rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]">
-                  <div className="bg-[#FAF6ED]">
-                    <table className="table-auto w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="p-2 text-left w-16 text-base font-bold">S.No</th>
-                          <th className="p-2 text-left text-base font-bold">Profession</th>
-                        </tr>
-                      </thead>
-                    </table>
-                  </div>
-                  <div className="overflow-y-auto max-h-[500px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                    <table className="table-auto w-full">
-                      <tbody>
-                        {filteredProfessionItems.length === 0 ? (
-                          <tr>
-                            <td colSpan={2} className="p-4 text-center text-sm text-gray-500">
-                              No profession entries yet.
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredProfessionItems.map((item, index) => (
-                            <tr key={`${item.id}-${item.name}`} className="border-b last:border-b-0 group">
-                              <td className="p-2 w-16 font-semibold">{index + 1}</td>
-                              <td className="p-2 flex justify-between items-center">
-                                <span>{item.name}</span>
-                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <button type="button" onClick={() => handleEditItem(item)} className="p-1 rounded hover:bg-gray-100">
-                                    <img src={edit} alt="edit" className="w-4 h-4" />
-                                  </button>
-                                  <button type="button" onClick={() => handleDeleteItem(item)} className="p-1 rounded hover:bg-gray-100">
-                                    <img src={deleteIcon} alt="delete" className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end mr-4 mb-2 mt-2">
-              <button type="button" className="px-6 py-2 bg-[#BF9853] text-white rounded-md" onClick={() => setIsProfessionInputsOpen(false)}>
-                Save
-              </button>
-              <button type="button" className="px-6 py-2 border border-[#BF9853] text-[#BF9853] rounded-md" onClick={() => setIsProfessionInputsOpen(false)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {isProfessionProjectFormOpen && (
         <div className="fixed inset-0 z-[60] flex justify-center items-center p-4 overflow-y-auto bg-black/50">
           <div className="bg-white rounded-md w-full max-w-[95rem] max-h-[90vh] text-left overflow-y-auto pl-4 sm:pl-20">
@@ -836,19 +617,22 @@ const DirectoryProfession = () => {
             <form onSubmit={handleSubmitProfessionProject}>
               <div className="h-[500px] overflow-auto pb-4">
                 <div className="flex gap-4 flex-wrap">
-                  <div className="mb-4 pl-5">
+                  <div className="mb-4 pl-5 w-[35rem] max-w-full">
                     <label className="block text-lg font-medium mb-2">Project Name</label>
-                    <select
-                      className={`w-[35rem] max-w-full bg-white ${fieldLg}`}
-                      value={professionProjectForm.projectName}
-                      onChange={(e) => handleProjectNameChange(e.target.value)}
-                      required
-                    >
-                      <option value="">Select Project Name</option>
-                      {projectNameOptions.map((name) => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
-                    </select>
+                    <Select
+                      inputId="profession-project-name"
+                      value={selectedProfessionProjectOption}
+                      onChange={handleProjectSelectChange}
+                      options={projectSelectOptions}
+                      placeholder="Search or select project name"
+                      isSearchable
+                      isClearable
+                      menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                      menuPosition="fixed"
+                      styles={professionProjectSelectStyles}
+                      classNamePrefix="profession-project-select"
+                      noOptionsMessage={() => 'No projects found'}
+                    />
                   </div>
                   <div className="mb-4 pl-5">
                     <label className="block text-lg font-medium mb-2">Project ID</label>
@@ -1072,64 +856,6 @@ const DirectoryProfession = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-      {isAddPopupOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={handleCloseAddPopup} role="presentation" />
-          <div className="relative z-50 bg-white rounded-lg shadow-xl w-[400px] max-w-[90vw] p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Edit Profession</h3>
-              <button type="button" className="text-red-600 text-2xl leading-none" onClick={handleCloseAddPopup}>×</button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block font-semibold text-left mb-1">Profession</label>
-                <input
-                  value={addPopupValue}
-                  onChange={(e) => setAddPopupValue(e.target.value)}
-                  placeholder="Enter profession"
-                  className="w-full h-11 border-2 border-[#BF9853] border-opacity-30 rounded-lg px-3 focus:outline-none"
-                />
-              </div>
-              <div className="flex justify-end gap-3">
-                <button type="button" className="px-6 py-2 border border-[#BF9853] text-[#BF9853] rounded-md" onClick={handleCloseAddPopup}>
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="px-6 py-2 bg-[#BF9853] text-white rounded-md disabled:opacity-60 disabled:cursor-not-allowed"
-                  onClick={handleSubmitAddPopup}
-                  disabled={!addPopupValue.trim()}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      <input
-        type="file"
-        accept=".txt,.csv"
-        className="hidden"
-        ref={fileInputRef}
-        onChange={handleFileImport}
-      />
-      {isProfessionCreateOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setIsProfessionCreateOpen(false)} role="presentation" />
-          <div className="relative z-40 bg-white rounded-lg shadow-xl p-6 w-[860px] max-w-[92vw]">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Profession Details</h3>
-              <button type="button" className="text-red-600 text-2xl leading-none" onClick={() => setIsProfessionCreateOpen(false)}>×</button>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">Create a new profession record.</p>
-            <div className="flex gap-4">
-              <button type="button" className="px-10 py-2 bg-[#BF9853] text-white rounded-md" onClick={() => setIsProfessionCreateOpen(false)}>Submit</button>
-              <button type="button" className="px-10 py-2 border border-[#BF9853] text-[#BF9853] rounded-md" onClick={() => setIsProfessionCreateOpen(false)}>Cancel</button>
-            </div>
           </div>
         </div>
       )}

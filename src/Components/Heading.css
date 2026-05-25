@@ -175,8 +175,10 @@
     align-items: flex-end;
     gap: 0 !important;
     padding: 0 18px !important;
-    position: relative;
-    z-index: 45;
+    position: sticky;
+    top: 56px;
+    z-index: 250;
+    background: #FAF6ED;
     margin: 0 !important;
     margin-left: 0 !important;
     margin-right: 0 !important;

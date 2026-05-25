@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useSidebar } from '../../context/SidebarContext';
 import axios from "axios";
 import * as XLSX from 'xlsx';
-import logo from '../Images/LOGO.svg';
+import logo from '../Images/AALogo.svg';
 import Sidebar from './Sidebar';
 import { isOrbitAppChromeRoute } from '../OrbitERP/orbitAppChromePaths';
 const Navbar = ({ username, userImage, position, email, onLogout, userRoles = [], branchId, brachId }) => {
@@ -1273,13 +1273,13 @@ const Navbar = ({ username, userImage, position, email, onLogout, userRoles = []
         }
       `}</style>
       {!hideMainNavForOrbitChrome && (
-      <nav className="navbar navbar-unified fixed top-0 z-50 flex w-full min-h-[64px] items-center border-b border-[#EADFC8] bg-white px-4 py-[5px]">
-        <div className="flex w-full items-center justify-between">
-          <div className="navbar-brand-button">
+      <nav className="navbar navbar-unified fixed top-0 z-[300] flex w-full min-h-[64px] items-center border-b border-[#EADFC8] bg-white px-4 py-[5px]">
+        <div className="flex w-full items-center justify-start">
+          <div className="navbar-brand-button w-[147px] h-[32px]">
             <img
               src={logo}
               alt="AA Builders"
-              className=" rounded-full object-cover"
+              className=" object-cover"
             />
           </div>
           <div className="navbar-orbit-end relative ml-auto flex shrink-0 flex-wrap items-center gap-2" ref={profileRef}>

@@ -17,46 +17,178 @@ import {
 
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
+const SUBSCRIPTION_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-subscription/getAll';
 
-/** Orbit ERP 1.6.html — empty page only: html/body #fff, tabs + content area #FBF7F0 */
-const EXPENSE_FORM_LAYOUT_CSS = `
-html:has(body.expense-entry-orbit-layout){
-  --cream:#FBF7F0;
-  --line:#EADFC8;
-  background:#fff;
-}
-body.expense-entry-orbit-layout{
-  background:#fff!important;
-}
-body.expense-entry-orbit-layout .bg-\\[\\#FAF6ED\\]{
-  background:var(--cream)!important;
-}
-body.expense-entry-orbit-layout .expense-entry-tabs{
-  background:var(--cream);
-  border-bottom:1px solid var(--line);
-}
-body.expense-entry-orbit-layout .content{
-  background:var(--cream);
-}
-`;
+const resolveVendorMasterId = (item) => {
+    const raw = item?.id ?? item?.vendorId ?? item?.vendor_id;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+};
 
-const EXPENSE_ENTRY_ORBIT_STYLE_ID = 'expense-entry-orbit-layout-css';
+const toVendorSelectOption = (item) => {
+    const id = resolveVendorMasterId(item);
+    return {
+        id,
+        vendorId: id,
+        vendor_id: id,
+        value: item.vendorName,
+        label: item.vendorName,
+        type: 'Vendor',
+        category: item.category,
+    };
+};
 
-function installExpenseEntryOrbitPageStyles() {
-    if (typeof document === 'undefined') return;
-    if (!/\/expense-entry/i.test(window.location.pathname)) return;
-    if (!document.getElementById(EXPENSE_ENTRY_ORBIT_STYLE_ID)) {
-        const styleEl = document.createElement('style');
-        styleEl.id = EXPENSE_ENTRY_ORBIT_STYLE_ID;
-        styleEl.textContent = EXPENSE_FORM_LAYOUT_CSS;
-        document.head.appendChild(styleEl);
+const resolveSelectedVendorId = (opt) => {
+    if (!opt || opt.type !== 'Vendor') return null;
+    return resolveVendorMasterId(opt);
+};
+
+const getPropertyProfessionTaxNo = (property) =>
+    String(property?.professionalTaxNo ?? property?.professionTaxNo ?? '').trim();
+
+const getUtilityTypeNumberLabel = (utilityTypeValue) => {
+    switch (utilityTypeValue) {
+        case 'Electricity':
+            return 'EB No';
+        case 'Property':
+            return 'Property Tax No';
+        case 'Water':
+            return 'Water Tax No';
+        case 'Profession':
+            return 'Profession Tax No';
+        default:
+            return 'Number';
     }
-    document.body.classList.add('expense-entry-orbit-layout');
-}
+};
 
-installExpenseEntryOrbitPageStyles();
+const normalizePrefillUtilityType = (prefillData) => {
+    const raw = String(prefillData?.utilityType ?? '').trim();
+    if (raw === 'Property Tax') return 'Property';
+    if (raw === 'Water Tax') return 'Water';
+    if (raw === 'Profession Tax') return 'Profession';
+    if (raw) return raw;
+    if (prefillData?.ebNo) return 'Electricity';
+    if (prefillData?.propertyTaxNo) return 'Property';
+    if (prefillData?.waterTaxNo) return 'Water';
+    if (prefillData?.professionTaxNo || prefillData?.professionalTaxNo) return 'Profession';
+    if (prefillData?.utilityTypeNumber) return 'Telecom';
+    return '';
+};
 
-const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWeeklyExpensesSave = false }) => {
+const UTILITY_PREFILL_VENDOR_BY_TYPE = {
+    Electricity: 'TNEB',
+    Property: 'Municipal Office',
+    Water: 'Municipal Office',
+};
+
+const UTILITY_PREFILL_API = {
+    Electricity: {
+        url: 'https://backendaab.in/demoAabuilderDash/expenses_form/utility/electricity',
+        getServiceId: (prefill) => prefill?.ebNo,
+    },
+    Property: {
+        url: 'https://backendaab.in/demoAabuilderDash/expenses_form/utility/property',
+        getServiceId: (prefill) => prefill?.propertyTaxNo,
+    },
+    Water: {
+        url: 'https://backendaab.in/demoAabuilderDash/expenses_form/utility/water',
+        getServiceId: (prefill) => prefill?.waterTaxNo,
+    },
+    Profession: {
+        url: 'https://backendaab.in/demoAabuilderDash/expenses_form/utility/profession',
+        getServiceId: (prefill) => prefill?.professionalTaxNo ?? prefill?.professionTaxNo,
+    },
+};
+
+const ACCOUNT_TYPE_NAME_ALIASES = {
+    Claim: 'Claim Payment',
+};
+
+const normalizeAccountTypeName = (name) => String(name ?? '').trim();
+
+const getAccountTypeOptionLabel = (opt) =>
+    normalizeAccountTypeName(
+        opt?.value ?? opt?.label ?? opt?.accountType ?? opt?.account_type
+    );
+
+const getAccountTypeIdFromOption = (opt) => {
+    const rawId = opt?.id ?? opt?.Id ?? opt?.account_type_id ?? opt?.accountTypeId;
+    if (rawId == null || rawId === '') return null;
+    const numericId = Number(rawId);
+    return Number.isFinite(numericId) ? numericId : null;
+};
+
+const getAccountTypeIdForSave = (accountTypeOptions, accountTypeName) => {
+    const raw = normalizeAccountTypeName(accountTypeName);
+    if (!raw) return null;
+    const candidates = [raw, ACCOUNT_TYPE_NAME_ALIASES[raw]].filter(Boolean);
+    for (const candidate of candidates) {
+        const match = (accountTypeOptions || []).find(
+            (opt) => getAccountTypeOptionLabel(opt) === candidate
+        );
+        if (match) {
+            const id = getAccountTypeIdFromOption(match);
+            if (id != null) return id;
+        }
+    }
+    return null;
+};
+
+const usesBillArrivalDate = (accountType) =>
+    accountType === 'Bill Payments' ||
+    accountType === 'Bill Refund' ||
+    accountType === 'Bill Payments + Claim';
+
+const normalizeVendorNameKey = (value) => String(value ?? '').trim().toLowerCase();
+
+const findVendorOptionByName = (vendorOptions, vendorName) => {
+    const key = normalizeVendorNameKey(vendorName);
+    if (!key || !Array.isArray(vendorOptions)) return null;
+    return (
+        vendorOptions.find(
+            (o) =>
+                o.type === 'Vendor' &&
+                (normalizeVendorNameKey(o.label) === key || normalizeVendorNameKey(o.value) === key)
+        ) ?? null
+    );
+};
+
+const findVendorFromPreviousUtilityEntry = (previousEntry, vendorOptions) => {
+    if (!previousEntry || !Array.isArray(vendorOptions)) return null;
+    const vid = previousEntry.vendorId ?? previousEntry.vendor_id;
+    if (vid != null && Number(vid) > 0) {
+        const byId = vendorOptions.find(
+            (o) => o.type === 'Vendor' && Number(resolveSelectedVendorId(o)) === Number(vid)
+        );
+        if (byId) return byId;
+    }
+    const nameKey = normalizeVendorNameKey(
+        previousEntry.vendor ?? previousEntry.vendorName ?? previousEntry.vendor_name
+    );
+    if (!nameKey) return null;
+    return (
+        vendorOptions.find((o) => o.type === 'Vendor' && normalizeVendorNameKey(o.label) === nameKey) ?? null
+    );
+};
+
+const utilityHubReadonlyFieldClass =
+    'min-h-[45px] border-2 border-[#BF9853] border-opacity-20 rounded-lg bg-[#FAF6ED] px-3 flex items-center text-sm font-medium text-[#202020]';
+
+const UtilityHubReadonlyField = ({ value, className = '' }) => (
+    <div className={`${utilityHubReadonlyFieldClass} ${className}`.trim()} aria-readonly="true">
+        {value || '—'}
+    </div>
+);
+
+const Form = ({
+    username,
+    userRoles = [],
+    embedded = false,
+    onSuccess,
+    disableWeeklyExpensesSave = false,
+    lockUtilityPrefillFields = false,
+    lockAccountTypePrefill = false,
+}) => {
     const predefinedSiteOptions = [
         { value: "Mason Advance", label: "Mason Advance", id: 1, sNo: "1" },
         { value: "Material Advance", label: "Material Advance", id: 2, sNo: "2" },
@@ -105,6 +237,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
     const [selectedOption, setSelectedOption] = useState(null);
     const [selectedType, setSelectedType] = useState("");
     const [selectedAccountType, setSelectedAccountType] = useState('');
+    const [selectedAccountTypeId, setSelectedAccountTypeId] = useState(null);
     const [selectedSite, setSelectedSite] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [selectedMachineTools, setSelectedMachine] = useState(null);
@@ -129,7 +262,13 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
         { modeOfPayment: 'Cheque' }
     ];
     const [paymentModeOptions, setPaymentModeOptions] = useState([]);
-    const finalPaymentModeOptions = paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+    const selectablePaymentModeOptions = useMemo(() => {
+        const allModes = paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+        const hideCash =
+            selectedAccountType === 'Claim Payment' || selectedAccountType === 'Sundry Payment';
+        if (!hideCash) return allModes;
+        return allModes.filter((mode) => String(mode?.modeOfPayment ?? '').trim() !== 'Cash');
+    }, [paymentModeOptions, selectedAccountType]);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentModalData, setPaymentModalData] = useState({
         date: new Date().toISOString().split('T')[0],
@@ -146,7 +285,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
     const [thirdInput, setThirdInput] = useState('');
     const [validityType, setValidityType] = useState('');
     const [serviceStartingDate, setServiceStartingDate] = useState('');
-    /** Bill Payments / Bill Refund — sent as `billArrivalDate` (yyyy-MM-dd) to expenses_form API */
+    /** Bill Payments / Bill Refund / Bill Payments + Claim — sent as `billArrivalDate` (yyyy-MM-dd) to expenses_form API */
     const [billArrivalDate, setBillArrivalDate] = useState('');
     const [summaryBillTotal, setSummaryBillTotal] = useState(null);
     const [summaryBillRemaining, setSummaryBillRemaining] = useState(null);
@@ -163,7 +302,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
     const [advanceData, setAdvanceData] = useState([]);
     const [projectAdvance, setProjectAdvance] = useState('');
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
-    /** When true, Bill Payments was opened from Weekly Cash Register — payment mode is fixed to Cash */
+    /** When true, Bill Payments was opened from Weekly Cash Register */
     const [billPaymentsCashRegisterPrefill, setBillPaymentsCashRegisterPrefill] = useState(false);
     /** Weekly expense row id — sync uploaded bill PDF to `PUT .../weekly-expenses/:id/bill-copy-url` */
     const [weeklyExpenseIdForBillCopyUrl, setWeeklyExpenseIdForBillCopyUrl] = useState(null);
@@ -208,6 +347,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                 const models = matchedRoles.flatMap(role => role.userModels || []);
                 const matchedModel = models.find(role => role.models === moduleName);
                 const permissions = matchedModel?.permissions?.[0]?.userPermissions || [];
+                console.log(permissions);
                 setUserPermissions(permissions);
             } catch (error) {
                 console.error("Error fetching user roles:", error);
@@ -267,13 +407,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     throw new Error("Network response was not ok: " + response.statusText);
                 }
                 const data = await response.json();
-                const formattedData = data.map(item => ({
-                    id: item.id,
-                    value: item.vendorName,
-                    label: item.vendorName,
-                    type: "Vendor",
-                    category: item.category,
-                }));
+                const formattedData = data.map((item) => toVendorSelectOption(item));
                 setVendorOptions(formattedData);
             } catch (error) {
                 console.error("Fetch error: ", error);
@@ -515,11 +649,20 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     throw new Error("Network response was not ok: " + response.statusText);
                 }
                 const data = await response.json();
-                const formattedData = data.map(item => ({
-                    value: item.accountType,
-                    label: item.accountType,
-                    id: item.id,
-                }));
+                const formattedData = data
+                    .map((item) => {
+                        const typeName = normalizeAccountTypeName(
+                            item.accountType ?? item.account_type
+                        );
+                        return {
+                            value: typeName,
+                            label: typeName,
+                            id: item.id ?? item.Id ?? item.account_type_id ?? item.accountTypeId,
+                            accountType: typeName,
+                            account_type: typeName,
+                        };
+                    })
+                    .filter((item) => item.value && item.value !== 'Daily Wage');
                 setAccountTypeOptions(formattedData);
             } catch (error) {
                 console.error("Fetch error: ", error);
@@ -527,6 +670,28 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
         };
         fetchAccountType();
     }, []);
+    useEffect(() => {
+        if (!selectedAccountType) {
+            setSelectedAccountTypeId(null);
+            return;
+        }
+        const prefillId = getAccountTypeIdForSave(accountTypeOptions, selectedAccountType);
+        setSelectedAccountTypeId(prefillId);
+    }, [selectedAccountType, accountTypeOptions]);
+    useEffect(() => {
+        if (
+            (selectedAccountType === 'Claim Payment' || selectedAccountType === 'Sundry Payment') &&
+            paymentMode === 'Cash'
+        ) {
+            setPaymentMode('');
+        }
+    }, [selectedAccountType, paymentMode]);
+    const resolveAccountTypeIdForSave = () => {
+        if (selectedAccountTypeId != null && Number.isFinite(Number(selectedAccountTypeId))) {
+            return Number(selectedAccountTypeId);
+        }
+        return getAccountTypeIdForSave(accountTypeOptions, selectedAccountType);
+    };
     useEffect(() => {
         const fetchAccountDetails = async () => {
             try {
@@ -551,6 +716,15 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
         }
     }, [selectedAccountType, billPaymentsCashRegisterPrefill]);
 
+    const lockAccountTypeDisplay = lockUtilityPrefillFields || lockAccountTypePrefill || billPaymentsCashRegisterPrefill;
+
+    useEffect(() => {
+        if (!lockUtilityPrefillFields) return;
+        if (selectedAccountType !== 'Utility Bills') {
+            setSelectedAccountType('Utility Bills');
+        }
+    }, [lockUtilityPrefillFields, selectedAccountType]);
+
     useEffect(() => {
         const prefillDataStr = localStorage.getItem('expenseEntryPrefill');
         if (prefillDataStr && siteOptions.length > 0 && accountTypeOptions.length > 0) {
@@ -561,6 +735,21 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     const wid = Number(prefillData.weeklyExpenseId);
                     if (Number.isFinite(wid)) {
                         setWeeklyExpenseIdForBillCopyUrl(wid);
+                    }
+                }
+
+                const prefillAccountTypeName = normalizeAccountTypeName(
+                    prefillData.accountType ?? prefillData.account_type
+                );
+                if (prefillAccountTypeName) {
+                    setSelectedAccountType(prefillAccountTypeName);
+                    const explicitTypeId = prefillData.accountTypeId ?? prefillData.account_type_id;
+                    if (
+                        explicitTypeId != null &&
+                        String(explicitTypeId).trim() !== '' &&
+                        Number.isFinite(Number(explicitTypeId))
+                    ) {
+                        setSelectedAccountTypeId(Number(explicitTypeId));
                     }
                 }
 
@@ -687,7 +876,6 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     }
                     if (prefillData.fromWeeklyCashRegister) {
                         setBillPaymentsCashRegisterPrefill(true);
-                        setPaymentMode('Cash');
                     }
                     if (didApplyParty) {
                         billPaymentsPrefillAttemptsRef.current = 0;
@@ -712,10 +900,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                 }
 
                 // Claim / Weekly Payment / other account types (prefill)
-                if (prefillData.accountType === 'Claim') {
-                    const claimOpt = accountTypeOptions.find((opt) => opt.value === 'Claim');
+                if (prefillData.accountType === 'Claim Payment' || prefillData.accountType === 'Claim') {
+                    const claimOpt = accountTypeOptions.find((opt) => opt.value === 'Claim Payment');
                     if (claimOpt) {
-                        setSelectedAccountType('Claim');
+                        setSelectedAccountType('Claim Payment');
                     }
                     const vid = prefillData.vendorId ?? prefillData.vendor_id;
                     const cid = prefillData.contractorId ?? prefillData.contractor_id;
@@ -751,8 +939,6 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     }
                     if (prefillData.date) setDate(prefillData.date);
                     if (prefillData.amount != null && prefillData.amount !== '') setAmount(String(prefillData.amount));
-                    if (prefillData.fromWeeklyCashRegister) setPaymentMode('Cash');
-
                     // Prefill party + category (same behavior as Bill Payments)
                     let didApplyParty = false;
                     if (needVendor) {
@@ -812,12 +998,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     setSelectedAccountType('Utility Bills');
                 }
 
-                const prefillUtilityType =
-                    prefillData.utilityType ||
-                    (prefillData.ebNo ? 'Electricity' : '') ||
-                    (prefillData.propertyTaxNo ? 'Property' : '') ||
-                    (prefillData.waterTaxNo ? 'Water' : '') ||
-                    (prefillData.utilityTypeNumber ? 'Telecom' : '');
+                const prefillUtilityType = normalizePrefillUtilityType(prefillData);
                 if (prefillUtilityType) {
                     setUtilityType(prefillUtilityType);
                 }
@@ -828,84 +1009,85 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                 }
 
                 const fetchPreviousEntry = async () => {
-                    try {
-                        // Only auto-prefill previous entry + TNEB contractor for Electricity.
-                        if (prefillUtilityType !== 'Electricity') return;
-                        const response = await axios.get("https://backendaab.in/demoAabuilderDash/expenses_form/utility/electricity");
-                        const electricityEntries = Array.isArray(response.data) ? response.data : [];
+                    const apiConfig = UTILITY_PREFILL_API[prefillUtilityType];
+                    if (!apiConfig) return;
 
-                        const previousEntry = electricityEntries
-                            .filter(entry => entry.utilityTypeNumber === prefillData.ebNo)
-                            .sort((a, b) => new Date(b.date || b.timestamp) - new Date(a.date || a.timestamp))[0];
+                    let previousEntry = null;
+                    try {
+                        const serviceId = apiConfig.getServiceId(prefillData);
+                        if (serviceId != null && String(serviceId).trim() !== '') {
+                            const response = await axios.get(apiConfig.url);
+                            const entries = Array.isArray(response.data) ? response.data : [];
+                            previousEntry = entries
+                                .filter(
+                                    (entry) =>
+                                        String(entry?.utilityTypeNumber ?? '').trim() ===
+                                        String(serviceId).trim()
+                                )
+                                .sort(
+                                    (a, b) =>
+                                        new Date(b.date || b.timestamp) - new Date(a.date || a.timestamp)
+                                )[0];
+                        }
 
                         if (previousEntry) {
                             if (previousEntry.category && categoryOptions.length > 0) {
-                                const categoryOption = categoryOptions.find(opt => opt.value === previousEntry.category);
+                                const categoryOption = categoryOptions.find(
+                                    (opt) => opt.value === previousEntry.category
+                                );
                                 if (categoryOption) {
                                     setSelectedCategory(categoryOption);
                                 }
                             }
-
                             if (previousEntry.quantity) {
                                 setQuantity(previousEntry.quantity);
                             }
-
                             if (previousEntry.comments) {
                                 setComments(previousEntry.comments);
                             }
-
-                            if (previousEntry.paymentMode) {
+                            if (previousEntry.paymentMode && previousEntry.paymentMode !== 'Cash') {
                                 setPaymentMode(previousEntry.paymentMode);
                             }
-
                             if (previousEntry.utilityValidityDays) {
                                 setThirdInput(previousEntry.utilityValidityDays);
                             }
                             if (previousEntry.utilityValidityType) {
                                 setValidityType(previousEntry.utilityValidityType);
                             }
-
-                            setTimeout(() => {
-                                if (siteOption && projectData) {
-                                }
-                            }, 500);
                         }
-                        const setTNEBContractor = () => {
-                            if (prefillUtilityType !== 'Electricity') return;
-                            if (contractorOptions.length > 0) {
-                                const tnebOption = contractorOptions.find(opt =>
-                                    opt.label === 'TNEB' || opt.value === 'TNEB'
-                                );
-                                if (tnebOption) {
-                                    setSelectedOption(tnebOption);
-                                    setSelectedType('Contractor');
-                                } else {
-                                    const tnebInCombined = combinedOptions.find(opt =>
-                                        (opt.label === 'TNEB' || opt.value === 'TNEB') && opt.type === 'Contractor'
-                                    );
-                                    if (tnebInCombined) {
-                                        setSelectedOption(tnebInCombined);
-                                        setSelectedType('Contractor');
-                                    } else {
-                                        console.warn('TNEB contractor not found in options, creating temporary option without ID');
-                                        const tnebContractor = {
-                                            value: 'TNEB',
-                                            label: 'TNEB',
-                                            type: 'Contractor',
-                                            id: null
-                                        };
-                                        setSelectedOption(tnebContractor);
-                                        setSelectedType('Contractor');
-                                    }
-                                }
-                            } else {
-                                setTimeout(setTNEBContractor, 500);
-                            }
-                        };
-                        setTNEBContractor();
                     } catch (error) {
-                        console.error('Error fetching previous entry:', error);
+                        console.error('Error fetching previous utility entry:', error);
                     }
+
+                    const applyUtilityVendorPrefill = () => {
+                        if (!UTILITY_PREFILL_VENDOR_BY_TYPE[prefillUtilityType]) return;
+                        if (!vendorOptionsLoaded) {
+                            setTimeout(applyUtilityVendorPrefill, 500);
+                            return;
+                        }
+                        const applyVendorPrefill = (vendorOpt) => {
+                            const vid = resolveSelectedVendorId(vendorOpt);
+                            if (!vid) return false;
+                            setSelectedOption({
+                                ...vendorOpt,
+                                id: vid,
+                                vendorId: vid,
+                                vendor_id: vid,
+                                type: 'Vendor',
+                            });
+                            setSelectedType('Vendor');
+                            return true;
+                        };
+                        const fromPrevious = findVendorFromPreviousUtilityEntry(
+                            previousEntry,
+                            vendorOptions
+                        );
+                        if (fromPrevious && applyVendorPrefill(fromPrevious)) return;
+                        const defaultName = UTILITY_PREFILL_VENDOR_BY_TYPE[prefillUtilityType];
+                        const defaultVendor = findVendorOptionByName(vendorOptions, defaultName);
+                        if (defaultVendor) applyVendorPrefill(defaultVendor);
+                    };
+                    applyUtilityVendorPrefill();
                 };
                 setTimeout(() => {
                     fetchPreviousEntry();
@@ -919,6 +1101,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
         siteOptions,
         accountTypeOptions,
         categoryOptions,
+        vendorOptions,
         contractorOptions,
         combinedOptions,
         vendorOptionsLoaded,
@@ -950,10 +1133,12 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
             try {
                 const prefillData = JSON.parse(prefillDataStr);
                 const targetNumber =
-                    (prefillData.utilityType === 'Telecom' ? prefillData.utilityTypeNumber : null) ||
+                    ((prefillData.utilityType === 'Telecom' || prefillData.utilityType === 'Subscription') ? prefillData.utilityTypeNumber : null) ||
                     prefillData.ebNo ||
                     prefillData.propertyTaxNo ||
                     prefillData.waterTaxNo ||
+                    prefillData.professionTaxNo ||
+                    prefillData.professionalTaxNo ||
                     prefillData.utilityTypeNumber ||
                     (prefillData.utilityIdentifier ? prefillData.utilityIdentifier.value : null) ||
                     null;
@@ -1007,6 +1192,31 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
     const getCurrentWeekNumber = (date) => {
         return getISOWeekNumber(date || new Date());
     };
+    const isRowForActiveBranch = (row) => {
+        if (activeBranchId === null || activeBranchId === undefined || activeBranchId === '') return true;
+        const bid = row?.branch_id ?? row?.branchId;
+        if (bid === null || bid === undefined || bid === '') return false;
+        return Number(bid) === Number(activeBranchId);
+    };
+    /** Current ISO week: true if any weekly-expense or payment row has status true. */
+    const currentWeekHasStatusTrue = async () => {
+        const weekNumber = getCurrentWeekNumber();
+        try {
+            const [expensesRes, paymentsRes] = await Promise.all([
+                fetch(buildBranchUrl(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/week/${weekNumber}`)),
+                fetch(buildBranchUrl(`https://backendaab.in/demoAabuildersDash/api/payments-received/week/${weekNumber}`)),
+            ]);
+            const expensesData = expensesRes.ok ? await expensesRes.json() : [];
+            const paymentsData = paymentsRes.ok ? await paymentsRes.json() : [];
+            const expenses = Array.isArray(expensesData) ? expensesData : [];
+            const payments = Array.isArray(paymentsData) ? paymentsData : [];
+            const hasStatusTrue = (row) => isRowForActiveBranch(row) && row?.status === true;
+            return expenses.some(hasStatusTrue) || payments.some(hasStatusTrue);
+        } catch (error) {
+            console.error('Error resolving weekly expense status:', error);
+            return false;
+        }
+    };
     const fetchProjectData = async (projectId) => {
         try {
             const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/get/${projectId}`);
@@ -1059,6 +1269,40 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
             return;
         }
 
+        if (utilityType === 'Subscription') {
+            const pid =
+                projectData?.id ??
+                projectData?.projectId ??
+                projectData?.project_id ??
+                selectedSite?.id ??
+                null;
+            if (!pid) {
+                setEbNumberOptions([]);
+                return;
+            }
+            try {
+                const res = await axios.get(SUBSCRIPTION_DIRECTORY_ENDPOINT);
+                const rows = Array.isArray(res.data) ? res.data : [];
+                const serviceNos = rows
+                    .filter((r) => String(r?.project_id ?? r?.projectId ?? '') === String(pid))
+                    .map((r) => r?.service_number ?? r?.serviceNumber ?? '')
+                    .map((v) => String(v || '').trim())
+                    .filter(Boolean);
+                const unique = Array.from(new Set(serviceNos));
+                setEbNumberOptions(
+                    unique.map((no, idx) => ({
+                        value: no,
+                        label: no,
+                        id: idx
+                    }))
+                );
+            } catch (e) {
+                console.error('Failed to fetch subscription service numbers', e);
+                setEbNumberOptions([]);
+            }
+            return;
+        }
+
         // Other utilities use project property details
         if (!projectData || !projectData.propertyDetails) {
             setEbNumberOptions([]);
@@ -1087,6 +1331,14 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                         optionLabel = property.waterTaxNo;
                     }
                     break;
+                case 'Profession': {
+                    const professionTaxNo = getPropertyProfessionTaxNo(property);
+                    if (professionTaxNo) {
+                        optionValue = professionTaxNo;
+                        optionLabel = professionTaxNo;
+                    }
+                    break;
+                }
                 default:
                     return;
             }
@@ -1372,6 +1624,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
             alert('Please fill out all required fields.');
             return false;
         }
+        if (!resolveAccountTypeIdForSave()) {
+            alert('Account type ID is missing. Please re-select the account type.');
+            return false;
+        }
         if (summaryBillMode) {
             const remaining = Number(summaryBillRemaining ?? summaryBillTotal ?? 0) || 0;
             const entryAmt = parseFloat(String(amount).replace(/,/g, '')) || 0;
@@ -1384,7 +1640,12 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                 return false;
             }
         }
-        if ((selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Bill Payments') && !paymentMode) {
+        if (
+            (selectedAccountType === 'Claim Payment' ||
+                selectedAccountType === 'Utility Bills' ||
+                selectedAccountType === 'Sundry Payment') &&
+            !paymentMode
+        ) {
             alert('Please select a payment mode for this account type.');
             return false;
         }
@@ -1464,7 +1725,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
     };
     const submitExpenseData = async () => {
         if (
-            (selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Weekly Payment' || selectedAccountType === 'Bill Payments') &&
+            (selectedAccountType === 'Claim Payment' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Sundry Payment' || selectedAccountType === 'Bill Payments') &&
             ["GPay", "Gpay", "PhonePe", "Net Banking", "Cheque"].includes(paymentMode)
         ) {
             setPaymentModalData({
@@ -1542,10 +1803,12 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                 }
             }
             const projectId = selectedSite ? selectedSite.id : null;
-            const vendorId = selectedType === 'Vendor' && selectedOption ? (selectedOption.id || null) : null;
+            const vendorId = resolveSelectedVendorId(selectedOption);
             const contractorId = selectedType === 'Contractor' && selectedOption ? (selectedOption.id || null) : null;
+            const accountTypeId = resolveAccountTypeIdForSave();
             const bodyData = {
                 accountType: selectedAccountType,
+                accountTypeId,
                 date: date,
                 paymentMode: paymentMode,
                 siteName: selectedSite ? selectedSite.label : '',
@@ -1567,10 +1830,9 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                 utilityValidityDays: thirdInput || '',
                 utilityValidityType: validityType || '',
                 serviceStartingDate: serviceStartingDate || '',
-                billArrivalDate:
-                    selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund'
-                        ? (String(billArrivalDate || '').trim() || '')
-                        : '',
+                billArrivalDate: usesBillArrivalDate(selectedAccountType)
+                    ? (String(billArrivalDate || '').trim() || '')
+                    : '',
                 branchId: activeBranchId,
                 enteredBy: username
             };
@@ -1643,10 +1905,12 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                 let vendorId = null;
                 let contractorId = null;
                 if (selectedType === 'Vendor' && selectedOption) {
-                    vendorId = selectedOption.id;
+                    vendorId = resolveSelectedVendorId(selectedOption);
                 } else if (selectedType === 'Contractor' && selectedOption) {
                     contractorId = selectedOption.id;
                 }
+                const weeklyNumber = getCurrentWeekNumber();
+                const weeklyExpenseStatus = await currentWeekHasStatusTrue();
                 const weeklyExpenseData = {
                     date: date,
                     created_at: new Date().toISOString(),
@@ -1654,10 +1918,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     vendor_id: vendorId,
                     employee_id: null,
                     project_id: projectId,
-                    type: selectedAccountType === 'Claim' ? "Claim" : selectedAccountType === 'Weekly Payment' ? "Weekly Payment" : selectedAccountType === 'Bill Payments' ? "Bill" : selectedAccountType === 'Utility Bills' ? (utilityType || "Utility Bills") : "Expense",
+                    type: selectedAccountType === 'Claim Payment' ? "Claim Payment" : selectedAccountType === 'Sundry Payment' ? "Sundry Payment" : selectedAccountType === 'Bill Payments' ? "Bill" : selectedAccountType === 'Utility Bills' ? ("Utility Bills") : "Expense",
                     amount: selectedAccountType === 'Bill Refund' ? -Math.abs(parseFloat(amount)) : parseFloat(amount),
-                    status: true,
-                    weekly_number: getCurrentWeekNumber(),
+                    status: weeklyExpenseStatus,
+                    weekly_number: weeklyNumber,
                     advance_portal_id: null,
                     staff_advance_portal_id: null,
                     loan_portal_id: null,
@@ -1819,6 +2083,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
             alert('PDF file is required for this account type.');
             return;
         }
+        if (!resolveAccountTypeIdForSave()) {
+            alert('Account type ID is missing. Please re-select the account type.');
+            return;
+        }
         // Bill Arrival Date is optional for Bill Payments
         setIsSubmitting(true);
         try {
@@ -1881,17 +2149,21 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                 contractor = selectedOption ? selectedOption.label : '';
             }
             const projectId = selectedSite ? selectedSite.id : null;
-            const vendorId = selectedType === 'Vendor' && selectedOption ? (selectedOption.id || null) : null;
+            const vendorId = resolveSelectedVendorId(selectedOption);
             const contractorId = selectedType === 'Contractor' && selectedOption ? (selectedOption.id || null) : null;
+            const accountTypeId = resolveAccountTypeIdForSave();
             const expensesPayload = {
                 accountType: selectedAccountType,
+                accountTypeId,
                 date: paymentModalData.date,
                 siteName: selectedSite ? selectedSite.label : '',
                 projectId: projectId,
                 vendor: vendor,
                 vendorId: vendorId,
+                vendor_id: vendorId,
                 contractor: contractor,
                 contractorId: contractorId,
+                contractor_id: contractorId,
                 quantity: quantity,
                 amount: parseInt(paymentModalData.amount),
                 source: "Expenses Entry",
@@ -1906,10 +2178,9 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                 utilityValidityDays: thirdInput || '',
                 utilityValidityType: validityType || '',
                 serviceStartingDate: serviceStartingDate || '',
-                billArrivalDate:
-                    selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund'
-                        ? (String(billArrivalDate || '').trim() || '')
-                        : '',
+                billArrivalDate: usesBillArrivalDate(selectedAccountType)
+                    ? (String(billArrivalDate || '').trim() || '')
+                    : '',
                 branchId: activeBranchId,
                 enteredBy: username
             };
@@ -2008,10 +2279,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     date: paymentModalData.date,
                     created_at: new Date().toISOString(),
                     contractor_id: selectedOption?.type === 'Contractor' ? selectedOption.id : null,
-                    vendor_id: selectedOption?.type === 'Vendor' ? selectedOption.id : null,
+                    vendor_id: resolveSelectedVendorId(selectedOption),
                     employee_id: null,
                     project_id: selectedSite?.id || null,
-                    type: selectedAccountType === 'Claim' ? "Claim Payment" : selectedAccountType === 'Weekly Payment' ? "Weekly Payment" : "Utility Payment",
+                    type: selectedAccountType === 'Claim Payment' ? "Claim Payment" : selectedAccountType === 'Sundry Payment' ? "Sundry Payment" : "Utility Payment",
                     bill_payment_mode: paymentModalData.paymentMode,
                     amount: parseFloat(paymentModalData.amount),
                     status: true,
@@ -2114,7 +2385,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
     if (selectedType === 'Contractor' && selectedOption?.id) {
         reviewDetails.push({ label: 'Contractor ID', value: selectedOption.id });
     }
-    if (selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund') {
+    if (usesBillArrivalDate(selectedAccountType)) {
         reviewDetails.push({
             label: 'Bill Arrival Date',
             value: formatDateForReview(billArrivalDate) || billArrivalDate || '-',
@@ -2139,18 +2410,8 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
         setDate(formatted);
     }, []);
 
-    useEffect(() => {
-        if (embedded) return undefined;
-        installExpenseEntryOrbitPageStyles();
-        return () => {
-            if (/\/expense-entry/i.test(window.location.pathname)) return;
-            document.body.classList.remove('expense-entry-orbit-layout');
-            document.getElementById(EXPENSE_ENTRY_ORBIT_STYLE_ID)?.remove();
-        };
-    }, [embedded]);
-
     return (
-        <div className={embedded ? '' : 'bg-[#FAF6ED]'}>
+        <div className={embedded ? '' : 'bg-[#FAF6ED]  px-6'}>
             <style jsx>{`
                 input:hover, select:hover {
                     border-color: rgba(191, 152, 83, 0.2) !important;
@@ -2159,23 +2420,9 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                     border-color: rgba(191, 152, 83, 1) !important;
                     outline: none !important;
                 }
-                :global(.expense-entry-form-fields) input[type="text"]:not(:global(.expense-field-height-exempt)),
-                :global(.expense-entry-form-fields) select {
-                    height: 45px !important;
-                    min-height: 45px !important;
-                    max-height: 45px !important;
-                    box-sizing: border-box !important;
-                    padding-top: 0 !important;
-                    padding-bottom: 0 !important;
-                }
-                :global(.expense-entry-form-fields) :global(.min-h-\\[45px\\]) {
-                    height: 45px !important;
-                    min-height: 45px !important;
-                    max-height: 45px !important;
-                }
             `}</style>
-            <div className={`p-[18px] pb-[18px] bg-white rounded shadow-lg w-screen overflow-x-clip`}>
-                <form className="expense-entry-form-fields" onSubmit={handleFormSubmit}>
+            <div className={`p-6 pb-20 bg-white rounded shadow-lg w-full overflow-x-clip`}>
+                <form onSubmit={handleFormSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-[max-content_1fr] gap-x-32 min-w-0">
                         <div className="md:col-start-1 md:row-start-1 space-y-3 min-w-0">
                             {summaryBillMode && (
@@ -2202,7 +2449,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                 const normalized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
                                                 setSummaryForceCloseAmount(normalized);
                                             }}
-                                            className="expense-field-height-exempt h-[34px] w-[185px] rounded-md border border-orange-300 bg-white px-3 text-[12px] text-black outline-none"
+                                            className="h-[34px] w-[185px] rounded-md border border-orange-300 bg-white px-3 text-[12px] text-black outline-none"
                                         />
                                         <button
                                             type="button"
@@ -2217,15 +2464,24 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                             <div className='flex gap-10 flex-wrap items-start'>
                                 <div className='text-left'>
                                     <h4 className="text-base font-semibold mb-0.5 text-[#E4572E]">Account Type <span className="text-red-500">*</span></h4>
+                                    {lockAccountTypeDisplay ? (
+                                        <UtilityHubReadonlyField
+                                            value={
+                                                selectedAccountType ||
+                                                (lockUtilityPrefillFields ? 'Utility Bills' : '')
+                                            }
+                                            className="w-[290px]"
+                                        />
+                                    ) : (
                                     <Select
                                         options={accountTypeOptions}
                                         value={accountTypeOptions.find((option) => option.value === selectedAccountType) || null}
                                         onChange={(selectedOption) => {
                                             const selectedValue = selectedOption ? selectedOption.value : '';
                                             setSelectedAccountType(selectedValue);
-                                            if (selectedOption) {
-                                                console.log("Selected ID:", selectedOption.id);
-                                            }
+                                            setSelectedAccountTypeId(
+                                                selectedOption ? getAccountTypeIdFromOption(selectedOption) : null
+                                            );
                                         }}
                                         placeholder="Account Type"
                                         isSearchable={true}
@@ -2233,18 +2489,23 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                         styles={customStyles}
                                         className="custom-select rounded-lg w-[290px] h-[45px]"
                                     />
+                                    )}
 
-                                    {selectedAccountType === 'Utility Bills' && (
+                                    {(selectedAccountType === 'Utility Bills' || lockUtilityPrefillFields) && (
                                        <div className='mt-3 w-[290px]'>
                                        <h4 className="text-base font-semibold mb-0.5">
                                          Utility Type <span className="text-red-500">*</span>
                                        </h4>
                                      
+                                       {lockUtilityPrefillFields ? (
+                                         <UtilityHubReadonlyField value={utilityType} className="w-[290px] lg:w-[615px]" />
+                                       ) : (
                                        <Select
                                          options={[
                                            { value: 'Electricity', label: 'Electricity' },
                                            { value: 'Property', label: 'Property' },
                                            { value: 'Water', label: 'Water' },
+                                           { value: 'Profession', label: 'Profession' },
                                            { value: 'Telecom', label: 'Telecom' },
                                            { value: 'Subscription', label: 'Subscription' },
                                          ]}
@@ -2258,12 +2519,10 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                          }
                                          placeholder="Utility Type"
                                          styles={customStyles}
-                                     
-                                         // Make searchable
                                          isSearchable={true}
-                                     
                                          className="custom-select rounded-lg w-[290px] lg:w-[615px] h-[45px]"
                                        />
+                                       )}
                                      </div>
                                     )}
                                 </div>
@@ -2333,7 +2592,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                 </div>
                             </div>
                             <div className='flex gap-10'>
-                                <div className={`text-left ${selectedAccountType === 'Claim' ? '' : ''}`}>
+                                <div className={`text-left ${selectedAccountType === 'Claim Payment' ? '' : ''}`}>
                                     <label className="text-md font-semibold mb-0.5 block">Category <span className="text-red-500">*</span></label>
                                     <Select
                                         options={categoryOptions}
@@ -2345,37 +2604,23 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                         className="custom-select rounded-lg w-[290px] h-[45px]"
                                     />
                                 </div>
-                                {(selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Weekly Payment' || selectedAccountType === 'Bill Payments') ? (
+                                {(selectedAccountType === 'Claim Payment' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Sundry Payment') ? (
                                     <div className='text-left'>
                                         <label className="text-md font-semibold mb-0.5 block">Payment Mode <span className="text-red-500">*</span></label>
-                                        {billPaymentsCashRegisterPrefill && selectedAccountType === 'Bill Payments' ? (
-                                            <Select
-                                                value={{ value: 'Cash', label: 'Cash' }}
-                                                isDisabled
-                                                placeholder="Payment Mode"
-                                                isSearchable={true}
-                                                isClearable={false}
-                                                styles={customStyles}
-                                                className="custom-select rounded-lg w-[290px] h-[45px]"
-                                            />
-                                        ) : (
-                                            <Select
-                                                options={finalPaymentModeOptions
-                                                    .filter(mode => selectedAccountType !== 'Weekly Payment' || mode.modeOfPayment !== 'Cash')
-                                                    .map((mode) => ({
-                                                        value: mode.modeOfPayment,
-                                                        label: mode.modeOfPayment,
-                                                        id: mode.id
-                                                    }))}
-                                                value={paymentMode ? { value: paymentMode, label: paymentMode } : null}
-                                                onChange={(selectedOption) => setPaymentMode(selectedOption ? selectedOption.value : '')}
-                                                placeholder="Payment Mode"
-                                                isSearchable={true}
-                                                isClearable
-                                                styles={customStyles}
-                                                className="custom-select rounded-lg w-[290px] h-[45px]"
-                                            />
-                                        )}
+                                        <Select
+                                            options={selectablePaymentModeOptions.map((mode) => ({
+                                                value: mode.modeOfPayment,
+                                                label: mode.modeOfPayment,
+                                                id: mode.id
+                                            }))}
+                                            value={paymentMode ? { value: paymentMode, label: paymentMode } : null}
+                                            onChange={(selectedOption) => setPaymentMode(selectedOption ? selectedOption.value : '')}
+                                            placeholder="Payment Mode"
+                                            isSearchable={true}
+                                            isClearable
+                                            styles={customStyles}
+                                            className="custom-select rounded-lg w-[290px] h-[43px]"
+                                        />
                                     </div>
                                 ) : showMachineTools ? (
                                     <div className='text-left'>
@@ -2393,9 +2638,9 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                 ) : null}
                             </div>
                             {showMachineTools &&
-                                !(selectedAccountType === 'Claim' ||
+                                !(selectedAccountType === 'Claim Payment' ||
                                     selectedAccountType === 'Utility Bills' ||
-                                    selectedAccountType === 'Weekly Payment' ||
+                                    selectedAccountType === 'Sundry Payment' ||
                                     selectedAccountType === 'Bill Payments') && (
                                     <div className='flex gap-10'>
                                         <div className='w-[290px] min-w-[290px] shrink-0' aria-hidden="true" />
@@ -2420,9 +2665,9 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                     </div>
                                 )}
                             {showMachineTools &&
-                                (selectedAccountType === 'Claim' ||
+                                (selectedAccountType === 'Claim Payment' ||
                                     selectedAccountType === 'Utility Bills' ||
-                                    selectedAccountType === 'Weekly Payment' ||
+                                    selectedAccountType === 'Sundry Payment' ||
                                     selectedAccountType === 'Bill Payments') && (
                                     <div className='flex gap-10'>
                                         <div className='text-left'>
@@ -2462,9 +2707,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                     <div className='flex gap-10'>
                                         <div className='text-left'>
                                             <label className="text-md font-semibold mb-0.5 block">
-                                                {utilityType === 'Electricity' ? 'EB Number' :
-                                                    utilityType === 'Property' ? 'Property Tax Number' :
-                                                        utilityType === 'Water' ? 'Water Tax Number' : 'Number'}
+                                                {getUtilityTypeNumberLabel(utilityType)}
                                             </label>
                                             <Select
                                                 options={ebNumberOptions}
@@ -2472,9 +2715,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                 onChange={setSelectedEbNumber}
                                                 styles={customStyles}
                                                 isClearable
-                                                placeholder={`Select ${utilityType === 'Electricity' ? 'EB Number' :
-                                                    utilityType === 'Property' ? 'Property Tax Number' :
-                                                        utilityType === 'Water' ? 'Water Tax Number' : 'Number'}...`}
+                                                placeholder={`Select ${getUtilityTypeNumberLabel(utilityType)}`}
                                                 className="custom-select rounded-lg w-[290px] h-[45px]"
                                             />
                                         </div>
@@ -2537,7 +2778,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                     )}
                                 </>
                             )}
-                            {(selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund') && (
+                            {usesBillArrivalDate(selectedAccountType) && (
                                 <div className="flex gap-10">
                                     <div className="text-left">
                                         <label className="text-md font-semibold mb-0.5 block">
@@ -2604,7 +2845,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                             type="text"
                                             readOnly
                                             value={projectAdvance}
-                                            className="border-2 w-[112px] px-2 border-[#E4572E] text-[#E4572E] font-bold border-opacity-10 rounded h-[45px] bg-[#F2F2F2] focus:outline-none text-xs"
+                                            className="border-2 w-[112px] p-2 border-[#E4572E] text-[#E4572E] font-bold border-opacity-10 rounded h-[33px] bg-[#F2F2F2] focus:outline-none text-xs"
                                         />
                                     </div>
                                     <div className="flex flex-wrap gap-4 ml-16">
@@ -2855,16 +3096,26 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="text-sm font-semibold mb-1 block">Account Type</label>
+                                                {lockAccountTypeDisplay ? (
+                                                    <UtilityHubReadonlyField
+                                                        value={
+                                                            selectedAccountType ||
+                                                            (lockUtilityPrefillFields ? 'Utility Bills' : '')
+                                                        }
+                                                    />
+                                                ) : (
                                                 <select
                                                     className="w-full h-[45px] border-2 border-[#BF9853] rounded-lg px-3 border-opacity-20"
                                                     value={selectedAccountType}
                                                     onChange={(e) => {
                                                         const selectedValue = e.target.value;
                                                         setSelectedAccountType(selectedValue);
-                                                        const selectedOption = accountTypeOptions.find(option => option.value === selectedValue);
-                                                        if (selectedOption) {
-                                                            console.log("Selected ID:", selectedOption.id);
-                                                        }
+                                                        const selectedOption = accountTypeOptions.find(
+                                                            (option) => option.value === selectedValue
+                                                        );
+                                                        setSelectedAccountTypeId(
+                                                            selectedOption ? getAccountTypeIdFromOption(selectedOption) : null
+                                                        );
                                                     }}
                                                 >
                                                     <option value="" disabled hidden>Account Type</option>
@@ -2874,6 +3125,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                         </option>
                                                     ))}
                                                 </select>
+                                                )}
                                             </div>
                                             <div>
                                                 <label className="text-sm font-semibold mb-1 block">Date</label>
@@ -2943,39 +3195,30 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                     className="custom-select rounded-lg"
                                                 />
                                             </div>
-                                            {(selectedAccountType === 'Claim' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Weekly Payment' || selectedAccountType === 'Bill Payments') && (
+                                            {(selectedAccountType === 'Claim Payment' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Sundry Payment') && (
                                                 <div>
                                                     <label className="text-sm font-semibold mb-0.5 block">Payment Mode</label>
-                                                    {billPaymentsCashRegisterPrefill && selectedAccountType === 'Bill Payments' ? (
-                                                        <select
-                                                            value="Cash"
-                                                            disabled
-                                                            className="w-full h-[45px] border-2 border-[#BF9853] rounded-lg px-3 border-opacity-20 bg-white cursor-not-allowed"
-                                                        >
-                                                            <option value="Cash">Cash</option>
-                                                        </select>
-                                                    ) : (
-                                                        <select
-                                                            value={paymentMode}
-                                                            onChange={(e) => setPaymentMode(e.target.value)}
-                                                            className="w-full h-[45px] border-2 border-[#BF9853] bg-white rounded-lg px-3 border-opacity-20"
-                                                        >
-                                                            <option value="">Select Payment Mode</option>
-                                                            {finalPaymentModeOptions
-                                                                .filter(mode => selectedAccountType !== 'Weekly Payment' || mode.modeOfPayment !== 'Cash')
-                                                                .map(mode => (
-                                                                    <option key={mode.id || mode.modeOfPayment} value={mode.modeOfPayment}>
-                                                                        {mode.modeOfPayment}
-                                                                    </option>
-                                                                ))}
-                                                        </select>
-                                                    )}
+                                                    <select
+                                                        value={paymentMode}
+                                                        onChange={(e) => setPaymentMode(e.target.value)}
+                                                        className="w-full h-[45px] border-2 border-[#BF9853] bg-white rounded-lg px-3 border-opacity-20"
+                                                    >
+                                                        <option value="">Select Payment Mode</option>
+                                                        {selectablePaymentModeOptions.map(mode => (
+                                                            <option key={mode.id || mode.modeOfPayment} value={mode.modeOfPayment}>
+                                                                {mode.modeOfPayment}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                             )}
-                                            {selectedAccountType === 'Utility Bills' && (
+                                            {(selectedAccountType === 'Utility Bills' || lockUtilityPrefillFields) && (
                                                 <>
                                                     <div>
                                                         <label className="text-sm font-semibold mb-1 block">Utility Type</label>
+                                                        {lockUtilityPrefillFields ? (
+                                                            <UtilityHubReadonlyField value={utilityType} />
+                                                        ) : (
                                                         <select
                                                             value={utilityType}
                                                             onChange={(e) => setUtilityType(e.target.value)}
@@ -2985,15 +3228,15 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                             <option value="Electricity">Electricity</option>
                                                             <option value="Property">Property</option>
                                                             <option value="Water">Water</option>
+                                                            <option value="Profession">Profession</option>
                                                             <option value="Telecom">Telecom</option>
                                                             <option value="Subscription">Subscription</option>
                                                         </select>
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <label className="text-sm font-semibold mb-1 block">
-                                                            {utilityType === 'Electricity' ? 'EB Number' :
-                                                                utilityType === 'Property' ? 'Property Tax Number' :
-                                                                    utilityType === 'Water' ? 'Water Tax Number' : 'Number'}
+                                                            {getUtilityTypeNumberLabel(utilityType)}
                                                         </label>
                                                         <Select
                                                             options={ebNumberOptions}
@@ -3001,7 +3244,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                             onChange={setSelectedEbNumber}
                                                             styles={customStyles}
                                                             isClearable
-                                                            placeholder="Select number..."
+                                                            placeholder={`Select ${getUtilityTypeNumberLabel(utilityType)}...`}
                                                             className="custom-select rounded-lg"
                                                         />
                                                     </div>
@@ -3055,7 +3298,7 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
                                                     )}
                                                 </>
                                             )}
-                                            {(selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund') && (
+                                            {usesBillArrivalDate(selectedAccountType) && (
                                                 <div>
                                                     <label className="text-sm font-semibold mb-1 block">
                                                         Bill Arrival Date
@@ -3272,13 +3515,9 @@ const Form = ({ username, userRoles = [], embedded = false, onSuccess, disableWe
     );
 };
 export default Form;
-const FORM_FIELD_HEIGHT = 45;
-
 const customStyles = {
     control: (provided, state) => ({
         ...provided,
-        minHeight: FORM_FIELD_HEIGHT,
-        height: FORM_FIELD_HEIGHT,
         borderWidth: '2px',
         borderRadius: '8px',
         borderColor: state.isFocused
@@ -3290,20 +3529,6 @@ const customStyles = {
         '&:hover': {
             borderColor: 'rgba(191, 152, 83, 0.2)',
         },
-    }),
-    valueContainer: (provided) => ({
-        ...provided,
-        height: FORM_FIELD_HEIGHT,
-        padding: '0 8px',
-    }),
-    indicatorsContainer: (provided) => ({
-        ...provided,
-        height: FORM_FIELD_HEIGHT,
-    }),
-    input: (provided) => ({
-        ...provided,
-        margin: 0,
-        padding: 0,
     }),
 
     menuList: (provided) => ({

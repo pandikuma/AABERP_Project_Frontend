@@ -7,6 +7,16 @@ import * as XLSX from 'xlsx';
 import edit from '../Images/Edit.svg';
 import ExpenseEntryForm from '../ExpensesEntry/Form';
 import { useUtilityHubTableDragScroll } from './useUtilityHubTableDragScroll';
+import {
+    buildPropertyStyleAutoFill,
+    buildTenantLinksMap,
+    computePropertyStyleFilteredProjects,
+    flattenPropertyStyleRows,
+    getDefaultPropertyStyleFilters,
+    getPropertyStyleFilterOptions,
+    getTenantOptionsFromFiltered,
+    getVendorOptionsFromFiltered,
+} from './utilityHubTabFilters';
 
 const getTenantLinkPhone = (tenant) =>
     String(
@@ -68,19 +78,7 @@ const formatProfessionServiceLabel = (project, property, taxNo) => {
 
 const ProfessionTab = ({ username, userRoles = [] }) => {
     
-    const [filters, setFilters] = useState({
-        year: new Date().getFullYear().toString(),
-        month: MONTH_LABELS[new Date().getMonth()],
-        paymentStatus: '',
-        vendor: '',
-        service: '',
-        doorNo: '',
-        shop: '',
-        projectName: '',
-        projectType: '',
-        tenant: '',
-        occupancyStatus: ''
-    });
+    const [filters, setFilters] = useState(() => getDefaultPropertyStyleFilters(MONTH_LABELS));
 
     const [projects, setProjects] = useState([]);
     const [professionPayments, setProfessionPayments] = useState([]);
@@ -119,7 +117,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchProjects = async () => {
             try {
-                const response = await axios.get('https://backendaab.in/aabuilderDash/api/projects/getAll');
+                const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/projects/getAll');
                 const projectsWithProfessionTax = (response.data || []).filter(
                     (project) =>
                         project.propertyDetails &&
@@ -144,7 +142,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchProfessionPayments = async () => {
             try {
-                const response = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/utility/profession');
+                const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/profession');
                 setProfessionPayments(response.data || []);
             } catch (error) {
                 console.error('Error fetching profession tax payments:', error);
@@ -160,7 +158,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchFrequencyHistory = async () => {
             try {
-                const response = await axios.get('https://backendaab.in/aabuilderDash/api/frequency-history/getAll');
+                const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/frequency-history/getAll');
                 setFrequencyHistory(response.data || []);
             } catch (error) {
                 console.error('Error fetching frequency history:', error);
@@ -175,7 +173,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -201,7 +199,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
     useEffect(() => {
         const fetchTenants = async () => {
             try {
-                const response = await fetch('https://backendaab.in/aabuildersDash/api/tenant_link_shop/getAll');
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/tenant_link_shop/getAll');
                 if (!response.ok) return;
                 const data = await response.json();
                 const tenants = Array.isArray(data) ? data : [];
@@ -284,25 +282,6 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
         [filteredProjects]
     );
 
-    const professionServiceOptions = useMemo(() => {
-        const options = [];
-        const seen = new Set();
-        projects.forEach((project) => {
-            (project.propertyDetails || []).forEach((property) => {
-                const taxNo = getProfessionServiceNo(property);
-                if (!taxNo) return;
-                const value = getProfessionServiceFilterKey(project, property);
-                if (!value || seen.has(value)) return;
-                seen.add(value);
-                options.push({
-                    value,
-                    label: formatProfessionServiceLabel(project, property, taxNo),
-                });
-            });
-        });
-        return options.sort((a, b) => a.label.localeCompare(b.label));
-    }, [projects]);
-
     const professionTableRows = useMemo(() => {
         const rows = sortedFilteredProjects.flatMap((project) =>
             (project.propertyDetails || [])
@@ -323,162 +302,103 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
         return rows;
     }, [hiddenProjects]);
 
-    const matchesPaymentFilters = (property) => {
-        const selectedMonth = filters.month;
-        const selectedStatus = filters.paymentStatus;
+    const getServiceNo = getProfessionServiceNo;
+    const tenantLinksByPropertyId = useMemo(() => buildTenantLinksMap(tenantShopData), [tenantShopData]);
+    const getLinksForProperty = (propertyId) => tenantLinksByPropertyId.get(String(propertyId)) || [];
 
-        if (!selectedMonth && !selectedStatus) {
-            return true;
-        }
-
+    const matchesPaymentFiltersFor = (property, filterState) => {
+        const selectedMonth = filterState.month;
+        const selectedStatus = filterState.paymentStatus;
+        if (!selectedMonth && !selectedStatus) return true;
         const evaluateMonth = (month) => {
-            const paymentData = getPaymentData(getProfessionServiceNo(property), month, property.id);
+            const paymentData = getPaymentData(getProfessionServiceNo(property), month, property.id, filterState.year);
             const isPaid = paymentData.amount !== '-' && paymentData.amount !== '0';
             const isUnpaid = paymentData.amount === '0';
-
             if (selectedStatus === 'Paid') return isPaid;
             if (selectedStatus === 'Unpaid') return isUnpaid;
             return true;
         };
-
-        if (selectedMonth) {
-            return evaluateMonth(selectedMonth);
-        }
-
+        if (selectedMonth) return evaluateMonth(selectedMonth);
         return monthLabels.some((month) => evaluateMonth(month));
     };
 
-    // Apply filters (match ElectricityTab behavior)
+    const computeFiltered = (filterState, excludeField = null) =>
+        computePropertyStyleFilteredProjects({
+            projects,
+            selectedCategory,
+            filterState,
+            excludeField,
+            getServiceNo,
+            getLinksForProperty,
+            matchesPaymentFiltersFor,
+            payments: professionPayments,
+            comparePropertyShopNoAsc,
+            matchService: (property, project, effective) => {
+                const serviceFilter = effective.service;
+                if (!serviceFilter) return true;
+                return getProfessionServiceFilterKey(project, property) === serviceFilter;
+            },
+        });
+
     useEffect(() => {
-        const toLower = (value) => (value ? value.toString().toLowerCase() : '');
-        const vendorFilter = toLower(filters.vendor);
-        const doorFilter = toLower(filters.doorNo);
-        const shopFilter = toLower(filters.shop);
-        const projectTypeFilter = toLower(filters.projectType);
-        const serviceFilter = filters.service;
-        const tenantFilter = toLower(filters.tenant);
-        const projectNameFilter = toLower(filters.projectName);
-        const occupancyFilter = toLower(filters.occupancyStatus);
-        const selectedYearForFilters = filters.year || new Date().getFullYear().toString();
-        const monthMap = {
-            'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
-            'May': '05', 'June': '06', 'July': '07', 'Aug': '08',
-            'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
-        };
-        const selectedMonthNumber = filters.month ? monthMap[filters.month] : null;
-        const selectedYearMonthForFilters = selectedMonthNumber ? `${selectedYearForFilters}-${selectedMonthNumber}` : null;
-
-        const getPaymentVendorValue = (payment) => toLower(
-            payment?.vendorName ??
-            payment?.vendor ??
-            payment?.vendor_name ??
-            payment?.vendorNameLabel ??
-            payment?.party ??
-            ''
-        );
-
-        const propertyMatchesVendorFromPayments = (property) => {
-            if (!vendorFilter) return true;
-            const serviceNo = getProfessionServiceNo(property);
-            if (!serviceNo) return false;
-            const paymentsForService = professionPayments.filter(p => p?.utilityTypeNumber === serviceNo);
-            const scopedPayments = selectedYearMonthForFilters
-                ? paymentsForService.filter(p => p?.utilityForTheMonth === selectedYearMonthForFilters)
-                : paymentsForService.filter(p => typeof p?.utilityForTheMonth === 'string' && p.utilityForTheMonth.startsWith(`${selectedYearForFilters}-`));
-            return scopedPayments.some(p => getPaymentVendorValue(p).includes(vendorFilter));
-        };
-
-        // Tenant ↔ Shop link lookup
-        const tenantLinksByPropertyId = new Map();
-        if (Array.isArray(tenantShopData) && tenantShopData.length) {
-            tenantShopData.forEach(tenant => {
-                const tName = (tenant?.tenantName || '').toString();
-                (tenant?.shopNos || []).forEach(shop => {
-                    const propertyId = shop?.shopNoId;
-                    if (!propertyId) return;
-                    if (!tenantLinksByPropertyId.has(propertyId)) tenantLinksByPropertyId.set(propertyId, []);
-                    tenantLinksByPropertyId.get(propertyId).push({
-                        tenantName: tName,
-                        shopClosureDate: shop?.shopClosureDate || null
-                    });
-                });
-            });
-        }
-        const getLinksForProperty = (propertyId) => tenantLinksByPropertyId.get(propertyId) || [];
-        const matchesTenantFromLinks = (propertyId) => {
-            if (!tenantFilter) return true;
-            const links = getLinksForProperty(propertyId);
-            if (!links.length) return false;
-            return links.some(l => toLower(l.tenantName).includes(tenantFilter));
-        };
-        const matchesOccupancyFromLinks = (propertyId) => {
-            if (!occupancyFilter) return true;
-            const links = getLinksForProperty(propertyId);
-            const hasActive = links.some(l => !l.shopClosureDate);
-            const hasVacated = links.some(l => !!l.shopClosureDate);
-            if (occupancyFilter === 'occupied') return hasActive;
-            if (occupancyFilter === 'vacated') return !hasActive && hasVacated;
-            return true;
-        };
-
-        const filtered = projects.reduce((acc, project) => {
-            if (selectedCategory && project.projectCategory !== selectedCategory) {
-                return acc;
-            }
-
-            if (projectNameFilter && !toLower(project.projectName).includes(projectNameFilter)) {
-                return acc;
-            }
-
-            const filteredProperties = (project.propertyDetails || []).filter(property => {
-                if (!property || !getProfessionServiceNo(property) || !getProfessionServiceNo(property).trim()) {
-                    return false;
-                }
-                if (doorFilter && !toLower(property.doorNo).includes(doorFilter)) {
-                    return false;
-                }
-                if (shopFilter && !toLower(property.shopNo).includes(shopFilter)) {
-                    return false;
-                }
-                if (projectTypeFilter && !toLower(property.projectType).includes(projectTypeFilter)) {
-                    return false;
-                }
-                if (serviceFilter && getProfessionServiceFilterKey(project, property) !== serviceFilter) {
-                    return false;
-                }
-                if (vendorFilter && !propertyMatchesVendorFromPayments(property)) {
-                    return false;
-                }
-                if (!matchesPaymentFilters(property)) {
-                    return false;
-                }
-                const propertyId = property?.id ?? property?.propertyId ?? property?.projectNamePropertyDetailsId;
-                if (!matchesTenantFromLinks(propertyId)) return false;
-                if (!matchesOccupancyFromLinks(propertyId)) return false;
-                return true;
-            });
-
-            if (filteredProperties.length === 0) {
-                return acc;
-            }
-
-            acc.push({
-                ...project,
-                propertyDetails: [...filteredProperties].sort(comparePropertyShopNoAsc)
-            });
-
-            return acc;
-        }, []);
-
-        setFilteredProjects(filtered);
-    }, [filters, projects, selectedCategory, professionPayments, frequencyHistory, tenantShopData]);
+        setFilteredProjects(computeFiltered(filters));
+    }, [filters, projects, selectedCategory, professionPayments, frequencyHistory, tenantLinksByPropertyId]);
 
     const handleFilterChange = (filterType, selectedOption) => {
-        setFilters(prev => ({
-            ...prev,
-            [filterType]: selectedOption ? selectedOption.value : ''
-        }));
+        setFilters((prev) => {
+            const next = { ...prev, [filterType]: selectedOption ? selectedOption.value : '' };
+            const rows = flattenPropertyStyleRows(computeFiltered(next), getServiceNo, comparePropertyShopNoAsc);
+            if (rows.length === 1) {
+                const auto = buildPropertyStyleAutoFill({
+                    row: rows[0],
+                    filterState: next,
+                    changedField: filterType,
+                    getServiceNo,
+                    getLinksForProperty,
+                    getPaymentData,
+                    payments: professionPayments,
+                    monthLabels: MONTH_LABELS,
+                });
+                if (filterType !== 'service') {
+                    auto.service = getProfessionServiceFilterKey(rows[0].project, rows[0].property);
+                }
+                return { ...next, ...auto };
+            }
+            return next;
+        });
     };
+
+    const clearFilters = () => setFilters(getDefaultPropertyStyleFilters(MONTH_LABELS));
+
+    const vendorFilterOptions = useMemo(
+        () => getVendorOptionsFromFiltered(filters, computeFiltered, (list) => flattenPropertyStyleRows(list, getServiceNo, comparePropertyShopNoAsc), professionPayments),
+        [filters, projects, selectedCategory, professionPayments, tenantLinksByPropertyId]
+    );
+
+    const tenantFilterOptions = useMemo(
+        () => getTenantOptionsFromFiltered(filters, computeFiltered, (list) => flattenPropertyStyleRows(list, getServiceNo, comparePropertyShopNoAsc), getLinksForProperty),
+        [filters, projects, selectedCategory, professionPayments, tenantLinksByPropertyId]
+    );
+
+    const getFilterOptions = (fieldKey, excludeField) =>
+        getPropertyStyleFilterOptions(filters, fieldKey, excludeField, computeFiltered, getServiceNo);
+
+    const professionServiceFilterOptions = useMemo(() => {
+        const subset = computeFiltered(filters, 'service');
+        const rows = flattenPropertyStyleRows(subset, getServiceNo, comparePropertyShopNoAsc);
+        const options = [];
+        const seen = new Set();
+        rows.forEach(({ project, property }) => {
+            const value = getProfessionServiceFilterKey(project, property);
+            if (!value || seen.has(value)) return;
+            seen.add(value);
+            options.push({
+                value,
+                label: formatProfessionServiceLabel(project, property),
+            });
+        });
+        return options.sort((a, b) => a.label.localeCompare(b.label));
+    }, [filters, projects, selectedCategory, professionPayments, tenantLinksByPropertyId]);
 
     // Custom styles for react-select
     const customSelectStyles = {
@@ -506,32 +426,6 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
             ...provided,
             color: '#9CA3AF',
         }),
-    };
-
-    // Get unique values for filter options
-    const getUniqueValues = (key) => {
-        const values = new Set();
-        projects.forEach(project => {
-            if (key === 'projectName') {
-                values.add(project.projectName);
-            } else if (key === 'doorNo') {
-                project.propertyDetails.forEach(property => {
-                    if (property.doorNo) values.add(property.doorNo);
-                });
-            } else if (key === 'shop') {
-                project.propertyDetails.forEach(property => {
-                    if (property.shopNo) values.add(property.shopNo);
-                });
-            } else if (key === 'projectType') {
-                project.propertyDetails.forEach(property => {
-                    if (property.projectType) values.add(property.projectType);
-                });
-            }
-        });
-        return Array.from(values).sort().map((value) => ({
-            value,
-            label: value,
-        }));
     };
 
     // Get frequency data for a specific property
@@ -604,8 +498,8 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
         );
     };
 
-    const getPaymentData = (professionServiceNo, month, propertyId) => {
-        const selectedYear = filters.year || new Date().getFullYear().toString();
+    function getPaymentData(professionServiceNo, month, propertyId, yearOverride) {
+        const selectedYear = yearOverride || filters.year || new Date().getFullYear().toString();
         const monthMap = {
             'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
             'May': '05', 'June': '06', 'July': '07', 'Aug': '08',
@@ -715,7 +609,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
         } else {
             return { amount: '-', date: null, isNotRequired: true }; // Not due this month
         }
-    };
+    }
     // Get unpaid count for a Profession Tax number
     const getUnpaidCount = (professionServiceNo, propertyId) => {
         // Use selected year or current year as fallback
@@ -847,7 +741,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
 
     const toggleProjectHideStatus = async (projectId, isHide) => {
         try {
-            const response = await axios.put(`https://backendaab.in/aabuilderDash/api/projects/hide/${projectId}`, null, {
+            const response = await axios.put(`https://backendaab.in/demoAabuilderDash/api/projects/hide/${projectId}`, null, {
                 params: { isHide }
             });
             if (response.data) {
@@ -908,7 +802,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                 propertyFrequencyNo: null,
                 startingMonthOfPropertyFrequency: null
             };
-            const response = await axios.post('https://backendaab.in/aabuilderDash/api/frequency-history/save', frequencyHistoryData);
+            const response = await axios.post('https://backendaab.in/demoAabuilderDash/api/frequency-history/save', frequencyHistoryData);
             if (response.data) {
                 setSubmittedFrequencyData(prev => ({
                     ...prev,
@@ -919,7 +813,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                 }));
                 const fetchFrequencyHistory = async () => {
                     try {
-                        const response = await axios.get('https://backendaab.in/aabuilderDash/api/frequency-history/getAll');
+                        const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/frequency-history/getAll');
                         setFrequencyHistory(response.data || []);
                     } catch (error) {
                         console.error('Error fetching frequency history:', error);
@@ -990,7 +884,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                                     setExpenseEntryPrefill(null);
                                     try { localStorage.removeItem('expenseEntryPrefill'); } catch { /* ignore */ }
                                     try {
-                                        const response = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/utility/profession');
+                                        const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/profession');
                                         setProfessionPayments(response.data || []);
                                     } catch {
                                         // ignore refresh errors
@@ -1004,7 +898,8 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
             <div className="bg-white rounded-md mb-5 min-h-[128px] ml-5 mr-5">
                 <div className="p-6">
                     {/* 10 filters -> grid of 5 columns naturally renders them as 2 rows */}
-                    <div className="grid grid-cols-6 gap-4 text-left">
+                    <div className="flex flex-wrap gap-4 text-left items-end">
+                    <div className="grid grid-cols-6 gap-4 flex-1 min-w-0">
                         <div>
                             <label className="block font-semibold mb-1">Year</label>
                             <Select
@@ -1029,7 +924,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                         <div>
                             <label className="block font-semibold mb-1">Vendor</label>
                             <Select
-                                options={vendorOptions}
+                                options={vendorFilterOptions}
                                 value={filters.vendor ? { value: filters.vendor, label: filters.vendor } : null}
                                 onChange={(selectedOption) => handleFilterChange('vendor', selectedOption)}
                                 placeholder="Select Vendor"
@@ -1083,10 +978,10 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                         <div>
                             <label className="block font-semibold mb-1">Service</label>
                             <Select
-                                options={professionServiceOptions}
+                                options={professionServiceFilterOptions}
                                 value={
                                     filters.service
-                                        ? professionServiceOptions.find((o) => o.value === filters.service) ?? null
+                                        ? professionServiceFilterOptions.find((o) => o.value === filters.service) ?? null
                                         : null
                                 }
                                 onChange={(selectedOption) => handleFilterChange('service', selectedOption)}
@@ -1105,7 +1000,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                         <div>
                             <label className="block font-semibold mb-1">Door No</label>
                             <Select
-                                options={getUniqueValues('doorNo')}
+                                options={getFilterOptions('doorNo', 'doorNo')}
                                 value={filters.doorNo ? { value: filters.doorNo, label: filters.doorNo } : null}
                                 onChange={(selectedOption) => handleFilterChange('doorNo', selectedOption)}
                                 placeholder="Select Door No"
@@ -1123,7 +1018,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                         <div>
                             <label className="block font-semibold mb-1">Shop</label>
                             <Select
-                                options={getUniqueValues('shop')}
+                                options={getFilterOptions('shop', 'shop')}
                                 value={filters.shop ? { value: filters.shop, label: filters.shop } : null}
                                 onChange={(selectedOption) => handleFilterChange('shop', selectedOption)}
                                 placeholder="Select Shop"
@@ -1141,7 +1036,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                         <div>
                             <label className="block font-semibold mb-1">Project Name</label>
                             <Select
-                                options={getUniqueValues('projectName')}
+                                options={getFilterOptions('projectName', 'projectName')}
                                 value={filters.projectName ? { value: filters.projectName, label: filters.projectName } : null}
                                 onChange={(selectedOption) => handleFilterChange('projectName', selectedOption)}
                                 placeholder="Select Project"
@@ -1159,7 +1054,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                         <div>
                             <label className="block font-semibold mb-1">Project Type</label>
                             <Select
-                                options={getUniqueValues('projectType')}
+                                options={getFilterOptions('projectType', 'projectType')}
                                 value={filters.projectType ? { value: filters.projectType, label: filters.projectType } : null}
                                 onChange={(selectedOption) => handleFilterChange('projectType', selectedOption)}
                                 placeholder="Select Project Type"
@@ -1177,7 +1072,7 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                         <div>
                             <label className="block font-semibold mb-1">Tenant</label>
                             <Select
-                                options={tenantOptions}
+                                options={tenantFilterOptions}
                                 value={filters.tenant ? { value: filters.tenant, label: filters.tenant } : null}
                                 onChange={(selectedOption) => handleFilterChange('tenant', selectedOption)}
                                 placeholder="Select Tenant"
@@ -1210,6 +1105,14 @@ const ProfessionTab = ({ username, userRoles = [] }) => {
                                 className="w-full"
                             />
                         </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={clearFilters}
+                        className="px-5 py-2 h-[45px] border-2 border-[#BF9853] text-[#BF9853] rounded-lg font-semibold hover:bg-[#FAF6ED] transition-colors whitespace-nowrap shrink-0"
+                    >
+                        Clear
+                    </button>
                     </div>
                 </div>
             </div>

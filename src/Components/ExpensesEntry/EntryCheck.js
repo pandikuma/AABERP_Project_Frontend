@@ -2,7 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Modal from 'react-modal';
 import Select from 'react-select';
-import Reload from '../Images/rotate-right.png'
+import DateRangePicker from './DateRangePicker';
+import CustomDateField from './CustomDateField';
+import Reload from '../Images/Clear.svg'
+import Filter from '../Images/TableFilter.svg'
+import Pdf from '../Images/pdf.png'
+import CalendarIcon from "../Images/Calendoricon.png";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 Modal.setAppElement('#root');
@@ -26,6 +31,8 @@ const EntryChecking = () => {
     const [selectedStartDate, setSelectedStartDate] = useState('');
     const [selectedEndDate, setSelectedEndDate] = useState('');
     const [selectedAccountType, setSelectedAccountType] = useState('');
+    const [showFilters, setShowFilters] = useState(false);
+    const [showDateRangePicker, setShowDateRangePicker] = useState(false);
     const scrollRef = useRef(null);
     const isDragging = useRef(false);
     const start = useRef({ x: 0, y: 0 });
@@ -174,6 +181,15 @@ const EntryChecking = () => {
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;
     };
+    const formatChipDateDMY = (dateString) => {
+        if (!dateString) return '';
+        const parts = String(dateString).split('-');
+        if (parts.length === 3 && parts[0].length === 4) {
+            const [y, m, d] = parts;
+            return `${d}-${m}-${y}`;
+        }
+        return String(dateString);
+    };
     const getBranchName = (id) =>
         branchOptions.find(b => String(b.id) === String(id))?.branch || "";
     const clearFilters = () => {
@@ -260,14 +276,15 @@ const EntryChecking = () => {
         control: (provided, state) => ({
             ...provided,
             backgroundColor: 'transparent',
-            borderWidth: '3px',
-            borderColor: 'rgba(191, 152, 83, 0.2)',
-            borderRadius: '6px',
+            border: '2px solid rgba(191, 152, 83, 0.2)',
+            borderRadius: '8px',
+            minHeight: '40px',
+            height: '40px',
             boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-            '&:hover': { borderColor: 'rgba(191, 152, 83, 0.2)' },
+            '&:hover': { borderColor: 'rgba(191, 152, 83, 0.4)' },
         }),
         placeholder: (provided) => ({ ...provided, color: '#999', textAlign: 'left' }),
-        menu: (provided) => ({ ...provided, zIndex: 9 }),
+        menu: (provided) => ({ ...provided, zIndex: 9999 }),
         option: (provided, state) => ({
             ...provided,
             textAlign: 'left',
@@ -277,223 +294,257 @@ const EntryChecking = () => {
             color: 'black',
         }),
         singleValue: (provided) => ({ ...provided, textAlign: 'left', color: 'black' }),
+        indicatorSeparator: () => ({ display: 'none' }),
+    };
+    const nameSelectClassNames = {
+        menuList: () => 'no-scrollbar scrollbar-none',
     };
     const isAnyFilterSelected = selectedDate || selectedStartDate || selectedEndDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools;
     return (
-        <body className=' bg-[#FAF6ED] px-[18px]'>
-            <div>
-                <div className="w-full p-[18px] pb-10 h-full bg-white shadow-lg">
-                    <div
-                        className={`text-left flex ${selectedDate || selectedStartDate || selectedEndDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools
-                            ? 'flex-col sm:flex-row sm:justify-between'
-                            : 'flex-row justify-between items-center'
-                            } mb-3 gap-2`}>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
-                            {(selectedDate || selectedStartDate || selectedEndDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools) && (
-                                <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
-                                    {selectedDate && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                            <span className="font-normal">Date: </span>
-                                            <span className="font-bold">{selectedDate}</span>
-                                            <button onClick={() => setSelectedDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    )}
-                                    {selectedStartDate && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                            <span className="font-normal">From: </span>
-                                            <span className="font-bold">{selectedStartDate}</span>
-                                            <button onClick={() => setSelectedStartDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    )}
-                                    {selectedEndDate && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                            <span className="font-normal">To: </span>
-                                            <span className="font-bold">{selectedEndDate}</span>
-                                            <button onClick={() => setSelectedEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    )}
-                                    {selectedVendor && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Vendor Name: </span>
-                                            <span className="font-bold">{selectedVendor}</span>
-                                            <button onClick={() => setSelectedVendor('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    )}
-                                    {selectedContractor && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Contractor Name: </span>
-                                            <span className="font-bold">{selectedContractor}</span>
-                                            <button onClick={() => setSelectedContractor('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    )}
-                                    {selectedSiteName && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Project Name: </span>
-                                            <span className="font-bold">{selectedSiteName}</span>
-                                            <button onClick={() => setSelectedSiteName('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    )}
-                                    {selectedCategory && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Category: </span>
-                                            <span className="font-bold">{selectedCategory}</span>
-                                            <button onClick={() => setSelectedCategory('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    )}
-                                    {selectedAccountType && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Mode: </span>
-                                            <span className="font-bold">{selectedAccountType}</span>
-                                            <button onClick={() => setSelectedAccountType('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    )}
-                                    {selectedMachineTools && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Tools: </span>
-                                            <span className="font-bold">{selectedMachineTools}</span>
-                                            <button onClick={() => setSelectedMachineTools('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={generateFilteredPDF}
-                                className='w-32 h-9 border border-[#E4572E] rounded-md font-semibold text-sm text-[#E4572E] flex items-center justify-center gap-2'
-                            >
-                                Generate PDF
-                            </button>
-                            <button onClick={clearFilters}
-                                className='w-36 h-9 border border-[#BF9853] rounded-md font-semibold text-sm text-[#BF9853] flex items-center justify-center gap-2'
-                            >
-                                <img className='w-4 h-4' src={Reload} alt="Reload" />
-                                Reset Filter
-                            </button>
-                        </div>
-                    </div>
+        <body className=' bg-[#FAF6ED]'>
+            <div className='flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED]'>
+                <div className='px-[18px] pt-[18px] pb-[18px] flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]'>
+                <div className="w-full pt-[18px] px-[18px] pb-[18px] rounded-[6px] bg-white mb-[18px] shrink-0">
                     <div className="flex flex-wrap lg:flex-nowrap gap-3 items-end mb-2">
                         <div className="flex flex-col">
-                            <label className="font-bold text-left text-sm">Date Of Entry:</label>
-                            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
-                                className="p-1 mt-2 rounded-md bg-transparent w-full max-w-[155px] border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                            />
+                            <label className="font-bold text-left text-sm">Entry Date</label>
+                            <div className="mt-2 w-full max-w-[155px]">
+                                <CustomDateField
+                                    value={selectedDate}
+                                    onChange={setSelectedDate}
+                                    placeholder="Date Of Entry"
+                                    alwaysOpenBelow
+                                    className={` [&>div:first-child]:!h-[40px] [&>div:first-child]:!border-2 [&>div:first-child]:!border-[rgba(191,152,83,0.2)] [&>div:first-child]:!rounded-lg [&>div:first-child]:!shadow-none [&>div:first-child]:hover:!border-[rgba(191,152,83,0.4)]`}
+                                />
+                            </div>
                         </div>
                         <div className="flex flex-col">
-                            <label className="font-bold text-left text-sm">From Date:</label>
-                            <input type="date" value={selectedStartDate} onChange={(e) => setSelectedStartDate(e.target.value)}
-                                className="p-1 mt-2 rounded-md bg-transparent w-full max-w-[155px] border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <label className="font-bold text-left text-sm">To Date:</label>
-                            <input type="date" value={selectedEndDate} onChange={(e) => setSelectedEndDate(e.target.value)}
-                                className="p-1 mt-2 rounded-md bg-transparent w-full max-w-[155px] border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                            />
+                            <label className="font-bold text-left text-sm">Date Range</label>
+                            <div className="relative mt-2 [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDateRangePicker(true)}
+                                    className="w-[158px] box-border h-[40px] pl-[12px] pr-[3px] py-0 text-sm font-normal bg-white text-left flex items-center justify-between"
+                                >
+                                    <span className={`text-[14px] font-medium truncate flex-1 text-left ${selectedStartDate && selectedEndDate ? 'text-black font-normal' : 'text-[#A6A5A6] font-normal'}`}>
+                                        {selectedStartDate ? (selectedEndDate ? `${selectedStartDate} – ${selectedEndDate}` : `From ${selectedStartDate}`) : 'From Date - To Date'}
+                                    </span>
+                                    <img src={CalendarIcon} alt="Calendar" className="w-[16px] h-[16px] text-gray-400 flex-shrink-0 mr-[6px] ml-[3px]" />
+                                </button>
+                                <DateRangePicker
+                                    isOpen={showDateRangePicker}
+                                    onClose={() => setShowDateRangePicker(false)}
+                                    startDate={selectedStartDate}
+                                    endDate={selectedEndDate}
+                                    variant="dropdown"
+                                    onApply={(from, to) => {
+                                        setSelectedStartDate(from);
+                                        setSelectedEndDate(to);
+                                    }}
+                                />
+                            </div>
                         </div>
                         <div className="flex flex-col flex-1 min-w-[140px]">
-                            <label className="font-bold text-left text-sm">Project Name:</label>
+                            <label className="font-bold text-left text-sm">Project Name</label>
                             <Select
                                 className="mt-2"
+                                classNames={nameSelectClassNames}
                                 options={projectNameOptions}
                                 value={selectedSiteName ? { value: selectedSiteName, label: selectedSiteName } : null}
                                 onChange={(selectedOption) => setSelectedSiteName(selectedOption ? selectedOption.value : '')}
-                                placeholder="Search Project"
+                                placeholder="Project Name"
                                 isClearable
                                 styles={customSelectStyles}
                             />
                         </div>
                         <div className="flex flex-col flex-1 min-w-[140px]">
-                            <label className="font-bold text-left text-sm">Vendor:</label>
+                            <label className="font-bold text-left text-sm">Vendor Name</label>
                             <Select
                                 className="mt-2"
+                                classNames={nameSelectClassNames}
                                 options={vendorOptions}
                                 value={selectedVendor ? { value: selectedVendor, label: selectedVendor } : null}
                                 onChange={(selectedOption) => setSelectedVendor(selectedOption ? selectedOption.value : '')}
-                                placeholder="Search Vendor"
+                                placeholder="Vendor Name"
                                 isClearable
                                 styles={customSelectStyles}
                             />
                         </div>
                         <div className="flex flex-col flex-1 min-w-[140px]">
-                            <label className="font-bold text-left text-sm">Contractor:</label>
+                            <label className="font-bold text-left text-sm">Contractor Name</label>
                             <Select
                                 className="mt-2"
+                                classNames={nameSelectClassNames}
                                 options={contractorOptions}
                                 value={selectedContractor ? { value: selectedContractor, label: selectedContractor } : null}
                                 onChange={(selectedOption) => setSelectedContractor(selectedOption ? selectedOption.value : '')}
-                                placeholder="Search Contractor"
+                                placeholder="Contractor Name"
                                 isClearable
                                 styles={customSelectStyles}
                             />
                         </div>
                         <div className="flex flex-col flex-1 max-w-[200px]">
-                            <label className="font-bold text-left text-sm">A/C Type:</label>
+                            <label className="font-bold text-left text-sm">A/C Type</label>
                             <Select
                                 className="mt-2"
+                                classNames={nameSelectClassNames}
                                 options={accountTypeOptions.map(type => ({ value: type, label: type }))}
                                 value={selectedAccountType ? { value: selectedAccountType, label: selectedAccountType } : null}
                                 onChange={(selectedOption) => setSelectedAccountType(selectedOption ? selectedOption.value : '')}
-                                placeholder="Search A/c"
+                                placeholder="A/C Type"
                                 isClearable
                                 styles={customSelectStyles}
                             />
                         </div>                        
                         <div className="flex flex-col">
-                            <label className="font-bold text-left text-sm">No Of Bills:</label>
-                            <div className="w-full h-[38px] p-2 mt-2 rounded-md border-[3px] border-[#BF9853] border-opacity-[20%] text-left">
+                            <label className="font-bold text-left text-sm">No Of Bills</label>
+                            <div className="w-full h-[40px] p-2 mt-2 rounded-lg border-2 border-[rgba(191,152,83,0.2)] hover:border-[rgba(191,152,83,0.4)] text-left">
                                 {isAnyFilterSelected ? filteredCount : ''}
                             </div>
                         </div>
                         <div className="flex flex-col">
-                            <label className="font-bold text-left text-sm">Amount:</label>
-                            <div className="w-full max-w-[130px] h-[38px] p-2 mt-2 rounded-md border-[3px] border-[#BF9853] border-opacity-[20%] text-left">
+                            <label className="font-bold text-left text-sm">Amount</label>
+                            <div className="w-full max-w-[130px] h-[40px] p-2 mt-2 rounded-lg border-2 border-[rgba(191,152,83,0.2)] hover:border-[rgba(191,152,83,0.4)] text-left">
                                 {isAnyFilterSelected
                                     ? `₹${Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2, })}`
                                     : ''}
                             </div>
                         </div>
                     </div>
-                    {isAnyFilterSelected && (
+                </div>
+                <div className="w-full pt-[18px] px-[18px] pb-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
+                        <div
+                            className={`text-left flex ${selectedDate || selectedStartDate || selectedEndDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools
+                                ? 'flex-col sm:flex-row sm:justify-between'
+                                : 'flex-row justify-between items-center'
+                                } mb-3 gap-2`}>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
+                                <button
+                                    className=''
+                                    onClick={() => setShowFilters(!showFilters)}
+                                >
+                                    <img
+                                        src={Filter}
+                                        alt="Toggle Filter"
+                                        className=" border rounded-md"
+                                    />
+                                </button>
+                                {(selectedDate || selectedStartDate || selectedEndDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools) && (
+                                    <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
+                                        {selectedDate && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                <span className="font-medium">Date: </span>
+                                                <span className="font-semibold text-[14px] text-[#BF9853]">{formatChipDateDMY(selectedDate)}</span>
+                                                <button onClick={() => setSelectedDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                            </span>
+                                        )}
+                                        {selectedStartDate && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] font-medium w-fit">
+                                                <span className="font-medium">Date Range: </span>
+                                                <span className="font-semibold text-[14px] text-[#BF9853]">{formatChipDateDMY(selectedStartDate)}{selectedEndDate ? ` – ${formatChipDateDMY(selectedEndDate)}` : ' onwards'}</span>
+                                                <button onClick={() => { setSelectedStartDate(''); setSelectedEndDate(''); }} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                            </span>
+                                        )}
+                                        {selectedEndDate && !selectedStartDate && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                <span className="font-medium">Date Range until: </span>
+                                                <span className="font-semibold text-[14px] text-[#BF9853]">{formatChipDateDMY(selectedEndDate)}</span>
+                                                <button onClick={() => setSelectedEndDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                            </span>
+                                        )}
+                                        {selectedVendor && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium">Vendor Name: </span>
+                                                <span className="font-semibold text-[14px] text-[#BF9853]">{selectedVendor}</span>
+                                                <button onClick={() => setSelectedVendor('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectedContractor && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium">Contractor Name: </span>
+                                                <span className="font-semibold text-[14px] text-[#BF9853]">{selectedContractor}</span>
+                                                <button onClick={() => setSelectedContractor('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectedSiteName && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium">Project Name: </span>
+                                                <span className="font-semibold text-[14px] text-[#BF9853]">{selectedSiteName}</span>
+                                                <button onClick={() => setSelectedSiteName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectedCategory && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium">Category: </span>
+                                                <span className="font-semibold text-[14px] text-[#BF9853]">{selectedCategory}</span>
+                                                <button onClick={() => setSelectedCategory('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectedAccountType && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium">A/C Type: </span>
+                                                <span className="font-semibold text-[14px] text-[#BF9853]">{selectedAccountType}</span>
+                                                <button onClick={() => setSelectedAccountType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectedMachineTools && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium">Tools: </span>
+                                                <span className="font-semibold text-[14px] text-[#BF9853]">{selectedMachineTools}</span>
+                                                <button onClick={() => setSelectedMachineTools('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div className='flex items-end gap-[6px]'>
+                                <button onClick={clearFilters} className='flex h-[30px] w-[30px] shrink-0 items-center justify-center'>
+                                    <img className='w-full h-full' src={Reload} alt="Reload" />
+                                </button>
+                                <span className='text-[#E4572E] flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={generateFilteredPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
+                            </div>
+                        </div>
+                        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                         <div ref={scrollRef}
-                            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[620px] overflow-scroll select-none"
+                            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] flex-1 min-h-0 overflow-auto no-scrollbar scrollbar-none select-none"
                             onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
                         >
-                            <table className="table-fixed  min-w-[1965px] w-screen border-collapse">
-                                <thead>
-                                    <tr className="bg-[#FAF6ED]">
-                                        <th className="px-2 w-[240px] font-bold text-left">Time stamp</th>
-                                        <th className="px-2 p-2 w-36 font-bold text-left">Date</th>
-                                        <th className="px-2 w-[120px] font-bold text-left">E.No</th>
-                                        <th className="px-2 w-[300px] font-bold text-left">Project Name</th>
-                                        <th className="px-2 w-[220px] font-bold text-left">Vendor</th>
-                                        <th className="px-2 w-[220px] font-bold text-left">Contractor</th>
-                                        <th className="px-2 w-[220px] font-bold text-left">A/C Type</th>
-                                        <th className="px-2 w-[200px] font-bold text-left">Branch</th>
-                                        <th className="px-2 w-[120px] font-bold text-left">Quantity</th>
-                                        <th className="px-2 w-[120px] font-bold text-left">Amount</th>
-                                        <th className="px-2 w-[120px] font-bold text-left">Comments</th>
-                                        <th className="px-2 w-[220px] font-bold text-left">Category</th>
-                                        <th className="px-3 w-[120px] font-bold text-left">Attach file</th>
+                            <table className="table-fixed w-full min-w-[2060px] border-collapse">
+                                <thead className="sticky top-0 z-10 bg-white">
+                                    <tr className="bg-[#FAF6ED] h-[40px] text-[16px] font-bold text-center">
+                                        <th className="pl-[12px] w-[168px] font-bold text-left">Time stamp</th>
+                                        <th className="w-[120px] pr-[1px] font-bold text-left">Date</th>
+                                        <th className="pl-[1px] pr-[1px] w-[298px] font-bold text-left">Project Name</th>
+                                        <th className="pl-[1px] pr-[1px] w-[218px] font-bold text-left">Vendor Name</th>
+                                        <th className="pl-[1px] pr-[1px] w-[218px] font-bold text-left">Contractor Name</th>
+                                        <th className="pl-[1px] pr-[1px] w-[78px] font-bold text-left">Quantity</th>
+                                        <th className="pl-[1px] pr-[1px] w-[120px] font-bold text-right">Amount</th>
+                                        <th className="pl-[9px] pr-[1px] w-[198px] font-bold text-left">Description</th>
+                                        <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left">Category</th>
+                                        <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left">A/C Type</th>
+                                        <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left">Branch</th>
+                                        <th className="pl-[1px] pr-[1px] w-[120px] font-bold text-right">E.No</th>
+                                        <th className="pl-[6px] pr-[12px] w-[70px] font-bold text-center">File</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredExpenses.map((expense, index) => (
-                                        <tr key={index} className="odd:bg-white even:bg-[#FAF6ED] ">
-                                            <td className="px-2 text-left font-semibold py-2">{formatDate(expense.timestamp)}</td>
-                                            <td className="px-2 text-left font-semibold">{formatDateOnly(expense.date)}</td>
-                                            <td className="px-2 text-left font-semibold">{expense.eno}</td>
-                                            <td className="px-2 text-left font-semibold">{expense.siteName}</td>
-                                            <td className="px-2 text-left font-semibold">{expense.vendor}</td>
-                                            <td className="px-2 text-left font-semibold">{expense.contractor}</td>
-                                            <td className="px-2 text-left font-semibold">{expense.accountType}</td>
-                                            <td className="px-2 text-left font-semibold">{getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}</td>
-                                            <td className="px-2 text-left font-semibold">{expense.quantity}</td>
-                                            <td className="text-sm text-left pl-2 font-semibold">
+                                    {(isAnyFilterSelected ? filteredExpenses : []).map((expense, index) => (
+                                        <tr key={index} className="odd:bg-white even:bg-[#FAF6ED] text-[14px] font-semibold h-[40px]">
+                                            <td className="pl-[12px] w-[168px] text-left font-semibold">{formatDate(expense.timestamp)}</td>
+                                            <td className="w-[120px] pr-[1px] text-left font-semibold">{formatDateOnly(expense.date)}</td>
+                                            <td className="pl-[1px] pr-[1px] w-[298px] text-left font-semibold">{expense.siteName}</td>
+                                            <td className="pl-[1px] pr-[1px] w-[218px] text-left font-semibold">{expense.vendor}</td>
+                                            <td className="pl-[1px] pr-[1px] w-[218px] text-left font-semibold">{expense.contractor}</td>
+                                            <td className="pl-[1px] pr-[1px] w-[78px] text-left font-semibold">{expense.quantity}</td>
+                                            <td className="pl-[1px] pr-[1px] w-[98px] text-right font-semibold">
                                                 ₹{Number(expense.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className="px-2 text-left font-semibold">{expense.comments}</td>
-                                            <td className="px-2 text-left font-semibold">{expense.category}</td>
-                                            <td className="px-4 text-sm">
+                                            <td className="text-left pl-[9px] pr-[1px] w-[198px] font-semibold">{expense.comments}</td>
+                                            <td className="pl-[1px] pr-[1px] w-[158px] text-left font-semibold">{expense.category}</td>
+                                            <td className="pl-[1px] pr-[1px] w-[158px] text-left font-semibold">{expense.accountType}</td>
+                                            <td className="pl-[1px] pr-[1px] w-[158px] text-left font-semibold">{getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}</td>
+                                            <td className="pl-[1px] pr-[1px] w-[120px] text-right font-semibold">{expense.eno}</td>
+                                            <td className="pl-[6px] pr-[12px] w-[70px] text-center">
                                                 {expense.billCopy ? (
                                                     <a href={expense.billCopy} className="text-red-500 underline font-semibold"
                                                         target="_blank" rel="noopener noreferrer"
@@ -509,7 +560,8 @@ const EntryChecking = () => {
                                 </tbody>
                             </table>
                         </div>
-                    )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </body>

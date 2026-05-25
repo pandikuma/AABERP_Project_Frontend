@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import aaLogo from "../Images/LOGO.svg";
+import aaLogo from "../Images/AALogo.svg";
 
 const BRANCHES = [
   { id: "srivilliputtur", name: "Srivilliputtur" },
@@ -50,8 +50,15 @@ const ORBIT_TOPBAR_CSS = `
 @media(max-width:480px){
   .orbit-erp-heading-root .brand-text{font-size:13.5px;letter-spacing:0.13em;}
 }
-.orbit-erp-heading-root .topbar{background:#fff;border-bottom:1px solid var(--line);padding:5px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;min-height:56px;}
+.orbit-erp-heading-root .topbar{background:#fff;border-bottom:1px solid var(--line);padding:5px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:300;min-height:56px;}
 @media(min-width:1024px){
+  .orbit-erp-heading-root .topbar{
+    margin-left:-56px;
+    width:calc(100% + 56px);
+    padding-left:12px;
+  }
+}
+@media(max-width:1023px){
   .orbit-erp-heading-root .topbar{
     margin-left:-56px;
     width:calc(100% + 56px);
@@ -72,7 +79,7 @@ const ORBIT_TOPBAR_CSS = `
 .orbit-erp-heading-root .icon-btn .notif-dot{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;padding:0 4px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #fff;line-height:1;}
 .orbit-erp-heading-root .notif-popover{position:absolute;top:calc(100% + 6px);right:0;width:320px;max-width:calc(100vw - 24px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 36px -12px rgba(33,33,33,0.18),0 4px 10px -4px rgba(33,33,33,0.08);z-index:60;overflow:hidden;}
 .orbit-erp-heading-root .notif-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line-soft);}
-.orbit-erp-heading-root .notif-head h4{font-family:'Fraunces',serif;font-weight:600;font-size:15px;color:var(--ink);margin:0;}
+.orbit-erp-heading-root .notif-head h4{font-family:'Manrope',sans-serif;font-weight:600;font-size:15px;color:var(--ink);margin:0;}
 .orbit-erp-heading-root .notif-head .mark-all{font-size:11.5px;color:var(--gold-deep);font-weight:600;background:none;border:none;cursor:pointer;padding:0;}
 .orbit-erp-heading-root .notif-head .mark-all:hover{text-decoration:underline;}
 .orbit-erp-heading-root .notif-list{max-height:340px;overflow-y:auto;}
@@ -149,7 +156,7 @@ export default function OrbitERPHeading({
   return (
     <div className="orbit-erp-heading-root">
       <style>{ORBIT_TOPBAR_CSS}</style>
-      <div className="topbar">
+      <div className="topbar flex items-center justify-start">
         <div className="brand-button w-[147px] h-[32px]">
           <img
             src={navLogoSrc}

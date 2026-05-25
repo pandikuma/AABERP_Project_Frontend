@@ -3,6 +3,31 @@ import { createPortal } from 'react-dom'
 import axios from 'axios'
 import ExpenseEntryForm from '../ExpensesEntry/Form'
 
+/** Show upcoming payments only when the next due date is within this many days (inclusive). */
+const UPCOMING_PAYMENT_DAYS_WINDOW = 10
+
+/** Accent colors for utility cards (dark enough for readable text on white). */
+const UTILITY_SECTION_COLORS = {
+  property: {
+    title: 'text-rose-700',
+    border: 'border-rose-700',
+    accent: 'text-rose-700',
+    hover: 'hover:text-rose-700',
+  },
+  water: {
+    title: 'text-sky-700',
+    border: 'border-sky-700',
+    accent: 'text-sky-700',
+    hover: 'hover:text-sky-700',
+  },
+  telecom: {
+    title: 'text-emerald-700',
+    border: 'border-emerald-700',
+    accent: 'text-emerald-700',
+    hover: 'hover:text-emerald-700',
+  },
+}
+
 /** Hover: shop / tenant / phone; portaled + fixed above anchor so card overflow does not clip it. */
 const UtilityUpcomingShopTooltip = ({ item, children }) => {
   const shop = (item.shopNo ?? '').toString().trim() || '-'
@@ -137,7 +162,7 @@ const UtilityDashboard = () => {
     setLoadingElectricity(true)
     setErrorElectricity(null)
     try {
-      const res = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/utility/electricity')
+      const res = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/electricity')
       setElectricityData(Array.isArray(res.data) ? res.data : [])
     } catch (err) {
       setErrorElectricity('Failed to load electricity data')
@@ -150,7 +175,7 @@ const UtilityDashboard = () => {
     setLoadingPropertyTax(true)
     setErrorPropertyTax(null)
     try {
-      const res = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/utility/property')
+      const res = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/property')
       setPropertyTaxData(Array.isArray(res.data) ? res.data : [])
     } catch (err) {
       setErrorPropertyTax('Failed to load property tax data')
@@ -163,7 +188,7 @@ const UtilityDashboard = () => {
     setLoadingWaterTax(true)
     setErrorWaterTax(null)
     try {
-      const res = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/utility/water')
+      const res = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/water')
       setWaterTaxData(Array.isArray(res.data) ? res.data : [])
     } catch (err) {
       setErrorWaterTax('Failed to load water tax data')
@@ -177,8 +202,8 @@ const UtilityDashboard = () => {
     setErrorTelecom(null)
     try {
       const [directoryRes, expensesRes] = await Promise.all([
-        axios.get('https://backendaab.in/aabuildersDash/api/utility-telecom/getAll'),
-        axios.get('https://backendaab.in/aabuilderDash/expenses_form/utility/telecom').catch((err) => {
+        axios.get('https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll'),
+        axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/utility/telecom').catch((err) => {
           console.error('Error fetching telecom expense payments:', err)
           return { data: [] }
         }),
@@ -204,7 +229,7 @@ const UtilityDashboard = () => {
   useEffect(() => {
     const fetchFrequencyHistory = async () => {
       try {
-        const response = await axios.get('https://backendaab.in/aabuilderDash/api/frequency-history/getAll')
+        const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/frequency-history/getAll')
         setFrequencyHistory(response.data || [])
       } catch (error) {
         console.error('Error fetching frequency history:', error)
@@ -216,7 +241,7 @@ const UtilityDashboard = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await axios.get('https://backendaab.in/aabuilderDash/api/projects/getAll')
+        const response = await axios.get('https://backendaab.in/demoAabuilderDash/api/projects/getAll')
         setAllProjectRecords(Array.isArray(response.data) ? response.data : [])
         const projectsWithUtilities = response.data.filter(project =>
           Array.isArray(project.propertyDetails) &&
@@ -251,7 +276,7 @@ const UtilityDashboard = () => {
   useEffect(() => {
     const loadTenantShopLinks = async () => {
       try {
-        const res = await axios.get('https://backendaab.in/aabuildersDash/api/tenant_link_shop/getAll')
+        const res = await axios.get('https://backendaab.in/demoAabuildersDash/api/tenant_link_shop/getAll')
         setTenantShopData(Array.isArray(res.data) ? res.data : [])
       } catch (e) {
         console.error('UtilityDashboard: failed to load tenant–shop links', e)
@@ -283,6 +308,11 @@ const UtilityDashboard = () => {
     const two = toDateOnly(to).getTime()
     return Math.round((two - one) / (1000 * 60 * 60 * 24))
   }
+  /** Calendar-day compare: due today counts as upcoming (0 days), due yesterday as expired (1 day). */
+  const isSameDayOrAfter = (date, reference = new Date()) =>
+    toDateOnly(date).getTime() >= toDateOnly(reference).getTime()
+  const isBeforeDay = (date, reference = new Date()) =>
+    toDateOnly(date).getTime() < toDateOnly(reference).getTime()
 
   const addDays = (date, days) => {
     const d = new Date(date.getTime())
@@ -465,7 +495,7 @@ const UtilityDashboard = () => {
         return { ...meta, daysLeft }
       })
       .filter(item => {
-        if (telecomView === 'upcoming') return item.daysLeft >= 0 && item.daysLeft <= 15
+        if (telecomView === 'upcoming') return item.daysLeft >= 0 && item.daysLeft <= UPCOMING_PAYMENT_DAYS_WINDOW
         return item.daysLeft < 0 && item.daysLeft >= -30
       })
       .sort((a, b) => a.expiry - b.expiry)
@@ -569,11 +599,11 @@ const UtilityDashboard = () => {
     const fallbackNextDue = () => {
       let nextDue = addMonthsClamped(lastPaymentDate, 1)
       let safetyCounter = 0
-      while (nextDue <= currentDate && safetyCounter < 24) {
+      while (isBeforeDay(nextDue, currentDate) && safetyCounter < 24) {
         nextDue = addMonthsClamped(nextDue, 1)
         safetyCounter += 1
       }
-      return nextDue > currentDate ? nextDue : null
+      return isSameDayOrAfter(nextDue, currentDate) ? nextDue : null
     }
 
     if (!freqDetails || !freqDetails.frequency) {
@@ -592,7 +622,7 @@ const UtilityDashboard = () => {
         nextDueMonth = ((nextDueMonth - 1) % 12) + 1
       }
       const nextDueDate = new Date(nextDueYear, nextDueMonth - 1, lastPaymentDate.getDate())
-      if (nextDueDate > currentDate) {
+      if (isSameDayOrAfter(nextDueDate, currentDate)) {
         return nextDueDate
       }
       safetyCounter += 1
@@ -624,7 +654,7 @@ const UtilityDashboard = () => {
     let mostRecentDue = null
     let safetyCounter = 0
 
-    while (due <= currentDate && safetyCounter < 60) {
+    while (isBeforeDay(due, currentDate) && safetyCounter < 60) {
       mostRecentDue = due
       due = addMonthsClamped(due, stepMonths)
       safetyCounter += 1
@@ -648,12 +678,12 @@ const UtilityDashboard = () => {
       ? calculateMostRecentDueDate(waterTaxData, waterTaxNo, propertyId, frequencyConfigs.water)
       : calculateNextDueDate(waterTaxData, waterTaxNo, propertyId, frequencyConfigs.water)
 
-  const buildUpcomingItems = ({ payments, identifierKey, projectsList, calculateDue, view, upcomingLimitDays = 15, expiredLimitDays = 30 }) => {
+  const buildUpcomingItems = ({ payments, identifierKey, projectsList, calculateDue, view, upcomingLimitDays = UPCOMING_PAYMENT_DAYS_WINDOW, expiredLimitDays = 30 }) => {
     if (!Array.isArray(payments) || payments.length === 0 || !projectsList.length) return []
 
     const items = []
     const processed = new Set()
-    const today = new Date()
+    const today = toDateOnly(new Date())
 
     projectsList.forEach(project => {
       const propertyDetails = Array.isArray(project.propertyDetails) ? project.propertyDetails : []
@@ -714,7 +744,7 @@ const UtilityDashboard = () => {
       projectsList: projects,
       calculateDue: calculateElectricityDueDate,
       view: electricityView,
-      upcomingLimitDays: 30,
+      upcomingLimitDays: UPCOMING_PAYMENT_DAYS_WINDOW,
       expiredLimitDays: 30,
     })
   }, [electricityData, frequencyHistory, projects, electricityView, tenantMetaByPropertyId])
@@ -726,7 +756,7 @@ const UtilityDashboard = () => {
       projectsList: projects,
       calculateDue: calculatePropertyDueDate,
       view: propertyView,
-      upcomingLimitDays: 15,
+      upcomingLimitDays: UPCOMING_PAYMENT_DAYS_WINDOW,
       expiredLimitDays: 30,
     })
   }, [propertyTaxData, frequencyHistory, projects, propertyView, tenantMetaByPropertyId])
@@ -738,7 +768,7 @@ const UtilityDashboard = () => {
       projectsList: projects,
       calculateDue: calculateWaterDueDate,
       view: waterView,
-      upcomingLimitDays: 15,
+      upcomingLimitDays: UPCOMING_PAYMENT_DAYS_WINDOW,
       expiredLimitDays: 30,
     })
   }, [waterTaxData, frequencyHistory, projects, waterView, tenantMetaByPropertyId])
@@ -887,12 +917,12 @@ const UtilityDashboard = () => {
           <div>
             <div className="py-2">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-pink-300 text-base">Property</h3>
+                <h3 className={`font-semibold text-base ${UTILITY_SECTION_COLORS.property.title}`}>Property</h3>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setPropertyView('expired')}
-                    className="w-7 h-7 flex items-center justify-center border border-pink-300 rounded text-xs font-semibold text-pink-300 disabled:opacity-40"
+                    className={`w-7 h-7 flex items-center justify-center border rounded text-xs font-semibold disabled:opacity-40 ${UTILITY_SECTION_COLORS.property.border} ${UTILITY_SECTION_COLORS.property.accent}`}
                     disabled={propertyView === 'expired'}
                     title="Expired (last 30 days)"
                   >
@@ -901,7 +931,7 @@ const UtilityDashboard = () => {
                   <button
                     type="button"
                     onClick={() => setPropertyView('upcoming')}
-                    className="w-7 h-7 flex items-center justify-center border border-pink-300 rounded text-xs font-semibold text-pink-300 disabled:opacity-40"
+                    className={`w-7 h-7 flex items-center justify-center border rounded text-xs font-semibold disabled:opacity-40 ${UTILITY_SECTION_COLORS.property.border} ${UTILITY_SECTION_COLORS.property.accent}`}
                     disabled={propertyView === 'upcoming'}
                     title="Upcoming"
                   >
@@ -910,7 +940,7 @@ const UtilityDashboard = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow-lg border border-pink-300">
+            <div className={`bg-white rounded-lg shadow-lg border ${UTILITY_SECTION_COLORS.property.border}`}>
               <div
                 className="p-4 space-y-3 max-h-[390px] overflow-y-auto [&::-webkit-scrollbar]:hidden"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -927,7 +957,7 @@ const UtilityDashboard = () => {
                       <div className="text-left">
                         <UtilityUpcomingShopTooltip item={item}>
                           <div
-                            className="text-sm font-semibold text-black cursor-pointer hover:text-pink-300 hover:underline"
+                            className={`text-sm font-semibold text-black cursor-pointer hover:underline ${UTILITY_SECTION_COLORS.property.hover}`}
                             onClick={() => {
                               handleNavigateToExpense({
                                 utilityType: 'Property Tax',
@@ -942,11 +972,11 @@ const UtilityDashboard = () => {
                             {item.identifier}
                           </div>
                         </UtilityUpcomingShopTooltip>
-                        <div className="text-xs text-pink-300 font-medium">{item.siteName}</div>
+                        <div className={`text-xs font-medium ${UTILITY_SECTION_COLORS.property.accent}`}>{item.siteName}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-semibold text-black">{formatDDMMYYYY(item.nextDue)}</div>
-                        <div className={`text-xs font-medium ${propertyView === 'expired' ? 'text-red-500' : 'text-pink-300'}`}>{Math.abs(item.daysLeft)} Days</div>
+                        <div className={`text-xs font-medium ${propertyView === 'expired' ? 'text-red-600' : UTILITY_SECTION_COLORS.property.accent}`}>{Math.abs(item.daysLeft)} Days</div>
                       </div>
                     </div>
                   ))
@@ -957,12 +987,12 @@ const UtilityDashboard = () => {
           <div>
             <div className="py-2">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-blue-300 text-base">Water</h3>
+                <h3 className={`font-semibold text-base ${UTILITY_SECTION_COLORS.water.title}`}>Water</h3>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setWaterView('expired')}
-                    className="w-7 h-7 flex items-center justify-center border border-blue-300 rounded text-xs font-semibold text-blue-300 disabled:opacity-40"
+                    className={`w-7 h-7 flex items-center justify-center border rounded text-xs font-semibold disabled:opacity-40 ${UTILITY_SECTION_COLORS.water.border} ${UTILITY_SECTION_COLORS.water.accent}`}
                     disabled={waterView === 'expired'}
                     title="Expired (last 30 days)"
                   >
@@ -971,7 +1001,7 @@ const UtilityDashboard = () => {
                   <button
                     type="button"
                     onClick={() => setWaterView('upcoming')}
-                    className="w-7 h-7 flex items-center justify-center border border-blue-300 rounded text-xs font-semibold text-blue-300 disabled:opacity-40"
+                    className={`w-7 h-7 flex items-center justify-center border rounded text-xs font-semibold disabled:opacity-40 ${UTILITY_SECTION_COLORS.water.border} ${UTILITY_SECTION_COLORS.water.accent}`}
                     disabled={waterView === 'upcoming'}
                     title="Upcoming"
                   >
@@ -980,7 +1010,7 @@ const UtilityDashboard = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow-lg border border-blue-300">
+            <div className={`bg-white rounded-lg shadow-lg border ${UTILITY_SECTION_COLORS.water.border}`}>
               <div
                 className="p-4 space-y-3 max-h-[390px] overflow-y-auto [&::-webkit-scrollbar]:hidden"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -997,7 +1027,7 @@ const UtilityDashboard = () => {
                       <div className="text-left">
                         <UtilityUpcomingShopTooltip item={item}>
                           <div
-                            className="text-sm font-semibold text-black cursor-pointer hover:text-blue-300 hover:underline"
+                            className={`text-sm font-semibold text-black cursor-pointer hover:underline ${UTILITY_SECTION_COLORS.water.hover}`}
                             onClick={() => {
                               handleNavigateToExpense({
                                 utilityType: 'Water Tax',
@@ -1012,11 +1042,11 @@ const UtilityDashboard = () => {
                             {item.identifier}
                           </div>
                         </UtilityUpcomingShopTooltip>
-                        <div className="text-xs text-blue-300 font-medium">{item.siteName}</div>
+                        <div className={`text-xs font-medium ${UTILITY_SECTION_COLORS.water.accent}`}>{item.siteName}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-semibold text-black">{formatDDMMYYYY(item.nextDue)}</div>
-                        <div className={`text-xs font-medium ${waterView === 'expired' ? 'text-red-500' : 'text-blue-300'}`}>{Math.abs(item.daysLeft)} Days</div>
+                        <div className={`text-xs font-medium ${waterView === 'expired' ? 'text-red-600' : UTILITY_SECTION_COLORS.water.accent}`}>{Math.abs(item.daysLeft)} Days</div>
                       </div>
                     </div>
                   ))
@@ -1027,12 +1057,12 @@ const UtilityDashboard = () => {
           <div>
             <div className="py-2">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-green-300 text-base">Telecom</h3>
+                <h3 className={`font-bold text-base ${UTILITY_SECTION_COLORS.telecom.title}`}>Telecom</h3>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setTelecomView('expired')}
-                    className="w-7 h-7 flex items-center justify-center border border-green-300 rounded text-xs font-semibold text-green-300 disabled:opacity-40"
+                    className={`w-7 h-7 flex items-center justify-center border rounded text-xs font-semibold disabled:opacity-40 ${UTILITY_SECTION_COLORS.telecom.border} ${UTILITY_SECTION_COLORS.telecom.accent}`}
                     disabled={telecomView === 'expired'}
                     title="Expired (last 30 days)"
                   >
@@ -1041,7 +1071,7 @@ const UtilityDashboard = () => {
                   <button
                     type="button"
                     onClick={() => setTelecomView('upcoming')}
-                    className="w-7 h-7 flex items-center justify-center border border-green-300 rounded text-xs font-semibold text-green-300 disabled:opacity-40"
+                    className={`w-7 h-7 flex items-center justify-center border rounded text-xs font-semibold disabled:opacity-40 ${UTILITY_SECTION_COLORS.telecom.border} ${UTILITY_SECTION_COLORS.telecom.accent}`}
                     disabled={telecomView === 'upcoming'}
                     title="Upcoming"
                   >
@@ -1050,7 +1080,7 @@ const UtilityDashboard = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg shadow-lg border border-green-300">
+            <div className={`bg-white rounded-lg shadow-lg border ${UTILITY_SECTION_COLORS.telecom.border}`}>
               <div
                 className="p-4 space-y-3 max-h-[390px] overflow-y-auto [&::-webkit-scrollbar]:hidden"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -1066,7 +1096,7 @@ const UtilityDashboard = () => {
                     <div key={item.serviceNumber} className="flex items-start justify-between py-2 border-b last:border-b-0">
                       <div className="text-left">
                         <div
-                          className="text-sm font-semibold text-black cursor-pointer hover:text-green-400 hover:underline"
+                          className={`text-sm font-semibold text-black cursor-pointer hover:underline ${UTILITY_SECTION_COLORS.telecom.hover}`}
                           onClick={() => {
                             handleNavigateToExpense({
                               utilityType: 'Telecom',
@@ -1080,12 +1110,12 @@ const UtilityDashboard = () => {
                         >
                           {item.serviceNumber}
                         </div>
-                        <div className="text-xs text-green-300 font-medium">{item.projectName}</div>
-                        <div className="text-[11px] text-gray-500">{item.vendor} {item.purpose ? `• ${item.purpose}` : ''}</div>
+                        <div className={`text-xs font-medium ${UTILITY_SECTION_COLORS.telecom.accent}`}>{item.projectName}</div>
+                        <div className="text-[11px] text-gray-600">{item.vendor} {item.purpose ? `• ${item.purpose}` : ''}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-semibold text-black">{formatDDMMYYYY(item.expiry)}</div>
-                        <div className={`text-xs font-medium ${telecomView === 'expired' ? 'text-red-500' : 'text-green-300'}`}>{Math.abs(item.daysLeft)} Days</div>
+                        <div className={`text-xs font-medium ${telecomView === 'expired' ? 'text-red-600' : UTILITY_SECTION_COLORS.telecom.accent}`}>{Math.abs(item.daysLeft)} Days</div>
                       </div>
                     </div>
                   ))

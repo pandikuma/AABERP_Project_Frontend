@@ -1680,10 +1680,10 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         document.body.removeChild(link);
     };
     return (
-        <body className=' bg-[#FAF6ED] px-[18px]'>
+        <body className=' bg-[#FAF6ED] px-6'>
             <div>
 
-                <div className="w-full p-[18px] pb-10 bg-white shadow-lg overflow-x-auto">
+                <div className="w-full p-6 pb-10 bg-white shadow-lg overflow-x-auto">
                     <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate || selectedEno
                         ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-3 gap-2`}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
