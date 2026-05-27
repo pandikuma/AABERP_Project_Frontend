@@ -7,7 +7,7 @@ import ExpensesAddInput from './ExpensesEntry/ExpensesInputData';
 import EntryChecking from './ExpensesEntry/EntryCheck';
 import WeeklyPaymentHistory from './Cash Register/WeeklyPaymentHistory';
 import DailyHistory from './Cash Register/DailyHistory';
-
+import Log from './ExpensesEntry/DatabaseExpenseHistoryLog';
 const getInitialExpenseTab = (username) => {
     const prefillData = localStorage.getItem('expenseEntryPrefill');
     if (prefillData) {
@@ -54,10 +54,14 @@ const Heading = ({ username, userRoles = [] }) => {
                             onClick={() => setActiveTab('database')}>
                             Database
                         </h2>
+                        <h2 className={`link whitespace-nowrap ${activeTab === 'log' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('log')}>
+                            Log
+                        </h2>
                         <h2 className={`link whitespace-nowrap ${activeTab === 'addInput' ? 'active' : ''}`}
                             onClick={() => setActiveTab('addInput')}>
-                            Add Input
-                        </h2>
+                            Input Data
+                        </h2>                        
                     </>
                 )}
                 <h2 className={`link whitespace-nowrap ${activeTab === 'entryCheck' ? 'active' : ''}`}
@@ -92,6 +96,11 @@ const Heading = ({ username, userRoles = [] }) => {
                 {isAdminExpense && visitedTabs.has('addInput') && (
                     <div className={activeTab === 'addInput' ? '' : 'hidden'}>
                         <ExpensesAddInput userRoles={userRoles} />
+                    </div>
+                )}
+                {isAdminExpense && visitedTabs.has('log') && (
+                    <div className={activeTab === 'log' ? '' : 'hidden'}>
+                        <Log userRoles={userRoles} />
                     </div>
                 )}
                 {visitedTabs.has('entryCheck') && (

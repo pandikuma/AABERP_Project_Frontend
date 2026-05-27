@@ -12,6 +12,28 @@ import history from '../Images/History.svg';
 import remove from '../Images/Delete.svg';
 import Attach from '../Images/Attachfile.svg';
 import cross from '../Images/cross.png';
+import {
+  EDBC_IDS,
+  DATABASE_TABLE_FILTER_SELECT_STYLES,
+  getEdbcColumnConfig,
+  useEdbcExpandedCells,
+  EdbcTableHeaderRow,
+  EdbcTableFilterRow,
+  EdbcTableBodyRow,
+  EdbcColumnHeader,
+  EdbcTimestampFilter,
+  EdbcDateFilter,
+  EdbcProjectNameFilter,
+  EdbcSelectFilter,
+  EdbcTextInputFilter,
+  EdbcTotalAmountFilter,
+  EdbcEmptyFilterCell,
+  EdbcTimestampBodyCell,
+  EdbcDateBodyCell,
+  EdbcExpandableBodyCell,
+  EdbcFileBodyCell,
+  EDBC_TABLE_EDGE_TABLE_CLASS,
+} from '../ExpensesEntry/databaseExpensesSharedColumns';
 
 const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], refreshSignal }) => {
   const BLANK_VALUE = 'BLANK';
@@ -54,6 +76,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
   const [selectDatabaseProjectName, setSelectDatabaseProjectName] = useState('');
   const [selectDatabaseTransfer, setSelectDatabaseTransfer] = useState('');
   const [selectDatabaseType, setSelectDatabaseType] = useState('');
+  const [selectDatabaseDescription, setSelectDatabaseDescription] = useState('');
   const [selectDatabaseMode, setSelectDatabaseMode] = useState('');
   const [selectDatabaseEntryNo, setSelectDatabaseEntryNo] = useState('');
   const [selectDatabaseSourceFrom, setSelectDatabaseSourceFrom] = useState('');
@@ -65,6 +88,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
   const [file, setFile] = useState(null);
   const [advancePortalAudits, setAdvancePortalAudits] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [showTimestampDatePicker, setShowTimestampDatePicker] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [requestingEntry, setRequestingEntry] = useState(null);
@@ -153,6 +177,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           if (filters.selectDatabaseProjectName) setSelectDatabaseProjectName(filters.selectDatabaseProjectName);
           if (filters.selectDatabaseTransfer) setSelectDatabaseTransfer(filters.selectDatabaseTransfer);
           if (filters.selectDatabaseType) setSelectDatabaseType(filters.selectDatabaseType);
+          if (filters.selectDatabaseDescription) setSelectDatabaseDescription(filters.selectDatabaseDescription);
           if (filters.selectDatabaseMode) setSelectDatabaseMode(filters.selectDatabaseMode);
           if (filters.selectDatabaseEntryNo) setSelectDatabaseEntryNo(filters.selectDatabaseEntryNo);
           if (filters.selectDatabaseSourceFrom) setSelectDatabaseSourceFrom(filters.selectDatabaseSourceFrom);
@@ -194,6 +219,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       selectDatabaseProjectName,
       selectDatabaseTransfer,
       selectDatabaseType,
+      selectDatabaseDescription,
       selectDatabaseMode,
       selectDatabaseEntryNo,
       selectDatabaseSourceFrom,
@@ -204,7 +230,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       showFilters
     };
     sessionStorage.setItem('advanceDatabaseFilters', JSON.stringify(filters));
-  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate, showFilters]);
+  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseDescription, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate, showFilters]);
   const scrollRef = useRef(null);
   const filterRowRef = useRef(null);
   const isDragging = useRef(false);
@@ -799,6 +825,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
         if (entry.type?.toLowerCase() !== selectDatabaseType.toLowerCase()) return false;
       }
     }
+    if (selectDatabaseDescription.trim()) {
+      if (!String(entry.description ?? '').toLowerCase().includes(selectDatabaseDescription.toLowerCase().trim())) return false;
+    }
     if (selectDatabaseMode) {
       if (selectDatabaseMode === BLANK_VALUE) {
         if (!isBlankish(entry.payment_mode)) return false;
@@ -1047,9 +1076,52 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentData = sortedData.slice(startIndex, endIndex);
+  const { expandedCells, toggleExpandedCell } = useEdbcExpandedCells();
+  const edbc8Config = getEdbcColumnConfig(EDBC_IDS.EDBC8);
+  const edbc3Config = getEdbcColumnConfig(EDBC_IDS.EDBC3);
+  const edbc19TdClass = getEdbcColumnConfig(EDBC_IDS.EDBC19)?.tdClass || '';
+  const mapAdvanceSortKeyToEdbc = (key) => {
+    if (key === 'project' || key === 'transfer') return 'siteName';
+    if (key === 'entry_no') return 'eno';
+    if (key === 'mode') return 'paymentMode';
+    if (key === 'type') return 'accountType';
+    return key;
+  };
+  const handleEdbcSort = (edbcField) => {
+    const fieldToKey = {
+      siteName: 'project',
+      eno: 'entry_no',
+      paymentMode: 'mode',
+      accountType: 'type',
+    };
+    handleSort(fieldToKey[edbcField] || edbcField);
+  };
+  const resolveEdbcSortField = (advanceSortKey) =>
+    sortConfig.key === advanceSortKey ? mapAdvanceSortKeyToEdbc(advanceSortKey) : '';
+  const formatAdvanceAmount = (value) =>
+    value != null && value !== ''
+      ? `₹${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : '';
+  const advCol1Label = 'Time Stamp';
+  const advCol2Label = 'Date';
+  const advCol3Label = 'Contractor/Vendor';
+  const advCol4Label = 'Project Name';
+  const advCol5Label = 'Transfer Project';
+  const advCol6Label = 'Advance';
+  const advCol7Label = 'Bill Payment';
+  const advCol8Label = 'Refund';
+  const advCol9Label = 'Type';
+  const advCol10Label = 'Description';
+  const advCol11Label = 'Mode';
+  const advCol12Label = 'Source From';
+  const advCol13Label = 'Branch';
+  const advCol14Label = 'Entered By';
+  const advCol15Label = 'Entry No';
+  const advCol16Label = 'File';
+  const advCol17Label = 'Activity';
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate]);
+  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseDescription, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate]);
   const clearFilters = useCallback(() => {
     setSelectTimeStampDate('');
     setSelectDatabaseDate('');
@@ -1057,6 +1129,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
     setSelectDatabaseProjectName('');
     setSelectDatabaseTransfer('');
     setSelectDatabaseType('');
+    setSelectDatabaseDescription('');
     setSelectDatabaseMode('');
     setSelectDatabaseEntryNo('');
     setSelectDatabaseSourceFrom('');
@@ -1546,7 +1619,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       <div className="w-full px-4 sm:px-6 lg:px-10">
         <div className="w-full max-w-[1860px] mx-auto p-4 mt-4 bg-white shadow-lg overflow-x-auto">
         <div
-          className={`text-left flex ${selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate
+          className={`text-left flex ${selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseDescription.trim() || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate
             ? 'flex-col sm:flex-row sm:justify-between'
             : 'flex-row justify-between items-center'
             } mb-3 gap-2`}>
@@ -1572,81 +1645,88 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                 className="w-7 h-7 border border-[#BF9853] rounded-md"
               />
             </button>
-            {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate) && (
+            {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseDescription.trim() || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate) && (
               <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
                 {startDate && (
-                  <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-normal">Start Date: </span>
+                  <span className="inline-flex items-center gap-1 border  border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Start Date: </span>
                     <span className="font-bold">{startDate}</span>
                     <button onClick={() => setStartDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {endDate && (
-                  <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-normal">End Date: </span>
+                  <span className="inline-flex items-center gap-1 border  border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">End Date: </span>
                     <span className="font-bold">{endDate}</span>
                     <button onClick={() => setEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {selectTimeStampDate && (
-                  <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-normal">Timestamp: </span>
+                  <span className="inline-flex items-center gap-1 border border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Timestamp: </span>
                     <span className="font-bold">{selectTimeStampDate}</span>
                     <button onClick={() => setSelectTimeStampDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {selectDatabaseDate && (
-                  <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-normal">Date: </span>
+                  <span className="inline-flex items-center gap-1 border border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Date: </span>
                     <span className="font-bold">{selectDatabaseDate}</span>
                     <button onClick={() => setSelectDatabaseDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {selectDatabaseContractororVendorName && (
-                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal">Contractor/Vendor Name: </span>
+                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Contractor/Vendor Name: </span>
                     <span className="font-bold">{selectDatabaseContractororVendorName}</span>
                     <button onClick={() => setSelectDatabaseContractororVendorName('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseProjectName && (
-                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal">Project Name:</span>
+                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Project Name:</span>
                     <span className="font-bold">{selectDatabaseProjectName}</span>
                     <button onClick={() => setSelectDatabaseProjectName('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseTransfer && (
-                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal">Transfer site: </span>
-                    <span className="font-bold">{selectDatabaseTransfer}</span>
+                  <span className="inline-flex items-center gap-1 border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">{advCol5Label} : </span>
+                    <span className="font-bold ">{selectDatabaseTransfer}</span>
                     <button onClick={() => setSelectDatabaseTransfer('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseType && (
-                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal">Type: </span>
+                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Type: </span>
                     <span className="font-bold">{selectDatabaseType}</span>
                     <button onClick={() => setSelectDatabaseType('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
                 )}
+                {selectDatabaseDescription.trim() && (
+                    <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                      <span className="font-normal text-[#BF9853]">Description: </span>
+                    <span className="font-bold">{selectDatabaseDescription}</span>
+                    <button onClick={() => setSelectDatabaseDescription('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  </span>
+                )}
                 {selectDatabaseMode && (
-                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal">Mode: </span>
+                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Mode: </span>
                     <span className="font-bold">{selectDatabaseMode}</span>
                     <button onClick={() => setSelectDatabaseMode('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseEntryNo && (
-                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal">Entry No: </span>
+                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Entry No: </span>
                     <span className="font-bold">{selectDatabaseEntryNo}</span>
                     <button onClick={() => setSelectDatabaseEntryNo('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseSourceFrom && (
-                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal">Source From: </span>
+                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Source From: </span>
                     <span className="font-bold">{selectDatabaseSourceFrom}</span>
                     <button onClick={() => setSelectDatabaseSourceFrom('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
@@ -1659,8 +1739,8 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                   </span>
                 )}
                 {selectDatabaseEnteredBy && (
-                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal">Entered By: </span>
+                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-normal text-[#BF9853]">Entered By: </span>
                     <span className="font-bold">{selectDatabaseEnteredBy}</span>
                     <button onClick={() => setSelectDatabaseEnteredBy('')} className="text-[#BF9853] text-2xl ml-1">×</button>
                   </span>
@@ -1689,299 +1769,359 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
-            <table className="table-fixed min-w-[1180px] w-full border-collapse">
+            <table className={`table-fixed min-w-[1180px] w-full border-collapse ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_#EDBC-12]:!pl-[9px] [&_#EDBC-9]:!pl-[9px]`}>
               <thead className="sticky top-0 z-10 bg-white ">
-                <tr className="bg-[#FAF6ED]">
-                  <th className="px-3 w-44 font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('timestamp')}
-                  >
-                    Time Stamp {sortConfig.key === 'timestamp' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="pt-2 w-36 font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('date')}
-                  >
-                    Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-0.5 w-[220px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('vendor')}
-                  >
-                    Contractor/Vendor {sortConfig.key === 'vendor' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-0.5 w-[300px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('project')}
-                  >
-                    Project Name {sortConfig.key === 'project' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-0.5 w-[280px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
+                <EdbcTableHeaderRow>
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC1}
+                    label={advCol1Label}
+                    sortField={resolveEdbcSortField('timestamp')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC2}
+                    label={advCol2Label}
+                    sortField={resolveEdbcSortField('date')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC4}
+                    label={advCol3Label}
+                    sortField={resolveEdbcSortField('vendor')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC3}
+                    label={advCol4Label}
+                    sortField={resolveEdbcSortField('project')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <th
+                    className={edbc3Config?.headerClass}
                     onClick={() => handleSort('transfer')}
                   >
-                    Transfer Site {sortConfig.key === 'transfer' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    {advCol5Label} {sortConfig.key === 'transfer' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
                   </th>
-                  <th className="w-[140px] pl-4 pr-2 font-bold text-right select-none whitespace-nowrap">Advance</th>
-                  <th className="w-[140px] pl-2 pr-1.5 font-bold text-right select-none whitespace-nowrap ">Bill Payment</th>
-                  <th className="w-[140px] pl-2 pr-3 font-bold text-right select-none whitespace-nowrap ">Refund</th>
-                  <th className="px-0.5 pl-3 w-[120px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('type')}
-                  >
-                    Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-0.5 w-[120px] font-bold text-left select-none whitespace-nowrap">Description</th>
-                  <th className="px-0.5 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('mode')}
-                  >
-                    Mode {sortConfig.key === 'mode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('source')}
-                  >
-                    Source From {sortConfig.key === 'source' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('branch')}
-                  >
-                    Branch {sortConfig.key === 'branch' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-0.5 w-[150px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('enteredBy')}
-                  >
-                    Entered By {sortConfig.key === 'enteredBy' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-0.5 w-[140px] font-bold text-left cursor-pointer hover:bg-gray-200 select-none whitespace-nowrap"
-                    onClick={() => handleSort('entry_no')}
-                  >
-                    E.No {sortConfig.key === 'entry_no' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-0.5 w-[80px] font-bold text-left select-none whitespace-nowrap">File</th>
-                  <th className="px-0.5 w-[120px] font-bold text-left select-none whitespace-nowrap">Activity</th>
-                </tr>
+                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={advCol6Label} />
+                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={advCol7Label} />
+                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={advCol8Label} />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC12}
+                    label={advCol9Label}
+                    sortField={resolveEdbcSortField('type')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC9} label={advCol10Label} />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC13}
+                    label={advCol11Label}
+                    sortField={resolveEdbcSortField('mode')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC14}
+                    label={advCol12Label}
+                    sortField={resolveEdbcSortField('source')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC15}
+                    label={advCol13Label}
+                    sortField={resolveEdbcSortField('branch')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC16}
+                    label={advCol14Label}
+                    sortField={resolveEdbcSortField('enteredBy')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC17}
+                    label={advCol15Label}
+                    sortField={resolveEdbcSortField('entry_no')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label={advCol16Label} />
+                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC19} label={advCol17Label} />
+                </EdbcTableHeaderRow>
                 {showFilters && (
-                  <tr ref={filterRowRef} className="bg-[#FAF6ED]">
-                    <th className="py-3 w-44 min-w-0">
-                      <input
-                        type="date"
-                        value={selectTimeStampDate}
-                        onChange={(e) => setSelectTimeStampDate(e.target.value)}
-                        className="w-full min-w-0 max-w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-1.5 text-xs"
-                      />
-                    </th>
-                    <th className="py-3 w-36 min-w-0">
-                      <input
-                        type="date"
-                        value={selectDatabaseDate}
-                        onChange={(e) => setSelectDatabaseDate(e.target.value)}
-                        className="w-full min-w-0 max-w-full h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-1.5 text-xs"
-                      />
-                    </th>
-                    <th className="py-3">
-                      <Select
-                        className="w-full"
-                        options={filterOptionsFromData.vendorContractorOptions}
-                        value={selectDatabaseContractororVendorName ? { value: selectDatabaseContractororVendorName, label: selectDatabaseContractororVendorName } : null}
-                        onChange={(opt) => setSelectDatabaseContractororVendorName(opt ? opt.value : '')}
-                        placeholder="Contractor/Vendor"
-                        isSearchable
-                        isClearable
-                        menuPlacement="bottom"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        styles={customStyles}
-                      />
-                    </th>
-                    <th className="py-3">
-                      <Select
-                        className="w-full"
-                        options={filterOptionsFromData.projectOptions}
-                        value={selectDatabaseProjectName ? { value: selectDatabaseProjectName, label: selectDatabaseProjectName } : null}
-                        onChange={(opt) => setSelectDatabaseProjectName(opt ? opt.value : '')}
-                        placeholder="Project Name"
-                        isSearchable
-                        isClearable
-                        menuPlacement="bottom"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        styles={customStyles}
-                      />
-                    </th>
-                    <th className="py-3">
-                      <Select
-                        className="w-full"
-                        options={filterOptionsFromData.transferSiteOptions}
-                        value={selectDatabaseTransfer ? { value: selectDatabaseTransfer, label: selectDatabaseTransfer } : null}
-                        onChange={(opt) => setSelectDatabaseTransfer(opt ? opt.value : '')}
-                        placeholder="Transfer Site"
-                        isSearchable
-                        isClearable
-                        menuPlacement="bottom"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        styles={customStyles}
-                      />
-                    </th>
-                    <th className="text-base text-right font-bold py-3 pl-4 pr-2">
-                      ₹{Number(totals.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </th>
-                    <th className="text-base text-right font-bold py-3 pl-2 pr-1.5 ">
-                      ₹{Number(totals.bill_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </th>
-                    <th className="text-base text-right font-bold py-3 pl-2 pr-3 ">
-                      ₹{Number(totals.refund_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </th>
-                    <th className="py-3 pl-3">
-                      <Select
-                        className="w-full"
-                        options={filterOptionsFromData.typeOptions.map((t) =>
-                          t === BLANK_VALUE ? blankOption : { value: t, label: t }
-                        )}
-                        value={selectDatabaseType ? { value: selectDatabaseType, label: selectDatabaseType } : null}
-                        onChange={(opt) => setSelectDatabaseType(opt ? opt.value : '')}
-                        placeholder="Type"
-                        isClearable
-                        menuPlacement="bottom"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        styles={customStyles}
-                      />
-                    </th>
-                    <th className="py-3" />
-                    <th className="py-3">
-                      <Select
-                        className="w-full"
-                        options={filterOptionsFromData.modeOptions.map((m) =>
-                          m === BLANK_VALUE ? blankOption : { value: m, label: m }
-                        )}
-                        value={selectDatabaseMode ? { value: selectDatabaseMode, label: selectDatabaseMode } : null}
-                        onChange={(opt) => setSelectDatabaseMode(opt ? opt.value : '')}
-                        placeholder="Mode"
-                        isClearable
-                        menuPlacement="bottom"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        styles={customStyles}
-                      />
-                    </th>
-                    <th className="py-3">
-                      <Select
-                        className="w-full"
-                        options={filterOptionsFromData.sourceFromOptions.map((v) =>
-                          v === BLANK_VALUE ? blankOption : { value: v, label: v }
-                        )}
-                        value={selectDatabaseSourceFrom ? { value: selectDatabaseSourceFrom, label: selectDatabaseSourceFrom } : null}
-                        onChange={(opt) => setSelectDatabaseSourceFrom(opt ? opt.value : '')}
-                        placeholder="Source From"
-                        isClearable
-                        menuPlacement="bottom"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        styles={customStyles}
-                      />
-                    </th>
-                    <th className="py-3">
-                      <Select
-                        className="w-full"
-                        options={filterOptionsFromData.branchOptions}
-                        value={selectDatabaseBranch ? filterOptionsFromData.branchOptions.find((opt) => String(opt.value) === String(selectDatabaseBranch)) || { value: selectDatabaseBranch, label: getBranchName(selectDatabaseBranch) || selectDatabaseBranch } : null}
-                        onChange={(opt) => setSelectDatabaseBranch(opt ? String(opt.value) : '')}
-                        placeholder="Branch"
-                        isClearable
-                        menuPlacement="bottom"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        styles={customStyles}
-                      />
-                    </th>
-                    <th className="py-3">
-                      <Select
-                        className="w-full"
-                        options={filterOptionsFromData.enteredByOptions.map((v) =>
-                          v === BLANK_VALUE ? blankOption : { value: v, label: v }
-                        )}
-                        value={selectDatabaseEnteredBy ? { value: selectDatabaseEnteredBy, label: selectDatabaseEnteredBy } : null}
-                        onChange={(opt) => setSelectDatabaseEnteredBy(opt ? opt.value : '')}
-                        placeholder="Entered By"
-                        isClearable
-                        menuPlacement="bottom"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        styles={customStyles}
-                      />
-                    </th>
-                    <th className="py-3">
-                      <Select
-                        className="w-full"
-                        options={filterOptionsFromData.entryNoOptions.map((eno) =>
-                          String(eno) === BLANK_VALUE ? blankOption : { value: String(eno), label: String(eno) }
-                        )}
-                        value={selectDatabaseEntryNo ? { value: String(selectDatabaseEntryNo), label: String(selectDatabaseEntryNo) } : null}
-                        onChange={(opt) => setSelectDatabaseEntryNo(opt ? opt.value : '')}
-                        placeholder="E.No"
-                        isClearable
-                        menuPlacement="bottom"
-                        menuPortalTarget={document.body}
-                        menuPosition="fixed"
-                        styles={customStyles}
-                      />
-                    </th>
-                    <th className="py-3" />
-                    <th className="py-3" />
-                  </tr>
+                  <EdbcTableFilterRow ref={filterRowRef}>
+                    <EdbcTimestampFilter
+                      placeholder={advCol1Label}
+                      timestampStartDate={selectTimeStampDate}
+                      timestampEndDate={selectTimeStampDate}
+                      isOpen={showTimestampDatePicker}
+                      onOpen={() => setShowTimestampDatePicker(true)}
+                      onClose={() => setShowTimestampDatePicker(false)}
+                      onApply={(from) => {
+                        setSelectTimeStampDate(from || '');
+                        setShowTimestampDatePicker(false);
+                      }}
+                    />
+                    <EdbcDateFilter
+                      placeholder={advCol2Label}
+                      value={selectDatabaseDate}
+                      onChange={setSelectDatabaseDate}
+                    />
+                    <EdbcSelectFilter
+                      columnId={EDBC_IDS.EDBC4}
+                      placeholder={advCol3Label}
+                      options={filterOptionsFromData.vendorContractorOptions}
+                      value={selectDatabaseContractororVendorName}
+                      onChange={setSelectDatabaseContractororVendorName}
+                      blankOption={blankOption}
+                      blankValue={BLANK_VALUE}
+                      selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES}
+                    />
+                    <EdbcProjectNameFilter
+                      placeholder={advCol4Label}
+                      options={filterOptionsFromData.projectOptions}
+                      value={selectDatabaseProjectName}
+                      onChange={setSelectDatabaseProjectName}
+                      blankOption={blankOption}
+                      blankValue={BLANK_VALUE}
+                      selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES}
+                    />
+                    <EdbcProjectNameFilter
+                      placeholder={advCol5Label}
+                      options={filterOptionsFromData.transferSiteOptions}
+                      value={selectDatabaseTransfer}
+                      onChange={setSelectDatabaseTransfer}
+                      blankOption={blankOption}
+                      blankValue={BLANK_VALUE}
+                      selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES}
+                    />
+                    <EdbcTotalAmountFilter columnId={EDBC_IDS.EDBC8} totalAmount={totals.amount} />
+                    <EdbcTotalAmountFilter columnId={EDBC_IDS.EDBC8} totalAmount={totals.bill_amount} />
+                    <EdbcTotalAmountFilter columnId={EDBC_IDS.EDBC8} totalAmount={totals.refund_amount} />
+                    <EdbcSelectFilter
+                      columnId={EDBC_IDS.EDBC12}
+                      placeholder={advCol9Label}
+                      options={filterOptionsFromData.typeOptions.map((t) =>
+                        t === BLANK_VALUE ? blankOption : { value: t, label: t }
+                      )}
+                      value={selectDatabaseType}
+                      onChange={setSelectDatabaseType}
+                      blankOption={blankOption}
+                      blankValue={BLANK_VALUE}
+                      selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES}
+                    />
+                    <EdbcTextInputFilter
+                      columnId={EDBC_IDS.EDBC9}
+                      placeholder={advCol10Label}
+                      value={selectDatabaseDescription}
+                      onChange={(e) => setSelectDatabaseDescription(e.target.value)}
+                    />
+                    <EdbcSelectFilter
+                      columnId={EDBC_IDS.EDBC13}
+                      placeholder={advCol11Label}
+                      options={filterOptionsFromData.modeOptions.map((m) =>
+                        m === BLANK_VALUE ? blankOption : { value: m, label: m }
+                      )}
+                      value={selectDatabaseMode}
+                      onChange={setSelectDatabaseMode}
+                      blankOption={blankOption}
+                      blankValue={BLANK_VALUE}
+                      selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES}
+                    />
+                    <EdbcSelectFilter
+                      columnId={EDBC_IDS.EDBC14}
+                      placeholder={advCol12Label}
+                      options={filterOptionsFromData.sourceFromOptions.map((v) =>
+                        v === BLANK_VALUE ? blankOption : { value: v, label: v }
+                      )}
+                      value={selectDatabaseSourceFrom}
+                      onChange={setSelectDatabaseSourceFrom}
+                      blankOption={blankOption}
+                      blankValue={BLANK_VALUE}
+                      selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES}
+                    />
+                    <EdbcSelectFilter
+                      columnId={EDBC_IDS.EDBC15}
+                      placeholder={advCol13Label}
+                      options={filterOptionsFromData.branchOptions}
+                      selectValue={selectDatabaseBranch ? filterOptionsFromData.branchOptions.find((opt) => String(opt.value) === String(selectDatabaseBranch)) || { value: selectDatabaseBranch, label: getBranchName(selectDatabaseBranch) || selectDatabaseBranch } : null}
+                      onChange={(value) => setSelectDatabaseBranch(value ? String(value) : '')}
+                      blankOption={blankOption}
+                      blankValue={BLANK_VALUE}
+                      selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES}
+                    />
+                    <EdbcSelectFilter
+                      columnId={EDBC_IDS.EDBC16}
+                      placeholder={advCol14Label}
+                      options={filterOptionsFromData.enteredByOptions.map((v) =>
+                        v === BLANK_VALUE ? blankOption : { value: v, label: v }
+                      )}
+                      value={selectDatabaseEnteredBy}
+                      onChange={setSelectDatabaseEnteredBy}
+                      blankOption={blankOption}
+                      blankValue={BLANK_VALUE}
+                      selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES}
+                    />
+                    <EdbcSelectFilter
+                      columnId={EDBC_IDS.EDBC17}
+                      placeholder={advCol15Label}
+                      options={filterOptionsFromData.entryNoOptions.map((eno) =>
+                        String(eno) === BLANK_VALUE ? blankOption : { value: String(eno), label: String(eno) }
+                      )}
+                      value={selectDatabaseEntryNo}
+                      onChange={setSelectDatabaseEntryNo}
+                      blankOption={blankOption}
+                      blankValue={BLANK_VALUE}
+                      selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES}
+                      textAlign="right"
+                    />
+                    <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
+                    <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC19} />
+                  </EdbcTableFilterRow>
                 )}
               </thead>
               <tbody>
                 {currentData.length > 0 ? (
-                  currentData.map((entry) => (
-                    <tr key={entry.id} className="odd:bg-white even:bg-[#FAF6ED]">
-                      <td className="px-3 text-sm text-left whitespace-nowrap">{formatDate(entry.timestamp)}</td>
-                      <td className="px-3 text-sm text-left whitespace-nowrap">{formatDateOnly(entry.date)}</td>
-                      <td className="text-sm text-left">
-                        {entry.vendor_id
-                          ? getVendorName(entry.vendor_id)
-                          : getContractorName(entry.contractor_id)}
+                  currentData.map((entry, index) => (
+                    <EdbcTableBodyRow key={entry.id}>
+                      <EdbcTimestampBodyCell
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        formatValue={formatDate}
+                      />
+                      <EdbcDateBodyCell
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        formatValue={formatDateOnly}
+                      />
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC4}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        getDisplayValue={(row) =>
+                          row.vendor_id
+                            ? getVendorName(row.vendor_id)
+                            : getContractorName(row.contractor_id)
+                        }
+                      />
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC3}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        getDisplayValue={(row) => getSiteName(row.project_id)}
+                      />
+                      <td className={edbc3Config?.tdClass}>
+                        <span
+                          onClick={() => toggleExpandedCell(`${entry.id ?? index}-transfer`)}
+                          className={`block w-full cursor-pointer ${expandedCells[`${entry.id ?? index}-transfer`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                          title={getSiteName(entry.transfer_site_id)}
+                        >
+                          {getSiteName(entry.transfer_site_id)}
+                        </span>
                       </td>
-                      <td className="text-sm text-left px-0.5 min-w-0 max-w-[300px] break-words whitespace-normal">
-                        {getSiteName(entry.project_id)}
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC8}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        textAlignClass="text-right"
+                        getDisplayValue={(row) => formatAdvanceAmount(row.amount)}
+                      />
+                      <td className={`${edbc8Config?.tdClass || ''} text-right`.trim()}>
+                        <span
+                          onClick={() => toggleExpandedCell(`${entry.id ?? index}-bill_amount`)}
+                          className={`block w-full cursor-pointer text-right ${expandedCells[`${entry.id ?? index}-bill_amount`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                          title={formatAdvanceAmount(entry.bill_amount)}
+                        >
+                          {formatAdvanceAmount(entry.bill_amount)}
+                        </span>
                       </td>
-                      <td className="text-sm text-left px-0.5 min-w-0 max-w-[280px] break-words whitespace-normal">
-                        {getSiteName(entry.transfer_site_id)}
+                      <td className={`${edbc8Config?.tdClass || ''} text-right`.trim()}>
+                        <span
+                          onClick={() => toggleExpandedCell(`${entry.id ?? index}-refund_amount`)}
+                          className={`block w-full cursor-pointer text-right ${expandedCells[`${entry.id ?? index}-refund_amount`] ? 'whitespace-normal break-words' : 'truncate whitespace-nowrap overflow-hidden'}`}
+                          title={formatAdvanceAmount(entry.refund_amount)}
+                        >
+                          {formatAdvanceAmount(entry.refund_amount)}
+                        </span>
                       </td>
-                      <td className="text-sm text-right pl-4 pr-2 tabular-nums">
-                        {entry.amount != null && entry.amount !== ''
-                          ? `₹${Number(entry.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                          : ''}
-                      </td>
-                      <td className="text-sm text-right pl-2 pr-1.5 tabular-nums">
-                        {entry.bill_amount != null && entry.bill_amount !== ''
-                          ? `₹${Number(entry.bill_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                          : ''}
-                      </td>
-                      <td className="text-sm text-right pl-2 pr-3 tabular-nums">
-                        {entry.refund_amount != null && entry.refund_amount !== ''
-                          ? `₹${Number(entry.refund_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                          : ''}
-                      </td>
-                      <td className="text-sm text-left pl-3">{entry.type}</td>
-                      <td className="text-sm text-left w-[120px] max-w-[120px] break-words overflow-hidden whitespace-normal px-1">{entry.description}</td>
-                      <td className="text-sm text-left min-w-0 max-w-[140px] break-words whitespace-normal px-0.5">{entry.payment_mode}</td>
-                      <td className="text-sm text-left">{entry.source_from ?? entry.sourceFrom ?? entry.source ?? ''}</td>
-                      <td className="text-sm text-left">{getBranchName(entry.branch_id ?? entry.branchId ?? '') || (entry.branch ?? entry.branch_name ?? entry.branchName ?? '')}</td>
-                      <td className="text-sm text-left">{entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by ?? ''}</td>
-                      <td className="text-sm text-left pl-3">{entry.entry_no}</td>
-                      <td className="px-1 text-sm">
-                        {entry.file_url ? (
-                          <a
-                            href={entry.file_url}
-                            className="text-red-500 underline"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View
-                          </a>
-                        ) : (
-                          <span></span>
-                        )}
-                      </td>
-                      <td className="flex w-[100px] justify-between py-1.5">
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC12}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        getDisplayValue={(row) => row.type}
+                      />
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC9}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        getDisplayValue={(row) => row.description || ''}
+                      />
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC13}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        getDisplayValue={(row) => row.payment_mode}
+                      />
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC14}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        getDisplayValue={(row) => row.source_from ?? row.sourceFrom ?? row.source ?? ''}
+                      />
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC15}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        getDisplayValue={(row) => getBranchName(row.branch_id ?? row.branchId ?? '') || (row.branch ?? row.branch_name ?? row.branchName ?? '')}
+                      />
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC16}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        getDisplayValue={(row) => row.enteredBy ?? row.entered_by ?? row.request_send_by ?? row.requested_by ?? row.createdBy ?? row.created_by ?? ''}
+                      />
+                      <EdbcExpandableBodyCell
+                        columnId={EDBC_IDS.EDBC17}
+                        expense={entry}
+                        rowIndex={index}
+                        expandedCells={expandedCells}
+                        onToggleExpanded={toggleExpandedCell}
+                        textAlignClass="text-right"
+                        getDisplayValue={(row) => row.entry_no}
+                      />
+                      <EdbcFileBodyCell columnId={EDBC_IDS.EDBC20} expense={{ ...entry, billCopy: entry.file_url }} />
+                      <td className={edbc19TdClass}>
                         <button
-                          className={`rounded-full transition duration-200 ml-2 mr-3 ${entry.not_allow_to_edit && !isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`rounded-full transition duration-200 ${entry.not_allow_to_edit && !isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
                           disabled={entry.not_allow_to_edit && !isAdmin}
                         >
                           <img
@@ -1991,7 +2131,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                             className={`w-4 h-6 transition duration-200 ${entry.not_allow_to_edit && !isAdmin ? '' : 'transform hover:scale-110 hover:brightness-110'}`}
                           />
                         </button>
-                        <button className={`-ml-5 -mr-2 ${entry.not_allow_to_edit ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        <button className={`${entry.not_allow_to_edit ? 'opacity-50 cursor-not-allowed' : ''}`}
                           disabled={entry.not_allow_to_edit}
                         >
                           <img
@@ -2002,7 +2142,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                         </button>
                         <button
                           onClick={entry.not_allow_to_edit ? undefined : () => fetchAuditDetails(entry.advancePortalId)}
-                          className={`rounded-full transition duration-200 -mr-1 ${entry.not_allow_to_edit ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`rounded-full transition duration-200 ${entry.not_allow_to_edit ? 'opacity-50 cursor-not-allowed' : ''}`}
                           disabled={entry.not_allow_to_edit}
                         >
                           <img
@@ -2012,11 +2152,11 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                           />
                         </button>
                       </td>
-                    </tr>
+                    </EdbcTableBodyRow>
                   ))
                 ) : (
                   <tr>
-                    <td className="p-2 text-center text-sm text-gray-400" colSpan={18}>
+                    <td className="p-2 text-center text-sm text-gray-400" colSpan={17}>
                       No data available
                     </td>
                   </tr>

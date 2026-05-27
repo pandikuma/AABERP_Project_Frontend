@@ -3,8 +3,9 @@ import axios from 'axios';
 import Modal from 'react-modal';
 import edit from '../Images/Edit.svg';
 import Select from 'react-select';
-import Filter from '../Images/filter (3).png'
-import Reload from '../Images/rotate-right.png'
+import Filter from '../Images/TableFilter.svg'
+import Reload from '../Images/Clear.svg'
+import Search from '../Images/Searchnew.svg'
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -17,6 +18,7 @@ import Pdf from '../Images/pdf.png'
 import CustomDateField from './CustomDateField';
 import { Calendar } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
+import { Table, TableProvider, buildTableViewExpenseTableContext } from './Table';
 Modal.setAppElement('#root');
 const EDIT_POPUP_UTILITY_TYPE_OPTIONS = [
     { value: 'Electricity', label: 'Electricity' },
@@ -32,7 +34,7 @@ const EDIT_POPUP_VALIDITY_TYPE_OPTIONS = [
 ];
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 
-/** Scoped styles to match Bank Register ledger table UI (BankRegisterPayments.jsx). */
+/** Scoped styles to match DatabaseExpenses table UI. */
 const TVE_LEDGER_TABLE_UI_CSS = `
 .tve-exp-ledger-ui{
   --gold:#D6AB60; --gold-soft:#E6C68A; --gold-deep:#B8924B;
@@ -42,70 +44,38 @@ const TVE_LEDGER_TABLE_UI_CSS = `
   --green:#2f9e6e; --green-bg:#E0F1E5;
   --red:#d23b3b; --red-bg:#FFE7E7;
 }
-.tve-exp-ledger-ui .ledger-card{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;}
-.tve-exp-ledger-ui .ledger-card .accent{width:5px;background:var(--gold);flex-shrink:0;}
-.tve-exp-ledger-ui .ledger-card .body{flex:1;min-width:0;}
-/* Same as BankRegisterPayments.jsx .ledger-table: fixed layout + separate borders + colgroup widths = no column shift when filter row mounts. */
-.tve-exp-ledger-ui .ledger-table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;}
-.tve-exp-ledger-ui .ledger-table th{
-  font-size:12px;font-weight:700;color:var(--ink);text-align:left;padding:12px 10px;background:#fff;
-  white-space:nowrap;border-bottom:1px solid var(--line);letter-spacing:0.005em;
-  position:sticky;top:0;z-index:2;vertical-align:middle;
+.tve-exp-ledger-ui .ledger-card{background:transparent;border:none;overflow:visible;display:flex;flex:1;min-height:0;flex-direction:column;}
+.tve-exp-ledger-ui .ledger-card .accent{width:0;display:none;}
+.tve-exp-ledger-ui .ledger-card .body{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;}
+.tve-exp-ledger-ui .tve-exp-table{width:100%;table-layout:fixed;border-collapse:collapse;}
+.tve-exp-ledger-ui .tve-exp-table thead{position:sticky;top:0;z-index:10;}
+.tve-exp-ledger-ui .tve-exp-table th{
+  position:sticky;top:0;z-index:2;vertical-align:middle;white-space:nowrap;border-bottom:none;
 }
-.tve-exp-ledger-ui .ledger-table th.text-right,
-.tve-exp-ledger-ui .ledger-table td.text-right{text-align:right;}
-/* Amount column: one shared right edge for heading, filter total, and row amounts */
-.tve-exp-ledger-ui .ledger-table th.tve-amount-col,
-.tve-exp-ledger-ui .ledger-table td.tve-amount-col{
-  text-align:right;
-  font-variant-numeric:tabular-nums;
-  padding-left:10px;
-  padding-right:10px;
-  box-sizing:border-box;
-  letter-spacing:normal;
-  font-size:12.5px;
-  font-weight:400;
-  white-space:nowrap;
+.tve-exp-ledger-ui .tve-exp-table thead tr:first-child th{
+  background:#FAF6ED;
+  z-index:11;
 }
-.tve-exp-ledger-ui .ledger-table thead tr:first-child th.tve-amount-col .tve-amount-th-inner{
-  display:inline-flex;
-  width:100%;
-  justify-content:flex-end;
-  align-items:center;
-  gap:3px;
+.tve-exp-ledger-ui .tve-exp-table thead tr:first-child th.cursor-pointer:hover{background:#e5e7eb;}
+.tve-exp-ledger-ui .tve-exp-table th.text-right,
+.tve-exp-ledger-ui .tve-exp-table td.text-right{text-align:right;}
+.tve-exp-ledger-ui .tve-exp-table th.tve-amount-col,
+.tve-exp-ledger-ui .tve-exp-table td.tve-amount-col{text-align:right;}
+.tve-exp-ledger-ui .tve-exp-table thead tr.filter-row th{
+  position:sticky;top:var(--tve-sticky-header-h, 40px);z-index:3;background:#eeeeee;
+  height:44px;font-size:14px;font-weight:400;color:#000;
+  padding-top:0;padding-bottom:0;padding-left:0;padding-right:0;
 }
-.tve-exp-ledger-ui .ledger-table thead tr.filter-row th.tve-amount-col{font-weight:400;padding-right:0;}
-.tve-exp-ledger-ui .ledger-table thead tr:first-child th.tve-amount-col{font-weight:700;}
-.tve-exp-ledger-ui .ledger-table th:hover{background:var(--cream-2);}
-.tve-exp-ledger-ui .ledger-table thead tr.filter-row th{
-  position:sticky;top:var(--tve-sticky-header-h, 44px);z-index:3;background:#fff;
-  border-top:1px solid var(--line);
-  padding-top:8px;padding-bottom:5px;padding-left:10px;padding-right:0;
+.tve-exp-ledger-ui .tve-exp-table.tve-filters-open thead tr:first-child th{border-bottom:0 !important;}
+.tve-exp-ledger-ui .tve-exp-table thead tr.filter-row th:first-child{z-index:4;}
+.tve-exp-ledger-ui .tve-exp-table td{
+  font-size:14px;font-weight:600;font-family:'Manrope',sans-serif;color:#000000;
+  vertical-align:middle;border-top:none;
 }
-.tve-exp-ledger-ui .ledger-table.tve-filters-open tbody tr:first-child td{
-  padding-top:6px !important;
-}
-.tve-exp-ledger-ui .ledger-table thead tr.filter-row th:first-child{z-index:4;}
-/* When filter row is shown: same as Bank Register noBottomBorder — only remove double border; keep default th padding (12px 10px) so headings/data vertical rhythm matches. */
-.tve-exp-ledger-ui .ledger-table.tve-filters-open thead tr:first-child th{
-  border-bottom:0 !important;
-}
-.tve-exp-ledger-ui .ledger-table td{
-  font-size:12.5px;color:var(--ink-2);padding:12px 10px;vertical-align:middle;
-  border-top:1px solid var(--line-soft);
-}
-.tve-exp-ledger-ui .ledger-table td.tve-col-wrap{white-space:normal;word-break:break-word;}
-.tve-exp-ledger-ui .ledger-table tbody tr:nth-child(even){background:var(--row-alt);}
+.tve-exp-ledger-ui .tve-exp-table td.tve-col-wrap{white-space:normal;word-break:break-word;}
+.tve-exp-ledger-ui .tve-exp-table .ink{color:#000000;}
 .tve-exp-ledger-ui .num-cell{font-variant-numeric:tabular-nums;white-space:nowrap;}
 .tve-exp-ledger-ui .truncate-cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.tve-exp-ledger-ui .ink{color:var(--ink);}
-.tve-exp-ledger-ui .muted{color:var(--muted);}
-.tve-exp-ledger-ui .table-scroll{max-height:600px;overflow-y:auto;overflow-x:auto;}
-.tve-exp-ledger-ui .table-scroll::-webkit-scrollbar{width:8px;height:8px;}
-.tve-exp-ledger-ui .table-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
-.tve-exp-ledger-ui .table-scroll::-webkit-scrollbar-thumb:hover{background:var(--gold-soft);}
-.tve-exp-ledger-ui .table-scroll::-webkit-scrollbar-track{background:transparent;}
-.tve-exp-ledger-ui .expenses-table-wrap .ledger-table{min-width:1971px;}
 .tve-exp-ledger-ui .act-cell{display:flex;align-items:center;justify-content:flex-start;gap:7px;}
 `;
 
@@ -128,6 +98,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const [expenses, setExpenses] = useState([]);
     const [filteredExpenses, setFilteredExpenses] = useState([]);
     const [exportFilteredExpenses, setExportFilteredExpenses] = useState([]);
+    const [overallSearch, setOverallSearch] = useState('');
     const [editId, setEditId] = useState(null);
     const sentToWeeklyPaymentBillsRef = useRef(new Set());
     const [siteOptions, setSiteOptions] = useState([]);
@@ -192,6 +163,8 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const [sortDirection, setSortDirection] = useState('asc');
     const scrollRef = useRef(null);
     const filterRowRef = useRef(null);
+    const billArrivalFilterRef = useRef(null);
+    const filterNudgeUsedRef = useRef(false);
     const headerRowRef = useRef(null);
     const isDragging = useRef(false);
     const start = useRef({ x: 0, y: 0 });
@@ -227,6 +200,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         };
         scrollRef.current.scrollLeft = scroll.current.left - dx;
         scrollRef.current.scrollTop = scroll.current.top - dy;
+        filterNudgeUsedRef.current = false;
         lastMove.current = {
             time: now,
             x: e.clientX,
@@ -268,11 +242,13 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     }, []);
     useEffect(() => {
         const STYLE_ID = 'tve-expense-ledger-table-ui-css';
-        if (document.getElementById(STYLE_ID)) return;
-        const el = document.createElement('style');
-        el.id = STYLE_ID;
+        let el = document.getElementById(STYLE_ID);
+        if (!el) {
+            el = document.createElement('style');
+            el.id = STYLE_ID;
+            document.head.appendChild(el);
+        }
         el.textContent = TVE_LEDGER_TABLE_UI_CSS;
-        document.head.appendChild(el);
     }, []);
     /** Keeps filter-row `top` equal to sort-header height so tbody does not show between sticky rows. */
     useLayoutEffect(() => {
@@ -372,7 +348,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const fetchProjectData = async (projectId) => {
         try {
             if (!projectId) return null;
-            const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/get/${projectId}`);
+            const response = await fetch(`https://backendaab.in/aabuilderDash/api/projects/get/${projectId}`);
             if (!response.ok) return null;
             const data = await response.json();
             setProjectData(data);
@@ -509,7 +485,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchUserRoles = async () => {
             try {
-                const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
+                const response = await axios.get("https://backendaab.in/aabuilderDash/api/user_roles/all");
                 const allRoles = response.data;
                 const userRoleNames = userRoles.map(r => r.roles);
                 const matchedRoles = allRoles.filter(role =>
@@ -541,7 +517,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         };
     }, [resolveActiveBranchId]);
     const refetchExpenses = useCallback(async () => {
-        const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
+        const response = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
             params: activeBranchId ? { branchId: activeBranchId } : {},
         });
         const sortedExpenses = response.data.sort((a, b) => {
@@ -583,7 +559,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchSites = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -610,7 +586,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -637,7 +613,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchContractorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -664,7 +640,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -689,7 +665,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchMachinTools = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/machine_tools/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -792,7 +768,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchAccountType = async () => {
             try {
-                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/account_type/getAll", {
+                const response = await fetch("https://backendaab.in/aabuilderDash/api/account_type/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -924,6 +900,29 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                 const expenseDate = new Date(expense.date);
                 if (expenseDate > e) return false;
             }
+            if (overallSearch.trim()) {
+                const q = overallSearch.toLowerCase().trim();
+                const searchable = [
+                    formatDateOnly(expense.date),
+                    getDisplaySiteName(expense),
+                    getDisplayVendorName(expense),
+                    getDisplayContractorName(expense),
+                    getDisplayStaffName(expense),
+                    expense.quantity,
+                    expense.amount,
+                    expense.comments,
+                    expense.category,
+                    expense.accountType,
+                    getMachineToolsItemIdDisplay(expense.machineTools),
+                    expense.source,
+                    getBranchName(expense.branch_id ?? expense.branchId),
+                    expense.eno,
+                    formatBillArrivalDisplay(expense),
+                ]
+                    .map((v) => String(v ?? '').toLowerCase())
+                    .join(' ');
+                if (!searchable.includes(q)) return false;
+            }
             return (
                 (selectedSiteName ? expense.siteName === selectedSiteName : true) &&
                 (selectedVendor ? expense.vendor === selectedVendor : true) &&
@@ -954,7 +953,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             startDate,
             endDate,
             selectedEno
-        ].some(Boolean);
+        ].some(Boolean) || overallSearch.trim();
         setExportFilteredExpenses(anyFilterApplied ? filtered : []);
         const total = filtered.reduce((sum, item) => sum + Number(item.amount || 0), 0);
         setTotalAmount(total);
@@ -998,6 +997,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         startDate,
         endDate,
         selectedEno,
+        overallSearch,
         expenses,
         machineToolsIdToLabel,
         branchOptions
@@ -1163,7 +1163,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             ...updatedFormData,
             billArrivalDate: billArrivalForApi
         };
-        const updateUrl = `https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`;
+        const updateUrl = `https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`;
         const isPaymentTypeForWeekly = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
         if (
             isPaymentTypeForWeekly &&
@@ -1350,59 +1350,155 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             display: 'none',
         }),
     }), []);
-    /** BankRegisterPayments.jsx filter `selectStyles` — used only on ledger table filter row so spacing matches bank; modals keep `customStyles`. */
+    const TABLE_FILTER_OPTION_HEIGHT = 36;
+    const TABLE_FILTER_MAX_VISIBLE_OPTIONS = 8;
+    const getTableFilterMenuMaxHeight = () => {
+        const maxLargeHeight = TABLE_FILTER_OPTION_HEIGHT * TABLE_FILTER_MAX_VISIBLE_OPTIONS;
+        if (typeof window === 'undefined') return maxLargeHeight;
+        const viewportSpace = Math.max(window.innerHeight - 320, TABLE_FILTER_OPTION_HEIGHT * 3);
+        const scrollSpace = scrollRef.current
+            ? Math.max(scrollRef.current.clientHeight - 120, TABLE_FILTER_OPTION_HEIGHT * 3)
+            : viewportSpace;
+        const raw = Math.min(viewportSpace, scrollSpace);
+        const visibleCount = Math.max(
+            3,
+            Math.min(TABLE_FILTER_MAX_VISIBLE_OPTIONS, Math.floor(raw / TABLE_FILTER_OPTION_HEIGHT))
+        );
+        return visibleCount * TABLE_FILTER_OPTION_HEIGHT;
+    };
+    const [tableFilterMenuMaxHeight, setTableFilterMenuMaxHeight] = useState(getTableFilterMenuMaxHeight);
+    useEffect(() => {
+        const updateMenuHeight = () => setTableFilterMenuMaxHeight(getTableFilterMenuMaxHeight());
+        updateMenuHeight();
+        window.addEventListener('resize', updateMenuHeight);
+        return () => window.removeEventListener('resize', updateMenuHeight);
+    }, [showFilters]);
     const ledgerFilterSelectStyles = useMemo(() => ({
-        control: (base) => ({
-            ...base,
-            minHeight: 45,
-            height: 'auto',
-            borderRadius: 8,
-            borderColor: 'var(--line)',
-            borderWidth: '1px',
-            boxShadow: 'none',
-            backgroundColor: '#fff',
+        control: (provided, state) => ({
+            ...provided,
+            borderWidth: '2px',
+            lineHeight: '20px',
+            fontSize: '14px',
+            fontWeight: 'normal',
+            height: '36px',
+            borderRadius: '8px',
             textAlign: 'left',
-            fontWeight: 400,
-            paddingLeft: 0,
-            paddingRight: 0,
+            borderColor: 'rgba(191, 152, 83, 0.2)',
+            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+            '&:hover': {
+                borderColor: 'rgba(191, 152, 83, 0.4)',
+            },
         }),
-        valueContainer: (base) => ({
-            ...base,
-            padding: 0,
-            paddingLeft: 8,
-            paddingTop: 2,
-            paddingBottom: 2,
-            flexWrap: 'nowrap',
+        clearIndicator: (provided) => ({
+            ...provided,
+            cursor: 'pointer',
         }),
-        input: (base) => ({ ...base, margin: 0, padding: 0, fontWeight: 400, fontSize: 13 }),
-        indicatorsContainer: (base) => ({ ...base, height: 45, padding: 0, display: 'flex', alignItems: 'center' }),
-        dropdownIndicator: (base) => ({ ...base, padding: 0 }),
-        indicatorSeparator: () => ({ display: 'none' }),
-        clearIndicator: (base) => ({ ...base, padding: 0 }),
-        menu: (base) => ({ ...base, zIndex: 999 }),
-        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-        option: (base) => ({ ...base, fontSize: 13, textAlign: 'left' }),
-        placeholder: (base) => ({ ...base, fontSize: 13, fontWeight: 400, color: 'var(--ink-2)' }),
-        singleValue: (base) => ({
-            ...base,
-            fontSize: 13,
-            fontWeight: 400,
-            color: 'var(--ink-2)',
-            textAlign: 'left',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
+        menu: (provided) => ({
+            ...provided,
+            zIndex: 999,
+            maxHeight: tableFilterMenuMaxHeight,
         }),
-        menuList: (base) => ({
-            ...base,
-            textAlign: 'left',
-            maxHeight: 250,
+        menuPortal: (provided) => ({
+            ...provided,
+            zIndex: 9999,
+        }),
+        menuList: (provided) => ({
+            ...provided,
+            maxHeight: tableFilterMenuMaxHeight,
+            paddingTop: 0,
+            paddingBottom: 0,
             overflowY: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             '&::-webkit-scrollbar': { display: 'none' },
         }),
-    }), []);
+        singleValue: (provided) => ({
+            ...provided,
+            color: '#111827',
+            fontWeight: 'normal',
+            marginRight: 0,
+        }),
+        valueContainer: (provided) => ({
+            ...provided,
+            paddingLeft: '12px',
+            paddingRight: '2px',
+        }),
+        indicatorsContainer: (provided) => ({
+            ...provided,
+            paddingLeft: '0px',
+        }),
+        dropdownIndicator: (provided) => ({
+            ...provided,
+            paddingTop: '0px',
+            paddingBottom: '0px',
+            paddingRight: '6px',
+            paddingLeft: '3px',
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            minHeight: TABLE_FILTER_OPTION_HEIGHT,
+            height: TABLE_FILTER_OPTION_HEIGHT,
+            paddingTop: 0,
+            paddingBottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            textAlign: 'left',
+            fontWeight: 'normal',
+            fontSize: '15px',
+            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+            color: 'black',
+        }),
+        input: (provided) => ({
+            ...provided,
+            fontWeight: 'normal',
+            color: 'black',
+            textAlign: 'left',
+        }),
+        placeholder: (provided) => ({
+            ...provided,
+            color: '#A6A5A6',
+            textAlign: 'left',
+            fontWeight: 'normal',
+            paddingLeft: '0px',
+            paddingTop: '0px',
+            paddingBottom: '0px',
+        }),
+        indicatorSeparator: (provided) => ({
+            ...provided,
+            display: 'none',
+        }),
+    }), [tableFilterMenuMaxHeight]);
+    const enoFilterSelectStyles = useMemo(() => ({
+        ...ledgerFilterSelectStyles,
+        control: (provided, state) => ({
+            ...(typeof ledgerFilterSelectStyles.control === 'function' ? ledgerFilterSelectStyles.control(provided, state) : provided),
+            textAlign: 'right',
+        }),
+        valueContainer: (provided) => ({
+            ...(typeof ledgerFilterSelectStyles.valueContainer === 'function' ? ledgerFilterSelectStyles.valueContainer(provided) : provided),
+            justifyContent: 'flex-end',
+            paddingLeft: '2px',
+            paddingRight: '12px',
+        }),
+        singleValue: (provided) => ({
+            ...(typeof ledgerFilterSelectStyles.singleValue === 'function' ? ledgerFilterSelectStyles.singleValue(provided) : provided),
+            textAlign: 'right',
+        }),
+        input: (provided) => ({
+            ...(typeof ledgerFilterSelectStyles.input === 'function' ? ledgerFilterSelectStyles.input(provided) : provided),
+            textAlign: 'right',
+        }),
+        placeholder: (provided) => ({
+            ...(typeof ledgerFilterSelectStyles.placeholder === 'function' ? ledgerFilterSelectStyles.placeholder(provided) : provided),
+            textAlign: 'right',
+        }),
+        option: (provided, state) => ({
+            ...(typeof ledgerFilterSelectStyles.option === 'function' ? ledgerFilterSelectStyles.option(provided, state) : provided),
+            textAlign: 'right',
+            justifyContent: 'flex-end',
+            paddingRight: '12px',
+        }),
+    }), [ledgerFilterSelectStyles]);
     const sortedExpenses = [...filteredExpenses].sort((a, b) => {
         if (!sortField) return 0;
         let aValue = a[sortField];
@@ -1615,6 +1711,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         setStartDate('');
         setEndDate('');
         setSelectedEno('');
+        setOverallSearch('');
         setFilteredExpenses(expenses);
         setCurrentPage(1);
         setSortField('');
@@ -1679,16 +1776,99 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         link.click();
         document.body.removeChild(link);
     };
+    const tableViewExpenseContext = useMemo(() => buildTableViewExpenseTableContext({
+        currentItems,
+        showFilters,
+        filterRowRef,
+        totalAmount,
+        sortField,
+        sortDirection,
+        handleSort,
+        startDate,
+        setStartDate,
+        endDate,
+        setEndDate,
+        showDateRangePicker,
+        setShowDateRangePicker,
+        siteOptions,
+        selectedSiteName,
+        setSelectedSiteName,
+        vendorOptions,
+        selectedVendor,
+        setSelectedVendor,
+        contractorOptions,
+        selectedContractor,
+        setSelectedContractor,
+        categoryOptions,
+        selectedCategory,
+        setSelectedCategory,
+        accountTypeOptions,
+        selectedAccountType,
+        setSelectedAccountType,
+        machineToolsOptions,
+        selectedMachineTools,
+        setSelectedMachineTools,
+        sourceOptions,
+        selectedSource,
+        setSelectedSource,
+        branchFilterOptions,
+        selectedBranch,
+        setSelectedBranch,
+        enoOptions,
+        selectedEno,
+        setSelectedEno,
+        customStyles: ledgerFilterSelectStyles,
+        formatDate,
+        formatDateOnly,
+        getDisplaySiteName,
+        getDisplayVendorName,
+        getDisplayContractorName,
+        getDisplayStaffName,
+        getMachineToolsItemIdDisplay,
+        getBranchName,
+        formatBillArrivalDisplay,
+        handleEditClick,
+        username,
+        billArrivalFilterRef,
+    }), [
+        currentItems,
+        showFilters,
+        totalAmount,
+        sortField,
+        sortDirection,
+        startDate,
+        endDate,
+        showDateRangePicker,
+        siteOptions,
+        selectedSiteName,
+        vendorOptions,
+        selectedVendor,
+        contractorOptions,
+        selectedContractor,
+        categoryOptions,
+        selectedCategory,
+        accountTypeOptions,
+        selectedAccountType,
+        machineToolsOptions,
+        selectedMachineTools,
+        sourceOptions,
+        selectedSource,
+        branchFilterOptions,
+        selectedBranch,
+        enoOptions,
+        selectedEno,
+        ledgerFilterSelectStyles,
+    ]);
     return (
-        <body className=' bg-[#FAF6ED] px-6'>
-            <div>
-
-                <div className="w-full p-6 pb-10 bg-white shadow-lg overflow-x-auto">
+        <body className='bg-[#FAF6ED]'>
+            <div className='flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED]'>
+                <div className='px-[18px] pt-[18px] pb-[18px] flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]'>
+                <div className="w-full pt-[18px] px-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
                     <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate || selectedEno
-                        ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-3 gap-2`}>
+                        ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-[12px] gap-[6px]`}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
                             <button
-                                className='w-9 h-9 border border-[#BF9853] rounded-md flex items-center justify-center text-[#BF9853]'
+                                className=''
                                 onClick={() => {
                                     const willOpen = !showFilters;
                                     setShowFilters(willOpen);
@@ -1696,428 +1876,160 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                     const scroller = scrollRef.current;
                                     if (!scroller) return;
                                     if (scroller.scrollTop <= 0) return;
+                                    if (filterNudgeUsedRef.current) return;
+                                    filterNudgeUsedRef.current = true;
                                     requestAnimationFrame(() => {
-                                        const h = filterRowRef.current?.offsetHeight || 0;
-                                        if (h > 0) scroller.scrollTop = scroller.scrollTop + h;
+                                        requestAnimationFrame(() => {
+                                            const h = filterRowRef.current?.offsetHeight || 0;
+                                            if (h > 0) {
+                                                scroller.scrollTop = Math.max(0, scroller.scrollTop - h);
+                                            }
+                                        });
                                     });
                                 }}
                             >
                                 <img
                                     src={Filter}
                                     alt="Toggle Filter"
-                                    className="w-5 h-5 object-contain"
+                                    className=" border rounded-md"
                                 />
                             </button>
                             {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate || selectedEno) && (
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
                                     {startDate && endDate ? (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                            <span className="font-normal">Start date: </span>
-                                            <span className="font-bold">{startDate.split('-').reverse().join('-')}</span>
-                                            <span className="font-normal">, End date: </span>
-                                            <span className="font-bold">{endDate.split('-').reverse().join('-')}</span>
-                                            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] w-fit">
+                                            <span className="font-semibold">Date: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{formatChipDateDMY(startDate)} – {formatChipDateDMY(endDate)}</span>
+                                            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                         </span>
                                     ) : startDate ? (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                            <span className="font-normal">Start date: </span>
-                                            <span className="font-bold">{startDate.split('-').reverse().join('-')}</span>
-                                            <button onClick={() => setStartDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-sm w-fit">
+                                            <span className="font-semibold">Date: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{formatChipDateDMY(startDate)} onwards</span>
+                                            <button onClick={() => setStartDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                         </span>
                                     ) : endDate ? (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                            <span className="font-normal">End date: </span>
-                                            <span className="font-bold">{endDate.split('-').reverse().join('-')}</span>
-                                            <button onClick={() => setEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-sm w-fit">
+                                            <span className="font-semibold">Date until: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{formatChipDateDMY(endDate)}</span>
+                                            <button onClick={() => setEndDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                         </span>
                                     ) : null}
                                     {selectedSiteName && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Site Name: </span>
-                                            <span className="font-bold">{selectedSiteName}</span>
-                                            <button onClick={() => setSelectedSiteName('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">Project Name: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedSiteName}</span>
+                                            <button onClick={() => setSelectedSiteName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedVendor && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Vendor Name: </span>
-                                            <span className="font-bold">{selectedVendor}</span>
-                                            <button onClick={() => setSelectedVendor('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">Vendor Name: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedVendor}</span>
+                                            <button onClick={() => setSelectedVendor('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedContractor && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Contractor Name: </span>
-                                            <span className="font-bold">{selectedContractor}</span>
-                                            <button onClick={() => setSelectedContractor('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">Contractor Name: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedContractor}</span>
+                                            <button onClick={() => setSelectedContractor('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedCategory && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Category: </span>
-                                            <span className="font-bold">{selectedCategory}</span>
-                                            <button onClick={() => setSelectedCategory('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">Category: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedCategory}</span>
+                                            <button onClick={() => setSelectedCategory('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedAccountType && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Mode: </span>
-                                            <span className="font-bold">{selectedAccountType}</span>
-                                            <button onClick={() => setSelectedAccountType('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">A/C Type: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedAccountType}</span>
+                                            <button onClick={() => setSelectedAccountType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedMachineTools && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Tools: </span>
-                                            <span className="font-bold">{getMachineToolsItemIdDisplay(selectedMachineTools)}</span>
-                                            <button onClick={() => setSelectedMachineTools('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">Tools: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{getMachineToolsItemIdDisplay(selectedMachineTools)}</span>
+                                            <button onClick={() => setSelectedMachineTools('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedSource && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Source From: </span>
-                                            <span className="font-bold">{selectedSource}</span>
-                                            <button onClick={() => setSelectedSource('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">Source From: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedSource}</span>
+                                            <button onClick={() => setSelectedSource('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedBranch && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">Branch: </span>
-                                            <span className="font-bold">{getBranchName(selectedBranch) || selectedBranch}</span>
-                                            <button onClick={() => setSelectedBranch('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">Branch: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{getBranchName(selectedBranch) || selectedBranch}</span>
+                                            <button onClick={() => setSelectedBranch('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedEno && (
-                                        <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                            <span className="font-normal">E.No: </span>
-                                            <span className="font-bold">{selectedEno}</span>
-                                            <button onClick={() => setSelectedEno('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">Entry No: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedEno}</span>
+                                            <button onClick={() => setSelectedEno('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                 </div>
                             )}
                         </div>
-                        <div className='flex items-center gap-2'>
-                            <button onClick={clearFilters}
-                                className='w-10 h-9 border border-[#BF9853] rounded-md font-semibold text-sm text-[#BF9853] flex items-center justify-center gap-2' >
-                                <img className='w-4 h-4' src={Reload} alt="Reload" />
+                        <div className='flex items-end gap-[6px]'>
+                            <button onClick={clearFilters} className='flex h-[30px] w-[30px] shrink-0 items-center justify-center'>
+                                <img className='w-full h-full' src={Reload} alt="Reload" />
                             </button>
-                            <div className=' text-left md:text-right md:items-center items-start cursor-default flex max-w-screen-2xl table-auto overflow-auto w-full'>
-                                <div className='flex items-center'>
-                                    <span className='text-[#E4572E] mr-4 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={generateFilteredPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
-                                    <span className='text-[#007233] mr-1 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportToCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
+                            <div className="w-[286px] min-w-[286px] translate-y-[2px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
+                                <input
+                                    type="text"
+                                    value={overallSearch}
+                                    onChange={(e) => setOverallSearch(e.target.value)}
+                                    placeholder="Search Transactions..."
+                                    className="h-full w-full border-0 p-0 text-[14px] text-[#000000] bg-transparent outline-none"
+                                />
+                                <img src={Search} alt="Search" className="w-[16px] h-[16px] pointer-events-none" />
+                            </div>
+                            <div className=' text-left md:text-right md:items-end items-end cursor-default flex justify-end max-w-screen-2xl table-auto overflow-auto w-full scrollbar-none no-scrollbar'>
+                                <div className='flex items-end text-center'>
+                                    <span className='text-[#E4572E] mr-2 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={generateFilteredPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
+                                    <span className='text-[#007233] flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportToCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div className="tve-exp-ledger-ui w-full" style={{ color: 'var(--ink, #212121)' }}>
+                    <div className="tve-exp-ledger-ui w-full flex flex-col flex-1 min-h-0 overflow-hidden">
                         <div className="ledger-card">
                             <div className="accent" aria-hidden="true" />
                             <div className="body">
                                 <div
                                     ref={scrollRef}
-                                    className="desk-table expenses-table-wrap table-scroll select-none thin-scrollbar"
+                                    className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] flex-1 min-h-0 overflow-auto select-none scrollbar-none no-scrollbar"
+                                    onWheel={() => { filterNudgeUsedRef.current = false; }}
                                     onMouseDown={handleMouseDown}
                                     onMouseMove={handleMouseMove}
                                     onMouseUp={handleMouseUp}
                                     onMouseLeave={handleMouseUp}
                                 >
-                                    <table className={`ledger-table min-w-[1971px] w-full${showFilters ? ' tve-filters-open' : ''}`}>
-                                        <colgroup>
-                                            <col style={{ width: '150px' }} />
-                                            <col style={{ width: '280px' }} />
-                                            <col style={{ width: '220px' }} />
-                                            <col style={{ width: '200px' }} />
-                                            <col style={{ width: '100px' }} />
-                                            <col style={{ width: '70px' }} />
-                                            <col style={{ width: '90px' }} />
-                                            <col style={{ width: '110px' }} />
-                                            <col style={{ width: '110px' }} />                                            
-                                            <col style={{ width: '120px' }} />
-                                            <col style={{ width: '110px' }} />
-                                            <col style={{ width: '110px' }} />
-                                            <col style={{ width: '120px' }} />
-                                            <col style={{ width: '100px' }} />
-                                            <col style={{ width: '100px' }} />
-                                            <col style={{ width: '40px' }} />
-                                            <col style={{ width: '50px' }} />
-                                        </colgroup>
-                                <thead>
-                                    <tr ref={headerRowRef}>
-                                        <th className="w-[150px] text-left cursor-pointer select-none" onClick={() => handleSort('date')}>
-                                            Date {sortField === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[280px] text-left cursor-pointer select-none" onClick={() => handleSort('siteName')}>
-                                            Project Name {sortField === 'siteName' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[220px] text-left cursor-pointer select-none" onClick={() => handleSort('vendor')}>
-                                            Vendor {sortField === 'vendor' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[200px] text-left cursor-pointer select-none" onClick={() => handleSort('contractor')}>
-                                            Contractor {sortField === 'contractor' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[100px] text-left cursor-pointer select-none" onClick={() => handleSort('staff')}>
-                                            Staff {sortField === 'staff' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[70px] text-left cursor-pointer select-none" onClick={() => handleSort('quantity')}>
-                                            Quantity {sortField === 'quantity' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[90px] tve-amount-col text-right cursor-pointer select-none" onClick={() => handleSort('amount')}>
-                                            <span className="tve-amount-th-inner">
-                                                {sortField === 'amount' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                                <span>Amount</span>
-                                            </span>
-                                        </th>                                        
-                                        <th className="w-[110px] text-left cursor-pointer select-none" onClick={() => handleSort('category')}>
-                                            Category {sortField === 'category' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[110px] text-left cursor-pointer select-none" onClick={() => handleSort('accountType')}>
-                                            A/C Type {sortField === 'accountType' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[120px] text-left cursor-pointer select-none" onClick={() => handleSort('comments')}>
-                                            Description {sortField === 'comments' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[110px] text-left cursor-pointer select-none" onClick={() => handleSort('machineTools')}>
-                                            Machine Tools {sortField === 'machineTools' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[110px] text-left cursor-pointer select-none" onClick={() => handleSort('source')}>
-                                            Source From {sortField === 'source' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[120px] text-left cursor-pointer select-none" onClick={() => handleSort('branch')}>
-                                            Branch {sortField === 'branch' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[100px] text-left cursor-pointer select-none" onClick={() => handleSort('eno')}>
-                                            E.No {sortField === 'eno' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[100px] text-left cursor-pointer select-none" onClick={() => handleSort('billArrivalDate')}>
-                                            Bill Arrival {sortField === 'billArrivalDate' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th className="w-[40px] text-left">Edit</th>
-                                        <th className="w-[50px] text-left">File</th>
-                                    </tr>
-                                    {showFilters && (
-                                        <tr ref={filterRowRef} className="filter-row">
-                                            <th>
-                                                <div className="relative [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowDateRangePicker(true)}
-                                                        className="w-full max-w-[130px] h-[45px] pl-2 pr-0 py-0 text-sm !font-normal bg-white text-left flex items-center gap-0"
-                                                    >
-                                                        <span className={`text-[14px] truncate flex-1 min-w-0 text-left ${startDate && endDate ? 'text-black font-medium' : 'text-[#d3d5db] !font-normal'}`}>
-                                                            {startDate
-                                                                ? endDate
-                                                                    ? `${startDate.split('-').reverse().join('-')} – ${endDate.split('-').reverse().join('-')}`
-                                                                    : `From ${startDate.split('-').reverse().join('-')}`
-                                                                : 'Date'}
-                                                        </span>
-                                                        <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                                    </button>
-                                                    <DateRangePicker
-                                                        isOpen={showDateRangePicker}
-                                                        onClose={() => setShowDateRangePicker(false)}
-                                                        startDate={startDate}
-                                                        endDate={endDate}
-                                                        variant="dropdown"
-                                                        onApply={(from, to) => {
-                                                            setStartDate(from);
-                                                            setEndDate(to);
-                                                        }}
-                                                    />
-                                                </div>
-                                            </th>
-                                            <th>
-                                                <Select
-                                                    className="w-full"
-                                                    options={siteOptions}
-                                                    value={selectedSiteName ? { value: selectedSiteName, label: selectedSiteName } : null}
-                                                    onChange={(selectedOption) => setSelectedSiteName(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="All"
-                                                    isSearchable
-                                                    menuPlacement="bottom"
-                                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                                    styles={ledgerFilterSelectStyles}
-                                                />
-                                            </th>
-                                            <th>
-                                                <Select
-                                                    className="w-full"
-                                                    options={vendorOptions}
-                                                    value={selectedVendor ? { value: selectedVendor, label: selectedVendor } : null}
-                                                    onChange={(selectedOption) => setSelectedVendor(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="All"
-                                                    isSearchable
-                                                    menuPlacement="bottom"
-                                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                                    styles={ledgerFilterSelectStyles}
-                                                />
-                                            </th>
-                                            <th>
-                                                <Select
-                                                    className="w-full"
-                                                    options={contractorOptions}
-                                                    value={selectedContractor ? { value: selectedContractor, label: selectedContractor } : null}
-                                                    onChange={(selectedOption) => setSelectedContractor(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="All"
-                                                    isSearchable
-                                                    menuPlacement="bottom"
-                                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                                    styles={ledgerFilterSelectStyles}
-                                                />
-                                            </th>
-                                            <th></th>
-                                            <th></th>
-                                            <th className="tve-amount-col num-cell text-right text-[color:var(--ink-2)] whitespace-nowrap">
-                                                ₹{Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </th>
-                                            <th>
-                                                <Select
-                                                    className="w-full"
-                                                    options={categoryOptions}
-                                                    value={selectedCategory ? { value: selectedCategory, label: selectedCategory } : null}
-                                                    onChange={(selectedOption) => setSelectedCategory(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="All"
-                                                    isSearchable
-                                                    menuPlacement="bottom"
-                                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                                    styles={ledgerFilterSelectStyles}
-                                                />
-                                            </th>
-                                            <th>
-                                                <Select
-                                                    className="w-full"
-                                                    options={accountTypeOptions}
-                                                    value={selectedAccountType ? { value: selectedAccountType, label: selectedAccountType } : null}
-                                                    onChange={(selectedOption) => setSelectedAccountType(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="All"
-                                                    isSearchable
-                                                    menuPlacement="bottom"
-                                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                                    styles={ledgerFilterSelectStyles}
-                                                />
-                                            </th>                                            
-                                            <th></th>
-                                            <th>
-                                                <Select
-                                                    className="w-full"
-                                                    options={machineToolsOptions}
-                                                    value={selectedMachineTools ? machineToolsOptions.find(opt => opt.value === String(selectedMachineTools)) : null}
-                                                    onChange={(selectedOption) => setSelectedMachineTools(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="All"
-                                                    isSearchable
-                                                    menuPlacement="bottom"
-                                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                                    styles={ledgerFilterSelectStyles}
-                                                />
-                                            </th>
-                                            <th>
-                                                <Select
-                                                    className="w-full"
-                                                    options={sourceOptions}
-                                                    value={selectedSource ? { value: selectedSource, label: selectedSource } : null}
-                                                    onChange={(selectedOption) => setSelectedSource(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="All"
-                                                    isSearchable
-                                                    menuPlacement="bottom"
-                                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                                    styles={ledgerFilterSelectStyles}
-                                                />
-                                            </th>
-                                            <th>
-                                                <Select
-                                                    className="w-full"
-                                                    options={branchFilterOptions}
-                                                    value={selectedBranch ? branchFilterOptions.find(opt => opt.value === String(selectedBranch)) : null}
-                                                    onChange={(selectedOption) => setSelectedBranch(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="All"
-                                                    isSearchable
-                                                    menuPlacement="bottom"
-                                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                                    styles={ledgerFilterSelectStyles}
-                                                />
-                                            </th>
-                                            <th>
-                                                <Select
-                                                    className="w-full"
-                                                    options={enoOptions.map((eno) => ({ value: String(eno), label: String(eno) }))}
-                                                    value={selectedEno ? { value: String(selectedEno), label: String(selectedEno) } : null}
-                                                    onChange={(selectedOption) => setSelectedEno(selectedOption ? selectedOption.value : '')}
-                                                    placeholder="All"
-                                                    isSearchable
-                                                    menuPlacement="bottom"
-                                                    menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
-                                                    styles={ledgerFilterSelectStyles}
-                                                />
-                                            </th>
-                                            <th aria-label="Bill Arrival filter" />
-                                            <th></th>
-                                            <th></th>
-                                        </tr>
-                                    )}
-                                </thead>
-                                <tbody>
-                                    {currentItems.map((expense, index) => (
-                                        <tr key={expense.id}>
-                                            <td className="num-cell text-left pl-3 w-[200px]">{formatDateOnly(expense.date)}</td>
-                                            <td className="ink truncate-cell text-left w-60" title={getDisplaySiteName(expense)}>{getDisplaySiteName(expense)}</td>
-                                            <td className="truncate-cell text-left" title={getDisplayVendorName(expense)}>{getDisplayVendorName(expense)}</td>
-                                            <td className="truncate-cell text-left" title={getDisplayContractorName(expense)}>{getDisplayContractorName(expense)}</td>
-                                            <td className="truncate-cell text-left" title={getDisplayStaffName(expense)}>{getDisplayStaffName(expense)}</td>
-                                            <td className="num-cell text-right">{expense.quantity}</td>
-                                            <td className="tve-amount-col num-cell ink text-right font-normal w-[90px]">
-                                                ₹{Number(expense.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </td>
-                                            <td className="truncate-cell text-left" title={expense.category}>{expense.category}</td>
-                                            <td className="truncate-cell text-left" title={expense.accountType}>{expense.accountType}</td>
-                                            <td className="tve-col-wrap text-left max-w-[260px] px-1">{expense.comments || ''}</td>
-                                            <td className="truncate-cell text-left" title={getMachineToolsItemIdDisplay(expense.machineTools)}>{getMachineToolsItemIdDisplay(expense.machineTools)}</td>
-                                            <td className="truncate-cell text-left" title={expense.source}>{expense.source}</td>
-                                            <td className="truncate-cell text-left" title={getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}>{getBranchName(expense.branch_id ?? expense.branchId ?? '') || ''}</td>
-                                            <td className="num-cell text-right pl-3">{expense.eno}</td>
-                                            <td className="num-cell text-left px-1 whitespace-nowrap">{formatBillArrivalDisplay(expense)}</td>
-                                            <td className="py-1.5 w-[50px]">
-                                                <div className="act-cell">
-                                                <button
-                                                    onClick={() => handleEditClick(expense)}
-                                                    className="rounded-full transition duration-200 inline-flex items-center justify-center"
-                                                    title="Edit"
-                                                >
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        viewBox="0 0 14.75 17.56"
-                                                        className="w-5 h-5 transform hover:scale-110 hover:brightness-110 transition duration-200"
-                                                        fill="none"
-                                                        stroke="#007233"
-                                                        strokeWidth="1.5"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        aria-label="Edit"
-                                                    >
-                                                        <line x1="9.709" y1="2.451" x2="12.451" y2="5.042" />
-                                                        <path d="M4.556,12.462 L0.773,13.693 L1.773,9.893 L11.159,0.072 a0.273,0.273 0 0 1 0.383,0 l2.371,2.223 a0.266,0.266 0 0 1 0.016,0.379 z" />
-                                                        <line x1="0.0" y1="16.0" x2="11.395" y2="16.0" />
-                                                    </svg>
-                                                </button>
-                                                </div>
-                                            </td>
-                                            <td className="px-1">
-                                                {expense.billCopy ? (
-                                                    <a href={expense.billCopy} className="text-red-500 underline" target="_blank" rel="noopener noreferrer">
-                                                        View
-                                                    </a>
-                                                ) : (
-                                                    <span></span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    <TableProvider value={tableViewExpenseContext}>
+                                        <Table
+                                            showTimestampColumn={false}
+                                            showActivityColumn
+                                            activityColumnLabel="Edit"
+                                            editOnlyActivityColumn
+                                            tableClassName={`tve-exp-table min-w-[2638px]${showFilters ? ' tve-filters-open' : ''}`}
+                                        />
+                                    </TableProvider>
                                 </div>
                             </div>
                         </div>
                     </div>
-                        <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
+                        <div className="flex shrink-0 items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
                             <div className="flex items-center space-x-2">
                                 <span className="text-sm text-gray-700">Items per page:</span>
                                 <select
@@ -2994,6 +2906,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                         )}
                     </div>
                 </div>
+            </div>
         </body>
     );
 };

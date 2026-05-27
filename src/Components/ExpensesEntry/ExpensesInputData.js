@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import search from '../Images/search.svg';
+import search from '../Images/search.png';
 import imports from '../Images/Import.svg';
 import cross from '../Images/cross.png';
 import edit from '../Images/Edit.svg';
@@ -1114,7 +1114,7 @@ const DTableView = ({ username, userRoles = [] }) => {
     <div className='flex flex-col h-[calc(100vh-104px)] px-[18px] pt-[18px] pb-[18px] overflow-hidden bg-[#FAF6ED]'>
       <div className=" flex flex-col flex-1 min-h-0 px-[18px] pt-[18px] pb-[18px] overflow-hidden bg-white">
         <div
-          className=" lg:flex space-x-[18px] lg:w-full md:w-[32rem] w-[20rem] overflow-x-auto no-scrollbar scrollbar-none select-none"
+          className="flex-1 min-h-0 lg:flex space-x-[18px] lg:w-full md:w-[32rem] w-[20rem] overflow-x-auto overflow-y-hidden no-scrollbar scrollbar-none select-none"
           style={{ cursor: isDragging ? 'grabbing' : 'default' }}
           onMouseDown={handleMouseDown}
           onMouseLeave={handleMouseLeave}
@@ -1128,8 +1128,8 @@ const DTableView = ({ username, userRoles = [] }) => {
             <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
               <input
                 type="text"
-                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[12px] flex-1 w-44 h-[40px] focus:outline-none"
-                placeholder="Project Name.."
+                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                placeholder="Project Name"
                 value={siteNameSearch}
                 onChange={(e) => setSiteNameSearch(e.target.value)}
               />
@@ -1160,7 +1160,7 @@ const DTableView = ({ username, userRoles = [] }) => {
                   </thead>
                 </table>
               </div>
-              <div className="overflow-y-auto max-h-[660px] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <table className="table-fixed lg:w-[340px] w-full">
                   <tbody>
                     {filteredSiteNames.map((item, index) => (
@@ -1196,8 +1196,8 @@ const DTableView = ({ username, userRoles = [] }) => {
             <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
               <input
                 type="text"
-                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[12px] flex-1 w-44 h-[40px] focus:outline-none"
-                placeholder="Vendor Name.."
+                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                placeholder="Vendor Name"
                 value={vendorNameSearch}
                 onChange={(e) => setVendorNameSearch(e.target.value)}
               />
@@ -1230,7 +1230,7 @@ const DTableView = ({ username, userRoles = [] }) => {
                   </thead>
                 </table>
               </div>
-              <div className="overflow-y-auto max-h-[660px] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <table className="table-fixed lg:w-[320px] w-full">
                   <tbody>
                     {filteredVendorNames.map((item, index) => (
@@ -1268,8 +1268,8 @@ const DTableView = ({ username, userRoles = [] }) => {
             <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
               <input
                 type="text"
-                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[12px] flex-1 w-44 h-[40px] focus:outline-none"
-                placeholder="Contractor Name.."
+                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                placeholder="Contractor Name"
                 value={contractorNameSearch}
                 onChange={(e) => setContractorNameSearch(e.target.value)}
               />
@@ -1300,7 +1300,7 @@ const DTableView = ({ username, userRoles = [] }) => {
                   </thead>
                 </table>
               </div>
-              <div className="overflow-y-auto max-h-[660px] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <table className="table-fixed lg:w-[320px] w-full">
                   <tbody>
                     {filteredContractorNames.map((item, index) => (
@@ -1336,8 +1336,8 @@ const DTableView = ({ username, userRoles = [] }) => {
             <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
               <input
                 type="text"
-                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[12px] flex-1 w-44 h-[40px] focus:outline-none"
-                placeholder="Category.."
+                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                placeholder="Category"
                 value={expensesCategorySearch}
                 onChange={(e) => setExpensesCategorySearch(e.target.value)}
               />
@@ -1368,7 +1368,7 @@ const DTableView = ({ username, userRoles = [] }) => {
                   </thead>
                 </table>
               </div>
-              <div className="overflow-y-auto max-h-[660px] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <table className="table-fixed lg:w-[280px] w-full">
                   <tbody>
                     {filteredCategories.map((item, index) => (
@@ -1404,8 +1404,8 @@ const DTableView = ({ username, userRoles = [] }) => {
             <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
               <input
                 type="text"
-                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[12px] flex-1 w-44 h-[40px] focus:outline-none"
-                placeholder="Machine Tools.."
+                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                placeholder="Machine Tools"
                 value={machineToolsSearch}
                 onChange={(e) => setMachineToolsSearch(e.target.value)}
               />
@@ -1436,7 +1436,7 @@ const DTableView = ({ username, userRoles = [] }) => {
                   </thead>
                 </table>
               </div>
-              <div className="overflow-y-auto max-h-[660px] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <table className="table-fixed lg:w-[280px] w-full">
                   <tbody>
                     {filteredMachineTools.map((item, index) => (
@@ -1472,8 +1472,8 @@ const DTableView = ({ username, userRoles = [] }) => {
             <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
               <input
                 type="text"
-                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[12px] flex-1 w-44 h-[40px] focus:outline-none"
-                placeholder="Account type.."
+                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                placeholder="Account Type"
                 value={accountTypeSearch}
                 onChange={(e) => setAccountTypeSearch(e.target.value)}
               />
@@ -1504,7 +1504,7 @@ const DTableView = ({ username, userRoles = [] }) => {
                   </thead>
                 </table>
               </div>
-              <div className="overflow-y-auto max-h-[660px] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <table className="table-fixed lg:w-[280px] w-full">
                   <tbody>
                     {filteredAccountType.map((item, index) => (
@@ -1540,8 +1540,8 @@ const DTableView = ({ username, userRoles = [] }) => {
             <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
               <input
                 type="text"
-                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] p-2 flex-1 w-44 h-[40px] focus:outline-none"
-                placeholder="Type.."
+                className=" border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                placeholder="Type"
                 value={weeklyTypeSearch}
                 onChange={(e) => setWeeklyTypeSearch(e.target.value)}
               />
@@ -1572,7 +1572,7 @@ const DTableView = ({ username, userRoles = [] }) => {
                   </thead>
                 </table>
               </div>
-              <div className="overflow-y-auto max-h-[660px] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <table className="table-fixed lg:w-[280px] w-full">
                   <tbody>
                     {filteredWeeklyType.map((item, index) => (
@@ -1606,7 +1606,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         </div>
         {isVendorEditOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" >
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]" >
             <div className="bg-white rounded-md w-[30rem] h-60 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeEditVendorPopup}>
@@ -1644,7 +1644,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isEditSiteNameOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" >
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]" >
             <div className="bg-white rounded-md w-[30rem] px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeEditSiteNamePopup}>
@@ -1693,7 +1693,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isContractorEditOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" >
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]" >
             <div className="bg-white rounded-md w-[30rem] h-60 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeEditContractorPopup}>
@@ -1731,7 +1731,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isCategoriesEditOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" >
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]" >
             <div className="bg-white rounded-md w-[30rem] h-60 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeEditCategoryPopup}>
@@ -1769,7 +1769,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isAccountTypeEditOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" >
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]" >
             <div className="bg-white rounded-md w-[30rem] h-60 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeEditAccountTypePopup}>
@@ -1807,7 +1807,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isEditWeeklyTypeOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" >
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]" >
             <div className="bg-white rounded-md w-[30rem] h-60 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeEditWeeklyTypePopup}>
@@ -1845,7 +1845,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isMachineToolsEditOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" >
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]" >
             <div className="bg-white rounded-md w-[30rem] h-60 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeEditMachineToolsPopup}>
@@ -1883,7 +1883,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isSiteNamesOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center ">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999] ">
             <div className="bg-white rounded-md w-[30rem] h-80 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeSiteNames}>
@@ -1925,7 +1925,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isMachineToolsOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center ">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999] ">
             <div className="bg-white rounded-md w-[30rem] h-52 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeMachineTools}>
@@ -1956,7 +1956,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isAccountTypesOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center ">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999] ">
             <div className="bg-white rounded-md w-[30rem] h-52 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeAccountTypes}>
@@ -1987,7 +1987,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isWeeklyTypeOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center ">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999] ">
             <div className="bg-white rounded-md w-[30rem] h-52 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeWeeklyTypes}>
@@ -2018,7 +2018,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isVendorNameOpens && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center ">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999] ">
             <div className="bg-white rounded-md w-[30rem] h-52 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closevendorNames}>
@@ -2049,7 +2049,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isContractorNameOpens && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center ">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999] ">
             <div className="bg-white rounded-md w-[30rem] h-52 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeContractorNames}>
@@ -2080,7 +2080,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {isCategoryOpens && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center ">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999] ">
             <div className="bg-white rounded-md w-[30rem] h-52 px-2 py-2">
               <div>
                 <button className="text-red-500 ml-[95%]" onClick={closeCategory}>
@@ -2111,7 +2111,7 @@ const DTableView = ({ username, userRoles = [] }) => {
           </div>
         )}
         {confirmDelete && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[9999]">
             <div className="bg-white p-4 rounded">
               <h2>Confirm Deletion</h2>
               <p>Are you sure you want to delete this tile?</p>
@@ -2170,7 +2170,7 @@ export default DTableView;
 function ModalSiteName({ isOpen, onClose, onFileChange, onUpload }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
       <div className="bg-white p-5 rounded-lg text-center w-96 shadow-lg">
         <h2 className="mb-4 text-xl text-gray-800">Upload Bulk Data</h2>
         <div className="mb-5">
@@ -2202,7 +2202,7 @@ function ModalSiteName({ isOpen, onClose, onFileChange, onUpload }) {
 function ModalVendorName({ isOpen, onClose, onFileChange, onUpload }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
       <div className="bg-white p-5 rounded-lg text-center w-96 shadow-lg">
         <h2 className="mb-4 text-xl text-gray-800">Upload Bulk Data</h2>
         <div className="mb-5">
@@ -2234,7 +2234,7 @@ function ModalVendorName({ isOpen, onClose, onFileChange, onUpload }) {
 function ModalContractorName({ isOpen, onClose, onFileChange, onUpload }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
       <div className="bg-white p-5 rounded-lg text-center w-96 shadow-lg">
         <h2 className="mb-4 text-xl text-gray-800">Upload Bulk Data</h2>
         <div className="mb-5">
@@ -2266,7 +2266,7 @@ function ModalContractorName({ isOpen, onClose, onFileChange, onUpload }) {
 function ModalCategory({ isOpen, onClose, onFileChange, onUpload }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
       <div className="bg-white p-5 rounded-lg text-center w-96 shadow-lg">
         <h2 className="mb-4 text-xl text-gray-800">Upload Bulk Data</h2>
         <div className="mb-5">
@@ -2298,7 +2298,7 @@ function ModalCategory({ isOpen, onClose, onFileChange, onUpload }) {
 function ModalMachineTools({ isOpen, onClose, onFileChange, onUpload }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
       <div className="bg-white p-5 rounded-lg text-center w-96 shadow-lg">
         <h2 className="mb-4 text-xl text-gray-800">Upload Bulk Data</h2>
         <div className="mb-5">
@@ -2330,7 +2330,7 @@ function ModalMachineTools({ isOpen, onClose, onFileChange, onUpload }) {
 function ModalAccountTypes({ isOpen, onClose, onFileChange, onUpload }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
       <div className="bg-white p-5 rounded-lg text-center w-96 shadow-lg">
         <h2 className="mb-4 text-xl text-gray-800">Upload Bulk Data</h2>
         <div className="mb-5">
