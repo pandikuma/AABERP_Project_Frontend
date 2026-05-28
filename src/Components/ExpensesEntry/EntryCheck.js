@@ -4,7 +4,12 @@ import Modal from 'react-modal';
 import Select from 'react-select';
 import DateRangePicker from './DateRangePicker';
 import CustomDateField from './CustomDateField';
-import { Table, TableProvider, buildEntryCheckTableContext } from './Table';
+import { Table, TableProvider, buildEntryCheckTableContext, BLANK_VALUE, blankOption } from './Table';
+import {
+    TABLE_FILTER_MAX_VISIBLE_OPTIONS,
+    TABLE_FILTER_MENU_MAX_HEIGHT_PX,
+    TABLE_FILTER_OPTION_HEIGHT_PX,
+} from './databaseExpensesSharedColumns';
 import Reload from '../Images/Clear.svg'
 import Filter from '../Images/TableFilter.svg'
 import Search from '../Images/Searchnew.svg'
@@ -39,6 +44,8 @@ const EntryChecking = () => {
     const [selectedQuantity, setSelectedQuantity] = useState('');
     const [selectedDescription, setSelectedDescription] = useState('');
     const [selectedBranch, setSelectedBranch] = useState('');
+    const [selectedPaymentMode, setSelectedPaymentMode] = useState('');
+    const [paymentModeFilterOptions, setPaymentModeFilterOptions] = useState([]);
     const [categoryOptions, setCategoryOptions] = useState([]);
     const [enoOptions, setEnoOptions] = useState([]);
     const [branchFilterOptions, setBranchFilterOptions] = useState([]);
@@ -142,14 +149,18 @@ const EntryChecking = () => {
                 const uniqueAccountTypes = [...new Set(response.data.map(expense => expense.accountType))].filter(type => !isBlankish(type));
                 const uniqueVendorOptions = [...new Set(response.data.map(expense => expense.vendor))].filter(name => !isBlankish(name));
                 const vendorOptions = uniqueVendorOptions.map(name => ({ value: name, label: name }));
+                vendorOptions.unshift(blankOption);
                 const uniqueContractorOptions = [...new Set(response.data.map(expense => expense.contractor))].filter(name => !isBlankish(name));
                 const contractorOption = uniqueContractorOptions.map(name => ({ value: name, label: name }));
+                contractorOption.unshift(blankOption);
                 const uniqueProjectNames = [...new Set(response.data.map(expense => expense.siteName))].filter(name => !isBlankish(name));
                 const projectNameOption = uniqueProjectNames.map(name => ({ value: name, label: name }));
+                projectNameOption.unshift(blankOption);
                 const uniqueCategories = [...new Set(response.data.map(expense => expense.category))].filter(name => !isBlankish(name));
                 const categoryOption = uniqueCategories.map(name => ({ value: name, label: name }));
+                categoryOption.unshift(blankOption);
                 // Set the unique dropdown options in state
-                setAccountTypeOptions(uniqueAccountTypes);
+                setAccountTypeOptions([BLANK_VALUE, ...uniqueAccountTypes]);
                 setCategoryOptions(categoryOption);
                 setVendorOptions(vendorOptions);
                 setContractorOptions(contractorOption);
@@ -178,17 +189,42 @@ const EntryChecking = () => {
         fetchBranches();
     }, []);
     useEffect(() => {
+        const isBlankish = (value) =>
+            value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
         const uniqueBranchIds = [...new Set(expenses.map(expense => expense.branch_id ?? expense.branchId).filter(Boolean))];
-        setBranchFilterOptions(uniqueBranchIds.map(id => ({
+        const branchFilterOptionsBuilt = uniqueBranchIds.map(id => ({
             value: String(id),
             label: branchOptions.find(b => String(b.id) === String(id))?.branch || String(id),
-        })).filter(opt => opt.label != null && String(opt.label).trim() !== ''));
+        })).filter(opt => opt.label != null && String(opt.label).trim() !== '');
+        branchFilterOptionsBuilt.unshift(blankOption);
+        setBranchFilterOptions(branchFilterOptionsBuilt);
         const uniqueEnos = [...new Set(expenses.map(expense => expense.eno))]
             .filter(eno => eno != null && String(eno).trim() !== '')
             .sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
+        uniqueEnos.unshift(BLANK_VALUE);
         setEnoOptions(uniqueEnos);
+        const uniquePaymentModes = [];
+        const seenPaymentModes = new Set();
+        let hasBlankPaymentMode = false;
+        expenses.forEach((expense) => {
+            const mode = expense.paymentMode;
+            if (isBlankish(mode)) {
+                hasBlankPaymentMode = true;
+                return;
+            }
+            const key = String(mode);
+            if (!seenPaymentModes.has(key)) {
+                seenPaymentModes.add(key);
+                uniquePaymentModes.push(String(mode));
+            }
+        });
+        const paymentModeOptionsBuilt = uniquePaymentModes.map((val) => ({ value: val, label: val }));
+        paymentModeOptionsBuilt.unshift(blankOption);
+        setPaymentModeFilterOptions(paymentModeOptionsBuilt);
     }, [expenses, branchOptions]);
     useEffect(() => {
+        const isBlankish = (value) =>
+            value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
         const filtered = expenses.filter(expense => {
             const expenseDate = new Date(expense.date).toISOString().slice(0, 10);
             if (timestampStartDate && timestampEndDate) {
@@ -222,6 +258,7 @@ const EntryChecking = () => {
                     expense.comments,
                     expense.category,
                     expense.accountType,
+                    expense.paymentMode,
                     branchOptions.find(b => String(b.id) === String(expense.branch_id ?? expense.branchId ?? ''))?.branch || '',
                     expense.eno
                 ]
@@ -230,24 +267,61 @@ const EntryChecking = () => {
                 if (!searchable.includes(q)) return false;
             }
             return (
-                (selectedSiteName ? expense.siteName === selectedSiteName : true) &&
-                (selectedVendor ? expense.vendor === selectedVendor : true) &&
-                (selectedContractor ? expense.contractor === selectedContractor : true) &&
-                (selectedCategory ? expense.category === selectedCategory : true) &&
-                (selectedMachineTools ? expense.machineTools === selectedMachineTools : true) &&
-                (selectedAccountType ? expense.accountType === selectedAccountType : true) &&
+                (selectedSiteName
+                    ? (selectedSiteName === BLANK_VALUE
+                        ? isBlankish(expense.siteName)
+                        : expense.siteName === selectedSiteName)
+                    : true) &&
+                (selectedVendor
+                    ? (selectedVendor === BLANK_VALUE
+                        ? isBlankish(expense.vendor)
+                        : expense.vendor === selectedVendor)
+                    : true) &&
+                (selectedContractor
+                    ? (selectedContractor === BLANK_VALUE
+                        ? isBlankish(expense.contractor)
+                        : expense.contractor === selectedContractor)
+                    : true) &&
+                (selectedCategory
+                    ? (selectedCategory === BLANK_VALUE
+                        ? isBlankish(expense.category)
+                        : expense.category === selectedCategory)
+                    : true) &&
+                (selectedMachineTools
+                    ? (selectedMachineTools === BLANK_VALUE
+                        ? isBlankish(expense.machineTools)
+                        : expense.machineTools === selectedMachineTools)
+                    : true) &&
+                (selectedAccountType
+                    ? (selectedAccountType === BLANK_VALUE
+                        ? isBlankish(expense.accountType)
+                        : expense.accountType === selectedAccountType)
+                    : true) &&
+                (selectedPaymentMode
+                    ? (selectedPaymentMode === BLANK_VALUE
+                        ? isBlankish(expense.paymentMode)
+                        : expense.paymentMode === selectedPaymentMode)
+                    : true) &&
                 (selectedDate ? expense.timestamp.split('T')[0] === selectedDate : true) &&
                 (selectedExpenseDate ? expenseDate === selectedExpenseDate : true) &&
                 (selectedStartDate ? expenseDate >= selectedStartDate : true) &&
                 (selectedEndDate ? expenseDate <= selectedEndDate : true) &&
-                (selectedBranch ? String(expense.branch_id ?? expense.branchId ?? '') === String(selectedBranch) : true) &&
+                (selectedBranch
+                    ? (selectedBranch === BLANK_VALUE
+                        ? isBlankish(expense.branch_id ?? expense.branchId)
+                        : String(expense.branch_id ?? expense.branchId ?? '') === String(selectedBranch))
+                    : true) &&
                 (selectedQuantity.trim()
                     ? String(expense.quantity ?? '').toLowerCase().includes(selectedQuantity.toLowerCase().trim())
                     : true) &&
                 (selectedDescription.trim()
                     ? String(expense.comments ?? '').toLowerCase().includes(selectedDescription.toLowerCase().trim())
                     : true) &&
-                (selectedEno ? String(expense.eno) === String(selectedEno) : true)
+                (selectedEno
+                    ? (selectedEno === BLANK_VALUE
+                        ? isBlankish(expense.eno)
+                        : String(expense.eno) === String(selectedEno))
+                    : true)
             );
         });
         setFilteredExpenses(filtered);
@@ -255,7 +329,7 @@ const EntryChecking = () => {
         setCurrentPage(1);
         const total = filtered.reduce((sum, item) => sum + Number(item.amount || 0), 0);
         setTotalAmount(total);
-    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedEno, selectedAccountType, selectedDate, selectedExpenseDate, selectedStartDate, selectedEndDate, timestampStartDate, timestampEndDate, selectedBranch, selectedQuantity, selectedDescription, overallSearch, expenses, branchOptions]);
+    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedEno, selectedAccountType, selectedPaymentMode, selectedDate, selectedExpenseDate, selectedStartDate, selectedEndDate, timestampStartDate, timestampEndDate, selectedBranch, selectedQuantity, selectedDescription, overallSearch, expenses, branchOptions]);
     const formatDateOnly = (dateString) => {
         const date = new Date(dateString);
         const day = String(date.getDate()).padStart(2, '0');
@@ -290,6 +364,7 @@ const EntryChecking = () => {
         setSelectedQuantity('');
         setSelectedDescription('');
         setSelectedBranch('');
+        setSelectedPaymentMode('');
         setSelectedEno('');
         setOverallSearch('');
         setCurrentPage(1);
@@ -362,10 +437,10 @@ const EntryChecking = () => {
         const dateStr = new Date().toISOString().slice(0, 10);
         doc.save(`Filtered_Expenses_Report_${dateStr}.pdf`);
     };
-    const TABLE_FILTER_OPTION_HEIGHT = 36;
-    const TABLE_FILTER_MAX_VISIBLE_OPTIONS = 8;
+    const TABLE_FILTER_OPTION_HEIGHT = TABLE_FILTER_OPTION_HEIGHT_PX;
+    const TABLE_FILTER_MAX_VISIBLE_OPTIONS_COUNT = TABLE_FILTER_MAX_VISIBLE_OPTIONS;
     const getTableFilterMenuMaxHeight = () => {
-        const maxLargeHeight = TABLE_FILTER_OPTION_HEIGHT * TABLE_FILTER_MAX_VISIBLE_OPTIONS;
+        const maxLargeHeight = TABLE_FILTER_MENU_MAX_HEIGHT_PX;
         if (typeof window === 'undefined') return maxLargeHeight;
         if (window.innerWidth >= 1024) return maxLargeHeight;
 
@@ -376,7 +451,7 @@ const EntryChecking = () => {
         const raw = Math.min(maxLargeHeight, viewportSpace, tableSpace);
         const visibleCount = Math.max(
             3,
-            Math.min(TABLE_FILTER_MAX_VISIBLE_OPTIONS, Math.floor(raw / TABLE_FILTER_OPTION_HEIGHT))
+            Math.min(TABLE_FILTER_MAX_VISIBLE_OPTIONS_COUNT, Math.floor(raw / TABLE_FILTER_OPTION_HEIGHT))
         );
         return visibleCount * TABLE_FILTER_OPTION_HEIGHT;
     };
@@ -397,8 +472,8 @@ const EntryChecking = () => {
             lineHeight: '20px',
             fontSize: '14px',
             fontWeight: 'normal',
-            height: '36px',
-            minHeight: '36px',
+            height: '38px',
+            minHeight: '38px',
             borderRadius: '8px',
             textAlign: 'left',
             borderColor: 'rgba(191, 152, 83, 0.2)',
@@ -430,11 +505,48 @@ const EntryChecking = () => {
             backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
             color: 'black',
         }),
-        singleValue: (provided) => ({ ...provided, color: '#111827', fontWeight: 'normal' }),
-        placeholder: (provided) => ({ ...provided, color: '#999', textAlign: 'left' }),
+        singleValue: (provided) => ({
+            ...provided,
+            color: '#111827',
+            fontWeight: 'normal',
+            marginRight: 0,
+        }),
+        valueContainer: (provided) => ({
+            ...provided,
+            paddingLeft: '12px',
+            paddingRight: '2px',
+            paddingTop: 0,
+            paddingBottom: 0,
+        }),
+        indicatorsContainer: (provided) => ({
+            ...provided,
+            paddingLeft: '0px',
+        }),
         dropdownIndicator: (provided, state) => ({
             ...provided,
             display: state.hasValue ? 'none' : 'flex',
+            paddingTop: '0px',
+            paddingBottom: '0px',
+            paddingRight: '6px',
+            paddingLeft: '3px',
+        }),
+        input: (provided) => ({
+            ...provided,
+            fontWeight: 'normal',
+            color: 'black',
+            textAlign: 'left',
+            margin: 0,
+            padding: 0,
+        }),
+        placeholder: (provided) => ({
+            ...provided,
+            color: '#A6A5A6',
+            textAlign: 'left',
+            fontWeight: 'normal',
+            paddingLeft: '0px',
+            paddingTop: '0px',
+            paddingBottom: '0px',
+            margin: 0,
         }),
         clearIndicator: (provided) => ({
             ...provided,
@@ -450,11 +562,31 @@ const EntryChecking = () => {
             border: '2px solid rgba(191, 152, 83, 0.2)',
             borderRadius: '8px',
             minHeight: '40px',
+            fontWeight: 'medium',
             height: '40px',
+            flexWrap: 'nowrap',
             boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
             '&:hover': { borderColor: 'rgba(191, 152, 83, 0.4)' },
         }),
-        placeholder: (provided) => ({ ...provided, color: '#999', textAlign: 'left' }),
+        valueContainer: (provided) => ({
+            ...provided,
+            flexWrap: 'nowrap',
+            overflow: 'hidden',
+            paddingLeft: '12px',
+            paddingRight: '2px',
+            height: '36px',
+            alignItems: 'center',
+        }),
+        placeholder: (provided) => ({
+            ...provided,
+            color: '#999',
+            textAlign: 'left',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: '100%',
+            position: 'absolute',
+        }),
         menu: (provided) => ({ ...provided, zIndex: 9999, maxHeight: tableFilterMenuMaxHeight }),
         menuList: (provided) => ({
             ...provided,
@@ -480,28 +612,48 @@ const EntryChecking = () => {
             backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
             color: 'black',
         }),
-        singleValue: (provided) => ({ ...provided, textAlign: 'left', color: 'black' }),
+        singleValue: (provided) => ({
+            ...provided,
+            textAlign: 'left',
+            color: 'black',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: '100%',
+        }),
+        input: (provided) => ({
+            ...provided,
+            margin: 0,
+            padding: 0,
+            whiteSpace: 'nowrap',
+        }),
         dropdownIndicator: (provided, state) => ({
             ...provided,
             display: state.hasValue ? 'none' : 'flex',
             color: '#000000',
+            flexShrink: 0,
         }),
         clearIndicator: (provided) => ({
             ...provided,
             cursor: 'pointer',
             color: '#000000',
+            flexShrink: 0,
         }),
         indicatorSeparator: () => ({ display: 'none' }),
     };
     const nameSelectClassNames = {
         menuList: () => 'no-scrollbar scrollbar-none',
+        valueContainer: () => '!flex-nowrap !overflow-hidden',
+        placeholder: () => '!whitespace-nowrap !overflow-hidden !text-ellipsis',
+        singleValue: () => '!whitespace-nowrap !overflow-hidden !text-ellipsis',
     };
-    const isAnyFilterSelected = selectedDate || selectedExpenseDate || selectedStartDate || selectedEndDate || timestampStartDate || timestampEndDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedBranch || selectedQuantity.trim() || selectedDescription.trim() || selectedEno || overallSearch.trim();
+    const isAnyFilterSelected = selectedDate || selectedExpenseDate || selectedStartDate || selectedEndDate || timestampStartDate || timestampEndDate || selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedBranch || selectedQuantity.trim() || selectedDescription.trim() || selectedEno || overallSearch.trim();
     const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage) || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const currentItems = isAnyFilterSelected ? filteredExpenses.slice(startIndex, endIndex) : [];
-    const entryCheckTableContext = useMemo(() => buildEntryCheckTableContext({
+    const entryCheckTableContext = useMemo(() => ({
+        ...buildEntryCheckTableContext({
         currentItems,
         showFilters,
         filterRowRef,
@@ -544,6 +696,10 @@ const EntryChecking = () => {
         formatDateOnly,
         getBranchName,
         billArrivalFilterRef,
+        }),
+        paymentModeFilterOptions,
+        selectedPaymentMode,
+        setSelectedPaymentMode,
     }), [
         currentItems,
         showFilters,
@@ -564,6 +720,8 @@ const EntryChecking = () => {
         selectedCategory,
         accountTypeOptions,
         selectedAccountType,
+        paymentModeFilterOptions,
+        selectedPaymentMode,
         branchFilterOptions,
         selectedBranch,
         enoOptions,
@@ -576,9 +734,9 @@ const EntryChecking = () => {
             <div className='flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED]'>
                 <div className='px-[18px] pt-[18px] pb-[18px] flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]'>
                 <div className="w-full pt-[18px] px-[18px] pb-[18px] rounded-[6px] bg-white mb-[18px] shrink-0">
-                    <div className="flex flex-wrap lg:flex-nowrap gap-[12px] items-end mb-2">
+                    <div className="flex flex-wrap lg:flex-nowrap gap-[12px] items-end">
                         <div className="flex flex-col">
-                            <label className="font-bold text-left text-sm">Entry Date</label>
+                            <label className="font-semibold text-left text-[16px]">Entry Date</label>
                             <div className="mt-2 w-full max-w-[155px]">
                                 <CustomDateField
                                     value={selectedDate}
@@ -589,10 +747,10 @@ const EntryChecking = () => {
                                 />
                             </div>
                         </div>
-                        <div className="flex flex-col flex-1 max-w-[320px]">
-                            <label className="font-bold text-left text-sm">Project Name</label>
+                        <div className="flex flex-col flex-1 max-w-[320px] min-w-0">
+                            <label className="font-semibold text-left text-[16px]">Project Name</label>
                             <Select
-                                className="mt-2"
+                                className="mt-2 min-w-0 w-full"
                                 classNames={nameSelectClassNames}
                                 options={projectNameOptions}
                                 value={selectedSiteName ? { value: selectedSiteName, label: selectedSiteName } : null}
@@ -602,10 +760,10 @@ const EntryChecking = () => {
                                 styles={customSelectStyles}
                             />
                         </div>
-                        <div className="flex flex-col flex-1 max-w-[260px]">
-                            <label className="font-bold text-left text-sm">Vendor Name</label>
+                        <div className="flex flex-col flex-1 max-w-[260px] min-w-0">
+                            <label className="font-semibold text-left text-[16px]">Vendor Name</label>
                             <Select
-                                className="mt-2"
+                                className="mt-2 min-w-0 w-full"
                                 classNames={nameSelectClassNames}
                                 options={vendorOptions}
                                 value={selectedVendor ? { value: selectedVendor, label: selectedVendor } : null}
@@ -615,10 +773,10 @@ const EntryChecking = () => {
                                 styles={customSelectStyles}
                             />
                         </div>
-                        <div className="flex flex-col flex-1 max-w-[260px]">
-                            <label className="font-bold text-left text-sm">Contractor Name</label>
+                        <div className="flex flex-col flex-1 max-w-[260px] min-w-0">
+                            <label className="font-semibold text-left text-[16px]">Contractor Name</label>
                             <Select
-                                className="mt-2"
+                                className="mt-2 min-w-0 w-full"
                                 classNames={nameSelectClassNames}
                                 options={contractorOptions}
                                 value={selectedContractor ? { value: selectedContractor, label: selectedContractor } : null}
@@ -628,10 +786,10 @@ const EntryChecking = () => {
                                 styles={customSelectStyles}
                             />
                         </div>
-                        <div className="flex flex-col flex-1 max-w-[200px]">
-                            <label className="font-bold text-left text-sm">A/C Type</label>
+                        <div className="flex flex-col flex-1 max-w-[200px] min-w-0">
+                            <label className="font-semibold text-left text-[16px]">A/C Type</label>
                             <Select
-                                className="mt-2"
+                                className="mt-2 min-w-0 w-full"
                                 classNames={nameSelectClassNames}
                                 options={accountTypeOptions.map(type => ({ value: type, label: type }))}
                                 value={selectedAccountType ? { value: selectedAccountType, label: selectedAccountType } : null}
@@ -642,13 +800,13 @@ const EntryChecking = () => {
                             />
                         </div>                        
                         <div className="flex flex-col">
-                            <label className="font-bold text-left text-sm">No Of Bills</label>
+                            <label className="font-semibold text-left text-[16px]">No Of Bills</label>
                             <div className="w-full lg:w-[80px] h-[40px] p-2 mt-2 rounded-lg bg-[#F2F2F2] border-2 border-[rgba(191,152,83,0.2)] hover:border-[rgba(191,152,83,0.4)] text-left">
                                 {isAnyFilterSelected ? filteredCount : ''}
                             </div>
                         </div>
                         <div className="flex flex-col">
-                            <label className="font-bold text-left text-sm">Amount</label>
+                            <label className="font-semibold text-left text-[16px]">Amount</label>
                             <div className="w-full lg:w-[140px] h-[40px] p-2 mt-2 rounded-lg bg-[#F2F2F2] border-2 border-[rgba(191,152,83,0.2)] hover:border-[rgba(191,152,83,0.4)] text-left">
                                 {isAnyFilterSelected
                                     ? `₹${Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2, })}`
@@ -796,6 +954,13 @@ const EntryChecking = () => {
                                                 <span className="font-semibold">A/C Type: </span>
                                                 <span className="font-semibold text-[14px] text-[#000000]">{selectedAccountType}</span>
                                                 <button onClick={() => setSelectedAccountType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectedPaymentMode && (
+                                            <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                                <span className="font-semibold">Mode: </span>
+                                                <span className="font-semibold text-[14px] text-[#000000]">{selectedPaymentMode === BLANK_VALUE ? blankOption.label : selectedPaymentMode}</span>
+                                                <button onClick={() => setSelectedPaymentMode('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedMachineTools && (

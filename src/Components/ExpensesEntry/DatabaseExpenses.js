@@ -24,6 +24,10 @@ import {
 import XL from '../Images/sheets.png'
 import Pdf from '../Images/pdf.png'
 import { Table, TableProvider } from './Table';
+import {
+    TABLE_FILTER_MENU_MAX_HEIGHT_PX,
+    TABLE_FILTER_OPTION_HEIGHT_PX,
+} from './databaseExpensesSharedColumns';
 Modal.setAppElement('#root');
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 const NON_CASH_PAYMENT_MODES = ['GPay', 'Gpay', 'PhonePe', 'Net Banking', 'Cheque'];
@@ -325,6 +329,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const [employeeOptions, setEmployeeOptions] = useState([]);
     const [branchOptions, setBranchOptions] = useState([]);
     const [sourceOptions, setSourceOptions] = useState([]);
+    const [paymentModeFilterOptions, setPaymentModeFilterOptions] = useState([]);
     const [branchFilterOptions, setBranchFilterOptions] = useState([]);
     const [enteredByOptions, setEnteredByOptions] = useState([]);
     // Initialize filter states from localStorage or defaults
@@ -370,6 +375,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     });
     const [selectedSource, setSelectedSource] = useState(() => {
         return localStorage.getItem('expenseFilter_source') || '';
+    });
+    const [selectedPaymentMode, setSelectedPaymentMode] = useState(() => {
+        return localStorage.getItem('expenseFilter_paymentMode') || '';
     });
     const [selectedBranch, setSelectedBranch] = useState(() => {
         return localStorage.getItem('expenseFilter_branch') || '';
@@ -440,6 +448,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const scrollRef = useRef(null);
     const filterRowRef = useRef(null);
     const filterNudgeUsedRef = useRef(false);
+    const filterScrollResetSkipRef = useRef(true);
     const isDragging = useRef(false);
     const start = useRef({ x: 0, y: 0 });
     const scroll = useRef({ left: 0, top: 0 });
@@ -570,6 +579,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         localStorage.setItem('expenseFilter_source', selectedSource);
     }, [selectedSource]);
     useEffect(() => {
+        localStorage.setItem('expenseFilter_paymentMode', selectedPaymentMode);
+    }, [selectedPaymentMode]);
+    useEffect(() => {
         localStorage.setItem('expenseFilter_branch', selectedBranch);
     }, [selectedBranch]);
     useEffect(() => {
@@ -649,7 +661,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         menu: (provided) => ({
             ...provided,
             zIndex: 999,
-            maxHeight: '300px',
+            maxHeight: `${TABLE_FILTER_MENU_MAX_HEIGHT_PX}px`,
         }),
         menuPortal: (provided) => ({
             ...provided,
@@ -657,7 +669,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         }),
         menuList: (provided) => ({
             ...provided,
-            maxHeight: '250px',
+            maxHeight: `${TABLE_FILTER_MENU_MAX_HEIGHT_PX}px`,
+            paddingTop: 0,
+            paddingBottom: 0,
             overflowY: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
@@ -687,6 +701,12 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         }),
         option: (provided, state) => ({
             ...provided,
+            minHeight: TABLE_FILTER_OPTION_HEIGHT_PX,
+            height: TABLE_FILTER_OPTION_HEIGHT_PX,
+            paddingTop: 0,
+            paddingBottom: 0,
+            display: 'flex',
+            alignItems: 'center',
             textAlign: 'left',
             fontWeight: 'normal',
             fontSize: '15px',
@@ -1254,6 +1274,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                     expense.comments,
                     expense.category,
                     expense.accountType,
+                    expense.paymentMode,
                     getMachineToolsItemIdDisplay(expense.machineTools),
                     expense.source,
                     getBranchName(expense.branch_id ?? expense.branchId),
@@ -1295,6 +1316,11 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                         ? isBlankish(expense.source)
                         : expense.source === selectedSource)
                     : true) &&
+                (selectedPaymentMode
+                    ? (selectedPaymentMode === BLANK_VALUE
+                        ? isBlankish(expense.paymentMode)
+                        : expense.paymentMode === selectedPaymentMode)
+                    : true) &&
                 (selectedBranch
                     ? (selectedBranch === BLANK_VALUE
                         ? isBlankish(expense.branch_id ?? expense.branchId)
@@ -1306,10 +1332,10 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                         : (expense.enteredBy || 'Sivaprakasm') === selectedEnteredBy)
                     : true) &&
                 (selectedAccountType ?
-                    (selectedAccountType === 'Unknown' ?
-                        (!expense.accountType || expense.accountType === '') :
-                        expense.accountType === selectedAccountType
-                    ) : true) &&
+                    (selectedAccountType === BLANK_VALUE
+                        ? isBlankish(expense.accountType)
+                        : expense.accountType === selectedAccountType)
+                    : true) &&
                 (selectedDate ? expense.date === selectedDate : true) &&
                 (selectedEno
                     ? (selectedEno === BLANK_VALUE
@@ -1355,7 +1381,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                 }
             });
             const options = unique.map(val => ({ value: val, label: val }));
-            if (includeBlank && hasBlank) options.unshift(blankOption);
+            if (includeBlank) options.unshift(blankOption);
             return options;
         };
         setSiteOptions(getOptions(filtered, "siteName"));
@@ -1363,6 +1389,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         setContractorOptions(getOptions(filtered, "contractor"));
         setCategoryOptions(getOptions(filtered, "category"));
         setSourceOptions(getOptions(filtered, "source"));
+        setPaymentModeFilterOptions(getOptions(filtered, "paymentMode"));
         const uniqueStaff = [];
         const seenStaff = new Set();
         let hasBlankStaff = false;
@@ -1378,7 +1405,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
             }
         });
         const staffOptionsBuilt = uniqueStaff.map((staff) => ({ value: staff, label: staff }));
-        if (hasBlankStaff) staffOptionsBuilt.unshift(blankOption);
+        staffOptionsBuilt.unshift(blankOption);
         setStaffOptions(staffOptionsBuilt);
         const uniqueBranchIds = [];
         const seenBranchIds = new Set();
@@ -1399,7 +1426,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
             value: String(id),
             label: branchOptions.find(branch => String(branch.id) === String(id))?.branch || String(id)
         }));
-        if (hasBlankBranch) branchFilterOptionsBuilt.unshift(blankOption);
+        branchFilterOptionsBuilt.unshift(blankOption);
         setBranchFilterOptions(branchFilterOptionsBuilt);
 
         const uniqueEnteredBy = [];
@@ -1418,7 +1445,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
             }
         });
         const enteredByOptionsBuilt = uniqueEnteredBy.map(val => ({ value: val, label: val }));
-        if (hasBlankEnteredBy) enteredByOptionsBuilt.unshift(blankOption);
+        enteredByOptionsBuilt.unshift(blankOption);
         setEnteredByOptions(enteredByOptionsBuilt);
 
         const uniqueToolIds = [];
@@ -1443,10 +1470,10 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                 machineToolsIdToLabel[String(id)] ??
                 String(id),
         }));
-        if (hasBlankTools) machineToolsOptionsBuilt.unshift(blankOption);
+        machineToolsOptionsBuilt.unshift(blankOption);
         setMachineToolsOptions(machineToolsOptionsBuilt);
 
-        setAccountTypeOptions(getOptions(filtered, "accountType", false));
+        setAccountTypeOptions(getOptions(filtered, "accountType", true));
 
         const uniqueEno = [];
         const seenEno = new Set();
@@ -1463,10 +1490,28 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                 uniqueEno.push(eno);
             }
         });
-        if (hasBlankEno) uniqueEno.unshift(BLANK_VALUE);
+        uniqueEno.unshift(BLANK_VALUE);
         setEnoOptions(uniqueEno);
 
-    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedSource, selectedBranch, selectedEnteredBy, selectedAccountType, selectedDate, startDate, endDate, timestampStartDate, timestampEndDate, selectedEno, selectedStaff, selectedQuantity, selectedDescription, selectedBillArrival, overallSearch, expenses, machineToolsIdToLabel, branchOptions]);
+    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedSource, selectedPaymentMode, selectedBranch, selectedEnteredBy, selectedAccountType, selectedDate, startDate, endDate, timestampStartDate, timestampEndDate, selectedEno, selectedStaff, selectedQuantity, selectedDescription, selectedBillArrival, overallSearch, expenses, machineToolsIdToLabel, branchOptions]);
+    useEffect(() => {
+        if (filterScrollResetSkipRef.current) {
+            filterScrollResetSkipRef.current = false;
+            return;
+        }
+        if (!showFilters) return;
+        const scroller = scrollRef.current;
+        if (!scroller) return;
+        filterNudgeUsedRef.current = false;
+        requestAnimationFrame(() => {
+            scroller.scrollTop = 0;
+        });
+    }, [
+        selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools,
+        selectedSource, selectedPaymentMode, selectedBranch, selectedEnteredBy, selectedAccountType,
+        selectedDate, startDate, endDate, timestampStartDate, timestampEndDate, selectedEno,
+        selectedStaff, selectedBillArrival, selectedQuantity, selectedDescription,
+    ]);
     const handleChange = (e) => {
         const { name, type, value, files } = e.target;
         // Prevent clearing the date field
@@ -2014,6 +2059,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         setSelectedMachineTools('');
         setSelectedAccountType('');
         setSelectedSource('');
+        setSelectedPaymentMode('');
         setSelectedBranch('');
         setSelectedEnteredBy('');
         setSelectedDate('');
@@ -2039,6 +2085,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         localStorage.removeItem('expenseFilter_machineTools');
         localStorage.removeItem('expenseFilter_accountType');
         localStorage.removeItem('expenseFilter_source');
+        localStorage.removeItem('expenseFilter_paymentMode');
         localStorage.removeItem('expenseFilter_branch');
         localStorage.removeItem('expenseFilter_enteredBy');
         localStorage.removeItem('expenseFilter_date');
@@ -2169,7 +2216,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                     ) : null}
                     <div className="w-full pt-[18px] px-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
                         <div
-                            className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedStaff || selectedQuantity.trim() || selectedDescription.trim() || selectedBillArrival || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno
+                            className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedStaff || selectedQuantity.trim() || selectedDescription.trim() || selectedBillArrival || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno
                                 ? 'flex-col sm:flex-row sm:justify-between'
                                 : 'flex-row justify-between items-center'
                                 } mb-[12px] gap-[6px]`}>
@@ -2178,19 +2225,30 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                     className=''
                                     onClick={() => {
                                         const willOpen = !showFilters;
-                                        setShowFilters(willOpen);
-                                        if (!willOpen) return;
                                         const scroller = scrollRef.current;
-                                        if (!scroller) return;
-                                        if (scroller.scrollTop <= 0) return;
-                                        if (filterNudgeUsedRef.current) return;
-                                        filterNudgeUsedRef.current = true;
+                                        if (willOpen) {
+                                            setShowFilters(true);
+                                            if (!scroller) return;
+                                            if (scroller.scrollTop <= 0) return;
+                                            if (filterNudgeUsedRef.current) return;
+                                            filterNudgeUsedRef.current = true;
+                                            requestAnimationFrame(() => {
+                                                requestAnimationFrame(() => {
+                                                    const h = filterRowRef.current?.offsetHeight || 0;
+                                                    if (h > 0) {
+                                                        scroller.scrollTop = Math.max(0, scroller.scrollTop - h);
+                                                    }
+                                                });
+                                            });
+                                            return;
+                                        }
+                                        const h = filterRowRef.current?.offsetHeight || 0;
+                                        setShowFilters(false);
+                                        if (!scroller || h <= 0 || !filterNudgeUsedRef.current) return;
+                                        filterNudgeUsedRef.current = false;
                                         requestAnimationFrame(() => {
                                             requestAnimationFrame(() => {
-                                                const h = filterRowRef.current?.offsetHeight || 0;
-                                                if (h > 0) {
-                                                    scroller.scrollTop = Math.max(0, scroller.scrollTop - h);
-                                                }
+                                                scroller.scrollTop = scroller.scrollTop + h;
                                             });
                                         });
                                     }}
@@ -2201,7 +2259,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                         className=" border rounded-md"
                                     />
                                 </button>
-                                {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedStaff || selectedQuantity.trim() || selectedDescription.trim() || selectedBillArrival || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno) && (
+                                {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedStaff || selectedQuantity.trim() || selectedDescription.trim() || selectedBillArrival || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno) && (
                                     <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
                                         {timestampStartDate && (
                                             <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] font-medium w-fit">
@@ -2278,6 +2336,13 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                 <span className="font-medium text-[#BF9853]">A/C Type: </span>
                                                 <span className="font-semibold text-[14px] ">{selectedAccountType}</span>
                                                 <button onClick={() => setSelectedAccountType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectedPaymentMode && (
+                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Mode: </span>
+                                                <span className="font-semibold text-[14px] ">{selectedPaymentMode === BLANK_VALUE ? BLANK_LABEL : selectedPaymentMode}</span>
+                                                <button onClick={() => setSelectedPaymentMode('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedMachineTools && (
@@ -2358,22 +2423,23 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                 onMouseUp={handleMouseUp}
                                 onMouseLeave={handleMouseUp}>
                                 <TableProvider value={{
-  currentItems, showFilters, filterRowRef, totalAmount, sortField, sortDirection, handleSort,
-  timestampStartDate, setTimestampStartDate, timestampEndDate, setTimestampEndDate,
-  showDateRangePicker, setShowDateRangePicker, selectedDate, setSelectedDate,
-  siteOptions, selectedSiteName, setSelectedSiteName, vendorOptions, selectedVendor, setSelectedVendor,
-  contractorOptions, selectedContractor, setSelectedContractor, staffOptions, selectedStaff, setSelectedStaff,
-  selectedQuantity, setSelectedQuantity, selectedDescription, setSelectedDescription,
-  categoryOptions, selectedCategory, setSelectedCategory, accountTypeOptions, selectedAccountType, setSelectedAccountType,
-  machineToolsOptions, selectedMachineTools, setSelectedMachineTools, sourceOptions, selectedSource, setSelectedSource,
-  branchFilterOptions, selectedBranch, setSelectedBranch, enteredByOptions, selectedEnteredBy, setSelectedEnteredBy,
-  enoOptions, selectedEno, setSelectedEno, selectedBillArrival, setSelectedBillArrival,
-  billArrivalFilterRef, setBillArrivalCalendarPos, setShowBillArrivalCalendar, customStyles,
-  formatDate, formatDateOnly, getDisplaySiteName, getDisplayVendorName, getDisplayContractorName, getDisplayStaffName,
-  getMachineToolsItemIdDisplay, getBranchName, formatBillArrivalDisplay, handleEditClick, handleDelete, fetchAuditDetails, username,
-}}>
-  <Table showActivityColumn />
-</TableProvider>
+                                    currentItems, showFilters, filterRowRef, totalAmount, sortField, sortDirection, handleSort,
+                                    timestampStartDate, setTimestampStartDate, timestampEndDate, setTimestampEndDate,
+                                    showDateRangePicker, setShowDateRangePicker, selectedDate, setSelectedDate,
+                                    siteOptions, selectedSiteName, setSelectedSiteName, vendorOptions, selectedVendor, setSelectedVendor,
+                                    contractorOptions, selectedContractor, setSelectedContractor, staffOptions, selectedStaff, setSelectedStaff,
+                                    selectedQuantity, setSelectedQuantity, selectedDescription, setSelectedDescription,
+                                    categoryOptions, selectedCategory, setSelectedCategory, accountTypeOptions, selectedAccountType, setSelectedAccountType,
+                                    machineToolsOptions, selectedMachineTools, setSelectedMachineTools, paymentModeFilterOptions, selectedPaymentMode, setSelectedPaymentMode,
+                                    sourceOptions, selectedSource, setSelectedSource,
+                                    branchFilterOptions, selectedBranch, setSelectedBranch, enteredByOptions, selectedEnteredBy, setSelectedEnteredBy,
+                                    enoOptions, selectedEno, setSelectedEno, selectedBillArrival, setSelectedBillArrival,
+                                    billArrivalFilterRef, setBillArrivalCalendarPos, setShowBillArrivalCalendar, customStyles,
+                                    formatDate, formatDateOnly, getDisplaySiteName, getDisplayVendorName, getDisplayContractorName, getDisplayStaffName,
+                                    getMachineToolsItemIdDisplay, getBranchName, formatBillArrivalDisplay, handleEditClick, handleDelete, fetchAuditDetails, username,
+                                }}>
+                                    <Table showActivityColumn />
+                                </TableProvider>
                             </div>
                             <div className="flex shrink-0 items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
                                 <div className="flex items-center space-x-2">
@@ -3057,7 +3123,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                {(formData.paymentMode === 'GPay'|| formData.paymentMode === 'Gpay' || formData.paymentMode === 'PhonePe' || formData.paymentMode === 'Net Banking' || formData.paymentMode === 'Cheque') && (
+                                                {(formData.paymentMode === 'GPay' || formData.paymentMode === 'Gpay' || formData.paymentMode === 'PhonePe' || formData.paymentMode === 'Net Banking' || formData.paymentMode === 'Cheque') && (
                                                     <div className="border-2 border-[#BF9853] border-opacity-25 w-full rounded-lg p-4">
                                                         <div className="space-y-4">
                                                             {formData.paymentMode === 'Cheque' && (
@@ -3127,7 +3193,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                         </button>
                                     </div>
                                 </div>
-                            , document.body)}
+                                , document.body)}
                             <AuditModal
                                 show={showModal}
                                 onClose={() => setShowModal(false)}

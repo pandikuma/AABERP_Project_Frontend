@@ -29,6 +29,7 @@ export const EDBC_IDS = {
     EDBC18: 'EDBC-18',
     EDBC19: 'EDBC-19',
     EDBC20: 'EDBC-20',
+    EDBC21: 'EDBC-21',
 };
 
 const EDBC1_COLUMN_W = 'w-[168px]';
@@ -47,7 +48,7 @@ const EDBC7_COLUMN_W = 'w-[78px]';
 const EDBC8_HEADER_W = 'w-[120px]';
 const EDBC8_BODY_W = 'w-[98px]';
 const EDBC9_COLUMN_W = 'w-[198px]';
-const EDBC9_FILTER_W = 'w-[190px]';
+const EDBC9_FILTER_W = 'w-[198px]';
 const EDBC10_COLUMN_W = 'w-[158px]';
 const EDBC11_COLUMN_W = 'w-[158px]';
 const EDBC12_COLUMN_W = 'w-[158px]';
@@ -59,18 +60,25 @@ const EDBC17_COLUMN_W = 'w-[120px]';
 const EDBC18_COLUMN_W = 'w-[120px]';
 const EDBC19_COLUMN_W = 'w-[70px]';
 const EDBC20_COLUMN_W = 'w-[70px]';
+const EDBC21_COLUMN_W = 'w-[70px]';
 
 const EDBC_TEXT_INPUT_CLASS =
     'box-border rounded-lg border-2 border-[rgba(191,152,83,0.2)] bg-white text-[14px] font-normal text-black placeholder:text-[#A6A5A6] outline-none hover:border-[rgba(191,152,83,0.4)] focus:border-[rgba(191,152,83,0.4)] focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)]';
 
 const EDBC_BILL_ARRIVAL_FILTER_FIELD_CLASS =
-    ' [&>div:first-child]:!w-[120px] [&>div:first-child]:!h-[36px] [&>div.absolute]:!hidden [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button]:!text-[14px] [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]';
+    ' [&>div:first-child]:!w-[120px] [&>div:first-child]:!h-[38px] [&>div.absolute]:!hidden [&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button]:!text-[14px] [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)]';
 
 /**
  * Filter control height (DST-1 timestamp button, DST-2 date field, DST-3 dropdown).
  * Change only DST_FILTER_CONTROL_HEIGHT_PX — all DST filter inputs/dropdowns follow.
  */
 export const EDBC_FILTER_CONTROL_HEIGHT_PX = 38;
+
+/** Table filter dropdown: 8 fully visible options (36px each). */
+export const TABLE_FILTER_OPTION_HEIGHT_PX = 36;
+export const TABLE_FILTER_MAX_VISIBLE_OPTIONS = 8;
+export const TABLE_FILTER_MENU_MAX_HEIGHT_PX =
+    TABLE_FILTER_OPTION_HEIGHT_PX * TABLE_FILTER_MAX_VISIBLE_OPTIONS;
 
 /** Inline height for DST filter inputs/dropdowns (always follows DST_FILTER_CONTROL_HEIGHT_PX). */
 export const EDBC_FILTER_CONTROL_BOX_STYLE = {
@@ -167,18 +175,18 @@ const EDBC_CONFIG = {
         sortField: 'amount',
         columnWidthClass: EDBC8_HEADER_W,
         filterWidthClass: EDBC8_HEADER_W,
-        headerClass: `pl-[1px] pr-[1px] ${EDBC8_HEADER_W} font-bold text-right cursor-pointer hover:bg-gray-200 select-none`,
-        filterThClass: '',
-        tdClass: `pl-[1px] pr-[1px] ${EDBC8_BODY_W} text-right`,
+        headerClass: `pl-[1px] pr-[9px] ${EDBC8_HEADER_W} font-bold text-right cursor-pointer hover:bg-gray-200 select-none`,
+        filterThClass: 'pr-[9px]',
+        tdClass: `pl-[1px] pr-[9px] ${EDBC8_BODY_W} text-right`,
         bodyCellKey: 'amount',
     },
     [EDBC_IDS.EDBC9]: {
         sortField: 'comments',
         columnWidthClass: EDBC9_COLUMN_W,
         filterWidthClass: EDBC9_FILTER_W,
-        headerClass: `pl-[9px] pr-[1px] ${EDBC9_COLUMN_W} font-bold text-left cursor-pointer hover:bg-gray-200 select-none`,
-        filterThClass: 'pl-[9px] pr-[1px]',
-        tdClass: `text-left pl-[9px] pr-[1px] ${EDBC9_COLUMN_W} px-1`,
+        headerClass: `pl-[1px] pr-[1px] ${EDBC9_COLUMN_W} font-bold text-left cursor-pointer hover:bg-gray-200 select-none`,
+        filterThClass: 'pl-[1px] pr-[1px]',
+        tdClass: `text-left pl-[1px] pr-[1px] ${EDBC9_COLUMN_W} px-1`,
         bodyCellKey: 'comments',
         inputClassName: `${EDBC9_FILTER_W} ${EDBC_TEXT_INPUT_CLASS} px-3`,
     },
@@ -281,6 +289,15 @@ const EDBC_CONFIG = {
         tdClass: `pl-[6px] pr-[12px] ${EDBC20_COLUMN_W} text-center`,
         bodyCellKey: 'file',
     },
+    [EDBC_IDS.EDBC21]: {
+        sortField: null,
+        columnWidthClass: EDBC21_COLUMN_W,
+        filterWidthClass: EDBC21_COLUMN_W,
+        headerClass: `pl-[12px] pr-[1px] ${EDBC21_COLUMN_W} font-bold text-left`,
+        filterThClass: '',
+        tdClass: `pl-[12px] pr-[1px] ${EDBC21_COLUMN_W} text-left`,
+        bodyCellKey: 'S.No',
+    },
 };
 
 /** Lookup layout for a EDBC column id (e.g. EDBC_IDS.EDBC1 → 'EDBC-1'). */
@@ -310,11 +327,17 @@ export const DATABASE_TABLE_FILTER_SELECT_STYLES = {
         '&:hover': { borderColor: 'rgba(191, 152, 83, 0.4)' },
     }),
     clearIndicator: (provided) => ({ ...provided, cursor: 'pointer' }),
-    menu: (provided) => ({ ...provided, zIndex: 999, maxHeight: '300px' }),
+    menu: (provided) => ({
+        ...provided,
+        zIndex: 999,
+        maxHeight: `${TABLE_FILTER_MENU_MAX_HEIGHT_PX}px`,
+    }),
     menuPortal: (provided) => ({ ...provided, zIndex: 9999 }),
     menuList: (provided) => ({
         ...provided,
-        maxHeight: '250px',
+        maxHeight: `${TABLE_FILTER_MENU_MAX_HEIGHT_PX}px`,
+        paddingTop: 0,
+        paddingBottom: 0,
         overflowY: 'auto',
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
@@ -344,6 +367,12 @@ export const DATABASE_TABLE_FILTER_SELECT_STYLES = {
     }),
     option: (provided, state) => ({
         ...provided,
+        minHeight: TABLE_FILTER_OPTION_HEIGHT_PX,
+        height: TABLE_FILTER_OPTION_HEIGHT_PX,
+        paddingTop: 0,
+        paddingBottom: 0,
+        display: 'flex',
+        alignItems: 'center',
         textAlign: 'left',
         fontWeight: 'normal',
         fontSize: '15px',
@@ -654,11 +683,11 @@ const buildRightAlignedSelectStyles = (selectStyles) => ({
         ...(typeof selectStyles.control === 'function' ? selectStyles.control(provided, state) : provided),
         textAlign: 'right',
     }),
-    valueContainer: (provided) => ({
-        ...(typeof selectStyles.valueContainer === 'function' ? selectStyles.valueContainer(provided) : provided),
-        justifyContent: 'flex-end',
-        paddingLeft: '2px',
-        paddingRight: '12px',
+    valueContainer: (provided, state) => ({
+        ...(typeof selectStyles.valueContainer === 'function' ? selectStyles.valueContainer(provided, state) : provided),
+        justifyContent: state.hasValue ? 'flex-end' : 'flex-start',
+        paddingLeft: state.hasValue ? '2px' : '12px',
+        paddingRight: '0px',
     }),
     singleValue: (provided) => ({
         ...(typeof selectStyles.singleValue === 'function' ? selectStyles.singleValue(provided) : provided),
@@ -670,7 +699,9 @@ const buildRightAlignedSelectStyles = (selectStyles) => ({
     }),
     placeholder: (provided) => ({
         ...(typeof selectStyles.placeholder === 'function' ? selectStyles.placeholder(provided) : provided),
-        textAlign: 'right',
+        textAlign: 'left',
+        paddingRight: '0px',
+        marginRight: 0,
     }),
     option: (provided, state) => ({
         ...(typeof selectStyles.option === 'function' ? selectStyles.option(provided, state) : provided),

@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import Select from 'react-select';
 import Attach from '../Images/Attachfile.svg';
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import edit from '../Images/Edit.svg';
-import file from '../Images/file.png';
+import SideTable from './SideTable';
 import { use } from 'react';
 import {
   postBankRegisterLogSave,
@@ -1252,189 +1249,6 @@ const AdvancePortal = ({
       }, 0);
     setTodayAmount(todayTotal);
   }, [advanceData]);
-  // ✅ Export PDF function
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    const entityType = selectedOption?.type === "Contractor" ? "Contractor" : "Vendor";
-    const entityName = selectedOption?.label || "";
-    const projectName = selectedSite?.label || "";
-    doc.setFontSize(12);
-    doc.text(`${entityType} - ${entityName}`, 14, 20);
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const projectText = `Project Name: ${projectName}`;
-    const textWidth = doc.getTextWidth(projectText);
-    doc.text(projectText, pageWidth - textWidth - 14, 20);
-    // ✅ Filter data first
-    const filteredData = advanceData
-      .filter(entry => {
-        const isMatchingVendor =
-          selectedOption?.type === 'Vendor'
-            ? entry.vendor_id === selectedOption.id
-            : selectedOption?.type === 'Contractor'
-              ? entry.contractor_id === selectedOption.id
-              : false;
-        const isForCurrentProject = entry.project_id === selectedSite.id;
-        return isMatchingVendor && isForCurrentProject;
-      })
-      // ✅ Sort by type (custom order) then mode
-      .sort((a, b) => {
-        const typeOrder = ["Advance", "Bill Settlement", "Refund", "Transfer"];
-        const typeIndexA = typeOrder.indexOf((a.type || "").trim());
-        const typeIndexB = typeOrder.indexOf((b.type || "").trim());
-        if (typeIndexA !== typeIndexB) return typeIndexA - typeIndexB;
-        const modeA = (a.payment_mode || "").trim().toLowerCase();
-        const modeB = (b.payment_mode || "").trim().toLowerCase();
-        if (!modeA && modeB) return 1;
-        if (modeA && !modeB) return -1;
-        return modeA.localeCompare(modeB);
-      });
-    // ✅ Table columns (removed Contractor/Vendor and Project Name)
-    const tableColumn = [
-      "S.No",
-      "Date",
-      "Advance",
-      "Bill Amount",
-      "Discount",
-      "Refund Amount",
-      "Transfer",
-      "Type",
-      "Mode",
-      "Description"
-    ];
-    // ✅ Table rows
-    const tableRows = filteredData.map((entry, index) => {
-      const {
-        date,
-        amount,
-        bill_amount,
-        discount_amount,
-        type,
-        transfer_site_id,
-        payment_mode,
-        refund_amount,
-        description
-      } = entry;
-      const advanceAmount =
-        type === 'Refund' ? '' : parseFloat(amount || 0).toLocaleString('en-IN');
-      const billAmount =
-        type === 'Bill Settlement'
-          ? parseFloat(bill_amount || 0).toLocaleString('en-IN')
-          : '';
-      const discountDisplay =
-        type === 'Bill Settlement' && (parseFloat(discount_amount) || 0) > 0
-          ? parseFloat(discount_amount).toLocaleString('en-IN')
-          : '';
-      const refundAmount =
-        type === 'Refund'
-          ? parseFloat(refund_amount || 0).toLocaleString('en-IN')
-          : '';
-      let transferText = '';
-      if (type === 'Transfer') {
-        const siteLabel = siteOptions.find(site => site.id === parseInt(transfer_site_id))?.label;
-        transferText =
-          parseFloat(amount) < 0
-            ? `Transfer to ${siteLabel || 'Unknown Site'}`
-            : `Transfer from ${siteLabel || 'Unknown Site'}`;
-      }
-      return [
-        index + 1,
-        new Date(date).toLocaleDateString('en-GB'),
-        advanceAmount,
-        billAmount,
-        discountDisplay,
-        refundAmount,
-        transferText,
-        type,
-        payment_mode || '',
-        description || ''
-      ];
-    });
-    // ✅ Generate PDF table
-    doc.autoTable({
-      startY: 28,
-      head: [tableColumn],
-      body: tableRows,
-      theme: "grid",
-      styles: { halign: "left" },
-      headStyles: {
-        fillColor: [255, 255, 255],
-        textColor: 0,
-        lineWidth: 0.1
-      },
-      columnStyles: {
-        2: { halign: 'right' }, // Advance
-        3: { halign: 'right' }, // Bill Amount
-        4: { halign: 'right' }, // Discount
-        5: { halign: 'right' }  // Refund Amount
-      }
-    });
-    doc.save("Advance_Report.pdf");
-  };
-  // ✅ Export CSV function
-  const exportCSV = () => {
-    const entityType = selectedOption?.type === "Contractor" ? "Contractor" : "Vendor";
-    const entityName = selectedOption?.label || "";
-    const projectName = selectedSite?.label || "";
-    const filteredData = advanceData.filter(entry => {
-      const isMatchingVendor =
-        selectedOption?.type === 'Vendor'
-          ? entry.vendor_id === selectedOption.id
-          : selectedOption?.type === 'Contractor'
-            ? entry.contractor_id === selectedOption.id
-            : false;
-      const isForCurrentProject = entry.project_id === selectedSite.id;
-      return isMatchingVendor && isForCurrentProject;
-    });
-    const rows = filteredData.map((entry, index) => {
-      const { date, amount, bill_amount, discount_amount, type, transfer_site_id, payment_mode, refund_amount } = entry;
-      const advanceAmount = (() => {
-        if (type === 'Refund') {
-          return `-${parseFloat(refund_amount || 0).toLocaleString('en-IN')}`;
-        }
-        return parseFloat(amount || 0).toLocaleString('en-IN');
-      })();
-      const billAmount =
-        type === 'Bill Settlement'
-          ? parseFloat(bill_amount || 0).toLocaleString('en-IN')
-          : '';
-      const discountCsv =
-        type === 'Bill Settlement' && (parseFloat(discount_amount) || 0) > 0
-          ? parseFloat(discount_amount).toLocaleString('en-IN')
-          : '';
-      let transferOrRefund = '';
-      if (type === 'Refund') {
-        transferOrRefund = 'Refund';
-      } else if (type === 'Transfer') {
-        const siteLabel = siteOptions.find(site => site.id === parseInt(transfer_site_id))?.label;
-        transferOrRefund =
-          parseFloat(amount) < 0
-            ? `Transfer to ${siteLabel || 'Unknown Site'}`
-            : `Transfer from ${siteLabel || 'Unknown Site'}`;
-      }
-      return {
-        "S.No": index + 1,
-        "Date": new Date(date).toLocaleDateString('en-GB'),
-        "Advance": advanceAmount,
-        "Bill": billAmount,
-        "Discount": discountCsv,
-        "Transfer/Refund": transferOrRefund,
-        "Mode": payment_mode || ''
-      };
-    });
-    let csv = `${entityType}: ${entityName},Project Name: ${projectName}\n\n`;
-    csv += Object.keys(rows[0] || {}).join(",") + "\n";
-    rows.forEach(row => {
-      csv += Object.values(row).map(value => `"${value}"`).join(",") + "\n";
-    });
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "Advance_Report.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
   useEffect(() => {
     const { totalAmount, totalRefund, totalBill } = advanceData.reduce(
       (acc, entry) => {
@@ -1952,9 +1766,9 @@ const AdvancePortal = ({
           </div>
         </div>
         <div className='px-4 sm:px-6 lg:px-10 mt-4'>
-          <div className='bg-white w-full max-w-[1850px] xl:h-[610px] p-4 lg:p-6 rounded-md shadow-sm'>
-            <div className='xl:flex px-4 gap-10'>
-              <div className='xl:flex xl:w-[1100px]'>
+          <div className='bg-white w-full max-w-[1850px] xl:h-[610px] p-4 lg:p-6 rounded-md shadow-sm min-w-0 overflow-hidden'>
+            <div className='xl:flex xl:min-w-0 px-4 gap-4'>
+              <div className='xl:flex xl:w-[680px] xl:min-w-[680px] shrink-0'>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-left'>
                   <div className='space-y-1 flex items-center max-w-[300px]'>
                     <label className='font-semibold text-[#E4572E] text-sm sm:text-base xl:w-40 w-20'>Select Type</label>
@@ -2167,183 +1981,15 @@ const AdvancePortal = ({
                   </div>
                 </div>
               </div>
-              <div className='w-full'>
-                <div className='flex flex-col sm:flex-row items-start sm:items-center justify-end mb-4 gap-4'>
-                  <div className='flex items-center gap-2'>
-                    <input
-                      readOnly
-                      value={projectAdvance}
-                      className='border-2 w-[112px] p-2 border-[#E4572E] text-[#E4572E] font-bold border-opacity-10 rounded h-[33px] bg-[#F2F2F2] focus:outline-none text-xs'
-                    />
-                  </div>
-                  <div className='flex flex-wrap gap-2 sm:gap-4'>
-                    <span onClick={exportPDF} className='text-[#E4572E] font-semibold hover:underline cursor-pointer text-sm'>Export PDF</span>
-                    <span onClick={exportCSV} className='text-[#007233] font-semibold hover:underline cursor-pointer text-sm'>Export XL</span>
-                    <span className='text-[#BF9853] font-semibold hover:underline cursor-pointer text-sm'>Print</span>
-                  </div>
-                </div>
-                <div className='border-l-8 border-l-[#BF9853] rounded-lg overflow-hidden w-full'>
-                  <div className='overflow-x-auto max-h-[400px] overflow-y-auto thin-scrollbar w-full'>
-                    <table className="w-full">
-                      <thead className="bg-[#FAF6ED] text-left sticky top-0 z-10">
-                        <tr>
-                          <th className="px-2 sm:px-4 lg:px-6 py-2 text-xs sm:text-sm whitespace-nowrap">Date</th>
-                          <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap">Advance</th>
-                          <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap">Bill</th>
-                          <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap">Discount</th>
-                          <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap">Transfer/Refund</th>
-                          <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap">Mode</th>
-                          <th className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap">Activity</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {!selectedOption || !selectedSite ? (
-                          <tr>
-                            <td colSpan="7" className="text-center py-4 text-sm text-gray-500">
-                              Please select a contractor/vendor and project to view advance records.
-                            </td>
-                          </tr>
-                        ) : advanceData
-                          .filter(entry => {
-                            const isMatchingVendor =
-                              selectedOption?.type === 'Vendor'
-                                ? entry.vendor_id === selectedOption.id
-                                : selectedOption?.type === 'Contractor'
-                                  ? entry.contractor_id === selectedOption.id
-                                  : false;
-                            const isForCurrentProject = entry.project_id === selectedSite.id;
-                            return isMatchingVendor && isForCurrentProject;
-                          })
-                          .sort((a, b) => {
-                            const entryNoA = a.entry_no || 0;
-                            const entryNoB = b.entry_no || 0;
-                            return entryNoB - entryNoA;
-                          }).length === 0 ? (
-                          <tr>
-                            <td colSpan="7" className="text-center py-4 text-sm text-gray-500">
-                              No records found for the selected contractor/vendor and project.
-                            </td>
-                          </tr>
-                        ) : (
-                          advanceData
-                            .filter(entry => {
-                              const isMatchingVendor =
-                                selectedOption?.type === 'Vendor'
-                                  ? entry.vendor_id === selectedOption.id
-                                  : selectedOption?.type === 'Contractor'
-                                    ? entry.contractor_id === selectedOption.id
-                                    : false;
-                              const isForCurrentProject = entry.project_id === selectedSite.id;
-                              return isMatchingVendor && isForCurrentProject;
-                            })
-                            .sort((a, b) => {
-                              const entryNoA = a.entry_no || 0;
-                              const entryNoB = b.entry_no || 0;
-                              return entryNoB - entryNoA;
-                            })
-                            .map((entry, index) => {
-                            const {
-                              date,
-                              amount,
-                              bill_amount,
-                              discount_amount,
-                              type,
-                              transfer_site_id,
-                              payment_mode,
-                              refund_amount
-                            } = entry;
-                            const discountAmt = parseFloat(discount_amount) || 0;
-                            const advanceAmount = (() => {
-                              if (type === 'Refund') {
-                                return `-${parseFloat(refund_amount || 0).toLocaleString('en-IN')}`;
-                              }
-                              return parseFloat(amount || 0).toLocaleString('en-IN');
-                            })();
-                            const billAmount =
-                              type === 'Bill Settlement'
-                                ? parseFloat(bill_amount || 0).toLocaleString('en-IN')
-                                : '';
-                            const discountDisplay =
-                              type === 'Bill Settlement' && discountAmt > 0
-                                ? discountAmt.toLocaleString('en-IN')
-                                : '';
-                            let transferOrRefund = '';
-                            if (type === 'Refund') {
-                              transferOrRefund = 'Refund';
-                            } else if (type === 'Transfer') {
-                              const relatedSiteId = transfer_site_id;
-                              const siteLabel = siteOptions.find(site => site.id === parseInt(relatedSiteId))?.label;
-                              transferOrRefund =
-                                parseFloat(amount) < 0
-                                  ? `Transfer to ${siteLabel || 'Unknown Site'}`
-                                  : `Transfer from ${siteLabel || 'Unknown Site'}`;
-                            }
-                            return (
-                              <tr key={entry.advancePortalId ?? index} className="border-t hover:bg-gray-50">
-                                <td className="px-2 sm:px-4 lg:px-6 py-2 text-xs sm:text-sm text-left font-semibold whitespace-nowrap">
-                                  {new Date(date).toLocaleDateString('en-GB')}
-                                </td>
-                                <td className="px-2 py-2 text-xs sm:text-sm text-center font-semibold whitespace-nowrap">
-                                  {advanceAmount}
-                                </td>
-                                <td className="px-2 py-2 text-xs sm:text-sm text-center font-semibold whitespace-nowrap">
-                                  {billAmount}
-                                </td>
-                                <td className="px-2 py-2 text-xs sm:text-sm text-center font-semibold whitespace-nowrap">
-                                  {discountDisplay}
-                                </td>
-                                <td className="px-2 py-2 text-xs sm:text-sm text-left font-semibold break-words min-w-[120px] sm:min-w-[200px]">
-                                  {transferOrRefund}
-                                </td>
-                                <td className="px-2 py-2 text-xs sm:text-sm text-left font-semibold whitespace-nowrap">
-                                  {payment_mode || ''}
-                                </td>
-                                <td className="px-2 py-2 whitespace-nowrap">
-                                  <div className="flex items-center gap-1 sm:gap-2">
-                                    <button className="rounded-full transition duration-200">
-                                      <img
-                                        src={edit}
-                                        onClick={() => handleEditClick(entry)}
-                                        alt="Edit"
-                                        className="w-4 h-6 transform hover:scale-110 hover:brightness-110 transition duration-200"
-                                      />
-                                    </button>
-                                    {entry.file_url ? (
-                                      <a
-                                        href={entry.file_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="cursor-pointer"
-                                        title="View File"
-                                      >
-                                        <img
-                                          src={file}
-                                          className="w-5 h-4 transform hover:scale-110 transition duration-200"
-                                          alt="View File"
-                                          style={{ filter: 'invert(0%) brightness(0%)' }}
-                                        />
-                                      </a>
-                                    ) : (
-                                      <div className="opacity-30">
-                                        <img
-                                          src={file}
-                                          className="w-5 h-4"
-                                          alt="No File"
-                                          title="No file attached"
-                                          style={{ filter: 'invert(0%) brightness(0%)' }}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+              <div className="min-w-0 flex-1 overflow-x-auto">
+                <SideTable
+                  advanceData={advanceData}
+                  selectedOption={selectedOption}
+                  selectedSite={selectedSite}
+                  siteOptions={siteOptions}
+                  projectAdvance={projectAdvance}
+                  onEditClick={handleEditClick}
+                />
               </div>
             </div>
           </div>

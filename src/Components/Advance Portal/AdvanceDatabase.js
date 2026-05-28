@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import Select from 'react-select';
-import Filter from '../Images/filter (3).png'
-import Reload from '../Images/rotate-right.png'
+import Filter from '../Images/TableFilter.svg'
+import Search from '../Images/Searchnew.svg'
+import Reload from '../Images/Clear.svg'
 import Pdf from '../Images/pdf.png';
 import XL from '../Images/sheets.png';
 import { sum } from 'mathjs';
@@ -88,6 +89,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
   const [file, setFile] = useState(null);
   const [advancePortalAudits, setAdvancePortalAudits] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [overallSearch, setOverallSearch] = useState('');
   const [showTimestampDatePicker, setShowTimestampDatePicker] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
@@ -185,6 +187,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           if (filters.selectDatabaseEnteredBy) setSelectDatabaseEnteredBy(filters.selectDatabaseEnteredBy);
           if (filters.startDate) setStartDate(filters.startDate);
           if (filters.endDate) setEndDate(filters.endDate);
+          if (filters.overallSearch) setOverallSearch(filters.overallSearch);
           if (filters.showFilters !== undefined) setShowFilters(filters.showFilters);
         } catch (error) {
           console.error('Error loading filters from sessionStorage:', error);
@@ -227,12 +230,15 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       selectDatabaseEnteredBy,
       startDate,
       endDate,
+      overallSearch,
       showFilters
     };
     sessionStorage.setItem('advanceDatabaseFilters', JSON.stringify(filters));
-  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseDescription, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate, showFilters]);
+  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseDescription, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate, overallSearch, showFilters]);
   const scrollRef = useRef(null);
   const filterRowRef = useRef(null);
+  const filterNudgeUsedRef = useRef(false);
+  const filterScrollResetSkipRef = useRef(true);
   const isDragging = useRef(false);
   const start = useRef({ x: 0, y: 0 });
   const scroll = useRef({ left: 0, top: 0 });
@@ -268,6 +274,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
     };
     scrollRef.current.scrollLeft = scroll.current.left - dx;
     scrollRef.current.scrollTop = scroll.current.top - dy;
+    filterNudgeUsedRef.current = false;
     lastMove.current = {
       time: now,
       x: e.clientX,
@@ -866,6 +873,29 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
         if (String(enteredVal).toLowerCase() !== String(selectDatabaseEnteredBy).toLowerCase()) return false;
       }
     }
+    if (overallSearch.trim()) {
+      const q = overallSearch.toLowerCase().trim();
+      const searchable = [
+        formatDate(entry.timestamp),
+        formatDateOnly(entry.date),
+        entry.vendor_id ? getVendorName(entry.vendor_id) : getContractorName(entry.contractor_id),
+        getSiteName(entry.project_id),
+        getSiteName(entry.transfer_site_id),
+        entry.amount,
+        entry.bill_amount,
+        entry.refund_amount,
+        entry.type,
+        entry.description,
+        entry.payment_mode,
+        entry.source_from ?? entry.sourceFrom ?? entry.source,
+        getBranchName(entry.branch_id ?? entry.branchId),
+        entry.enteredBy ?? entry.entered_by ?? entry.request_send_by ?? entry.requested_by ?? entry.createdBy ?? entry.created_by,
+        entry.entry_no,
+      ]
+        .map((v) => String(v ?? '').toLowerCase())
+        .join(' ');
+      if (!searchable.includes(q)) return false;
+    }
     return true;
   });
   // Extract unique values from table data for filter options
@@ -1025,9 +1055,25 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
             aValue = getSiteName(a.transfer_site_id);
             bValue = getSiteName(b.transfer_site_id);
             break;
+          case 'amount':
+            aValue = Number(a.amount) || 0;
+            bValue = Number(b.amount) || 0;
+            break;
+          case 'bill_amount':
+            aValue = Number(a.bill_amount) || 0;
+            bValue = Number(b.bill_amount) || 0;
+            break;
+          case 'refund_amount':
+            aValue = Number(a.refund_amount) || 0;
+            bValue = Number(b.refund_amount) || 0;
+            break;
           case 'type':
             aValue = a.type || '';
             bValue = b.type || '';
+            break;
+          case 'description':
+            aValue = String(a.description ?? '').toLowerCase();
+            bValue = String(b.description ?? '').toLowerCase();
             break;
           case 'mode':
             aValue = a.payment_mode || '';
@@ -1058,7 +1104,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
           return compareByAdvanceIdDesc(a, b);
         }
-        if (sortConfig.key === 'entry_no') {
+        if (sortConfig.key === 'entry_no' || sortConfig.key === 'amount' || sortConfig.key === 'bill_amount' || sortConfig.key === 'refund_amount') {
           if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
           if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
           return compareByAdvanceIdDesc(a, b);
@@ -1085,6 +1131,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
     if (key === 'entry_no') return 'eno';
     if (key === 'mode') return 'paymentMode';
     if (key === 'type') return 'accountType';
+    if (key === 'description') return 'comments';
     return key;
   };
   const handleEdbcSort = (edbcField) => {
@@ -1093,6 +1140,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       eno: 'entry_no',
       paymentMode: 'mode',
       accountType: 'type',
+      comments: 'description',
     };
     handleSort(fieldToKey[edbcField] || edbcField);
   };
@@ -1121,7 +1169,25 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
   const advCol17Label = 'Activity';
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseDescription, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate]);
+  }, [selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName, selectDatabaseTransfer, selectDatabaseType, selectDatabaseDescription, selectDatabaseMode, selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy, startDate, endDate, overallSearch]);
+  useEffect(() => {
+    if (filterScrollResetSkipRef.current) {
+      filterScrollResetSkipRef.current = false;
+      return;
+    }
+    if (!showFilters) return;
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    filterNudgeUsedRef.current = false;
+    requestAnimationFrame(() => {
+      scroller.scrollTop = 0;
+    });
+  }, [
+    selectTimeStampDate, selectDatabaseDate, selectDatabaseContractororVendorName, selectDatabaseProjectName,
+    selectDatabaseTransfer, selectDatabaseType, selectDatabaseDescription, selectDatabaseMode,
+    selectDatabaseEntryNo, selectDatabaseSourceFrom, selectDatabaseBranch, selectDatabaseEnteredBy,
+    startDate, endDate,
+  ]);
   const clearFilters = useCallback(() => {
     setSelectTimeStampDate('');
     setSelectDatabaseDate('');
@@ -1137,6 +1203,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
     setSelectDatabaseEnteredBy('');
     setStartDate('');
     setEndDate('');
+    setOverallSearch('');
     sessionStorage.removeItem('advanceDatabaseFilters');
   }, []);
   const handleChange = async (selected) => {
@@ -1622,140 +1689,167 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           className={`text-left flex ${selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseDescription.trim() || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate
             ? 'flex-col sm:flex-row sm:justify-between'
             : 'flex-row justify-between items-center'
-            } mb-3 gap-2`}>
+            } mb-[12px] gap-[6px]`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
             <button
-              className='pl-2'
+              className=''
               onClick={() => {
                 const willOpen = !showFilters;
-                setShowFilters(willOpen);
-                if (!willOpen) return;
                 const scroller = scrollRef.current;
-                if (!scroller) return;
-                if (scroller.scrollTop <= 0) return;
+                if (willOpen) {
+                  setShowFilters(true);
+                  if (!scroller) return;
+                  if (scroller.scrollTop <= 0) return;
+                  if (filterNudgeUsedRef.current) return;
+                  filterNudgeUsedRef.current = true;
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      const h = filterRowRef.current?.offsetHeight || 0;
+                      if (h > 0) {
+                        scroller.scrollTop = Math.max(0, scroller.scrollTop - h);
+                      }
+                    });
+                  });
+                  return;
+                }
+                const h = filterRowRef.current?.offsetHeight || 0;
+                setShowFilters(false);
+                if (!scroller || h <= 0 || !filterNudgeUsedRef.current) return;
+                filterNudgeUsedRef.current = false;
                 requestAnimationFrame(() => {
-                  const h = filterRowRef.current?.offsetHeight || 0;
-                  if (h > 0) scroller.scrollTop = scroller.scrollTop + h;
+                  requestAnimationFrame(() => {
+                    scroller.scrollTop = scroller.scrollTop + h;
+                  });
                 });
               }}
             >
               <img
                 src={Filter}
                 alt="Toggle Filter"
-                className="w-7 h-7 border border-[#BF9853] rounded-md"
+                className=" border rounded-md"
               />
             </button>
             {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseDescription.trim() || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate) && (
               <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
                 {startDate && (
-                  <span className="inline-flex items-center gap-1 border  border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Start Date: </span>
-                    <span className="font-bold">{startDate}</span>
-                    <button onClick={() => setStartDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Start Date: </span>
+                    <span className="font-semibold text-[14px]">{startDate}</span>
+                    <button onClick={() => setStartDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {endDate && (
-                  <span className="inline-flex items-center gap-1 border  border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">End Date: </span>
-                    <span className="font-bold">{endDate}</span>
-                    <button onClick={() => setEndDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">End Date: </span>
+                    <span className="font-semibold text-[14px]">{endDate}</span>
+                    <button onClick={() => setEndDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {selectTimeStampDate && (
-                  <span className="inline-flex items-center gap-1 border border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Timestamp: </span>
-                    <span className="font-bold">{selectTimeStampDate}</span>
-                    <button onClick={() => setSelectTimeStampDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Timestamp: </span>
+                    <span className="font-semibold text-[14px]">{selectTimeStampDate}</span>
+                    <button onClick={() => setSelectTimeStampDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {selectDatabaseDate && (
-                  <span className="inline-flex items-center gap-1 border border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Date: </span>
-                    <span className="font-bold">{selectDatabaseDate}</span>
-                    <button onClick={() => setSelectDatabaseDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Date: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseDate}</span>
+                    <button onClick={() => setSelectDatabaseDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {selectDatabaseContractororVendorName && (
-                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Contractor/Vendor Name: </span>
-                    <span className="font-bold">{selectDatabaseContractororVendorName}</span>
-                    <button onClick={() => setSelectDatabaseContractororVendorName('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Contractor/Vendor Name: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseContractororVendorName === BLANK_VALUE ? BLANK_LABEL : selectDatabaseContractororVendorName}</span>
+                    <button onClick={() => setSelectDatabaseContractororVendorName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseProjectName && (
-                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Project Name:</span>
-                    <span className="font-bold">{selectDatabaseProjectName}</span>
-                    <button onClick={() => setSelectDatabaseProjectName('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Project Name: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseProjectName === BLANK_VALUE ? BLANK_LABEL : selectDatabaseProjectName}</span>
+                    <button onClick={() => setSelectDatabaseProjectName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseTransfer && (
-                  <span className="inline-flex items-center gap-1 border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">{advCol5Label} : </span>
-                    <span className="font-bold ">{selectDatabaseTransfer}</span>
-                    <button onClick={() => setSelectDatabaseTransfer('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">{advCol5Label}: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseTransfer === BLANK_VALUE ? BLANK_LABEL : selectDatabaseTransfer}</span>
+                    <button onClick={() => setSelectDatabaseTransfer('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseType && (
-                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Type: </span>
-                    <span className="font-bold">{selectDatabaseType}</span>
-                    <button onClick={() => setSelectDatabaseType('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Type: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseType === BLANK_VALUE ? BLANK_LABEL : selectDatabaseType}</span>
+                    <button onClick={() => setSelectDatabaseType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseDescription.trim() && (
-                    <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                      <span className="font-normal text-[#BF9853]">Description: </span>
-                    <span className="font-bold">{selectDatabaseDescription}</span>
-                    <button onClick={() => setSelectDatabaseDescription('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Description: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseDescription}</span>
+                    <button onClick={() => setSelectDatabaseDescription('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseMode && (
-                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Mode: </span>
-                    <span className="font-bold">{selectDatabaseMode}</span>
-                    <button onClick={() => setSelectDatabaseMode('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Mode: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseMode === BLANK_VALUE ? BLANK_LABEL : selectDatabaseMode}</span>
+                    <button onClick={() => setSelectDatabaseMode('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseEntryNo && (
-                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Entry No: </span>
-                    <span className="font-bold">{selectDatabaseEntryNo}</span>
-                    <button onClick={() => setSelectDatabaseEntryNo('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Entry No: </span>
+                    <span className="font-semibold text-[14px]">{String(selectDatabaseEntryNo) === BLANK_VALUE ? BLANK_LABEL : selectDatabaseEntryNo}</span>
+                    <button onClick={() => setSelectDatabaseEntryNo('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseSourceFrom && (
-                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Source From: </span>
-                    <span className="font-bold">{selectDatabaseSourceFrom}</span>
-                    <button onClick={() => setSelectDatabaseSourceFrom('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Source From: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseSourceFrom === BLANK_VALUE ? BLANK_LABEL : selectDatabaseSourceFrom}</span>
+                    <button onClick={() => setSelectDatabaseSourceFrom('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseBranch && (
-                  <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal">Branch: </span>
-                    <span className="font-bold">{getBranchName(selectDatabaseBranch) || selectDatabaseBranch}</span>
-                    <button onClick={() => setSelectDatabaseBranch('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Branch: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseBranch === BLANK_VALUE ? BLANK_LABEL : (getBranchName(selectDatabaseBranch) || selectDatabaseBranch)}</span>
+                    <button onClick={() => setSelectDatabaseBranch('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseEnteredBy && (
-                  <span className="inline-flex items-center gap-1  border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-normal text-[#BF9853]">Entered By: </span>
-                    <span className="font-bold">{selectDatabaseEnteredBy}</span>
-                    <button onClick={() => setSelectDatabaseEnteredBy('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                    <span className="font-medium text-[#BF9853]">Entered By: </span>
+                    <span className="font-semibold text-[14px]">{selectDatabaseEnteredBy === BLANK_VALUE ? BLANK_LABEL : selectDatabaseEnteredBy}</span>
+                    <button onClick={() => setSelectDatabaseEnteredBy('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
               </div>
             )}
           </div>
-          <div className='flex items-center gap-2'>
-            <button onClick={clearFilters} className='w-10 h-9 border border-[#BF9853] rounded-md font-semibold text-sm text-[#BF9853] flex items-center justify-center gap-2'>
-              <img className='w-4 h-4' src={Reload} alt="Reload" />
+          <div className='flex items-end gap-[6px]'>
+            <button onClick={clearFilters} className='flex h-[30px] w-[30px] shrink-0 items-center justify-center'>
+              <img className='w-full h-full' src={Reload} alt="Reload" />
             </button>
-            <div className=' text-left md:text-right md:items-center items-start cursor-default flex max-w-screen-2xl table-auto overflow-auto w-full'>
-              <div className='flex items-center'>
-                <span className='text-[#E4572E] mr-3 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
-                <span className='text-[#007233] mr-1 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
+            <div className="w-[286px] min-w-[286px] translate-y-[2px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
+              <input
+                type="text"
+                value={overallSearch}
+                onChange={(e) => setOverallSearch(e.target.value)}
+                placeholder="Search Transactions..."
+                className="h-full w-full border-0 p-0 text-[14px] text-[#000000] bg-transparent outline-none"
+              />
+              <img src={Search} alt="Search" className="w-[16px] h-[16px] pointer-events-none" />
+            </div>
+            <div className=' text-left md:text-right md:items-end items-end cursor-default flex justify-end max-w-screen-2xl table-auto overflow-auto w-full scrollbar-none no-scrollbar'>
+              <div className='flex items-end text-center '>
+                <span className='text-[#E4572E] mr-2 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
+                <span className='text-[#007233] flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
               </div>
             </div>
           </div>
@@ -1763,13 +1857,14 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
         <div>
           <div
             ref={scrollRef}
-            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[600px] overflow-x-auto select-none thin-scrollbar"
+            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[600px] overflow-x-auto select-none no-scrollbar scrollbar-none "
+            onWheel={() => { filterNudgeUsedRef.current = false; }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
-            <table className={`table-fixed min-w-[1180px] w-full border-collapse ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_#EDBC-12]:!pl-[9px] [&_#EDBC-9]:!pl-[9px]`}>
+            <table className={`table-fixed min-w-[1180px] w-full border-collapse ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_#EDBC-12]:!pl-0 [&_#EDBC-9]:!pl-0`}>
               <thead className="sticky top-0 z-10 bg-white ">
                 <EdbcTableHeaderRow>
                   <EdbcColumnHeader
@@ -1806,9 +1901,25 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                   >
                     {advCol5Label} {sortConfig.key === 'transfer' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
                   </th>
-                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={advCol6Label} />
-                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={advCol7Label} />
-                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={advCol8Label} />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC8}
+                    label={advCol6Label}
+                    sortField={resolveEdbcSortField('amount')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
+                  <th
+                    className={edbc8Config?.headerClass}
+                    onClick={() => handleSort('bill_amount')}
+                  >
+                    {advCol7Label} {sortConfig.key === 'bill_amount' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                  </th>
+                  <th
+                    className={edbc8Config?.headerClass}
+                    onClick={() => handleSort('refund_amount')}
+                  >
+                    {advCol8Label} {sortConfig.key === 'refund_amount' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                  </th>
                   <EdbcColumnHeader
                     columnId={EDBC_IDS.EDBC12}
                     label={advCol9Label}
@@ -1816,7 +1927,13 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                     sortDirection={sortConfig.direction}
                     onSort={handleEdbcSort}
                   />
-                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC9} label={advCol10Label} />
+                  <EdbcColumnHeader
+                    columnId={EDBC_IDS.EDBC9}
+                    label={advCol10Label}
+                    sortField={resolveEdbcSortField('description')}
+                    sortDirection={sortConfig.direction}
+                    onSort={handleEdbcSort}
+                  />
                   <EdbcColumnHeader
                     columnId={EDBC_IDS.EDBC13}
                     label={advCol11Label}

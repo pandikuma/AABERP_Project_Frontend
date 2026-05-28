@@ -366,6 +366,9 @@ export function Table({
         machineToolsOptions,
         selectedMachineTools,
         setSelectedMachineTools,
+        paymentModeFilterOptions = [],
+        selectedPaymentMode = '',
+        setSelectedPaymentMode = noop,
         sourceOptions,
         selectedSource,
         setSelectedSource,
@@ -662,7 +665,20 @@ export function Table({
                             onChange={setSelectedAccountType}
                             selectStyles={customStyles}
                         />
-                        <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC13} />
+                        {setSelectedPaymentMode !== noop ? (
+                            <EdbcSelectFilter
+                                columnId={EDBC_IDS.EDBC13}
+                                placeholder={dstCol13Label}
+                                options={paymentModeFilterOptions}
+                                value={selectedPaymentMode}
+                                onChange={setSelectedPaymentMode}
+                                blankOption={blankOption}
+                                blankValue={BLANK_VALUE}
+                                selectStyles={customStyles}
+                            />
+                        ) : (
+                            <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC13} />
+                        )}
                         <EdbcSelectFilter
                             columnId={EDBC_IDS.EDBC14}
                             placeholder={dstCol14Label}

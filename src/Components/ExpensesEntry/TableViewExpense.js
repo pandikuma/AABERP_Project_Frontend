@@ -18,7 +18,12 @@ import Pdf from '../Images/pdf.png'
 import CustomDateField from './CustomDateField';
 import { Calendar } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
-import { Table, TableProvider, buildTableViewExpenseTableContext } from './Table';
+import { Table, TableProvider, buildTableViewExpenseTableContext, BLANK_VALUE, blankOption } from './Table';
+import {
+    TABLE_FILTER_MAX_VISIBLE_OPTIONS,
+    TABLE_FILTER_MENU_MAX_HEIGHT_PX,
+    TABLE_FILTER_OPTION_HEIGHT_PX,
+} from './databaseExpensesSharedColumns';
 Modal.setAppElement('#root');
 const EDIT_POPUP_UTILITY_TYPE_OPTIONS = [
     { value: 'Electricity', label: 'Electricity' },
@@ -109,6 +114,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const [machineToolsCatalog, setMachineToolsCatalog] = useState([]);
     const [branchOptions, setBranchOptions] = useState([]);
     const [sourceOptions, setSourceOptions] = useState([]);
+    const [paymentModeFilterOptions, setPaymentModeFilterOptions] = useState([]);
     const [branchFilterOptions, setBranchFilterOptions] = useState([]);
     const [laboursList, setLaboursList] = useState([]);
     const [employeeOptions, setEmployeeOptions] = useState([]);
@@ -145,6 +151,9 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const [selectedSource, setSelectedSource] = useState(() => {
         return localStorage.getItem('expenseFilter_source') || '';
     });
+    const [selectedPaymentMode, setSelectedPaymentMode] = useState(() => {
+        return localStorage.getItem('expenseFilter_paymentMode') || '';
+    });
     const [selectedBranch, setSelectedBranch] = useState(() => {
         return localStorage.getItem('expenseFilter_branch') || '';
     });
@@ -165,6 +174,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const filterRowRef = useRef(null);
     const billArrivalFilterRef = useRef(null);
     const filterNudgeUsedRef = useRef(false);
+    const filterScrollResetSkipRef = useRef(true);
     const headerRowRef = useRef(null);
     const isDragging = useRef(false);
     const start = useRef({ x: 0, y: 0 });
@@ -314,6 +324,9 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         localStorage.setItem('expenseFilter_source', selectedSource);
     }, [selectedSource]);
     useEffect(() => {
+        localStorage.setItem('expenseFilter_paymentMode', selectedPaymentMode);
+    }, [selectedPaymentMode]);
+    useEffect(() => {
         localStorage.setItem('expenseFilter_branch', selectedBranch);
     }, [selectedBranch]);
     const [formData, setFormData] = useState({
@@ -348,7 +361,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const fetchProjectData = async (projectId) => {
         try {
             if (!projectId) return null;
-            const response = await fetch(`https://backendaab.in/aabuilderDash/api/projects/get/${projectId}`);
+            const response = await fetch(`https://backendaab.in/demoAabuilderDash/api/projects/get/${projectId}`);
             if (!response.ok) return null;
             const data = await response.json();
             setProjectData(data);
@@ -485,7 +498,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchUserRoles = async () => {
             try {
-                const response = await axios.get("https://backendaab.in/aabuilderDash/api/user_roles/all");
+                const response = await axios.get("https://backendaab.in/demoAabuilderDash/api/user_roles/all");
                 const allRoles = response.data;
                 const userRoleNames = userRoles.map(r => r.roles);
                 const matchedRoles = allRoles.filter(role =>
@@ -517,7 +530,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         };
     }, [resolveActiveBranchId]);
     const refetchExpenses = useCallback(async () => {
-        const response = await axios.get('https://backendaab.in/aabuilderDash/expenses_form/get_form', {
+        const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
             params: activeBranchId ? { branchId: activeBranchId } : {},
         });
         const sortedExpenses = response.data.sort((a, b) => {
@@ -559,7 +572,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchSites = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/project_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -586,7 +599,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchVendorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/vendor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/vendor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -613,7 +626,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchContractorNames = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/contractor_Names/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/contractor_Names/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -640,7 +653,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/expenses_categories/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -665,7 +678,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchMachinTools = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/machine_tools/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/machine_tools/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -768,7 +781,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     useEffect(() => {
         const fetchAccountType = async () => {
             try {
-                const response = await fetch("https://backendaab.in/aabuilderDash/api/account_type/getAll", {
+                const response = await fetch("https://backendaab.in/demoAabuilderDash/api/account_type/getAll", {
                     method: "GET",
                     credentials: "include",
                     headers: {
@@ -882,6 +895,8 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         doc.save(`Filtered_Expenses_${dateStr}.pdf`);
     };
     useEffect(() => {
+        const isBlankish = (value) =>
+            value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
         const filtered = expenses.filter(expense => {
             if (startDate && endDate) {
                 const s = new Date(startDate);
@@ -913,6 +928,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                     expense.comments,
                     expense.category,
                     expense.accountType,
+                    expense.paymentMode,
                     getMachineToolsItemIdDisplay(expense.machineTools),
                     expense.source,
                     getBranchName(expense.branch_id ?? expense.branchId),
@@ -924,19 +940,56 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                 if (!searchable.includes(q)) return false;
             }
             return (
-                (selectedSiteName ? expense.siteName === selectedSiteName : true) &&
-                (selectedVendor ? expense.vendor === selectedVendor : true) &&
-                (selectedContractor ? expense.contractor === selectedContractor : true) &&
-                (selectedCategory ? expense.category === selectedCategory : true) &&
-                (selectedMachineTools ? String(expense.machineTools ?? '') === String(selectedMachineTools) : true) &&
-                (selectedSource ? expense.source === selectedSource : true) &&
-                (selectedBranch ? String(expense.branch_id ?? expense.branchId ?? '') === String(selectedBranch) : true) &&
+                (selectedSiteName
+                    ? (selectedSiteName === BLANK_VALUE
+                        ? isBlankish(expense.siteName)
+                        : expense.siteName === selectedSiteName)
+                    : true) &&
+                (selectedVendor
+                    ? (selectedVendor === BLANK_VALUE
+                        ? isBlankish(expense.vendor)
+                        : expense.vendor === selectedVendor)
+                    : true) &&
+                (selectedContractor
+                    ? (selectedContractor === BLANK_VALUE
+                        ? isBlankish(expense.contractor)
+                        : expense.contractor === selectedContractor)
+                    : true) &&
+                (selectedCategory
+                    ? (selectedCategory === BLANK_VALUE
+                        ? isBlankish(expense.category)
+                        : expense.category === selectedCategory)
+                    : true) &&
+                (selectedMachineTools
+                    ? (selectedMachineTools === BLANK_VALUE
+                        ? isBlankish(expense.machineTools)
+                        : String(expense.machineTools ?? '') === String(selectedMachineTools))
+                    : true) &&
+                (selectedSource
+                    ? (selectedSource === BLANK_VALUE
+                        ? isBlankish(expense.source)
+                        : expense.source === selectedSource)
+                    : true) &&
+                (selectedPaymentMode
+                    ? (selectedPaymentMode === BLANK_VALUE
+                        ? isBlankish(expense.paymentMode)
+                        : expense.paymentMode === selectedPaymentMode)
+                    : true) &&
+                (selectedBranch
+                    ? (selectedBranch === BLANK_VALUE
+                        ? isBlankish(expense.branch_id ?? expense.branchId)
+                        : String(expense.branch_id ?? expense.branchId ?? '') === String(selectedBranch))
+                    : true) &&
                 (selectedAccountType ?
-                    (selectedAccountType === 'Unknown' ?
-                        (!expense.accountType || expense.accountType === '') :
-                        expense.accountType === selectedAccountType
-                    ) : true) &&
-                (selectedEno ? String(expense.eno) === String(selectedEno) : true)
+                    (selectedAccountType === BLANK_VALUE
+                        ? isBlankish(expense.accountType)
+                        : expense.accountType === selectedAccountType)
+                    : true) &&
+                (selectedEno
+                    ? (selectedEno === BLANK_VALUE
+                        ? isBlankish(expense.eno)
+                        : String(expense.eno) === String(selectedEno))
+                    : true)
             );
         });
         setFilteredExpenses(filtered);
@@ -948,6 +1001,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             selectedCategory,
             selectedMachineTools,
             selectedSource,
+            selectedPaymentMode,
             selectedBranch,
             selectedAccountType,
             startDate,
@@ -958,33 +1012,38 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         const total = filtered.reduce((sum, item) => sum + Number(item.amount || 0), 0);
         setTotalAmount(total);
         const getOptions = (data, key) => {
-            const unique = [...new Set(data.map(item => item[key]).filter(Boolean))];
-            return unique.map(val => ({ value: val, label: val }));
+            const unique = [...new Set(data.map(item => item[key]).filter(val => !isBlankish(val)))];
+            const options = unique.map(val => ({ value: val, label: val }));
+            options.unshift(blankOption);
+            return options;
         };
         setSiteOptions(getOptions(filtered, "siteName"));
         setVendorOptions(getOptions(filtered, "vendor"));
         setContractorOptions(getOptions(filtered, "contractor"));
         setCategoryOptions(getOptions(filtered, "category"));
         setSourceOptions(getOptions(filtered, "source"));
-        const uniqueBranchIds = [...new Set(filtered.map(item => item.branch_id ?? item.branchId).filter(Boolean))];
-        setBranchFilterOptions(
-            uniqueBranchIds.map(id => ({
-                value: String(id),
-                label: branchOptions.find(branch => String(branch.id) === String(id))?.branch || String(id)
-            }))
-        );
-        const uniqueToolIds = [...new Set(filtered.map((item) => item.machineTools).filter((v) => v != null && v !== ''))];
-        setMachineToolsOptions(
-            uniqueToolIds.map((id) => ({
-                value: String(id),
-                label:
-                    machineToolsIdToLabel[id] ??
-                    machineToolsIdToLabel[String(id)] ??
-                    String(id),
-            }))
-        );
+        setPaymentModeFilterOptions(getOptions(filtered, "paymentMode"));
+        const uniqueBranchIds = [...new Set(filtered.map(item => item.branch_id ?? item.branchId).filter(val => !isBlankish(val)))];
+        const branchFilterOptionsBuilt = uniqueBranchIds.map(id => ({
+            value: String(id),
+            label: branchOptions.find(branch => String(branch.id) === String(id))?.branch || String(id)
+        }));
+        branchFilterOptionsBuilt.unshift(blankOption);
+        setBranchFilterOptions(branchFilterOptionsBuilt);
+        const uniqueToolIds = [...new Set(filtered.map((item) => item.machineTools).filter(val => !isBlankish(val)))];
+        const machineToolsOptionsBuilt = uniqueToolIds.map((id) => ({
+            value: String(id),
+            label:
+                machineToolsIdToLabel[id] ??
+                machineToolsIdToLabel[String(id)] ??
+                String(id),
+        }));
+        machineToolsOptionsBuilt.unshift(blankOption);
+        setMachineToolsOptions(machineToolsOptionsBuilt);
         setAccountTypeOptions(getOptions(filtered, "accountType"));
-        setEnoOptions([...new Set(filtered.map(item => item.eno).filter(Boolean))]);
+        const uniqueEno = [...new Set(filtered.map(item => item.eno).filter(val => !isBlankish(val)))];
+        uniqueEno.unshift(BLANK_VALUE);
+        setEnoOptions(uniqueEno);
     }, [
         selectedSiteName,
         selectedVendor,
@@ -992,6 +1051,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         selectedCategory,
         selectedMachineTools,
         selectedSource,
+        selectedPaymentMode,
         selectedBranch,
         selectedAccountType,
         startDate,
@@ -1001,6 +1061,23 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         expenses,
         machineToolsIdToLabel,
         branchOptions
+    ]);
+    useEffect(() => {
+        if (filterScrollResetSkipRef.current) {
+            filterScrollResetSkipRef.current = false;
+            return;
+        }
+        if (!showFilters) return;
+        const scroller = scrollRef.current;
+        if (!scroller) return;
+        filterNudgeUsedRef.current = false;
+        requestAnimationFrame(() => {
+            scroller.scrollTop = 0;
+        });
+    }, [
+        selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools,
+        selectedSource, selectedPaymentMode, selectedBranch, selectedAccountType, startDate, endDate,
+        selectedEno,
     ]);
     const handleChange = (e) => {
         const { name, type, value, files } = e.target;
@@ -1163,7 +1240,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             ...updatedFormData,
             billArrivalDate: billArrivalForApi
         };
-        const updateUrl = `https://backendaab.in/aabuilderDash/expenses_form/update/${editId}`;
+        const updateUrl = `https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`;
         const isPaymentTypeForWeekly = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
         if (
             isPaymentTypeForWeekly &&
@@ -1282,7 +1359,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         menu: (provided) => ({
             ...provided,
             zIndex: 999,
-            maxHeight: '300px',
+            maxHeight: `${TABLE_FILTER_MENU_MAX_HEIGHT_PX}px`,
         }),
         menuPortal: (provided) => ({
             ...provided,
@@ -1290,7 +1367,9 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         }),
         menuList: (provided) => ({
             ...provided,
-            maxHeight: '250px',
+            maxHeight: `${TABLE_FILTER_MENU_MAX_HEIGHT_PX}px`,
+            paddingTop: 0,
+            paddingBottom: 0,
             overflowY: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
@@ -1327,6 +1406,12 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         }),
         option: (provided, state) => ({
             ...provided,
+            minHeight: TABLE_FILTER_OPTION_HEIGHT_PX,
+            height: TABLE_FILTER_OPTION_HEIGHT_PX,
+            paddingTop: 0,
+            paddingBottom: 0,
+            display: 'flex',
+            alignItems: 'center',
             textAlign: 'left',
             fontWeight: 'normal',
             fontSize: '15px',
@@ -1350,19 +1435,20 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             display: 'none',
         }),
     }), []);
-    const TABLE_FILTER_OPTION_HEIGHT = 36;
-    const TABLE_FILTER_MAX_VISIBLE_OPTIONS = 8;
+    const TABLE_FILTER_OPTION_HEIGHT = TABLE_FILTER_OPTION_HEIGHT_PX;
+    const TABLE_FILTER_MAX_VISIBLE_OPTIONS_COUNT = TABLE_FILTER_MAX_VISIBLE_OPTIONS;
     const getTableFilterMenuMaxHeight = () => {
-        const maxLargeHeight = TABLE_FILTER_OPTION_HEIGHT * TABLE_FILTER_MAX_VISIBLE_OPTIONS;
+        const maxLargeHeight = TABLE_FILTER_MENU_MAX_HEIGHT_PX;
         if (typeof window === 'undefined') return maxLargeHeight;
+        if (window.innerWidth >= 1024) return maxLargeHeight;
         const viewportSpace = Math.max(window.innerHeight - 320, TABLE_FILTER_OPTION_HEIGHT * 3);
         const scrollSpace = scrollRef.current
             ? Math.max(scrollRef.current.clientHeight - 120, TABLE_FILTER_OPTION_HEIGHT * 3)
             : viewportSpace;
-        const raw = Math.min(viewportSpace, scrollSpace);
+        const raw = Math.min(maxLargeHeight, viewportSpace, scrollSpace);
         const visibleCount = Math.max(
             3,
-            Math.min(TABLE_FILTER_MAX_VISIBLE_OPTIONS, Math.floor(raw / TABLE_FILTER_OPTION_HEIGHT))
+            Math.min(TABLE_FILTER_MAX_VISIBLE_OPTIONS_COUNT, Math.floor(raw / TABLE_FILTER_OPTION_HEIGHT))
         );
         return visibleCount * TABLE_FILTER_OPTION_HEIGHT;
     };
@@ -1707,6 +1793,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         setSelectedMachineTools('');
         setSelectedAccountType('');
         setSelectedSource('');
+        setSelectedPaymentMode('');
         setSelectedBranch('');
         setStartDate('');
         setEndDate('');
@@ -1723,6 +1810,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         localStorage.removeItem('expenseFilter_machineTools');
         localStorage.removeItem('expenseFilter_accountType');
         localStorage.removeItem('expenseFilter_source');
+        localStorage.removeItem('expenseFilter_paymentMode');
         localStorage.removeItem('expenseFilter_branch');
         localStorage.removeItem('expenseFilter_date');
         localStorage.removeItem('expenseFilter_startDate');
@@ -1776,7 +1864,8 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         link.click();
         document.body.removeChild(link);
     };
-    const tableViewExpenseContext = useMemo(() => buildTableViewExpenseTableContext({
+    const tableViewExpenseContext = useMemo(() => ({
+        ...buildTableViewExpenseTableContext({
         currentItems,
         showFilters,
         filterRowRef,
@@ -1830,6 +1919,10 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         handleEditClick,
         username,
         billArrivalFilterRef,
+        }),
+        paymentModeFilterOptions,
+        selectedPaymentMode,
+        setSelectedPaymentMode,
     }), [
         currentItems,
         showFilters,
@@ -1853,6 +1946,8 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         selectedMachineTools,
         sourceOptions,
         selectedSource,
+        paymentModeFilterOptions,
+        selectedPaymentMode,
         branchFilterOptions,
         selectedBranch,
         enoOptions,
@@ -1864,26 +1959,37 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             <div className='flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED]'>
                 <div className='px-[18px] pt-[18px] pb-[18px] flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]'>
                 <div className="w-full pt-[18px] px-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
-                    <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate || selectedEno
+                    <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || startDate || endDate || selectedEno
                         ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-[12px] gap-[6px]`}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
                             <button
                                 className=''
                                 onClick={() => {
                                     const willOpen = !showFilters;
-                                    setShowFilters(willOpen);
-                                    if (!willOpen) return;
                                     const scroller = scrollRef.current;
-                                    if (!scroller) return;
-                                    if (scroller.scrollTop <= 0) return;
-                                    if (filterNudgeUsedRef.current) return;
-                                    filterNudgeUsedRef.current = true;
+                                    if (willOpen) {
+                                        setShowFilters(true);
+                                        if (!scroller) return;
+                                        if (scroller.scrollTop <= 0) return;
+                                        if (filterNudgeUsedRef.current) return;
+                                        filterNudgeUsedRef.current = true;
+                                        requestAnimationFrame(() => {
+                                            requestAnimationFrame(() => {
+                                                const h = filterRowRef.current?.offsetHeight || 0;
+                                                if (h > 0) {
+                                                    scroller.scrollTop = Math.max(0, scroller.scrollTop - h);
+                                                }
+                                            });
+                                        });
+                                        return;
+                                    }
+                                    const h = filterRowRef.current?.offsetHeight || 0;
+                                    setShowFilters(false);
+                                    if (!scroller || h <= 0 || !filterNudgeUsedRef.current) return;
+                                    filterNudgeUsedRef.current = false;
                                     requestAnimationFrame(() => {
                                         requestAnimationFrame(() => {
-                                            const h = filterRowRef.current?.offsetHeight || 0;
-                                            if (h > 0) {
-                                                scroller.scrollTop = Math.max(0, scroller.scrollTop - h);
-                                            }
+                                            scroller.scrollTop = scroller.scrollTop + h;
                                         });
                                     });
                                 }}
@@ -1894,7 +2000,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                     className=" border rounded-md"
                                 />
                             </button>
-                            {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedSource || selectedBranch || startDate || endDate || selectedEno) && (
+                            {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || startDate || endDate || selectedEno) && (
                                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
                                     {startDate && endDate ? (
                                         <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] w-fit">
@@ -1948,6 +2054,13 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                             <span className="font-semibold">A/C Type: </span>
                                             <span className="font-semibold text-[14px] text-[#000000]">{selectedAccountType}</span>
                                             <button onClick={() => setSelectedAccountType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                        </span>
+                                    )}
+                                    {selectedPaymentMode && (
+                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
+                                            <span className="font-semibold">Mode: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedPaymentMode}</span>
+                                            <button onClick={() => setSelectedPaymentMode('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedMachineTools && (
