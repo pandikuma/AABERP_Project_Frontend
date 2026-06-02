@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import Select from 'react-select';
+import CustomDateField from '../ExpensesEntry/CustomDateField';
 import Filter from '../Images/TableFilter.svg'
 import Search from '../Images/Searchnew.svg'
 import Reload from '../Images/Clear.svg'
@@ -1624,57 +1625,62 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
     );
   }
   return (
-    <div className='bg-[#FAF6ED]'>
-      <div className='max-w-[1850px] bg-white rounded-md ml-10 xl:h-[128px] h-auto mr-10 px-4 text-left flex items-center gap-6'>
+    <div className='flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED]'>
+      <div className='px-[18px] pt-[18px] pb-[18px] flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]'>
+      <div className='w-full pt-[18px] px-[18px] pb-[18px] rounded-[6px] bg-white mb-[18px] text-left flex items-center gap-6'>
         <div className='w-full xl:w-auto xl:justify-between'>
-          <div className='flex flex-wrap gap-[10px] p-4'>
+          <div className='flex flex-wrap gap-[12px]'>
             <div className=''>
-              <label className='block mb-2 font-semibold'>Advance Amount</label>
+              <label className='block mb-[8px] font-semibold'>Advance Amount</label>
               <input
-                className='w-full h-[45px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2'
+                className='w-full h-[40px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2'
                 value={`₹${totalAdvance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`}
                 readOnly
               />
             </div>
             <div className=''>
-              <label className='block mb-2 font-semibold'>Bill Amount</label>
+              <label className='block mb-[8px] font-semibold'>Bill Amount</label>
               <input
-                className='w-full h-[45px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2'
+                className='w-full h-[40px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2'
                 value={`₹${totalBill.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`}
                 readOnly
               />
             </div>
             <div className=''>
-              <label className='block mb-2 font-semibold'>Transfer Amount </label>
+              <label className='block mb-[8px] font-semibold'>Transfer Amount </label>
               <input
                 value={`₹${totalTransfer.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`}
                 readOnly
-                className='w-full h-[45px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2' />
+                className='w-full h-[40px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2' />
             </div>
             <div className=''>
-              <label className='block mb-2 font-semibold'>Refund Amount</label>
+              <label className='block mb-[8px] font-semibold'>Refund Amount</label>
               <input
-                className='w-full h-[45px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2'
+                className='w-full h-[40px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2'
                 value={`₹${totalRefund.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`}
                 readOnly
               />
             </div>
             <div className=''>
-              <label className='block mb-2 font-semibold'>Start Date</label>
-              <input
-                type="date"
+              <label className='block mb-[8px] font-semibold'>Start Date</label>
+              <CustomDateField
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className='w-full max-w-[150px] h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2'
+                onChange={setStartDate}
+                placeholder="Select date"
+                alwaysOpenBelow
+                controlHeightPx={40}
+                className="w-full max-w-[150px]"
               />
             </div>
             <div className=''>
-              <label className='block mb-2 font-semibold'>End Date</label>
-              <input
-                type="date"
+              <label className='block mb-[8px] font-semibold'>End Date</label>
+              <CustomDateField
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className='w-full max-w-[150px] h-[45px] rounded-lg border-2 border-[#BF9853] border-opacity-25 focus:outline-none p-2'
+                onChange={setEndDate}
+                placeholder="Select date"
+                alwaysOpenBelow
+                controlHeightPx={40}
+                className="w-full max-w-[150px]"
               />
             </div>
           </div>
@@ -1683,14 +1689,13 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           <button onClick={() => setIsOpen(true)} className='w-28 h-[35px] border-2 bg-[#BF9853] border-opacity-25 rounded-lg xl:mt-4 text-white'>Migrate</button>
         </div>
       </div>
-      <div className="w-full px-4 sm:px-6 lg:px-10">
-        <div className="w-full max-w-[1860px] mx-auto p-4 mt-4 bg-white shadow-lg overflow-x-auto">
+      <div className="w-full pt-[18px] px-[18px] pb-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
         <div
           className={`text-left flex ${selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseDescription.trim() || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate
             ? 'flex-col sm:flex-row sm:justify-between'
             : 'flex-row justify-between items-center'
             } mb-[12px] gap-[6px]`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
+          <div className="flex flex-row items-center sm:space-x-3 min-w-0 flex-1 overflow-hidden">
             <button
               className=''
               onClick={() => {
@@ -1726,106 +1731,106 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
               <img
                 src={Filter}
                 alt="Toggle Filter"
-                className=" border rounded-md"
+                className=" border rounded-md h-[34px]"
               />
             </button>
             {(selectTimeStampDate || selectDatabaseDate || selectDatabaseContractororVendorName || selectDatabaseProjectName || selectDatabaseTransfer || selectDatabaseType || selectDatabaseDescription.trim() || selectDatabaseMode || selectDatabaseEntryNo || selectDatabaseSourceFrom || selectDatabaseBranch || selectDatabaseEnteredBy || startDate || endDate) && (
-              <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
+              <div className="flex flex-row flex-wrap items-center gap-2 min-w-0">
                 {startDate && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Start Date: </span>
-                    <span className="font-semibold text-[14px]">{startDate}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Start Date: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{startDate}</span>
                     <button onClick={() => setStartDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {endDate && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">End Date: </span>
-                    <span className="font-semibold text-[14px]">{endDate}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">End Date: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{endDate}</span>
                     <button onClick={() => setEndDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {selectTimeStampDate && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Timestamp: </span>
-                    <span className="font-semibold text-[14px]">{selectTimeStampDate}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Timestamp: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectTimeStampDate}</span>
                     <button onClick={() => setSelectTimeStampDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {selectDatabaseDate && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Date: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseDate}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Date: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseDate}</span>
                     <button onClick={() => setSelectDatabaseDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                   </span>
                 )}
                 {selectDatabaseContractororVendorName && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Contractor/Vendor Name: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseContractororVendorName === BLANK_VALUE ? BLANK_LABEL : selectDatabaseContractororVendorName}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Contractor/Vendor Name: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseContractororVendorName === BLANK_VALUE ? BLANK_LABEL : selectDatabaseContractororVendorName}</span>
                     <button onClick={() => setSelectDatabaseContractororVendorName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseProjectName && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Project Name: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseProjectName === BLANK_VALUE ? BLANK_LABEL : selectDatabaseProjectName}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Project Name: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseProjectName === BLANK_VALUE ? BLANK_LABEL : selectDatabaseProjectName}</span>
                     <button onClick={() => setSelectDatabaseProjectName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseTransfer && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">{advCol5Label}: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseTransfer === BLANK_VALUE ? BLANK_LABEL : selectDatabaseTransfer}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">{advCol5Label}: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseTransfer === BLANK_VALUE ? BLANK_LABEL : selectDatabaseTransfer}</span>
                     <button onClick={() => setSelectDatabaseTransfer('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseType && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Type: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseType === BLANK_VALUE ? BLANK_LABEL : selectDatabaseType}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Type: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseType === BLANK_VALUE ? BLANK_LABEL : selectDatabaseType}</span>
                     <button onClick={() => setSelectDatabaseType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseDescription.trim() && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Description: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseDescription}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Description: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseDescription}</span>
                     <button onClick={() => setSelectDatabaseDescription('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseMode && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Mode: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseMode === BLANK_VALUE ? BLANK_LABEL : selectDatabaseMode}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Mode: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseMode === BLANK_VALUE ? BLANK_LABEL : selectDatabaseMode}</span>
                     <button onClick={() => setSelectDatabaseMode('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseEntryNo && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Entry No: </span>
-                    <span className="font-semibold text-[14px]">{String(selectDatabaseEntryNo) === BLANK_VALUE ? BLANK_LABEL : selectDatabaseEntryNo}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Entry No: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{String(selectDatabaseEntryNo) === BLANK_VALUE ? BLANK_LABEL : selectDatabaseEntryNo}</span>
                     <button onClick={() => setSelectDatabaseEntryNo('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseSourceFrom && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Source From: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseSourceFrom === BLANK_VALUE ? BLANK_LABEL : selectDatabaseSourceFrom}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Source From: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseSourceFrom === BLANK_VALUE ? BLANK_LABEL : selectDatabaseSourceFrom}</span>
                     <button onClick={() => setSelectDatabaseSourceFrom('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseBranch && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Branch: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseBranch === BLANK_VALUE ? BLANK_LABEL : (getBranchName(selectDatabaseBranch) || selectDatabaseBranch)}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Branch: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseBranch === BLANK_VALUE ? BLANK_LABEL : (getBranchName(selectDatabaseBranch) || selectDatabaseBranch)}</span>
                     <button onClick={() => setSelectDatabaseBranch('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
                 {selectDatabaseEnteredBy && (
-                  <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                    <span className="font-medium text-[#BF9853]">Entered By: </span>
-                    <span className="font-semibold text-[14px]">{selectDatabaseEnteredBy === BLANK_VALUE ? BLANK_LABEL : selectDatabaseEnteredBy}</span>
+                  <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                    <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Entered By: </span>
+                    <span className="font-semibold text-[14px] truncate min-w-0">{selectDatabaseEnteredBy === BLANK_VALUE ? BLANK_LABEL : selectDatabaseEnteredBy}</span>
                     <button onClick={() => setSelectDatabaseEnteredBy('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                   </span>
                 )}
@@ -1833,10 +1838,10 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
             )}
           </div>
           <div className='flex items-end gap-[6px]'>
-            <button onClick={clearFilters} className='flex h-[30px] w-[30px] shrink-0 items-center justify-center'>
+            <button onClick={clearFilters} className='flex h-[34px] w-[32px] shrink-0 items-center justify-center'>
               <img className='w-full h-full' src={Reload} alt="Reload" />
             </button>
-            <div className="w-[286px] min-w-[286px] translate-y-[2px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
+            <div className="w-[286px] min-w-[286px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
               <input
                 type="text"
                 value={overallSearch}
@@ -1854,17 +1859,17 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
             </div>
           </div>
         </div>
-        <div>
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div
             ref={scrollRef}
-            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] h-[600px] overflow-x-auto select-none no-scrollbar scrollbar-none "
+            className="w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] flex-1 min-h-0 overflow-auto select-none no-scrollbar scrollbar-none"
             onWheel={() => { filterNudgeUsedRef.current = false; }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
           >
-            <table className={`table-fixed min-w-[1180px] w-full border-collapse ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_#EDBC-12]:!pl-0 [&_#EDBC-9]:!pl-0`}>
+            <table className={`table-fixed min-w-[1180px] w-full border-collapse ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_#EDBC-12]:!pl-0 [&_#EDBC-9]:!pl-0 [&_thead_tr>th#EDBC-19]:!pr-[1px]`}>
               <thead className="sticky top-0 z-10 bg-white ">
                 <EdbcTableHeaderRow>
                   <EdbcColumnHeader
@@ -2283,7 +2288,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           </div>
         </div>
         {sortedData.length > 0 && (
-          <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
+          <div className="flex shrink-0 items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200">
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-700">Items per page:</span>
               <select
@@ -2358,10 +2363,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
             </div>
           </div>
         )}
-        </div>
       </div>
         {isOpen && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-[9999]">
             <div className="bg-white rounded-md shadow-lg p-6 w-[400px]">
               <h2 className="text-lg font-semibold mb-4 text-center">
                 Upload Bulk Data
@@ -2391,7 +2395,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           </div>
         )}
         {isEditModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]">
             <div className="bg-white rounded-md w-[65rem] px-6">
               <div className="flex justify-end">
                 <button className="text-red-500 mt-3" onClick={() => {
@@ -2606,7 +2610,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           </div>
         )}
         {isRequestModalOpen && requestingEntry && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]">
             <div className="bg-white p-6 rounded-lg w-[400px] text-center">
               <h2 className="text-lg font-bold mb-2 text-[#BF9853]">Request Edit Permission</h2>
               <p className="text-gray-700 mb-6">
@@ -2634,6 +2638,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
         )}
         <AuditModal show={showAdvancePortalModal} onClose={() => setShowAdvancePortalModal(false)} audits={advancePortalAudits} vendorOptions={vendorOptions} contractorOptions={contractorOptions}
           siteOptions={siteOptions} />
+      </div>
     </div>
 
   )
@@ -2706,7 +2711,7 @@ const AuditModal = ({ show, onClose, audits, vendorOptions, contractorOptions, s
     return value ?? "-";
   };
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[9999]">
       <div className="bg-white rounded-md shadow-lg w-[95%] max-w-[1800px] mx-4 p-2">
         <div className="flex justify-between items-center mt-4 ml-7 mr-7">
           <h2 className="text-xl font-bold">History</h2>

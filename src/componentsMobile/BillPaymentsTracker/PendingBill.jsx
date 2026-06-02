@@ -367,6 +367,19 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		return vendorMap[vendorId] || vendorMap[String(vendorId)] || '-';
 	};
 
+	const rowMatchesSelectedHeaderDate = (row) => {
+		if (!selectedDate) return true;
+		const sel = String(selectedDate).trim();
+		const arrivalRaw = row?.bill_arrival_date ?? row?.billArrivalDate;
+		const tsRaw = row?.timestamp ?? row?.created_at ?? row?.createdAt;
+		const arrivalDate = parseTrackerDateValue(arrivalRaw);
+		const tsDate = parseTrackerDateValue(tsRaw);
+		const candidates = [];
+		if (arrivalDate) candidates.push(formatDdMmYyyyFromDate(arrivalDate));
+		if (tsDate) candidates.push(formatDdMmYyyyFromDate(tsDate));
+		return candidates.some((d) => d && d === sel);
+	};
+
 	const formatIndianCurrency = (amount) => {
 		const n = Number(amount || 0);
 		if (!Number.isFinite(n)) return '₹0';
@@ -2215,6 +2228,15 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	// Backend already returns only the rows required for PendingBill.
 	const visibleRows = useMemo(() => (Array.isArray(apiData) ? apiData : []), [apiData]);
 
+	const cardVendorFilterOptions = useMemo(() => {
+		const names = new Set();
+		(visibleRows || []).forEach((row) => {
+			const name = getVendorNameById(row?.vendor_id ?? row?.vendorId);
+			if (name && String(name).trim()) names.add(String(name).trim());
+		});
+		return Array.from(names).sort((a, b) => a.localeCompare(b));
+	}, [visibleRows, vendorMap]);
+
 	const filtered = useMemo(() => {
 		const base = Array.isArray(visibleRows) ? [...visibleRows] : [];
 		// Match desktop: latest tracker first (higher id on top)
@@ -2223,8 +2245,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			const bId = Number(b?.id ?? b?.bill_id ?? b?.billId ?? 0) || 0;
 			return bId - aId;
 		});
-		if (!query) return base;
-		const q = query.toLowerCase();
+		const q = String(query || '').trim().toLowerCase();
 		const toDateOnly = (input) => {
 			const d = parseTrackerDateValue(input);
 			if (!d) return '';
@@ -2240,7 +2261,9 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		return base.filter((row) => {
 			const id = row?.vendor_id ?? row?.vendorId;
 			const name = getVendorNameById(id);
-			if (!(name || '').toLowerCase().includes(q)) return false;
+			if (selectedDate && !rowMatchesSelectedHeaderDate(row)) return false;
+			if (selectedVendor && String(name).trim() !== String(selectedVendor).trim()) return false;
+			if (q && !(name || '').toLowerCase().includes(q)) return false;
 
 			if (from || to) {
 				const dateOnly = toDateOnly(row?.bill_arrival_date ?? row?.billArrivalDate ?? row?.created_at ?? row?.createdAt ?? row?.timestamp);
@@ -2256,7 +2279,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 			return true;
 		});
-	}, [visibleRows, query, vendorMap, filterFromDate, filterToDate, filterPaymentStatus, paymentStatuses]);
+	}, [visibleRows, query, vendorMap, filterFromDate, filterToDate, filterPaymentStatus, paymentStatuses, selectedVendor, selectedDate]);
 
 	const fullScreenHeaderSubTitle = useMemo(() => {
 		const b = selectedVerifyBill;
@@ -3847,12 +3870,39 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 			{/* Date / Vendor row */}
 			<div className="flex items-center justify-between border-b border-[#E0E0E0] pt-[8px] pb-[8px]">
-				<p
-					className="text-[12px] font-semibold text-[#111827] cursor-pointer"
-					onClick={() => setShowDatePicker(true)}
-				>
-					{selectedDate || "Date"}
-				</p>
+				<div className="flex items-center gap-2">
+					<p
+						className="text-[12px] font-semibold text-[#111827] cursor-pointer"
+						onClick={() => setShowDatePicker(true)}
+					>
+						{selectedDate || "Date"}
+					</p>
+					{selectedDate && (
+						<span
+							className="cursor-pointer flex items-center"
+							onClick={(e) => {
+								e.stopPropagation();
+								setSelectedDate("");
+							}}
+						>
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 12 12"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path
+									d="M9 3L3 9M3 3L9 9"
+									stroke="#848484"
+									strokeWidth="1.5"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								/>
+							</svg>
+						</span>
+					)}
+				</div>
 				<div className="flex items-center gap-2">
 					<p
 						className="text-[12px] font-semibold text-[#111827] cursor-pointer"
@@ -5170,17 +5220,17 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 						{/* Vendor List Card */}
 						<div className=" rounded-[12px] shadow-sm overflow-y-auto no-scrollbar scrollbar-none">
-							{vendorList.length > 0 ? (
-								vendorList
-									.filter(v =>
-										v.name.toLowerCase().includes(search.toLowerCase())
+							{cardVendorFilterOptions.length > 0 ? (
+								cardVendorFilterOptions
+									.filter((name) =>
+										name.toLowerCase().includes(search.toLowerCase())
 									)
-									.map((vendor) => (
+									.map((name) => (
 										<div
-											key={vendor.id}
+											key={name}
 											className="flex items-center gap-3 p-3 rounded-[10px] cursor-pointer hover:bg-gray-100"
 											onClick={() => {
-												setSelectedVendor(vendor.name);
+												setSelectedVendor(name);
 												setShowVendorPopup(false);
 											}}
 										>
@@ -5189,7 +5239,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 											{/* Vendor Name */}
 											<span className="text-[14px] text-gray-800">
-												{vendor.name}
+												{name}
 											</span>
 										</div>
 									))

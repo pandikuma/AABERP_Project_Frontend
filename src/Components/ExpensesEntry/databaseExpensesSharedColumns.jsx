@@ -98,7 +98,7 @@ export const EDBC_TABLE_BODY_ROW_CLASS = `odd:bg-white even:bg-[#FAF6ED] text-[1
 
 /** First/last visible column edge padding — apply on the shared table element in Table.js. */
 export const EDBC_TABLE_EDGE_TABLE_CLASS =
-    '[&_thead_tr>th:first-child]:!pl-[12px] [&_tbody_tr>td:first-child]:!pl-[12px] [&_thead_tr>th:last-child]:!pr-[12px] [&_tbody_tr>td:last-child]:!pr-[12px] [&_thead_tr>th:first-child>div]:!pl-0';
+    '[&_thead_tr>th:first-child]:!pl-[12px] [&_tbody_tr>td:first-child]:!pl-[12px] [&_thead_tr>th:last-child]:!pr-[12px] [&_tbody_tr>td:last-child]:!pr-[12px] [&_thead_tr>th:first-child>div]:!pl-0 [&_thead_tr>th#EDBC-2:first-child]:!w-[130px] [&_tbody_tr>td#EDBC-2:first-child]:!w-[130px]';
 
 /**
  * Column layout per DST id.
@@ -647,7 +647,7 @@ export const EdbcDateBodyCell = ({
         ? applyEdbc2WidthClass(EDBC_CONFIG[EDBC_IDS.EDBC2].tdClass, columnWidthClass)
         : EDBC_CONFIG[EDBC_IDS.EDBC2].tdClass;
     return (
-        <td className={tdClass}>
+        <td id={EDBC_IDS.EDBC2} className={tdClass}>
             {expandableSpan(cellKey, expandedCells[cellKey], onToggleExpanded, display, display)}
         </td>
     );

@@ -1697,39 +1697,38 @@ const AdvancePortal = ({
     }
   };
   return (
-    <div className='bg-[#FAF6ED] pb-10'>
-      <div className='overflow-hidden bg-[#FAF6ED] w-full'>
-        <div className='px-4 sm:px-6 lg:px-10 overflow-hidden'>
-          <div className='flex flex-col xl:flex-row gap-4 xl:gap-10 text-left '>
-            <div className='bg-white w-full p-4 px-10 rounded-md text-left xl:flex  items-center pb-6 gap-[16px]'>
-              <div className='space-y-2 flex-1'>
-                <h2 className='font-semibold text-sm sm:text-base'>From Date</h2>
+    <div className='flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED]'>
+      <div className='px-[18px] pt-[18px] pb-[18px] flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]'>
+          <div className='w-full pt-[18px] px-[18px] pb-[18px] rounded-[6px] bg-white mb-[18px] text-left flex items-center gap-6'>
+            <div className='flex flex-wrap gap-[10px] w-full'>
+              <div>
+                <label className='block mb-[8px] font-semibold text-sm sm:text-base'>From Date</label>
                 <input
                   type='date'
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className='border-2 border-[#BF9853] border-opacity-30 rounded-lg px-2 py-1 w-full h-[45px] focus:outline-none text-sm'
+                  className='w-full max-w-[150px] h-[40px] border-2 border-[#BF9853] border-opacity-25 rounded-lg px-2 py-1 focus:outline-none text-sm'
                 />
               </div>
-              <div className='space-y-2 flex-1'>
-                <h2 className='font-semibold text-sm sm:text-base'>To Date</h2>
+              <div>
+                <label className='block mb-[8px] font-semibold text-sm sm:text-base'>To Date</label>
                 <input
                   type='date'
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className='border-2 border-[#BF9853] border-opacity-30 rounded-lg px-2 py-1 w-full h-[45px] focus:outline-none text-sm'
+                  className='w-full max-w-[150px] h-[40px] border-2 border-[#BF9853] border-opacity-25 rounded-lg px-2 py-1 focus:outline-none text-sm'
                 />
               </div>
-              <div className='space-y-2 flex-1'>
-                <h2 className='font-semibold text-sm sm:text-base'>Amount Given</h2>
+              <div>
+                <label className='block mb-[8px] font-semibold text-sm sm:text-base'>Amount Given</label>
                 <input
                   readOnly
                   value={filteredAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  className='bg-[#F2F2F2] rounded-lg p-2 w-full h-[45px] focus:outline-none text-sm'
+                  className='w-full h-[40px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2 text-sm'
                 />
               </div>
-              <div className='space-y-2 flex-1'>
-                <h2 className='font-semibold text-sm sm:text-base'>Payment Mode</h2>
+              <div>
+                <label className='block mb-[8px] font-semibold text-sm sm:text-base'>Payment Mode</label>
                 <Select
                   options={finalPaymentModeOptions}
                   value={filteredPaymentMode ? { value: filteredPaymentMode, label: filteredPaymentMode } : null}
@@ -1739,36 +1738,39 @@ const AdvancePortal = ({
                   isClearable
                   menuPortalTarget={document.body}
                   styles={customStyles}
-                  className='w-full rounded-lg focus:outline-none'
+                  className='w-full min-w-[150px] rounded-lg focus:outline-none'
                 />
               </div>
-            </div>
-            <div className='flex flex-col sm:flex-row bg-white w-full h-auto xl:h-[128px] rounded-md p-4 gap-[16px] px-10 '>
-              <div className='space-y-2'>
-                <h2 className='font-semibold text-sm sm:text-base'>Today Amount</h2>
+              <div>
+                <label className='block mb-[8px] font-semibold text-sm sm:text-base'>Today Amount</label>
                 <input
                   readOnly
                   type='text'
                   value={todayAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  className='bg-[#F2F2F2] rounded-lg p-2 w-[144px] h-[45px] focus:outline-none text-sm'
+                  className='w-[144px] h-[40px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2 text-sm'
                 />
               </div>
-              <div className='space-y-2'>
-                <h2 className='font-semibold text-sm sm:text-base'>Total Outstanding</h2>
+              <div>
+                <label className='block mb-[8px] font-semibold text-sm sm:text-base'>Total Outstanding</label>
                 <input
                   readOnly
                   type='text'
                   value={totalOutstanding.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  className='bg-[#F2F2F2] p-2 rounded-lg w-[144px] h-[45px] focus:outline-none text-sm'
+                  className='w-[144px] h-[40px] rounded-lg bg-[#F2F2F2] focus:outline-none p-2 text-sm'
+                />
+              </div>
+              <div className="flex items-end">
+                <input
+                  readOnly
+                  value={projectAdvance}
+                  className="border-2 w-[112px] p-2 border-[#E4572E] text-[#E4572E] font-bold border-opacity-10 rounded h-[33px] bg-[#F2F2F2] focus:outline-none text-xs"
                 />
               </div>
             </div>
           </div>
-        </div>
-        <div className='px-4 sm:px-6 lg:px-10 mt-4'>
-          <div className='bg-white w-full max-w-[1850px] xl:h-[610px] p-4 lg:p-6 rounded-md shadow-sm min-w-0 overflow-hidden'>
-            <div className='xl:flex xl:min-w-0 px-4 gap-4'>
-              <div className='xl:flex xl:w-[680px] xl:min-w-[680px] shrink-0'>
+        <div className='w-full pt-[18px] px-[18px] pb-[18px] bg-white rounded-[6px] flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col'>
+            <div className='xl:flex flex-1 min-h-0 xl:min-w-0 px- gap-[18px]'>
+              <div className='shrink-0 xl:w-fit'>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-left'>
                   <div className='space-y-1 flex items-center max-w-[300px]'>
                     <label className='font-semibold text-[#E4572E] text-sm sm:text-base xl:w-40 w-20'>Select Type</label>
@@ -1985,15 +1987,13 @@ const AdvancePortal = ({
                 <SideTable
                   advanceData={advanceData}
                   selectedOption={selectedOption}
-                  selectedSite={selectedSite}
                   siteOptions={siteOptions}
-                  projectAdvance={projectAdvance}
+                  selectedSite={selectedSite}
                   onEditClick={handleEditClick}
                 />
               </div>
             </div>
           </div>
-        </div>
         {isEditModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-[600px] max-h-[90vh] overflow-y-auto">

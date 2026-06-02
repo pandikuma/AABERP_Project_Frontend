@@ -38,6 +38,144 @@ const EDIT_POPUP_VALIDITY_TYPE_OPTIONS = [
     { value: 'Year', label: 'Year' },
 ];
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
+const NON_CASH_PAYMENT_MODES = ['GPay', 'Gpay', 'PhonePe', 'Net Banking', 'Cheque'];
+
+const fetchWeeklyPaymentBillsByExpensesEntryId = async (expensesEntryId) => {
+    const listResponse = await fetch(`${TOOLS_API_BASE}/api/weekly-payment-bills/all`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!listResponse.ok) {
+        throw new Error('Failed to fetch weekly payment bills');
+    }
+    const billPayments = await listResponse.json();
+    return (Array.isArray(billPayments) ? billPayments : []).filter(
+        (bill) =>
+            bill.expenses_entry_id != null &&
+            String(bill.expenses_entry_id) === String(expensesEntryId)
+    );
+};
+
+/** API expects yyyy-MM-dd; expense form may send dd/MM/yyyy or ISO strings. */
+const normalizeWeeklyBillApiDate = (value) => {
+    if (value == null || String(value).trim() === '') return null;
+    const s = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    // dd/MM/yyyy
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+        const [dd, mm, yyyy] = s.split('/');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+};
+
+const normalizeWeeklyBillNullableId = (value) => {
+    if (value === '' || value === undefined || value === null) return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+};
+
+const pickWeeklyBillModalOrExisting = (modalPaymentData, bill, modalKey, billKey, billKeyAlt) => {
+    if (modalPaymentData && modalPaymentData[modalKey] != null && String(modalPaymentData[modalKey]).trim() !== '') {
+        return modalPaymentData[modalKey];
+    }
+    if (bill && bill[billKey] != null && String(bill[billKey]).trim() !== '') return bill[billKey];
+    if (bill && billKeyAlt && bill[billKeyAlt] != null && String(bill[billKeyAlt]).trim() !== '') return bill[billKeyAlt];
+    return null;
+};
+
+const getWeeklyBillTypeFromAccountType = (accountType) => {
+    if (accountType === 'Claim Payment') return 'Claim Payment';
+    if (accountType === 'Sundry Payment') return 'Sundry Payment';
+    return 'Utility Payment';
+};
+
+const buildWeeklyPaymentBillUpdatePayload = (updatedFormData, expensesEntryId, bill, { modalPaymentData = null, editedBy = '' } = {}) => {
+    const chequeDateRaw = pickWeeklyBillModalOrExisting(
+        modalPaymentData,
+        bill,
+        'chequeDate',
+        'cheque_date',
+        'chequeDate'
+    );
+    const chequeDate =
+        chequeDateRaw != null
+            ? normalizeWeeklyBillApiDate(chequeDateRaw) || String(chequeDateRaw).trim()
+            : null;
+
+    const resolvedDate =
+        normalizeWeeklyBillApiDate(updatedFormData.date) ??
+        normalizeWeeklyBillApiDate(bill?.date) ??
+        (typeof bill?.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(bill.date) ? bill.date.slice(0, 10) : null);
+
+    return {
+        id: bill.id,
+        date: resolvedDate,
+        created_at: bill.created_at ?? bill.createdAt ?? new Date().toISOString(),
+        contractor_id: normalizeWeeklyBillNullableId(updatedFormData.contractorId ?? updatedFormData.contractor_id ?? bill.contractor_id),
+        vendor_id: normalizeWeeklyBillNullableId(updatedFormData.vendorId ?? updatedFormData.vendor_id ?? bill.vendor_id),
+        employee_id: normalizeWeeklyBillNullableId(bill.employee_id ?? bill.employeeId),
+        labour_id: normalizeWeeklyBillNullableId(bill.labour_id ?? bill.labourId),
+        project_id: normalizeWeeklyBillNullableId(updatedFormData.projectId ?? updatedFormData.project_id ?? bill.project_id),
+        type: getWeeklyBillTypeFromAccountType(updatedFormData.accountType),
+        amount: parseFloat(updatedFormData.amount) || 0,
+        status: bill?.status !== false,
+        weekly_number: bill.weekly_number ?? bill.weeklyNumber ?? null,
+        weekly_payment_expense_id: normalizeWeeklyBillNullableId(bill.weekly_payment_expense_id ?? bill.weeklyPaymentExpenseId),
+        bill_payment_mode: updatedFormData.paymentMode || bill.bill_payment_mode || null,
+        advance_portal_id: normalizeWeeklyBillNullableId(bill.advance_portal_id ?? bill.advancePortalId),
+        staff_advance_portal_id: normalizeWeeklyBillNullableId(bill.staff_advance_portal_id ?? bill.staffAdvancePortalId),
+        tenant_id: normalizeWeeklyBillNullableId(bill.tenant_id ?? bill.tenantId),
+        tenant_complex_name: bill.tenant_complex_name ?? bill.tenantComplexName ?? null,
+        rent_management_id: normalizeWeeklyBillNullableId(bill.rent_management_id ?? bill.rentManagementId),
+        loan_portal_id: normalizeWeeklyBillNullableId(bill.loan_portal_id ?? bill.loanPortalId),
+        expenses_entry_id: normalizeWeeklyBillNullableId(expensesEntryId),
+        claim_payment_id: normalizeWeeklyBillNullableId(bill.claim_payment_id ?? bill.claimPaymentId),
+        purpose_id: normalizeWeeklyBillNullableId(bill.purpose_id ?? bill.purposeId),
+        cheque_number: pickWeeklyBillModalOrExisting(
+            modalPaymentData,
+            bill,
+            'chequeNo',
+            'cheque_number',
+            'chequeNumber'
+        ),
+        cheque_date: chequeDate,
+        transaction_number: pickWeeklyBillModalOrExisting(
+            modalPaymentData,
+            bill,
+            'transactionNumber',
+            'transaction_number',
+            'transactionNumber'
+        ),
+        account_number: pickWeeklyBillModalOrExisting(
+            modalPaymentData,
+            bill,
+            'accountNumber',
+            'account_number',
+            'accountNumber'
+        ),
+        vendor_payment_tracker_id: bill.vendor_payment_tracker_id ?? bill.vendorPaymentTrackerId ?? null,
+        branch_id: normalizeWeeklyBillNullableId(bill.branch_id ?? bill.branchId),
+        edited_by: (editedBy || bill.edited_by || bill.editedBy) ?? null,
+        entered_by: (bill.entered_by ?? bill.enteredBy ?? editedBy) || null,
+    };
+};
+
+const updateWeeklyPaymentBillById = async (billId, payload) => {
+    const response = await fetch(`${TOOLS_API_BASE}/api/weekly-payment-bills/update/${billId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Weekly payment bill update failed: ${errText}`);
+    }
+    return response.json();
+};
 
 /** Scoped styles to match DatabaseExpenses table UI. */
 const TVE_LEDGER_TABLE_UI_CSS = `
@@ -99,7 +237,6 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     }, []);
     const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [totalAmount, setTotalAmount] = useState(0);
     const [expenses, setExpenses] = useState([]);
     const [filteredExpenses, setFilteredExpenses] = useState([]);
     const [exportFilteredExpenses, setExportFilteredExpenses] = useState([]);
@@ -1009,8 +1146,6 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             selectedEno
         ].some(Boolean) || overallSearch.trim();
         setExportFilteredExpenses(anyFilterApplied ? filtered : []);
-        const total = filtered.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-        setTotalAmount(total);
         const getOptions = (data, key) => {
             const unique = [...new Set(data.map(item => item[key]).filter(val => !isBlankish(val)))];
             const options = unique.map(val => ({ value: val, label: val }));
@@ -1196,7 +1331,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             billCopy: updatedBillCopy,
             editedBy: username,
         };
-        const isPaymentType = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
+        const isPaymentType = (updatedFormData.accountType === 'Claim Payment' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Sundry Payment');
         const isNonCashPaymentMode = ['GPay', 'PhonePe', 'Net Banking', 'Cheque'].includes(updatedFormData.paymentMode);
         const previousPaymentMode = expenses.find(e => e.id === editId)?.paymentMode || '';
         const isChangingFromCashToOnline = previousPaymentMode === 'Cash' && isNonCashPaymentMode;
@@ -1241,7 +1376,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             billArrivalDate: billArrivalForApi
         };
         const updateUrl = `https://backendaab.in/demoAabuilderDash/expenses_form/update/${editId}`;
-        const isPaymentTypeForWeekly = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
+        const isPaymentTypeForWeekly = (updatedFormData.accountType === 'Claim Payment' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Sundry Payment');
         if (
             isPaymentTypeForWeekly &&
             isPaymentModeRequiringBankRegisterLog(updatedFormData.paymentMode) &&
@@ -1263,40 +1398,57 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             body: JSON.stringify(updatePayload)
         });
         if (!response.ok) throw new Error('Failed to update expense');
-        const isPaymentType = (updatedFormData.accountType === 'Claim' || updatedFormData.accountType === 'Utility Bills' || updatedFormData.accountType === 'Weekly Payment');
-        const isNonCashPaymentMode = ['GPay', 'PhonePe', 'Net Banking', 'Cheque'].includes(updatedFormData.paymentMode);
-        if (isPaymentType && isNonCashPaymentMode && editId && !sentToWeeklyPaymentBillsRef.current.has(editId)) {
+        const isNonCashPaymentMode = NON_CASH_PAYMENT_MODES.includes(updatedFormData.paymentMode);
+        let existingWeeklyBills = [];
+        if (editId) {
+            existingWeeklyBills = await fetchWeeklyPaymentBillsByExpensesEntryId(editId);
+        }
+        if (isPaymentTypeForWeekly && isNonCashPaymentMode && editId) {
             try {
-                const weeklyPaymentBillPayload = {
-                    date: updatedFormData.date,
-                    created_at: new Date().toISOString(),
-                    contractor_id: updatedFormData.contractorId || null,
-                    vendor_id: updatedFormData.vendorId || null,
-                    employee_id: null,
-                    project_id: updatedFormData.projectId || null,
-                    type: updatedFormData.accountType === 'Claim' ? 'Claim Payment' : updatedFormData.accountType === 'Weekly Payment' ? 'Weekly Payment' : 'Utility Payment',
-                    bill_payment_mode: updatedFormData.paymentMode,
-                    amount: parseFloat(updatedFormData.amount) || 0,
-                    status: true,
-                    weekly_number: '',
-                    expenses_entry_id: editId,
-                    advance_portal_id: null,
-                    staff_advance_portal_id: null,
-                    claim_payment_id: null,
-                    cheque_number: (modalPaymentData && modalPaymentData.chequeNo) || null,
-                    cheque_date: (modalPaymentData && modalPaymentData.chequeDate) || null,
-                    transaction_number: (modalPaymentData && modalPaymentData.transactionNumber) || null,
-                    account_number: (modalPaymentData && modalPaymentData.accountNumber) || null
-                };
-                const weeklyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(weeklyPaymentBillPayload)
-                });
-                if (weeklyResponse.ok) sentToWeeklyPaymentBillsRef.current.add(editId);
+                if (existingWeeklyBills.length > 0) {
+                    for (const bill of existingWeeklyBills) {
+                        if (bill?.id == null) continue;
+                        const weeklyPaymentBillPayload = buildWeeklyPaymentBillUpdatePayload(
+                            updatedFormData,
+                            editId,
+                            bill,
+                            { modalPaymentData, editedBy: username }
+                        );
+                        await updateWeeklyPaymentBillById(bill.id, weeklyPaymentBillPayload);
+                    }
+                } else {
+                    const weeklyPaymentBillPayload = {
+                        date: updatedFormData.date,
+                        created_at: new Date().toISOString(),
+                        contractor_id: updatedFormData.contractorId || null,
+                        vendor_id: updatedFormData.vendorId || null,
+                        employee_id: null,
+                        project_id: updatedFormData.projectId || null,
+                        type: getWeeklyBillTypeFromAccountType(updatedFormData.accountType),
+                        bill_payment_mode: updatedFormData.paymentMode,
+                        amount: parseFloat(updatedFormData.amount) || 0,
+                        status: true,
+                        weekly_number: '',
+                        expenses_entry_id: editId,
+                        advance_portal_id: null,
+                        staff_advance_portal_id: null,
+                        claim_payment_id: null,
+                        cheque_number: (modalPaymentData && modalPaymentData.chequeNo) || null,
+                        cheque_date: (modalPaymentData && modalPaymentData.chequeDate) || null,
+                        transaction_number: (modalPaymentData && modalPaymentData.transactionNumber) || null,
+                        account_number: (modalPaymentData && modalPaymentData.accountNumber) || null
+                    };
+                    const weeklyResponse = await fetch('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(weeklyPaymentBillPayload)
+                    });
+                    if (weeklyResponse.ok) sentToWeeklyPaymentBillsRef.current.add(editId);
+                }
             } catch (weeklyErr) {
-                console.error('Weekly payment bills save error:', weeklyErr);
+                console.error('Weekly payment bills sync error:', weeklyErr);
+                throw weeklyErr;
             }
         }
     };
@@ -1636,6 +1788,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const endIndex = startIndex + itemsPerPage;
     const currentItems = sortedExpenses.slice(startIndex, endIndex);
     const currentExportItems = exportFilteredExpenses;
+    const totalAmount = currentItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const accountTypeSummary = React.useMemo(() => {
         const summary = {};
         filteredExpenses.forEach(expense => {
@@ -1961,7 +2114,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                 <div className="w-full pt-[18px] px-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
                     <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || startDate || endDate || selectedEno
                         ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-[12px] gap-[6px]`}>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
+                        <div className="flex flex-row items-center sm:space-x-3 min-w-0 flex-1 overflow-hidden">
                             <button
                                 className=''
                                 onClick={() => {
@@ -1997,97 +2150,97 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                 <img
                                     src={Filter}
                                     alt="Toggle Filter"
-                                    className=" border rounded-md"
+                                    className=" border rounded-md h-[34px]"
                                 />
                             </button>
                             {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || startDate || endDate || selectedEno) && (
-                                <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
+                                <div className="flex flex-row flex-wrap items-center gap-2 min-w-0">
                                     {startDate && endDate ? (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] w-fit">
-                                            <span className="font-semibold">Date: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{formatChipDateDMY(startDate)} – {formatChipDateDMY(endDate)}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Date: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{formatChipDateDMY(startDate)} – {formatChipDateDMY(endDate)}</span>
                                             <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                         </span>
                                     ) : startDate ? (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-sm w-fit">
-                                            <span className="font-semibold">Date: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{formatChipDateDMY(startDate)} onwards</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Date: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{formatChipDateDMY(startDate)} onwards</span>
                                             <button onClick={() => setStartDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                         </span>
                                     ) : endDate ? (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-sm w-fit">
-                                            <span className="font-semibold">Date until: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{formatChipDateDMY(endDate)}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Date until: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{formatChipDateDMY(endDate)}</span>
                                             <button onClick={() => setEndDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                         </span>
                                     ) : null}
                                     {selectedSiteName && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">Project Name: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedSiteName}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Project Name: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedSiteName}</span>
                                             <button onClick={() => setSelectedSiteName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedVendor && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">Vendor Name: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedVendor}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Vendor Name: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedVendor}</span>
                                             <button onClick={() => setSelectedVendor('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedContractor && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">Contractor Name: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedContractor}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Contractor Name: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedContractor}</span>
                                             <button onClick={() => setSelectedContractor('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedCategory && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">Category: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedCategory}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Category: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedCategory}</span>
                                             <button onClick={() => setSelectedCategory('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedAccountType && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">A/C Type: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedAccountType}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">A/C Type: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedAccountType}</span>
                                             <button onClick={() => setSelectedAccountType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedPaymentMode && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">Mode: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedPaymentMode}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Mode: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedPaymentMode}</span>
                                             <button onClick={() => setSelectedPaymentMode('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedMachineTools && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">Tools: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{getMachineToolsItemIdDisplay(selectedMachineTools)}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Tools: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{getMachineToolsItemIdDisplay(selectedMachineTools)}</span>
                                             <button onClick={() => setSelectedMachineTools('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedSource && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">Source From: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedSource}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Source From: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedSource}</span>
                                             <button onClick={() => setSelectedSource('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedBranch && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">Branch: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{getBranchName(selectedBranch) || selectedBranch}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Branch: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{getBranchName(selectedBranch) || selectedBranch}</span>
                                             <button onClick={() => setSelectedBranch('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
                                     {selectedEno && (
-                                        <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit">
-                                            <span className="font-semibold">Entry No: </span>
-                                            <span className="font-semibold text-[14px] text-[#000000]">{selectedEno}</span>
+                                        <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                            <span className="font-semibold shrink-0 whitespace-nowrap">Entry No: </span>
+                                            <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedEno}</span>
                                             <button onClick={() => setSelectedEno('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                         </span>
                                     )}
@@ -2095,10 +2248,10 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                             )}
                         </div>
                         <div className='flex items-end gap-[6px]'>
-                            <button onClick={clearFilters} className='flex h-[30px] w-[30px] shrink-0 items-center justify-center'>
+                            <button onClick={clearFilters} className='flex h-[34px] w-[32px] shrink-0 items-center justify-center'>
                                 <img className='w-full h-full' src={Reload} alt="Reload" />
                             </button>
-                            <div className="w-[286px] min-w-[286px] translate-y-[2px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
+                            <div className="w-[286px] min-w-[286px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
                                 <input
                                     type="text"
                                     value={overallSearch}
@@ -2609,7 +2762,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                             />
                                         </div>
                                     )}
-                                    {(formData.accountType === 'Claim' || formData.accountType === 'Utility Bills' || formData.accountType === 'Weekly Payment') && (
+                                    {(formData.accountType === 'Claim Payment' || formData.accountType === 'Utility Bills' || formData.accountType === 'Sundry Payment') && (
                                         <div>
                                             <label className="block text-gray-500 font-normal text-left">Payment Mode *</label>
                                             <Select

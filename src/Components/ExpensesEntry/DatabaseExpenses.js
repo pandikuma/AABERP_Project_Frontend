@@ -307,7 +307,6 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [expenses, setExpenses] = useState([]);
-    const [totalAmount, setTotalAmount] = useState(0);
     const [filteredExpenses, setFilteredExpenses] = useState([]);
     const [editId, setEditId] = useState(null);
     const [showModal, setShowModal] = useState(false);
@@ -1360,9 +1359,6 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         });
         setFilteredExpenses(filtered);
         setCurrentPage(1); // Reset to first page when filters change
-        // Set total amount
-        const total = filtered.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-        setTotalAmount(total);
         // Dynamically update dropdown options from filtered data
         const getOptions = (data, key, includeBlank = true) => {
             const unique = [];
@@ -1825,6 +1821,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const currentItems = sortedExpenses.slice(startIndex, endIndex);
+    const totalAmount = currentItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     // Calculate account type summary
     const accountTypeSummary = React.useMemo(() => {
         const summary = {};
@@ -2220,7 +2217,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                 ? 'flex-col sm:flex-row sm:justify-between'
                                 : 'flex-row justify-between items-center'
                                 } mb-[12px] gap-[6px]`}>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
+                            <div className="flex flex-row items-center sm:space-x-3 min-w-0 flex-1 overflow-hidden">
                                 <button
                                     className=''
                                     onClick={() => {
@@ -2256,134 +2253,134 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                     <img
                                         src={Filter}
                                         alt="Toggle Filter"
-                                        className=" border rounded-md"
+                                        className=" border rounded-md h-[34px]"
                                     />
                                 </button>
                                 {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedStaff || selectedQuantity.trim() || selectedDescription.trim() || selectedBillArrival || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno) && (
-                                    <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
+                                    <div className="flex flex-row flex-wrap items-center gap-2 min-w-0">
                                         {timestampStartDate && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">{dstCol1Label}: </span>
-                                                <span className="font-semibold text-[14px] ">{formatChipDateDMY(timestampStartDate)}{timestampEndDate ? ` – ${formatChipDateDMY(timestampEndDate)}` : ' onwards'}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">{dstCol1Label}: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(timestampStartDate)}{timestampEndDate ? ` – ${formatChipDateDMY(timestampEndDate)}` : ' onwards'}</span>
                                                 <button onClick={() => { setTimestampStartDate(''); setTimestampEndDate(''); }} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                             </span>
                                         )}
                                         {timestampEndDate && !timestampStartDate && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Timestamp until: </span>
-                                                <span className="font-semibold text-[14px] ">{formatChipDateDMY(timestampEndDate)}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Timestamp until: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(timestampEndDate)}</span>
                                                 <button onClick={() => setTimestampEndDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                             </span>
                                         )}
                                         {selectedDate && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Date: </span>
-                                                <span className="font-semibold text-[14px] ">{formatChipDateDMY(selectedDate)}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Date: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(selectedDate)}</span>
                                                 <button onClick={() => setSelectedDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                             </span>
                                         )}
                                         {selectedSiteName && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Project Name: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedSiteName === BLANK_VALUE ? BLANK_LABEL : selectedSiteName}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Project Name: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedSiteName === BLANK_VALUE ? BLANK_LABEL : selectedSiteName}</span>
                                                 <button onClick={() => setSelectedSiteName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedVendor && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Vendor Name: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedVendor === BLANK_VALUE ? BLANK_LABEL : selectedVendor}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Vendor Name: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedVendor === BLANK_VALUE ? BLANK_LABEL : selectedVendor}</span>
                                                 <button onClick={() => setSelectedVendor('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedContractor && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Contractor Name: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedContractor === BLANK_VALUE ? BLANK_LABEL : selectedContractor}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Contractor Name: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedContractor === BLANK_VALUE ? BLANK_LABEL : selectedContractor}</span>
                                                 <button onClick={() => setSelectedContractor('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedStaff && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Staff Name: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedStaff === BLANK_VALUE ? BLANK_LABEL : selectedStaff}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Staff Name: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedStaff === BLANK_VALUE ? BLANK_LABEL : selectedStaff}</span>
                                                 <button onClick={() => setSelectedStaff('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedQuantity.trim() && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Quantity: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedQuantity}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Quantity: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedQuantity}</span>
                                                 <button onClick={() => setSelectedQuantity('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedDescription.trim() && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Description: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedDescription}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Description: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedDescription}</span>
                                                 <button onClick={() => setSelectedDescription('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedCategory && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Category: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedCategory === BLANK_VALUE ? BLANK_LABEL : selectedCategory}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Category: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedCategory === BLANK_VALUE ? BLANK_LABEL : selectedCategory}</span>
                                                 <button onClick={() => setSelectedCategory('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedAccountType && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">A/C Type: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedAccountType}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">A/C Type: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedAccountType}</span>
                                                 <button onClick={() => setSelectedAccountType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedPaymentMode && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Mode: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedPaymentMode === BLANK_VALUE ? BLANK_LABEL : selectedPaymentMode}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Mode: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedPaymentMode === BLANK_VALUE ? BLANK_LABEL : selectedPaymentMode}</span>
                                                 <button onClick={() => setSelectedPaymentMode('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedMachineTools && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Tools: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedMachineTools === BLANK_VALUE ? BLANK_LABEL : getMachineToolsItemIdDisplay(selectedMachineTools)}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Tools: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedMachineTools === BLANK_VALUE ? BLANK_LABEL : getMachineToolsItemIdDisplay(selectedMachineTools)}</span>
                                                 <button onClick={() => setSelectedMachineTools('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedSource && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Source From: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedSource === BLANK_VALUE ? BLANK_LABEL : selectedSource}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Source From: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedSource === BLANK_VALUE ? BLANK_LABEL : selectedSource}</span>
                                                 <button onClick={() => setSelectedSource('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedBranch && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Branch: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedBranch === BLANK_VALUE ? BLANK_LABEL : (getBranchName(selectedBranch) || selectedBranch)}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Branch: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedBranch === BLANK_VALUE ? BLANK_LABEL : (getBranchName(selectedBranch) || selectedBranch)}</span>
                                                 <button onClick={() => setSelectedBranch('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedEnteredBy && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Entered By: </span>
-                                                <span className="font-semibold text-[14px] ">{selectedEnteredBy === BLANK_VALUE ? BLANK_LABEL : selectedEnteredBy}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Entered By: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{selectedEnteredBy === BLANK_VALUE ? BLANK_LABEL : selectedEnteredBy}</span>
                                                 <button onClick={() => setSelectedEnteredBy('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedEno && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Entry No: </span>
-                                                <span className="font-semibold text-[14px] ">{String(selectedEno) === BLANK_VALUE ? BLANK_LABEL : selectedEno}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Entry No: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{String(selectedEno) === BLANK_VALUE ? BLANK_LABEL : selectedEno}</span>
                                                 <button onClick={() => setSelectedEno('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectedBillArrival && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Bill Arrival: </span>
-                                                <span className="font-semibold text-[14px] ">{formatChipDateDMY(selectedBillArrival)}</span>
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Bill Arrival: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(selectedBillArrival)}</span>
                                                 <button onClick={() => setSelectedBillArrival('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
@@ -2391,10 +2388,10 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                 )}
                             </div>
                             <div className='flex items-end gap-[6px]'>
-                                <button onClick={clearFilters} className='flex h-[30px] w-[30px] shrink-0 items-center justify-center'>
+                                <button onClick={clearFilters} className='flex h-[34px] w-[32px] shrink-0 items-center justify-center'>
                                     <img className='w-full h-full' src={Reload} alt="Reload" />
                                 </button>
-                                <div className="w-[286px] min-w-[286px]  translate-y-[2px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
+                                <div className="w-[286px] min-w-[286px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
                                     <input
                                         type="text"
                                         value={overallSearch}

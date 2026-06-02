@@ -97,6 +97,7 @@ const MasterData = ({ user, onLogout }) => {
   const [projects, setProjects] = useState([]);
   const [projectSearch, setProjectSearch] = useState('');
   const [projectNameCategoryFilter, setProjectNameCategoryFilter] = useState('All');
+  const [showOnGoingProjectsOnly, setShowOnGoingProjectsOnly] = useState(false);
   const [employeeIdToNameMap, setEmployeeIdToNameMap] = useState({});
   const [listData, setListData] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([]);
@@ -1036,6 +1037,11 @@ const MasterData = ({ user, onLogout }) => {
     return masterDataItems.filter((item) => item.toLowerCase().includes(query));
   }, [search]);
 
+  const isOnGoingProject = (project) => {
+    const status = String(project?.status || '').trim().toLowerCase();
+    return status === 'on going' || status === 'ongoing';
+  };
+
   const filteredProjects = useMemo(() => {
     const query = projectSearch.trim().toLowerCase();
     const base = query
@@ -1047,24 +1053,34 @@ const MasterData = ({ user, onLogout }) => {
       : projects;
 
     const selectedFilter = String(projectNameCategoryFilter || 'All').trim();
-    if (!selectedFilter || selectedFilter === 'All') return base;
+    let result = base;
 
-    const normalizeCategory = (raw) => String(raw || '').toLowerCase().replace(/\s+/g, ' ').trim();
-    const desired =
-      selectedFilter === 'Client'
-        ? 'client'
-        : selectedFilter === 'Owen'
-          ? 'own'
-          : normalizeCategory(selectedFilter);
+    if (selectedFilter === 'Ongoing') {
+      result = result.filter((project) => isOnGoingProject(project));
+    } else if (selectedFilter && selectedFilter !== 'All') {
+      const normalizeCategory = (raw) => String(raw || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const desired =
+        selectedFilter === 'Client'
+          ? 'client'
+          : selectedFilter === 'Owen'
+            ? 'own'
+            : normalizeCategory(selectedFilter);
 
-    return base.filter((project) => {
-      const raw = project?.projectCategory ?? project?.project_category ?? '';
-      const normalized = normalizeCategory(raw);
-      if (desired === 'client') return normalized.includes('client');
-      if (desired === 'own') return normalized.includes('own');
-      return normalized.includes(desired);
-    });
-  }, [projectSearch, projects, projectNameCategoryFilter]);
+      result = result.filter((project) => {
+        const raw = project?.projectCategory ?? project?.project_category ?? '';
+        const normalized = normalizeCategory(raw);
+        if (desired === 'client') return normalized.includes('client');
+        if (desired === 'own') return normalized.includes('own');
+        return normalized.includes(desired);
+      });
+    }
+
+    if (showOnGoingProjectsOnly && selectedFilter !== 'Ongoing') {
+      result = result.filter((project) => isOnGoingProject(project));
+    }
+
+    return result;
+  }, [projectSearch, projects, projectNameCategoryFilter, showOnGoingProjectsOnly]);
 
   const filteredList = useMemo(() => {
     const query = itemSearch.trim().toLowerCase();
@@ -7186,6 +7202,24 @@ const MasterData = ({ user, onLogout }) => {
                 >
                   <img src={masterTableSortReversed ? UpDownFilter : FilterUp} alt="" className="h-[16px] w-[16px]" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowOnGoingProjectsOnly((prev) => !prev)}
+                  title={
+                    showOnGoingProjectsOnly || projectNameCategoryFilter === 'Ongoing'
+                      ? 'Show all projects'
+                      : 'Show On Going projects only'
+                  }
+                  className={`text-[16px] leading-none transition-colors ${
+                    showOnGoingProjectsOnly || projectNameCategoryFilter === 'Ongoing'
+                      ? 'text-[#BF9853]'
+                      : 'text-gray-400'
+                  }`}
+                  aria-pressed={showOnGoingProjectsOnly || projectNameCategoryFilter === 'Ongoing'}
+                  aria-label="Filter On Going projects"
+                >
+                  ★
+                </button>
               </div>
               <button
                 type="button"
@@ -7271,27 +7305,38 @@ const MasterData = ({ user, onLogout }) => {
                         {getProjectSerialNumber(item, index)}
                       </span>
                       <span className="pr-[8px] text-[13px] font-medium text-black text-left">
-                        <button
-                          type="button"
-                          className="cursor-pointer text-left"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const next = normalizeProjectForForm(item);
-                            const propertyNext = normalizeProjectPropertyForForm(item);
-                            setProjectFormMode('edit');
-                            setProjectForm(next);
-                            setProjectPropertyDetails(propertyNext);
-                            setEditingProjectPropertyIndex(null);
-                            setAddOnBillForm(propertyNext[0] || { ...EMPTY_PROJECT_PROPERTY });
-                            setProjectQrPreview(next.qrCode || '');
-                            setUploadFileRowShowsSaveIcon(false);
-                            setIsProjectViewOnly(true);
-                            setIsAddProjectViewOpen(true);
-                            setExpandedProjectSection(hasImageFile(next.projectPicture) ? 'project-image' : 'project-details');
-                          }}
-                        >
-                          {item.projectName || ''}
-                        </button>
+                        <span className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="cursor-pointer text-left"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const next = normalizeProjectForForm(item);
+                              const propertyNext = normalizeProjectPropertyForForm(item);
+                              setProjectFormMode('edit');
+                              setProjectForm(next);
+                              setProjectPropertyDetails(propertyNext);
+                              setEditingProjectPropertyIndex(null);
+                              setAddOnBillForm(propertyNext[0] || { ...EMPTY_PROJECT_PROPERTY });
+                              setProjectQrPreview(next.qrCode || '');
+                              setUploadFileRowShowsSaveIcon(false);
+                              setIsProjectViewOnly(true);
+                              setIsAddProjectViewOpen(true);
+                              setExpandedProjectSection(hasImageFile(next.projectPicture) ? 'project-image' : 'project-details');
+                            }}
+                          >
+                            {item.projectName || ''}
+                          </button>
+                          {isOnGoingProject(item) && (
+                            <span
+                              className="text-[#BF9853] text-[13px] leading-none"
+                              title="On Going"
+                              aria-hidden
+                            >
+                              ★
+                            </span>
+                          )}
+                        </span>
                       </span>
                       <span
                         className={`text-[12px] font-medium text-left ${item.projectCategory === 'Client Project'
@@ -8040,7 +8085,7 @@ const MasterData = ({ user, onLogout }) => {
           setIsProjectNameCategoryFilterModalOpen(false);
         }}
         selectedValue={projectNameCategoryFilter}
-        options={['All', 'Own', 'Client']}
+        options={['All', 'Own', 'Client', 'Ongoing']}
         fieldName="Project Category"
         showStarIcon={false}
       />

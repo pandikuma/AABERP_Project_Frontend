@@ -23,6 +23,63 @@ const LoanForm = () => {
   }, []);
 
   const canCreate = modulePermissions.includes('Create');
+  const canEdit = modulePermissions.includes('Edit');
+
+  const [editingLoanId, setEditingLoanId] = useState(null);
+  const [existingFileUrl, setExistingFileUrl] = useState('');
+  const [existingFileName, setExistingFileName] = useState('');
+  const pendingEditRef = useRef(null);
+
+  const getFileNameFromUrl = (url) => {
+    if (!url) return '';
+    try {
+      const pathname = new URL(url).pathname;
+      const name = pathname.split('/').pop();
+      return decodeURIComponent(name || '').replace(/\+/g, ' ') || 'Attached file';
+    } catch {
+      const parts = String(url).split('/');
+      const last = parts[parts.length - 1] || '';
+      return decodeURIComponent(last.split('?')[0]).replace(/\+/g, ' ') || 'Attached file';
+    }
+  };
+
+  const resolveEntryFileUrlForEdit = (entry) => {
+    const direct = entry?.file_url || entry?.fileUrl || '';
+    if (direct && direct !== 'null' && direct !== 'undefined') return direct;
+
+    const loanId = entry?.loanPortalId ?? entry?.id ?? entry?.loan_portal_id;
+    const entryNo = entry?.entry_no ?? entry?.entryNo;
+    try {
+      const cacheRows = [
+        ...JSON.parse(sessionStorage.getItem('aab_loan_file_cache') || '[]'),
+        ...JSON.parse(localStorage.getItem('aab_loan_file_cache') || '[]'),
+      ];
+      for (const row of cacheRows) {
+        const url = row?.file_url || row?.fileUrl || row?.previewDataUrl || '';
+        if (!url) continue;
+        if (loanId != null && String(row.loanPortalId ?? row.id ?? row.loan_portal_id) === String(loanId)) {
+          return url;
+        }
+        if (entryNo != null && String(row.entry_no ?? row.entryNo) === String(entryNo)) {
+          return url;
+        }
+      }
+    } catch {
+      // ignore cache read errors
+    }
+    return '';
+  };
+
+  const setExistingAttachment = (url) => {
+    const trimmed = String(url || '').trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') {
+      setExistingFileUrl('');
+      setExistingFileName('');
+      return;
+    }
+    setExistingFileUrl(trimmed);
+    setExistingFileName(getFileNameFromUrl(trimmed));
+  };
 
   const resolveActiveBranchId = () => {
     try {
@@ -37,6 +94,13 @@ const LoanForm = () => {
   };
 
   const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
+  const withBranchUrl = useCallback((baseUrl) => {
+    const url = new URL(baseUrl);
+    if (activeBranchId !== null && activeBranchId !== undefined && activeBranchId !== '') {
+      url.searchParams.set('branchId', String(activeBranchId));
+    }
+    return url.toString();
+  }, [activeBranchId]);
   const [selectedLoanType, setSelectedLoanType] = useState('Loan');
   const [selectedOption, setSelectedOption] = useState(null);
   const [combinedOptions, setCombinedOptions] = useState([]);
@@ -53,6 +117,9 @@ const LoanForm = () => {
   const [entryNo, setEntryNo] = useState(1);
   const [selectedLoanFile, setSelectedLoanFile] = useState(null);
   const [overallLoan, setOverallLoan] = useState(0);
+  const [loanAmount, setLoanAmount] = useState('');
+  const [associateRecords, setAssociateRecords] = useState([]);
+  const pendingPrefillRef = useRef(null);
   const fileInputRef = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
@@ -60,6 +127,12 @@ const LoanForm = () => {
   const [showAssociateModal, setShowAssociateModal] = useState(false);
   const [showPurposeModal, setShowPurposeModal] = useState(false);
   const [showPaymentModeModal, setShowPaymentModeModal] = useState(false);
+  const [showTransferToModal, setShowTransferToModal] = useState(false);
+  const [siteOptions, setSiteOptions] = useState([]);
+  const [combinedTransferToOptions, setCombinedTransferToOptions] = useState([]);
+  const [transferSelection, setTransferSelection] = useState(null);
+
+  const isTransfer = selectedLoanType === 'Transfer';
 
   const paymentModeOptions = [
     { value: 'Cash', label: 'Cash' },
@@ -84,6 +157,7 @@ const LoanForm = () => {
   useEffect(() => {
     const fetchEntryNo = async () => {
       try {
+        if (localStorage.getItem('editingLoanEntry')) return;
         const response = await fetch('https://backendaab.in/demoAabuildersDash/api/loans/all');
         if (response.ok) {
           const data = await response.json();
@@ -234,10 +308,196 @@ const LoanForm = () => {
     setCombinedOptions([...vendorOptions, ...contractorOptions, ...employeeOptions, ...labourOptions]);
   }, [vendorOptions, contractorOptions, employeeOptions, labourOptions]);
 
-  // Calculate overall loan
+  const applyLoanEditPayload = useCallback(
+    (entry) => {
+      if (!entry) return;
+
+      const loanId = entry.loanPortalId ?? entry.id ?? entry.loan_portal_id;
+      if (loanId) setEditingLoanId(loanId);
+
+      setSelectedLoanType(entry.type || 'Loan');
+      if (entry.entry_no != null) setEntryNo(entry.entry_no);
+
+      if (entry.date) {
+        const parsed = new Date(entry.date);
+        if (!Number.isNaN(parsed.getTime())) {
+          setDateValue(parsed.toISOString().split('T')[0]);
+        }
+      }
+
+      let associate = null;
+      if (entry.vendor_id) {
+        associate = vendorOptions.find((opt) => Number(opt.id) === Number(entry.vendor_id));
+      } else if (entry.contractor_id) {
+        associate = contractorOptions.find((opt) => Number(opt.id) === Number(entry.contractor_id));
+      } else if (entry.employee_id) {
+        associate = employeeOptions.find((opt) => Number(opt.id) === Number(entry.employee_id));
+      } else if (entry.labour_id) {
+        associate = labourOptions.find((opt) => Number(opt.id) === Number(entry.labour_id));
+      }
+      if (!associate && entry.associateName) {
+        associate = [...vendorOptions, ...contractorOptions, ...employeeOptions, ...labourOptions].find(
+          (opt) => opt.label === entry.associateName
+        );
+      }
+      if (associate) setSelectedOption(associate);
+
+      if (entry.from_purpose_id) {
+        setPurpose(String(entry.from_purpose_id));
+      } else if (entry.purposeName) {
+        const purposeOpt = purposeOptions.find((opt) => opt.label === entry.purposeName);
+        if (purposeOpt) setPurpose(String(purposeOpt.id));
+      }
+
+      const entryType = entry.type || 'Loan';
+      const amount =
+        entryType === 'Refund'
+          ? Math.abs(parseFloat(entry.loan_refund_amount) || 0)
+          : Math.abs(parseFloat(entry.amount) || 0);
+      setAmountGiven(amount ? String(amount) : '');
+
+      setPaymentMode(entry.loan_payment_mode || '');
+      setDescription(entry.description || '');
+      setExistingAttachment(resolveEntryFileUrlForEdit(entry));
+
+      if (entryType === 'Transfer') {
+        const transferProjectId = entry.transfer_Project_id ?? entry.transfer_project_id;
+        if (transferProjectId) {
+          const site = siteOptions.find((opt) => Number(opt.id) === Number(transferProjectId));
+          if (site) setTransferSelection(site);
+        } else if (entry.to_purpose_id) {
+          const purposeTarget = purposeOptions.find((opt) => Number(opt.id) === Number(entry.to_purpose_id));
+          if (purposeTarget) setTransferSelection(purposeTarget);
+        }
+      } else {
+        setTransferSelection(null);
+      }
+    },
+    [vendorOptions, contractorOptions, employeeOptions, labourOptions, purposeOptions, siteOptions]
+  );
+
+  useEffect(() => {
+    const readStoredEditEntry = () => {
+      try {
+        const raw = localStorage.getItem('editingLoanEntry');
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const handleEditLoanEntry = (event) => {
+      const entry = event?.detail || readStoredEditEntry();
+      if (!entry) return;
+      pendingEditRef.current = entry;
+      applyLoanEditPayload(entry);
+      localStorage.removeItem('editingLoanEntry');
+    };
+
+    window.addEventListener('editLoanEntry', handleEditLoanEntry);
+    const stored = readStoredEditEntry();
+    if (stored) {
+      pendingEditRef.current = stored;
+      applyLoanEditPayload(stored);
+      localStorage.removeItem('editingLoanEntry');
+    }
+
+    return () => window.removeEventListener('editLoanEntry', handleEditLoanEntry);
+  }, [applyLoanEditPayload]);
+
+  useEffect(() => {
+    if (pendingEditRef.current) {
+      applyLoanEditPayload(pendingEditRef.current);
+    }
+  }, [applyLoanEditPayload]);
+
+  useEffect(() => {
+    if (!editingLoanId || existingFileUrl) return;
+    const fetchExistingFile = async () => {
+      try {
+        const response = await fetch(
+          `https://backendaab.in/demoAabuildersDash/api/loans/${editingLoanId}`,
+          { credentials: 'include', headers: { 'Content-Type': 'application/json' } }
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        const detail = Array.isArray(data) ? data[0] : data;
+        const url = detail?.file_url || detail?.fileUrl || '';
+        if (url) setExistingAttachment(url);
+      } catch {
+        // ignore
+      }
+    };
+    fetchExistingFile();
+  }, [editingLoanId, existingFileUrl]);
+
+  const getEditedByUsername = () => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || '{}');
+      return stored?.username || stored?.name || 'mobile';
+    } catch {
+      return 'mobile';
+    }
+  };
+
+  // Fetch sites/projects for Transfer To
+  useEffect(() => {
+    const predefinedSiteOptions = [
+      { value: "Mason Advance", label: "Mason Advance", id: 1, sNo: "1", type: "Site" },
+      { value: "Material Advance", label: "Material Advance", id: 2, sNo: "2", type: "Site" },
+      { value: "Weekly Advance", label: "Weekly Advance", id: 3, sNo: "3", type: "Site" },
+      { value: "Excess Advance", label: "Excess Advance", id: 4, sNo: "4", type: "Site" },
+      { value: "Material Rent", label: "Material Rent", id: 5, sNo: "5", type: "Site" },
+      { value: "Subhash Kumar - Kunnur", label: "Subhash Kumar - Kunnur", id: 6, sNo: "6", type: "Site" },
+      { value: "Summary Bill", label: "Summary Bill", id: 7, sNo: "7", type: "Site" },
+      { value: "Daily Wage", label: "Daily Wage", id: 8, sNo: "8", type: "Site" },
+      { value: "Rent Management Portal", label: "Rent Management Portal", id: 9, sNo: "9", type: "Site" },
+    ];
+    const fetchSites = async () => {
+      try {
+        const response = await fetch("https://backendaab.in/demoAabuilderDash/api/project_Names/getAll", {
+          method: "GET",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const formattedData = data.map(item => ({
+            value: item.siteName,
+            label: item.siteName,
+            type: "Site",
+            id: item.id,
+            sNo: item.siteNo
+          }));
+          setSiteOptions([...predefinedSiteOptions, ...formattedData]);
+        } else {
+          setSiteOptions(predefinedSiteOptions);
+        }
+      } catch (error) {
+        console.error("Fetch error: ", error);
+        setSiteOptions(predefinedSiteOptions);
+      }
+    };
+    fetchSites();
+  }, []);
+
+  useEffect(() => {
+    setCombinedTransferToOptions([
+      ...siteOptions,
+      ...purposeOptions,
+      ...vendorOptions,
+      ...contractorOptions,
+      ...employeeOptions,
+      ...labourOptions
+    ]);
+  }, [siteOptions, purposeOptions, vendorOptions, contractorOptions, employeeOptions, labourOptions]);
+
+  // Calculate overall loan and loan amount (per purpose)
   useEffect(() => {
     if (!selectedOption) {
       setOverallLoan(0);
+      setLoanAmount('');
+      setAssociateRecords([]);
       return;
     }
     const fetchLoanData = async () => {
@@ -245,27 +505,103 @@ const LoanForm = () => {
         const response = await fetch('https://backendaab.in/demoAabuildersDash/api/loans/all');
         if (response.ok) {
           const data = await response.json();
-          const total = data
-            .filter((item) => {
-              if (selectedOption.type === 'Vendor') return item.vendor_id === selectedOption.id;
-              if (selectedOption.type === 'Contractor') return item.contractor_id === selectedOption.id;
-              if (selectedOption.type === 'Employee') return item.employee_id === selectedOption.id;
-              if (selectedOption.type === 'Labour') return item.labour_id === selectedOption.id;
-              return false;
-            })
+          const associateEntries = data.filter((item) => {
+            if (selectedOption.type === 'Vendor') return item.vendor_id === selectedOption.id;
+            if (selectedOption.type === 'Contractor') return item.contractor_id === selectedOption.id;
+            if (selectedOption.type === 'Employee') return item.employee_id === selectedOption.id;
+            if (selectedOption.type === 'Labour') return item.labour_id === selectedOption.id;
+            return false;
+          });
+          setAssociateRecords(associateEntries);
+          const total = associateEntries.reduce((sum, curr) => {
+            if (curr.type === 'Loan') return sum + (parseFloat(curr.amount) || 0);
+            if (curr.type === 'Refund') return sum - (parseFloat(curr.loan_refund_amount) || 0);
+            return sum;
+          }, 0);
+          setOverallLoan(total);
+
+          if (!purpose) {
+            setLoanAmount('');
+            return;
+          }
+          const purposeId = parseInt(purpose, 10);
+          const purposeTotal = associateEntries
+            .filter((entry) => entry.from_purpose_id === purposeId)
             .reduce((sum, curr) => {
               if (curr.type === 'Loan') return sum + (parseFloat(curr.amount) || 0);
               if (curr.type === 'Refund') return sum - (parseFloat(curr.loan_refund_amount) || 0);
+              if (curr.type === 'Transfer') return sum + (parseFloat(curr.amount) || 0);
               return sum;
             }, 0);
-          setOverallLoan(total);
+          setLoanAmount(purposeTotal.toString());
         }
       } catch (error) {
         console.error('Error fetching loan data:', error);
       }
     };
     fetchLoanData();
-  }, [selectedOption]);
+  }, [selectedOption, purpose]);
+
+  // Prefill from History: click associate name -> open Loan tab with selection
+  useEffect(() => {
+    const applyPrefill = () => {
+      try {
+        const raw = localStorage.getItem('loanFormPrefill');
+        if (!raw) return;
+        const p = JSON.parse(raw || '{}');
+        if (!p || typeof p !== 'object') return;
+
+        pendingPrefillRef.current = p;
+
+        let next = null;
+        if (p.vendor_id) next = vendorOptions.find((o) => Number(o.id) === Number(p.vendor_id));
+        else if (p.contractor_id) next = contractorOptions.find((o) => Number(o.id) === Number(p.contractor_id));
+        else if (p.employee_id) next = employeeOptions.find((o) => Number(o.id) === Number(p.employee_id));
+        else if (p.labour_id) next = labourOptions.find((o) => Number(o.id) === Number(p.labour_id));
+
+        if (!next && p.associateName) {
+          next = [...vendorOptions, ...contractorOptions, ...employeeOptions, ...labourOptions].find(
+            (o) => o.label === p.associateName
+          );
+        }
+        if (next) {
+          setSelectedOption(next);
+          pendingPrefillRef.current = null;
+          localStorage.removeItem('loanFormPrefill');
+        }
+        if (p.from_purpose_id) setPurpose(String(p.from_purpose_id));
+      } catch {
+        // ignore
+      }
+    };
+
+    applyPrefill();
+    window.addEventListener('editLoanEntry', applyPrefill);
+    return () => window.removeEventListener('editLoanEntry', applyPrefill);
+  }, [vendorOptions, contractorOptions, employeeOptions, labourOptions]);
+
+  // If prefill arrived before options, retry once options load.
+  useEffect(() => {
+    const p = pendingPrefillRef.current;
+    if (!p) return;
+    let next = null;
+    if (p.vendor_id) next = vendorOptions.find((o) => Number(o.id) === Number(p.vendor_id));
+    else if (p.contractor_id) next = contractorOptions.find((o) => Number(o.id) === Number(p.contractor_id));
+    else if (p.employee_id) next = employeeOptions.find((o) => Number(o.id) === Number(p.employee_id));
+    else if (p.labour_id) next = labourOptions.find((o) => Number(o.id) === Number(p.labour_id));
+    if (!next && p.associateName) {
+      next = [...vendorOptions, ...contractorOptions, ...employeeOptions, ...labourOptions].find((o) => o.label === p.associateName);
+    }
+    if (!next) return;
+    setSelectedOption(next);
+    if (p.from_purpose_id) setPurpose(String(p.from_purpose_id));
+    pendingPrefillRef.current = null;
+    try {
+      localStorage.removeItem('loanFormPrefill');
+    } catch {
+      // ignore
+    }
+  }, [combinedOptions, vendorOptions, contractorOptions, employeeOptions, labourOptions]);
 
   const formatWithCommas = (value) => {
     if (!value) return "";
@@ -283,11 +619,15 @@ const LoanForm = () => {
     const file = e.target.files[0];
     if (file) {
       setSelectedLoanFile(file);
+      setExistingFileUrl('');
+      setExistingFileName('');
     }
   };
 
   const handleRemoveFile = () => {
     setSelectedLoanFile(null);
+    setExistingFileUrl('');
+    setExistingFileName('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -300,6 +640,38 @@ const LoanForm = () => {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
+  };
+
+  const uploadLoanAttachment = async () => {
+    if (!selectedLoanFile) return '';
+    const formData = new FormData();
+    const now = new Date();
+    const timestamp = now
+      .toLocaleString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      })
+      .replace(',', '')
+      .replace(/\s/g, '-');
+    const associateName = selectedOption?.label || 'Loan';
+    const finalName = `${timestamp} ${associateName} ${selectedLoanType}`;
+    formData.append('files', selectedLoanFile);
+    formData.append('folder', 'FileUpload / Loan_Portal');
+    formData.append('fileName', finalName);
+    const uploadRes = await fetch('https://backendaab.in/demoAabuildersDash/api/files/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!uploadRes.ok) throw new Error('File upload failed');
+    const uploadResult = await uploadRes.json().catch(() => ({}));
+    const uploadedUrl = uploadResult?.urls?.[0] || uploadResult?.url || '';
+    if (!uploadedUrl) throw new Error('File upload failed');
+    return uploadedUrl;
   };
 
   const handleSubmit = async () => {
@@ -330,7 +702,16 @@ const LoanForm = () => {
       return;
     }
 
-    if (!paymentMode) {
+    if (selectedLoanType === 'Transfer') {
+      if (!transferSelection) {
+        toast.error("Please select transfer destination!", {
+          position: "top-center",
+          autoClose: 3000,
+          theme: "colored"
+        });
+        return;
+      }
+    } else if (!paymentMode) {
       toast.error("Please select a payment mode!", {
         position: "top-center",
         autoClose: 3000,
@@ -342,71 +723,282 @@ const LoanForm = () => {
     setIsSubmitting(true);
 
     try {
-      if (!canCreate) {
+      const isEditMode = Boolean(editingLoanId);
+      if (isEditMode) {
+        if (!canEdit) {
+          toast.error("You don't have permission to edit Loan entries.", {
+            position: "top-center",
+            autoClose: 3000,
+            theme: "colored"
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      } else if (!canCreate) {
         toast.error("You don't have permission to create new Loan entries.", {
           position: "top-center",
           autoClose: 3000,
           theme: "colored"
         });
+        setIsSubmitting(false);
         return;
       }
-      const formData = new FormData();
-      formData.append('type', selectedLoanType);
-      formData.append('date', dateValue);
-      formData.append('amount', amountGiven);
-      formData.append('loan_payment_mode', paymentMode);
-      formData.append('from_purpose_id', purpose);
-      formData.append('entry_no', entryNo);
-      formData.append('description', description || '');
 
-      if (selectedOption.type === 'Vendor') {
-        formData.append('vendor_id', selectedOption.id);
-      } else if (selectedOption.type === 'Contractor') {
-        formData.append('contractor_id', selectedOption.id);
-      } else if (selectedOption.type === 'Employee') {
-        formData.append('employee_id', selectedOption.id);
-      } else if (selectedOption.type === 'Labour') {
-        formData.append('labour_id', selectedOption.id);
-      }
-
-      if (activeBranchId) {
-        formData.append('branch_id', activeBranchId);
-      }
-
+      let uploadedFileUrl = '';
       if (selectedLoanFile) {
-        formData.append('file', selectedLoanFile);
+        try {
+          uploadedFileUrl = await uploadLoanAttachment();
+        } catch (uploadError) {
+          console.error('Loan file upload failed:', uploadError);
+          toast.error('File upload failed. Please try again.', {
+            position: 'top-center',
+            autoClose: 3000,
+            theme: 'colored',
+          });
+          setIsSubmitting(false);
+          return;
+        }
       }
 
-      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/loans/save', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      });
+      if (isEditMode) {
+        const entryType = selectedLoanType;
+        const isRefund = entryType === 'Refund';
+        const updatePayload = {
+          loanPortalId: editingLoanId,
+          type: entryType,
+          date: dateValue,
+          amount: isRefund ? 0 : parseFloat(amountGiven) || 0,
+          loan_refund_amount: isRefund ? parseFloat(amountGiven) || 0 : 0,
+          loan_payment_mode: entryType === 'Transfer' ? '' : paymentMode,
+          from_purpose_id: purpose || 0,
+          to_purpose_id:
+            entryType === 'Transfer' && transferSelection?.type === 'Purpose'
+              ? transferSelection.id
+              : 0,
+          vendor_id: selectedOption?.type === 'Vendor' ? selectedOption.id : 0,
+          contractor_id: selectedOption?.type === 'Contractor' ? selectedOption.id : 0,
+          employee_id: selectedOption?.type === 'Employee' ? selectedOption.id : 0,
+          labour_id: selectedOption?.type === 'Labour' ? selectedOption.id : 0,
+          project_id: 0,
+          transfer_Project_id:
+            entryType === 'Transfer' && transferSelection?.type === 'Site' ? transferSelection.id : 0,
+          entry_no: entryNo,
+          description: description || '',
+          file_url: uploadedFileUrl || existingFileUrl || '',
+          advance_portal_id: null,
+          branch_id: activeBranchId,
+        };
+        const username = encodeURIComponent(getEditedByUsername());
+        const response = await fetch(
+          `https://backendaab.in/demoAabuildersDash/api/loans/${editingLoanId}?editedBy=${username}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(updatePayload),
+          }
+        );
+        if (!response.ok) throw new Error('Failed to update loan entry');
+        toast.success('Loan entry updated successfully!', {
+          position: 'top-center',
+          autoClose: 3000,
+          theme: 'colored',
+        });
+        setEditingLoanId(null);
+        setExistingFileUrl('');
+        setExistingFileName('');
+        pendingEditRef.current = null;
+        window.dispatchEvent(new Event('loanUpdated'));
+      } else if (selectedLoanType === 'Transfer') {
+        const transferAmountValue = parseFloat(amountGiven) || 0;
+        const isTransferToAssociate = ["Contractor", "Vendor", "Employee", "Labour"].includes(transferSelection?.type);
 
-      if (!response.ok) {
-        throw new Error('Failed to save loan');
+        if (isTransferToAssociate) {
+          const senderName = selectedOption?.label || '';
+          const receiverName = transferSelection?.label || '';
+          const transferDesc = description
+            ? `${description} - ${senderName} to ${receiverName} amount transferred`
+            : `${senderName} to ${receiverName} amount transferred`;
+
+          const senderPayload = {
+            type: "Transfer",
+            date: dateValue,
+            amount: -Math.abs(transferAmountValue),
+            loan_payment_mode: "",
+            loan_refund_amount: 0,
+            from_purpose_id: purpose || 0,
+            transfer_Project_id: 0,
+            to_purpose_id: 0,
+            vendor_id: selectedOption?.type === "Vendor" ? selectedOption.id : 0,
+            contractor_id: selectedOption?.type === "Contractor" ? selectedOption.id : 0,
+            employee_id: selectedOption?.type === "Employee" ? selectedOption.id : 0,
+            labour_id: selectedOption?.type === "Labour" ? selectedOption.id : 0,
+            project_id: 0,
+            description: transferDesc,
+            file_url: uploadedFileUrl || '',
+            advance_portal_id: null,
+            branch_id: activeBranchId
+          };
+
+          const receiverPayload = {
+            type: "Loan",
+            date: dateValue,
+            amount: Math.abs(transferAmountValue),
+            loan_payment_mode: "",
+            loan_refund_amount: 0,
+            from_purpose_id: purpose || 0,
+            transfer_Project_id: 0,
+            to_purpose_id: 0,
+            vendor_id: transferSelection?.type === "Vendor" ? transferSelection.id : 0,
+            contractor_id: transferSelection?.type === "Contractor" ? transferSelection.id : 0,
+            employee_id: transferSelection?.type === "Employee" ? transferSelection.id : 0,
+            labour_id: transferSelection?.type === "Labour" ? transferSelection.id : 0,
+            project_id: 0,
+            description: transferDesc,
+            file_url: uploadedFileUrl || '',
+            advance_portal_id: null,
+            branch_id: activeBranchId
+          };
+
+          const loanSaveUrl = withBranchUrl('https://backendaab.in/demoAabuildersDash/api/loans/save');
+          const senderResponse = await fetch(loanSaveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(senderPayload)
+          });
+          if (!senderResponse.ok) throw new Error('Failed to save transfer');
+
+          const receiverResponse = await fetch(loanSaveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(receiverPayload)
+          });
+          if (!receiverResponse.ok) throw new Error('Failed to save transfer');
+        } else {
+          const payload = {
+            type: "Transfer",
+            date: dateValue,
+            amount:
+              transferSelection?.type === "Site" && (selectedOption?.type === "Vendor" || selectedOption?.type === "Contractor")
+                ? -Math.abs(transferAmountValue)
+                : transferAmountValue,
+            loan_payment_mode: "",
+            loan_refund_amount: 0,
+            from_purpose_id: purpose || 0,
+            transfer_Project_id: transferSelection?.type === "Site" ? transferSelection.id : 0,
+            to_purpose_id: transferSelection?.type === "Purpose" ? transferSelection.id : 0,
+            vendor_id: selectedOption?.type === "Vendor" ? selectedOption.id : 0,
+            contractor_id: selectedOption?.type === "Contractor" ? selectedOption.id : 0,
+            employee_id: selectedOption?.type === "Employee" ? selectedOption.id : 0,
+            labour_id: selectedOption?.type === "Labour" ? selectedOption.id : 0,
+            project_id: 0,
+            description: description || '',
+            file_url: uploadedFileUrl || '',
+            advance_portal_id: null,
+            branch_id: activeBranchId
+          };
+
+          const response = await fetch(withBranchUrl('https://backendaab.in/demoAabuildersDash/api/loans/save'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) throw new Error('Failed to save transfer');
+        }
+
+        toast.success("Transfer completed successfully!", {
+          position: "top-center",
+          autoClose: 3000,
+          theme: "colored"
+        });
+      } else {
+        const isRefund = selectedLoanType === 'Refund';
+        const payload = {
+          type: selectedLoanType,
+          date: dateValue,
+          amount: isRefund ? 0 : parseFloat(amountGiven) || 0,
+          loan_payment_mode: paymentMode,
+          loan_refund_amount: isRefund ? parseFloat(amountGiven) || 0 : 0,
+          from_purpose_id: purpose || 0,
+          transfer_Project_id: 0,
+          to_purpose_id: 0,
+          vendor_id: selectedOption?.type === 'Vendor' ? selectedOption.id : 0,
+          contractor_id: selectedOption?.type === 'Contractor' ? selectedOption.id : 0,
+          employee_id: selectedOption?.type === 'Employee' ? selectedOption.id : 0,
+          labour_id: selectedOption?.type === 'Labour' ? selectedOption.id : 0,
+          project_id: 0,
+          description: description || '',
+          file_url: uploadedFileUrl || '',
+          advance_portal_id: null,
+          branch_id: activeBranchId
+        };
+
+        const response = await fetch(withBranchUrl('https://backendaab.in/demoAabuildersDash/api/loans/save'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(isRefund ? 'Failed to save refund' : 'Failed to save loan');
+        }
+
+        if (uploadedFileUrl) {
+          try {
+            const saved = await response.json().catch(() => ({}));
+            const cacheKey = 'aab_loan_file_cache';
+            const existing = JSON.parse(sessionStorage.getItem(cacheKey) || '[]');
+            const loanId = saved?.loanPortalId ?? saved?.id ?? saved?.loan_portal_id;
+            existing.unshift({
+              loanPortalId: loanId,
+              entry_no: saved?.entry_no ?? entryNo,
+              vendor_id: payload.vendor_id,
+              amount: isRefund ? payload.loan_refund_amount : payload.amount,
+              date: payload.date,
+              loan_payment_mode: payload.loan_payment_mode,
+              file_url: uploadedFileUrl,
+            });
+            sessionStorage.setItem(cacheKey, JSON.stringify(existing.slice(0, 100)));
+          } catch {
+            // ignore cache errors
+          }
+        }
+
+        toast.success(
+          isRefund
+            ? 'Refund saved successfully!'
+            : 'Loan entry saved successfully!',
+          {
+            position: "top-center",
+            autoClose: 3000,
+            theme: "colored"
+          }
+        );
       }
 
-      toast.success("Loan entry saved successfully!", {
-        position: "top-center",
-        autoClose: 3000,
-        theme: "colored"
-      });
-
-      // Reset form
-      setSelectedOption(null);
-      setPurpose('');
-      setAmountGiven('');
-      setPaymentMode('');
-      setDescription('');
-      setSelectedLoanFile(null);
-      setOverallLoan(0);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      if (!isEditMode) {
+        // Reset form after create
+        setSelectedOption(null);
+        setPurpose('');
+        setAmountGiven('');
+        setPaymentMode('');
+        setTransferSelection(null);
+        setDescription('');
+        setSelectedLoanFile(null);
+        setExistingFileUrl('');
+        setExistingFileName('');
+        setOverallLoan(0);
+        setLoanAmount('');
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        setEntryNo((prev) => prev + 1);
+        window.dispatchEvent(new Event('loanUpdated'));
       }
-
-      // Increment entry number
-      setEntryNo(prev => prev + 1);
     } catch (error) {
       console.error('Error submitting loan:', error);
       toast.error("Failed to save loan entry!", {
@@ -452,7 +1044,7 @@ const LoanForm = () => {
           <div className="">
             <p className="flex justify-between items-center text-[12px] font-semibold text-black leading-normal mb-0.5">
               <span>Associate<span className="text-[#eb2f8e]">*</span></span>
-              <span className="text-[12px] font-medium text-[#9E9E9E]">{formatWithCommas(overallLoan)}</span>
+              <span className="text-[12px] font-semibold ">{formatWithCommas(overallLoan) || '0.00'}</span>
             </p>
             <div className="relative">
               <div
@@ -471,6 +1063,7 @@ const LoanForm = () => {
                       e.stopPropagation();
                       setSelectedOption(null);
                       setOverallLoan(0);
+                      setLoanAmount('');
                     }}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                   >
@@ -489,9 +1082,9 @@ const LoanForm = () => {
 
           {/* Purpose */}
           <div className="">
-            <p className="text-[12px] flex justify-between items-center font-semibold text-black leading-normal mb-0.5">
-              <span>Purpose<span className="text-[#eb2f8e]">*</span></span>
-              <span className="text-[12px] font-medium text-[#9E9E9E]">0.00</span>
+            <p className="flex justify-between items-center text-[12px] font-semibold text-black leading-normal mb-0.5">
+              <span>{isTransfer ? 'From Purpose' : 'Purpose'}<span className="text-[#eb2f8e]">*</span></span>
+              <span className="text-[12px] font-semibold">{formatWithCommas(loanAmount) || '0.00'}</span>
             </p>
             <div className="relative">
               <div
@@ -509,6 +1102,7 @@ const LoanForm = () => {
                     onClick={(e) => {
                       e.stopPropagation();
                       setPurpose('');
+                      setLoanAmount('');
                     }}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                   >
@@ -524,63 +1118,119 @@ const LoanForm = () => {
               </div>
             </div>
           </div>
-          {/* Amount Given and Payment Mode - Side by Side */}
-          <div className="flex gap-[10px] items-center">
-            <div className="flex-1">
-              <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                Amount Given<span className="text-[#eb2f8e]">*</span>
-              </p>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formatWithCommas(amountGiven)}
-                  onChange={handleAmountChange}
-                  placeholder="Enter amount"
-                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
-                  style={{
-                    boxSizing: 'border-box',
-                    color: amountGiven ? '#000' : '#9E9E9E'
-                  }}
-                />
+          {isTransfer ? (
+            <>
+              <div className="">
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                  Transfer To<span className="text-[#eb2f8e]">*</span>
+                </p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowTransferToModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{
+                      boxSizing: 'border-box',
+                      color: transferSelection ? '#000' : '#9E9E9E'
+                    }}
+                  >
+                    {transferSelection ? transferSelection.label : 'Select'}
+                    {transferSelection ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTransferSelection(null);
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                      </button>
+                    ) : (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-            {/* Payment Mode Field */}
-            <div className="flex-1">
-              <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
-                Payment Mode<span className="text-[#eb2f8e]">*</span>
-              </p>
-              <div className="relative">
-                <div
-                  onClick={() => setShowPaymentModeModal(true)}
-                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
-                  style={{
-                    boxSizing: 'border-box',
-                    color: paymentMode ? '#000' : '#9E9E9E'
-                  }}
-                >
-                  {paymentMode || 'Select'}
-                  {paymentMode ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPaymentMode('');
-                      }}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
-                    </button>
-                  ) : (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                  )}
+              <div className="">
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                  Transfer Amount<span className="text-[#eb2f8e]">*</span>
+                </p>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formatWithCommas(amountGiven)}
+                    onChange={handleAmountChange}
+                    placeholder="Enter amount"
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
+                    style={{
+                      boxSizing: 'border-box',
+                      color: amountGiven ? '#000' : '#9E9E9E'
+                    }}
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex gap-[10px] items-center">
+              <div className="flex-1">
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                  {selectedLoanType === 'Refund' ? 'Amount' : 'Amount Given'}<span className="text-[#eb2f8e]">*</span>
+                </p>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formatWithCommas(amountGiven)}
+                    onChange={handleAmountChange}
+                    placeholder="Enter amount"
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[12px] text-[12px] font-medium bg-white focus:outline-none"
+                    style={{
+                      boxSizing: 'border-box',
+                      color: amountGiven ? '#000' : '#9E9E9E'
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">
+                  Payment Mode<span className="text-[#eb2f8e]">*</span>
+                </p>
+                <div className="relative">
+                  <div
+                    onClick={() => setShowPaymentModeModal(true)}
+                    className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                    style={{
+                      boxSizing: 'border-box',
+                      color: paymentMode ? '#000' : '#9E9E9E'
+                    }}
+                  >
+                    {paymentMode || 'Select'}
+                    {paymentMode ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPaymentMode('');
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+                      </button>
+                    ) : (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1L6 6L11 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Description Field */}
           <div className="">
@@ -616,23 +1266,106 @@ const LoanForm = () => {
             <img className='w-4 h-3' alt='#' src={Attach}></img>
             <span className="text-[12px] font-medium underline">Attach File</span>
           </label>
-          {selectedLoanFile && (
+          {(selectedLoanFile || existingFileUrl) && (
             <span className="text-[11px] font-medium text-[#666] break-words min-w-0 flex-1">
-              {selectedLoanFile.name}
+              {selectedLoanFile ? selectedLoanFile.name : existingFileName || 'Attached file'}
             </span>
           )}
         </div>
         {/* Loan Button */}
         <button
           onClick={handleSubmit}
-          disabled={isSubmitting || !selectedOption || !purpose || !amountGiven || !paymentMode}
-          className={`w-full h-[40px] font-semibold rounded text-[14px] leading-normal ${selectedOption && purpose && amountGiven && paymentMode && !isSubmitting
+          disabled={
+            isSubmitting ||
+            !selectedOption ||
+            !purpose ||
+            !amountGiven ||
+            (isTransfer ? !transferSelection : !paymentMode)
+          }
+          className={`w-full h-[40px] font-semibold rounded text-[14px] leading-normal ${selectedOption &&
+              purpose &&
+              amountGiven &&
+              (isTransfer ? transferSelection : paymentMode) &&
+              !isSubmitting
               ? 'bg-black text-white'
               : 'bg-[#D9D9D9] text-black'
             }`}
         >
-          {isSubmitting ? 'Submitting...' : 'Loan'}
+          {isSubmitting ? 'Submitting...' : editingLoanId ? 'Update' : selectedLoanType}
         </button>
+      </div>
+
+      {/* Loan Records - like ProjectAdvance: list for selected associate */}
+      <div className="mt-3 w-full flex-1 min-h-0 flex flex-col">
+        {!selectedOption ? (
+          <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
+            <p className="text-[12px] font-medium text-[#9E9E9E]">Please select an associate to view loan records.</p>
+          </div>
+        ) : (() => {
+          const filteredEntries = (purpose
+            ? associateRecords.filter((e) => String(e.from_purpose_id) === String(purpose))
+            : associateRecords
+          ).slice().sort((a, b) => (Number(b.entry_no) || 0) - (Number(a.entry_no) || 0));
+
+          if (filteredEntries.length === 0) {
+            return (
+              <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
+                <p className="text-[12px] font-medium text-[#9E9E9E]">No records found for the selected associate.</p>
+              </div>
+            );
+          }
+
+          const getTypeCode = (t) => {
+            switch (t) {
+              case 'Refund': return 'RF';
+              case 'Transfer': return 'TF';
+              case 'Loan': return 'LN';
+              default: return 'LN';
+            }
+          };
+          const formatDateOnly = (d) => {
+            if (!d) return '';
+            const date = new Date(d);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+          };
+
+          return (
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y space-y-2 pb-2 [&::-webkit-scrollbar]:hidden"
+              style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+            >
+              {filteredEntries.map((entry, index) => {
+                const typeCode = getTypeCode(entry.type);
+                const formattedDate = formatDateOnly(entry.timestamp || entry.createdAt || entry.created_at || entry.date);
+                const transactionId = `${typeCode} - ${formattedDate} - ${entry.entry_no || ''}`;
+                const amount = entry.type === 'Refund'
+                  ? -(parseFloat(entry.loan_refund_amount) || 0)
+                  : parseFloat(entry.amount) || 0;
+                return (
+                  <div
+                    key={entry.loanPortalId || entry.id || index}
+                    className="bg-white border border-[#E0E0E0] border-opacity-30 rounded-[8px] px-[12px] py-[8px] shadow-lg flex justify-between items-start gap-[8px]"
+                  >
+                    <div className="flex flex-col gap-[4px] flex-1 min-w-0">
+                      <p className="text-[12px] font-semibold text-black">{transactionId}</p>
+                      <p className="text-[11px] font-medium text-[#777777] truncate">
+                        {purposeOptions.find((p) => Number(p.id) === Number(entry.from_purpose_id))?.label || ''}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-[4px] flex-shrink-0">
+                      <span className={`text-[12px] font-semibold ${amount < 0 ? 'text-[#E4572E]' : 'text-[#007233]'}`}>
+                        {amount < 0 ? '-' : ''}₹{Math.abs(amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Select Type Modal */}
@@ -701,6 +1434,12 @@ const LoanForm = () => {
                         key={index}
                         onClick={() => {
                           setSelectedLoanType(type);
+                          if (type !== 'Transfer') {
+                            setTransferSelection(null);
+                          }
+                          if (type === 'Transfer') {
+                            setPaymentMode('');
+                          }
                           setShowTypeModal(false);
                           setTypeSearchQuery('');
                         }}
@@ -764,7 +1503,24 @@ const LoanForm = () => {
         }}
         selectedValue={purpose ? (purposeOptions.find(opt => opt.id === parseInt(purpose))?.label || '') : ''}
         options={purposeOptions.map(opt => opt.label)}
-        fieldName="Purpose"
+        fieldName={isTransfer ? 'From Purpose' : 'Purpose'}
+        showStarIcon={false}
+      />
+
+      {/* Transfer To Modal */}
+      <SelectVendorModal
+        isOpen={showTransferToModal}
+        onClose={() => setShowTransferToModal(false)}
+        onSelect={(value) => {
+          const selected = combinedTransferToOptions.find(opt => opt.label === value);
+          if (selected) {
+            setTransferSelection(selected);
+          }
+          setShowTransferToModal(false);
+        }}
+        selectedValue={transferSelection ? transferSelection.label : ''}
+        options={combinedTransferToOptions.map(opt => opt.label)}
+        fieldName="Transfer To"
         showStarIcon={false}
       />
 

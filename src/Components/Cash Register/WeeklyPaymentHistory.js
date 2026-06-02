@@ -30,6 +30,9 @@ import AdvancePortalForm from '../Advance Portal/AdvancePortal';
 import restore from '../Images/data-recovery.png';
 import TableFilter from '../Images/TableFilter.svg';
 import Reload from '../Images/Clear.svg';
+import Search from '../Images/Searchnew.svg';
+import XL from '../Images/sheets.png';
+import Pdf from '../Images/pdf.png';
 import {
     DATABASE_TABLE_FILTER_SELECT_STYLES,
     EDBC_IDS,
@@ -418,6 +421,7 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
     const [selectContractororVendorName, setSelectContractororVendorName] = useState('');
     const [selectProjectName, setSelectProjectName] = useState('');
     const [selectType, setSelectType] = useState('');
+    const [overallSearch, setOverallSearch] = useState('');
     function getStartAndEndDateOfWeek(weekNumber, year) {
         const simple = new Date(year, 0, 1 + (weekNumber - 1) * 7);
         const dayOfWeek = simple.getDay();
@@ -1588,6 +1592,7 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
         setSelectContractororVendorName('');
         setSelectProjectName('');
         setSelectType('');
+        setOverallSearch('');
     };
     const getVendorName = (id) =>
         vendorOptions.find(v => v.id === id)?.value || "";
@@ -1635,6 +1640,19 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
         if (selectType) {
             if (snapshot.type?.toLowerCase() !== selectType.toLowerCase()) return false;
         }
+        if (isExpensesEntryUploadOnly && overallSearch.trim()) {
+            const q = overallSearch.toLowerCase().trim();
+            const searchable = [
+                formatDateOnly(snapshot.date),
+                getPartyDisplayName(snapshot),
+                getSiteName(snapshot.project_id),
+                snapshot.type,
+                snapshot.amount,
+            ]
+                .map((v) => String(v ?? '').toLowerCase())
+                .join(' ');
+            if (!searchable.includes(q)) return false;
+        }
         return true;
     });
     const contractorVendorFilterOptions = React.useMemo(() => {
@@ -1663,6 +1681,48 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
         payments.reduce((total, row) => total + Number(row.amount || 0), 0) -
         filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0)
     ).toFixed(2);
+    const exportWeeklyUploadToCSV = () => {
+        const headers = ['S.No', 'Date', 'Associate', 'Project Name', 'Type', 'Amount'];
+        const rows = [...filteredExpenses].reverse().map((expense, index) => [
+            filteredExpenses.length - index,
+            formatDateOnly(expense.date),
+            getPartyDisplayName(expense),
+            getSiteName(expense.project_id),
+            expense.type,
+            Number(expense.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        ]);
+        const csvContent = [headers, ...rows]
+            .map((row) => row.map((value) => `"${value}"`).join(','))
+            .join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Weekly_Uploads_Week_${selectedWeek || 'report'}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+    const generateWeeklyUploadPDF = () => {
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.setFontSize(16);
+        doc.text(`Weekly Uploads - PS: ${selectedWeek || '-'}`, 14, 15);
+        autoTable(doc, {
+            startY: 25,
+            head: [['S.No', 'Date', 'Associate', 'Project Name', 'Type', 'Amount']],
+            body: [...filteredExpenses].reverse().map((expense, index) => [
+                filteredExpenses.length - index,
+                formatDateOnly(expense.date),
+                getPartyDisplayName(expense),
+                getSiteName(expense.project_id),
+                expense.type,
+                Number(expense.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            ]),
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [191, 152, 83] },
+        });
+        doc.save(`Weekly_Uploads_Week_${selectedWeek || 'report'}.pdf`);
+    };
     const handleExpenseChange = (e) => {
         const { name, value } = e.target;
         if (name === "date") {
@@ -3655,7 +3715,12 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
                     return (
                 <div className='lg:flex gap-[12px] text-left'>
                     <div className="min-w-0">
-                        <h1 className='font-semibold mb-[8px]'>Select Week</h1>
+                        <div className="flex justify-between items-center mb-[8px]">
+                            <h1 className='font-semibold'>Select Week</h1>
+                            {isExpensesEntryUploadOnly && (
+                                <span className="font-semibold text-[16px]">PS: {selectedWeek ?? "-"}</span>
+                            )}
+                        </div>
                         <Select
                             className="min-w-0 w-[260px]"
                             classNames={entryCheckLikeSelectClassNames}
@@ -3682,6 +3747,14 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
                             styles={entryCheckLikeSelectStyles}
                         />
                     </div>
+                    {isExpensesEntryUploadOnly && (
+                        <div className="flex flex-col shrink-0">
+                            <label className="font-semibold text-left text-[16px] mb-[8px]">Expenses</label>
+                            <div className="w-[140px] h-[40px] p-2 rounded-lg bg-[#F2F2F2] border-2 border-[rgba(191,152,83,0.2)] hover:border-[rgba(191,152,83,0.4)] text-left">
+                                ₹{filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2, })}
+                            </div>
+                        </div>
+                    )}
                 </div>
                     );
                 })()}
@@ -3776,72 +3849,8 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
             <div className={isExpensesEntryUploadOnly
                 ? 'w-full pt-[18px] px-[18px] pb-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden'
                 : 'mx-auto w-auto p-6 bg-white ml-[30px] mr-6 rounded-md border border-transparent'}>
-                <div className={`text-left ${
-                    isExpensesEntryUploadOnly
-                        ? 'grid shrink-0 mb-3 gap-y-3'
-                        : 'flex justify-between mb-4'
-                }`} style={isExpensesEntryUploadOnly ? { gridTemplateColumns: 'max-content 835px max-content' } : undefined}>
-                    {isExpensesEntryUploadOnly ? (
-                        <>
-                            <div className="col-span-2 flex flex-col sm:flex-row sm:items-center sm:space-x-3 min-w-0">
-                                <button onClick={() => setShowFilters(!showFilters)}>
-                                    <img
-                                        src={TableFilter}
-                                        alt="Toggle Filter"
-                                        className="border rounded-md"
-                                    />
-                                </button>
-                                {(selectDate || selectContractororVendorName || selectProjectName || selectType) && (
-                                    <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
-                                        {selectDate && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Date: </span>
-                                                <span className="font-semibold text-[14px]">{formatDateOnly(selectDate)}</span>
-                                                <button onClick={() => setSelectDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
-                                            </span>
-                                        )}
-                                        {selectContractororVendorName && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Associate: </span>
-                                                <span className="font-semibold text-[14px]">{selectContractororVendorName}</span>
-                                                <button onClick={() => setSelectContractororVendorName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
-                                            </span>
-                                        )}
-                                        {selectProjectName && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Project Name: </span>
-                                                <span className="font-semibold text-[14px]">{selectProjectName}</span>
-                                                <button onClick={() => setSelectProjectName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
-                                            </span>
-                                        )}
-                                        {selectType && (
-                                            <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-medium text-[#BF9853]">Type: </span>
-                                                <span className="font-semibold text-[14px]">{selectType}</span>
-                                                <button onClick={() => setSelectType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex items-center justify-end">
-                                <button onClick={clearFilters} className="flex h-[30px] w-[30px] shrink-0 items-center justify-center">
-                                    <img className="w-full h-full" src={Reload} alt="Reload" />
-                                </button>
-                            </div>
-                            <div>
-                                <h1 className="font-bold text-base">PS: {selectedWeek ?? "-"}</h1>
-                            </div>
-                            <div />
-                            <div className="flex justify-end">
-                                <h1 className="font-bold text-base">
-                                    Expenses: <span style={{ color: "#E4572E" }}>
-                                        {filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2, })}
-                                    </span>
-                                </h1>
-                            </div>
-                        </>
-                    ) : (
+                {!isExpensesEntryUploadOnly && (
+                <div className="text-left flex justify-between mb-4">
                         <button onClick={() => setShowFilters(!showFilters)}>
                             <img
                                 src={Filter}
@@ -3849,8 +3858,7 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
                                 className="w-7 h-7 border border-[#BF9853] rounded-md"
                             />
                         </button>
-                    )}
-                    {!isExpensesEntryUploadOnly && nextWeekDiscountInfo && (
+                    {nextWeekDiscountInfo && (
                         <div className="flex justify-end -mr-6 -mt-7">
                             <h2 className="font-semibold text-base">
                                 Discount :{" "}
@@ -3864,6 +3872,7 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
                         </div>
                     )}
                 </div>
+                )}
                 <div className={`flex flex-col xl:flex-row gap-6 ${isExpensesEntryUploadOnly ? 'flex-1 min-h-0 overflow-hidden' : ''}`}>
                     <div className={`min-w-0 ${isExpensesEntryUploadOnly ? 'w-full flex flex-col flex-1 min-h-0 overflow-hidden' : 'flex-[3]'}`}>
                         {!isExpensesEntryUploadOnly && (
@@ -3876,11 +3885,77 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
                             </h1>
                         </div>
                         )}
-                        <div className={isExpensesEntryUploadOnly ? 'flex flex-col flex-1 min-h-0' : 'w-full h-[600px] rounded-lg border-l-8 border-l-[#BF9853] overflow-hidden'}>
+                        <div className={isExpensesEntryUploadOnly ? 'flex flex-col flex-1 min-h-0 w-fit max-w-full' : 'w-full h-[600px] rounded-lg border-l-8 border-l-[#BF9853] overflow-hidden'}>
+                            {isExpensesEntryUploadOnly && (
+                                <div className="flex justify-between items-center w-full mb-3 shrink-0">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 min-w-0">
+                                        <button onClick={() => setShowFilters(!showFilters)}>
+                                            <img
+                                                src={TableFilter}
+                                                alt="Toggle Filter"
+                                                className="border rounded-md h-[34px]"
+                                            />
+                                        </button>
+                                        {(selectDate || selectContractororVendorName || selectProjectName || selectType) && (
+                                            <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
+                                                {selectDate && (
+                                                    <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                        <span className="font-medium text-[#BF9853]">Date: </span>
+                                                        <span className="font-semibold text-[14px]">{formatDateOnly(selectDate)}</span>
+                                                        <button onClick={() => setSelectDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                                    </span>
+                                                )}
+                                                {selectContractororVendorName && (
+                                                    <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                        <span className="font-medium text-[#BF9853]">Associate: </span>
+                                                        <span className="font-semibold text-[14px]">{selectContractororVendorName}</span>
+                                                        <button onClick={() => setSelectContractororVendorName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                                    </span>
+                                                )}
+                                                {selectProjectName && (
+                                                    <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                        <span className="font-medium text-[#BF9853]">Project Name: </span>
+                                                        <span className="font-semibold text-[14px]">{selectProjectName}</span>
+                                                        <button onClick={() => setSelectProjectName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                                    </span>
+                                                )}
+                                                {selectType && (
+                                                    <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                        <span className="font-medium text-[#BF9853]">Type: </span>
+                                                        <span className="font-semibold text-[14px]">{selectType}</span>
+                                                        <button onClick={() => setSelectType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-end gap-[6px] shrink-0">
+                                        <button onClick={clearFilters} className="flex h-[34px] w-[32px] shrink-0 items-center justify-center">
+                                            <img className="w-full h-full" src={Reload} alt="Reload" />
+                                        </button>
+                                        <div className="w-[286px] min-w-[286px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
+                                            <input
+                                                type="text"
+                                                value={overallSearch}
+                                                onChange={(e) => setOverallSearch(e.target.value)}
+                                                placeholder="Search Transactions..."
+                                                className="h-full w-full border-0 p-0 text-[14px] text-[#000000] bg-transparent outline-none"
+                                            />
+                                            <img src={Search} alt="Search" className="w-[16px] h-[16px] pointer-events-none" />
+                                        </div>
+                                        <div className="text-left md:text-right md:items-end items-end cursor-default flex justify-end shrink-0">
+                                            <div className="flex items-end text-center">
+                                                <span className="text-[#E4572E] mr-2 flex items-center gap-1 font-semibold hover:underline cursor-pointer" onClick={generateWeeklyUploadPDF}>PDF<img src={Pdf} alt="Pdf" className="w-4 h-4" /></span>
+                                                <span className="text-[#007233] flex items-center gap-1 font-semibold hover:underline cursor-pointer" onClick={exportWeeklyUploadToCSV}>XL<img src={XL} alt="XL" className="w-4 h-4" /></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <div
                                 ref={scrollRef}
                                 className={isExpensesEntryUploadOnly
-                                    ? 'w-fit max-w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] flex-1 min-h-0 overflow-auto select-none scrollbar-none no-scrollbar'
+                                    ? 'w-full max-w-full rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] flex-1 min-h-0 overflow-auto select-none scrollbar-none no-scrollbar'
                                     : 'overflow-auto max-h-[600px] thin-scrollbar'}
                                 onMouseDown={(e) => handleMouseDown(e, scrollRef)}
                                 onMouseMove={(e) => handleMouseMove(e, scrollRef)}
@@ -3888,7 +3963,7 @@ const History = ({ username, userRoles = [], viewMode = 'default' }) => {
                                 onMouseLeave={() => handleMouseUp(scrollRef)}
                             >
                                 {isExpensesEntryUploadOnly ? (
-                                <table className={`border-collapse text-left w-max table-fixed ${EDBC_TABLE_EDGE_TABLE_CLASS}`}>
+                                <table className={`border-collapse text-left w-max table-fixed ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_thead_th]:!p-0 [&_thead_th]:align-middle ${showFilters ? '[&_thead_tr:first-child_th]:!border-b-0' : ''} [&_tbody_td#EDBC-8]:!pr-0`}>
                                     <thead className="sticky top-0 z-10 bg-white">
                                         <EdbcTableHeaderRow>
                                             <EdbcColumnHeader columnId={EDBC_IDS.EDBC21} label="S.No" />
