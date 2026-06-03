@@ -2372,9 +2372,6 @@ const DailyPayment = ({ username, userRoles = [] }) => {
     };
     return (
         <body>
-            <h1 className="font-bold text-xl flex justify-end mr-5 -mt-7">
-                Balance:<span style={{ color: "#E4572E" }}>{Number(balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2, })}</span>
-            </h1>
             <div className='mx-auto flex justify-between w-auto p-4 pl-8 border-collapse text-left bg-[#FFFFFF] ml-[30px] mr-6 rounded-md lg:h-[147px]'>
                 <div>
                     {displayedWeekDays.length > 0 && (
@@ -2412,6 +2409,9 @@ const DailyPayment = ({ username, userRoles = [] }) => {
                     </div>
                 </div>
                 <div className="mr-5 flex gap-3">
+                    <h1 className="font-bold text-xl">
+                        Balance:<span style={{ color: "#E4572E" }}>{Number(balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2, })}</span>
+                    </h1>
                     <button onClick={generateExpensesPDF} className='font-semibold mt-4 mr-5 hover:text-[#E4572E]'>Report</button>
                 </div>
             </div>

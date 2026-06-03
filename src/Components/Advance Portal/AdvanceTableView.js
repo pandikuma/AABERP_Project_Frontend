@@ -31,6 +31,8 @@ import {
   EdbcFileBodyCell,
   EDBC_TABLE_EDGE_TABLE_CLASS,
 } from '../ExpensesEntry/databaseExpensesSharedColumns';
+import { syncWeeklyPaymentBillsForAdvancePortal, isAdvanceOnlinePaymentModeForModal, fetchWeeklyPaymentBillsByAdvancePortalId, getAdvancePortalDisplayAmount, syncExpensesEntryFromAdvancePortalEdit, resolveAdvancePortalExpensesEntryId } from '../../utils/advancePortalWeeklyPaymentBill';
+import AdvancePortalEditPaymentModal from './AdvancePortalEditPaymentModal';
 
 const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], refreshSignal }) => {
   const BLANK_VALUE = 'BLANK';
@@ -94,6 +96,16 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], r
   const [progress, setProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
+  const pendingAdvanceUpdateRef = useRef(null);
+  const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [isEditPaymentSubmitting, setIsEditPaymentSubmitting] = useState(false);
+  const [editPaymentModalData, setEditPaymentModalData] = useState({
+    chequeNo: '',
+    chequeDate: '',
+    transactionNumber: '',
+    accountNumber: '',
+  });
+  const [accountDetails, setAccountDetails] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const adminUsernames = ['Mahalingam M', 'Admin'];
@@ -129,6 +141,21 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], r
       }
     };
     fetchBranches();
+  }, []);
+
+  useEffect(() => {
+    const fetchAccountDetails = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setAccountDetails(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching account details:', error);
+      }
+    };
+    fetchAccountDetails();
   }, []);
 
   useEffect(() => {
@@ -1250,6 +1277,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], r
           ...editFormData,
           ...overrides,
           file_url: fileUrl,
+          branch_id: editFormData.branch_id ?? currentEntry?.branch_id ?? currentEntry?.branchId ?? activeBranchId,
         };
         if (selectedOption) {
           if (selectedOption.type === 'Vendor') {
@@ -1292,7 +1320,7 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], r
         payload.entry_no = sanitizeNumberField(payload.entry_no);
         return payload;
       };
-      const updateRecord = async (id, payload) => {
+      const updateRecord = async (id, payload, modalPaymentData = null) => {
         const res = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/edit/${id}?editedBy=${username}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -1304,10 +1332,26 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], r
           throw new Error(errorText || 'Failed to update record');
         }
         const contentType = res.headers.get('content-type') || '';
+        let updatedRecord = null;
         if (contentType.includes('application/json')) {
-          return res.json();
+          updatedRecord = await res.json();
         }
-        return null;
+        await syncWeeklyPaymentBillsForAdvancePortal(id, payload, {
+          editedBy: username,
+          branchId: activeBranchId,
+          modalPaymentData,
+        });
+        const sourceRecord = advanceData.find((e) => e.advancePortalId === id);
+        const expensesEntryId = resolveAdvancePortalExpensesEntryId(sourceRecord);
+        if (expensesEntryId) {
+          await syncExpensesEntryFromAdvancePortalEdit(expensesEntryId, payload, {
+            editedBy: username,
+            siteOptions,
+            selectedOption,
+            branchId: activeBranchId,
+          });
+        }
+        return updatedRecord;
       };
       const setAllowToEdit = async (id, allow) => {
         try {
@@ -1320,6 +1364,22 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], r
           }
         } catch (error) {
           console.error('Error updating allowToEdit:', error);
+        }
+      };
+      const finishEditSuccess = async (payload) => {
+        await setAllowToEdit(editingId, false);
+        setAdvanceData(prev =>
+          prev.map(item =>
+            item.advancePortalId === editingId ? { ...item, ...payload } : item
+          )
+        );
+        await fetchAdvanceData();
+        setShowEditPaymentModal(false);
+        pendingAdvanceUpdateRef.current = null;
+        setIsEditModalOpen(false);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
         }
       };
       if (editFormData.type === 'Transfer') {
@@ -1383,13 +1443,28 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], r
         }
       } else {
         const payload = buildPayload();
-        const updatedRecord = await updateRecord(editingId, payload);
-        await setAllowToEdit(editingId, false);
-        setAdvanceData(prev =>
-          prev.map(item =>
-            item.advancePortalId === editingId ? { ...item, ...payload } : item
-          )
-        );
+        if (isAdvanceOnlinePaymentModeForModal(payload.payment_mode)) {
+          pendingAdvanceUpdateRef.current = { payload };
+          let existingBill = null;
+          try {
+            const bills = await fetchWeeklyPaymentBillsByAdvancePortalId(editingId);
+            existingBill = Array.isArray(bills) && bills.length > 0 ? bills[0] : null;
+          } catch (e) {
+            console.warn('Could not fetch existing weekly bill to prefill payment details', e);
+          }
+          setEditPaymentModalData({
+            chequeNo: existingBill?.cheque_number ?? existingBill?.chequeNumber ?? '',
+            chequeDate: existingBill?.cheque_date ?? existingBill?.chequeDate ?? '',
+            transactionNumber:
+              existingBill?.transaction_number ?? existingBill?.transactionNumber ?? '',
+            accountNumber: existingBill?.account_number ?? existingBill?.accountNumber ?? '',
+          });
+          setShowEditPaymentModal(true);
+          return;
+        }
+        await updateRecord(editingId, payload);
+        await finishEditSuccess(payload);
+        return;
       }
       await fetchAdvanceData();
       setIsEditModalOpen(false);
@@ -1400,6 +1475,76 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], r
     } catch (err) {
       console.error('Update error:', err);
       alert('Failed to submit edit request. Please try again.');
+    }
+  };
+  const handleEditPaymentModalSubmit = async () => {
+    if (!editPaymentModalData.accountNumber) {
+      alert('Please select account number.');
+      return;
+    }
+    if (editFormData.payment_mode === 'Cheque' && (!editPaymentModalData.chequeNo || !editPaymentModalData.chequeDate)) {
+      alert('Please enter cheque number and date.');
+      return;
+    }
+    const pending = pendingAdvanceUpdateRef.current;
+    if (!pending?.payload || !editingId) return;
+    setIsEditPaymentSubmitting(true);
+    try {
+      const payload = pending.payload;
+      const res = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/edit/${editingId}?editedBy=${username}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to update record');
+      }
+      await syncWeeklyPaymentBillsForAdvancePortal(editingId, payload, {
+        editedBy: username,
+        branchId: activeBranchId,
+        modalPaymentData: editPaymentModalData,
+      });
+      const sourceRecord = advanceData.find((e) => e.advancePortalId === editingId);
+      const expensesEntryId = resolveAdvancePortalExpensesEntryId(sourceRecord);
+      if (expensesEntryId) {
+        await syncExpensesEntryFromAdvancePortalEdit(expensesEntryId, payload, {
+          editedBy: username,
+          siteOptions,
+          selectedOption,
+          branchId: activeBranchId,
+        });
+      }
+      try {
+        const allowRes = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/allow/${editingId}?allow=${false}`, {
+          method: 'PUT',
+          credentials: 'include',
+        });
+        if (!allowRes.ok) {
+          console.error('Failed to update allowToEdit');
+        }
+      } catch (allowError) {
+        console.error('Error updating allowToEdit:', allowError);
+      }
+      setAdvanceData(prev =>
+        prev.map(item =>
+          item.advancePortalId === editingId ? { ...item, ...payload } : item
+        )
+      );
+      await fetchAdvanceData();
+      setShowEditPaymentModal(false);
+      pendingAdvanceUpdateRef.current = null;
+      setIsEditModalOpen(false);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Update error:', err);
+      alert('Failed to submit edit request. Please try again.');
+    } finally {
+      setIsEditPaymentSubmitting(false);
     }
   };
   const totals = currentData.reduce(
@@ -2345,6 +2490,22 @@ const AdvanceTableView = ({ username, userRoles = [], paymentModeOptions = [], r
               </div>
             </div>
           )}
+          <AdvancePortalEditPaymentModal
+            isOpen={showEditPaymentModal}
+            onClose={() => {
+              setShowEditPaymentModal(false);
+              pendingAdvanceUpdateRef.current = null;
+            }}
+            onSubmit={handleEditPaymentModalSubmit}
+            isSubmitting={isEditPaymentSubmitting}
+            paymentMode={editFormData.payment_mode}
+            date={editFormData.date}
+            amount={getAdvancePortalDisplayAmount(editFormData)}
+            paymentModalData={editPaymentModalData}
+            setPaymentModalData={setEditPaymentModalData}
+            accountDetails={accountDetails}
+            selectStyles={customStyles}
+          />
           {isRequestModalOpen && requestingEntry && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]">
               <div className="bg-white p-6 rounded-lg w-[400px] text-center">

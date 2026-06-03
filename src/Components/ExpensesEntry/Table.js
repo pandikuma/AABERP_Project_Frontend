@@ -27,7 +27,7 @@ import {
     EDBC2_FIRST_COLUMN_WIDTH_CLASS,
 } from './databaseExpensesSharedColumns';
 
-export const BLANK_VALUE = 'BLANK';
+export const BLANK_VALUE = 'Blank';
 const BLANK_LABEL = 'Blank';
 export const blankOption = { value: BLANK_VALUE, label: BLANK_LABEL };
 

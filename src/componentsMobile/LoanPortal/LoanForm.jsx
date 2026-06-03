@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Attach from '../Images/Attachfile.svg';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
+import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import CloseIcon from '../Images/Close F.svg'
 import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
+import {
+  postBankRegisterLogSave,
+  bankRegisterLogSaveUrlMatchingRequest,
+  isPaymentModeRequiringBankRegisterLog,
+} from '../../utils/bankRegisterLogBeforeWeeklyBill';
 
 const LoanForm = () => {
   // Resolve module permissions (Create/Edit/Delete) for mobile actions.
@@ -128,20 +135,68 @@ const LoanForm = () => {
   const [showPurposeModal, setShowPurposeModal] = useState(false);
   const [showPaymentModeModal, setShowPaymentModeModal] = useState(false);
   const [showTransferToModal, setShowTransferToModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showChequeDatePicker, setShowChequeDatePicker] = useState(false);
+  const [showPaymentDetailsBottomSheet, setShowPaymentDetailsBottomSheet] = useState(false);
+  const [paymentModalData, setPaymentModalData] = useState({
+    date: '',
+    amount: '',
+    paymentMode: '',
+    chequeNo: '',
+    chequeDate: '',
+    transactionNumber: '',
+    accountNumber: ''
+  });
+  const [accountDetails, setAccountDetails] = useState([]);
+  const [showAccountSelectModal, setShowAccountSelectModal] = useState(false);
   const [siteOptions, setSiteOptions] = useState([]);
   const [combinedTransferToOptions, setCombinedTransferToOptions] = useState([]);
   const [transferSelection, setTransferSelection] = useState(null);
+  const accountDetailsLoadedRef = useRef(false);
+  const accountDetailsInFlightRef = useRef(null);
 
   const isTransfer = selectedLoanType === 'Transfer';
 
-  const paymentModeOptions = [
+  const defaultPaymentModeOptions = useMemo(() => [
     { value: 'Cash', label: 'Cash' },
     { value: 'GPay', label: 'GPay' },
     { value: 'PhonePe', label: 'PhonePe' },
     { value: 'Net Banking', label: 'Net Banking' },
     { value: 'Cheque', label: 'Cheque' },
     { value: 'Advance Transfer', label: 'Advance Transfer' }
-  ];
+  ], []);
+
+  const [backendPaymentModeOptions, setBackendPaymentModeOptions] = useState([]);
+  const finalPaymentModeOptions = backendPaymentModeOptions.length > 0
+    ? backendPaymentModeOptions
+    : defaultPaymentModeOptions;
+
+  useEffect(() => {
+    const fetchPaymentModes = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          const options = Array.isArray(data)
+            ? data
+              .filter(mode => mode.modeOfPayment)
+              .map(mode => ({ value: mode.modeOfPayment, label: mode.modeOfPayment }))
+            : [];
+          if (!options.some(option => option.value === 'Advance Transfer')) {
+            options.push({ value: 'Advance Transfer', label: 'Advance Transfer' });
+          }
+          setBackendPaymentModeOptions(options);
+        }
+      } catch (error) {
+        console.error('Error fetching payment modes:', error);
+      }
+    };
+    fetchPaymentModes();
+  }, []);
+
+  useEffect(() => {
+    accountDetailsLoadedRef.current = false;
+  }, [activeBranchId]);
 
   useEffect(() => {
     const syncBranch = () => {
@@ -602,19 +657,16 @@ const LoanForm = () => {
       // ignore
     }
   }, [combinedOptions, vendorOptions, contractorOptions, employeeOptions, labourOptions]);
-
   const formatWithCommas = (value) => {
     if (!value) return "";
     return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
-
   const handleAmountChange = (e) => {
     const rawValue = e.target.value.replace(/,/g, "");
     if (!isNaN(rawValue)) {
       setAmountGiven(rawValue);
     }
   };
-
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -623,7 +675,6 @@ const LoanForm = () => {
       setExistingFileName('');
     }
   };
-
   const handleRemoveFile = () => {
     setSelectedLoanFile(null);
     setExistingFileUrl('');
@@ -632,7 +683,6 @@ const LoanForm = () => {
       fileInputRef.current.value = '';
     }
   };
-
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -641,7 +691,107 @@ const LoanForm = () => {
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   };
-
+  const convertToDateValue = (ddmmyyyy) => {
+    const parts = ddmmyyyy.split('/');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+    return dateValue;
+  };
+  const ensureAccountDetailsLoaded = useCallback(async () => {
+    if (accountDetailsLoadedRef.current) return;
+    if (accountDetailsInFlightRef.current) {
+      await accountDetailsInFlightRef.current;
+      return;
+    }
+    const run = (async () => {
+      try {
+        const response = await fetch(withBranchUrl('https://backendaab.in/demoAabuildersDash/api/account-details/getAll'), {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (!response.ok) throw new Error('account-details');
+        const data = await response.json();
+        const list = Array.isArray(data) ? data : [];
+        const sliced = list.slice(0, 500);
+        setAccountDetails(sliced);
+        if (sliced.length > 0) {
+          accountDetailsLoadedRef.current = true;
+        }
+      } catch (error) {
+        console.error('Error fetching account details:', error);
+      }
+    })();
+    accountDetailsInFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      accountDetailsInFlightRef.current = null;
+    }
+  }, [withBranchUrl]);
+  useEffect(() => {
+    void ensureAccountDetailsLoaded();
+  }, [ensureAccountDetailsLoaded]);
+  const accountNumberOptions = useMemo(
+    () =>
+      accountDetails
+        .map((acc) => acc?.account_number || acc?.accountNumber || '')
+        .filter(Boolean),
+    [accountDetails]
+  );
+  const isChequePaymentMode = (mode) => String(mode || '').trim().toLowerCase() === 'cheque';
+  const requiresPaymentDetailsSheet = () => {
+    if (selectedLoanType !== 'Loan') return false;
+    return isPaymentModeRequiringBankRegisterLog(paymentMode);
+  };
+  const validateSubmitForm = () => {
+    if (!selectedOption) {
+      toast.error("Please select an associate!", {
+        position: "top-center",
+        autoClose: 3000,
+        theme: "colored"
+      });
+      return false;
+    }
+    if (!purpose) {
+      toast.error("Please select a purpose!", {
+        position: "top-center",
+        autoClose: 3000,
+        theme: "colored"
+      });
+      return false;
+    }
+    if (!amountGiven || parseFloat(amountGiven) <= 0) {
+      toast.error("Please enter a valid amount!", {
+        position: "top-center",
+        autoClose: 3000,
+        theme: "colored"
+      });
+      return false;
+    }
+    if (selectedLoanType === 'Transfer') {
+      if (!transferSelection) {
+        toast.error("Please select transfer destination!", {
+          position: "top-center",
+          autoClose: 3000,
+          theme: "colored"
+        });
+        return false;
+      }
+    } else if (!paymentMode) {
+      toast.error("Please select a payment mode!", {
+        position: "top-center",
+        autoClose: 3000,
+        theme: "colored"
+      });
+      return false;
+    }
+    return true;
+  };
   const uploadLoanAttachment = async () => {
     if (!selectedLoanFile) return '';
     const formData = new FormData();
@@ -673,55 +823,8 @@ const LoanForm = () => {
     if (!uploadedUrl) throw new Error('File upload failed');
     return uploadedUrl;
   };
-
-  const handleSubmit = async () => {
-    if (!selectedOption) {
-      toast.error("Please select an associate!", {
-        position: "top-center",
-        autoClose: 3000,
-        theme: "colored"
-      });
-      return;
-    }
-
-    if (!purpose) {
-      toast.error("Please select a purpose!", {
-        position: "top-center",
-        autoClose: 3000,
-        theme: "colored"
-      });
-      return;
-    }
-
-    if (!amountGiven || parseFloat(amountGiven) <= 0) {
-      toast.error("Please enter a valid amount!", {
-        position: "top-center",
-        autoClose: 3000,
-        theme: "colored"
-      });
-      return;
-    }
-
-    if (selectedLoanType === 'Transfer') {
-      if (!transferSelection) {
-        toast.error("Please select transfer destination!", {
-          position: "top-center",
-          autoClose: 3000,
-          theme: "colored"
-        });
-        return;
-      }
-    } else if (!paymentMode) {
-      toast.error("Please select a payment mode!", {
-        position: "top-center",
-        autoClose: 3000,
-        theme: "colored"
-      });
-      return;
-    }
-
+  const performLoanSubmit = async (paymentDetails = null) => {
     setIsSubmitting(true);
-
     try {
       const isEditMode = Boolean(editingLoanId);
       if (isEditMode) {
@@ -743,7 +846,6 @@ const LoanForm = () => {
         setIsSubmitting(false);
         return;
       }
-
       let uploadedFileUrl = '';
       if (selectedLoanFile) {
         try {
@@ -759,7 +861,6 @@ const LoanForm = () => {
           return;
         }
       }
-
       if (isEditMode) {
         const entryType = selectedLoanType;
         const isRefund = entryType === 'Refund';
@@ -812,14 +913,12 @@ const LoanForm = () => {
       } else if (selectedLoanType === 'Transfer') {
         const transferAmountValue = parseFloat(amountGiven) || 0;
         const isTransferToAssociate = ["Contractor", "Vendor", "Employee", "Labour"].includes(transferSelection?.type);
-
         if (isTransferToAssociate) {
           const senderName = selectedOption?.label || '';
           const receiverName = transferSelection?.label || '';
           const transferDesc = description
             ? `${description} - ${senderName} to ${receiverName} amount transferred`
             : `${senderName} to ${receiverName} amount transferred`;
-
           const senderPayload = {
             type: "Transfer",
             date: dateValue,
@@ -839,7 +938,6 @@ const LoanForm = () => {
             advance_portal_id: null,
             branch_id: activeBranchId
           };
-
           const receiverPayload = {
             type: "Loan",
             date: dateValue,
@@ -859,7 +957,6 @@ const LoanForm = () => {
             advance_portal_id: null,
             branch_id: activeBranchId
           };
-
           const loanSaveUrl = withBranchUrl('https://backendaab.in/demoAabuildersDash/api/loans/save');
           const senderResponse = await fetch(loanSaveUrl, {
             method: 'POST',
@@ -868,7 +965,6 @@ const LoanForm = () => {
             body: JSON.stringify(senderPayload)
           });
           if (!senderResponse.ok) throw new Error('Failed to save transfer');
-
           const receiverResponse = await fetch(loanSaveUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -899,7 +995,6 @@ const LoanForm = () => {
             advance_portal_id: null,
             branch_id: activeBranchId
           };
-
           const response = await fetch(withBranchUrl('https://backendaab.in/demoAabuildersDash/api/loans/save'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -908,7 +1003,6 @@ const LoanForm = () => {
           });
           if (!response.ok) throw new Error('Failed to save transfer');
         }
-
         toast.success("Transfer completed successfully!", {
           position: "top-center",
           autoClose: 3000,
@@ -935,21 +1029,30 @@ const LoanForm = () => {
           advance_portal_id: null,
           branch_id: activeBranchId
         };
-
-        const response = await fetch(withBranchUrl('https://backendaab.in/demoAabuildersDash/api/loans/save'), {
+        const loanSaveUrl = withBranchUrl('https://backendaab.in/demoAabuildersDash/api/loans/save');
+        if (selectedLoanType === 'Loan' && paymentDetails && isPaymentModeRequiringBankRegisterLog(paymentDetails.paymentMode)) {
+          await postBankRegisterLogSave(
+            bankRegisterLogSaveUrlMatchingRequest(loanSaveUrl),
+            'Loan Portal',
+            {
+              bill_payment_mode: paymentDetails.paymentMode,
+              amount: parseFloat(paymentDetails.amount) || 0,
+              entered_by: getEditedByUsername(),
+            }
+          );
+        }
+        const response = await fetch(loanSaveUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify(payload)
         });
-
         if (!response.ok) {
           throw new Error(isRefund ? 'Failed to save refund' : 'Failed to save loan');
         }
-
+        const saved = await response.json().catch(() => ({}));
         if (uploadedFileUrl) {
           try {
-            const saved = await response.json().catch(() => ({}));
             const cacheKey = 'aab_loan_file_cache';
             const existing = JSON.parse(sessionStorage.getItem(cacheKey) || '[]');
             const loanId = saved?.loanPortalId ?? saved?.id ?? saved?.loan_portal_id;
@@ -967,19 +1070,67 @@ const LoanForm = () => {
             // ignore cache errors
           }
         }
-
-        toast.success(
-          isRefund
-            ? 'Refund saved successfully!'
-            : 'Loan entry saved successfully!',
-          {
+        if (selectedLoanType === 'Loan' && paymentDetails) {
+          const weeklyPaymentBillPayload = {
+            date: paymentDetails.date,
+            created_at: new Date().toISOString(),
+            contractor_id: selectedOption?.type === 'Contractor' ? selectedOption.id : null,
+            vendor_id: selectedOption?.type === 'Vendor' ? selectedOption.id : null,
+            employee_id: selectedOption?.type === 'Employee' ? selectedOption.id : null,
+            project_id: 0,
+            type: 'Loan',
+            bill_payment_mode: paymentDetails.paymentMode,
+            amount: parseFloat(paymentDetails.amount) || 0,
+            status: true,
+            weekly_number: '',
+            weekly_payment_expense_id: null,
+            advance_portal_id: null,
+            staff_advance_portal_id: null,
+            claim_payment_id: null,
+            purpose_id: purpose,
+            loan_portal_id: saved?.id || saved?.loanPortalId || saved?.loan_portal_id,
+            cheque_number: isChequePaymentMode(paymentDetails.paymentMode) ? paymentDetails.chequeNo : null,
+            cheque_date: isChequePaymentMode(paymentDetails.paymentMode) ? paymentDetails.chequeDate : null,
+            transaction_number: paymentDetails.transactionNumber || null,
+            account_number: paymentDetails.accountNumber || null,
+            branch_id: activeBranchId,
+          };
+          const weeklyBillSaveUrl = withBranchUrl('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save');
+          const weeklyResponse = await fetch(weeklyBillSaveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(weeklyPaymentBillPayload),
+          });
+          if (!weeklyResponse.ok) throw new Error('Failed to save weekly payment bills data');
+          toast.success('Loan entry saved successfully and added to Weekly Payment Bills!', {
             position: "top-center",
             autoClose: 3000,
             theme: "colored"
-          }
-        );
+          });
+          setShowPaymentDetailsBottomSheet(false);
+          setPaymentModalData({
+            date: '',
+            amount: '',
+            paymentMode: '',
+            chequeNo: '',
+            chequeDate: '',
+            transactionNumber: '',
+            accountNumber: ''
+          });
+        } else {
+          toast.success(
+            isRefund
+              ? 'Refund saved successfully!'
+              : 'Loan entry saved successfully!',
+            {
+              position: "top-center",
+              autoClose: 3000,
+              theme: "colored"
+            }
+          );
+        }
       }
-
       if (!isEditMode) {
         // Reset form after create
         setSelectedOption(null);
@@ -1010,6 +1161,212 @@ const LoanForm = () => {
       setIsSubmitting(false);
     }
   };
+  const handleSubmit = async () => {
+    if (!validateSubmitForm()) return;
+
+    if (!editingLoanId && requiresPaymentDetailsSheet()) {
+      if (accountDetails.length === 0) {
+        accountDetailsLoadedRef.current = false;
+      }
+      await ensureAccountDetailsLoaded();
+      setPaymentModalData({
+        date: dateValue,
+        amount: amountGiven.toString().replace(/,/g, '') || '',
+        paymentMode: paymentMode,
+        chequeNo: '',
+        chequeDate: '',
+        transactionNumber: '',
+        accountNumber: ''
+      });
+      setShowPaymentDetailsBottomSheet(true);
+      return;
+    }
+
+    await performLoanSubmit();
+  };
+  const handlePaymentDetailsSubmit = async () => {
+    if (!paymentModalData.accountNumber) {
+      toast.error('Please select account number.', {
+        position: 'top-center',
+        autoClose: 3000,
+        theme: 'colored',
+      });
+      return;
+    }
+    if (isChequePaymentMode(paymentModalData.paymentMode) && (!paymentModalData.chequeNo || !paymentModalData.chequeDate)) {
+      toast.error('Please enter cheque number and date.', {
+        position: 'top-center',
+        autoClose: 3000,
+        theme: 'colored',
+      });
+      return;
+    }
+    await performLoanSubmit(paymentModalData);
+  };
+  const formattedDate = dateValue ? new Date(dateValue).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+  const handleDateConfirm = (dateString) => {
+    const convertedDate = convertToDateValue(dateString);
+    setDateValue(convertedDate);
+  };
+  const handleChequeDateConfirm = (dateString) => {
+    const convertedDate = convertToDateValue(dateString);
+    setPaymentModalData(prev => ({ ...prev, chequeDate: convertedDate }));
+    setShowChequeDatePicker(false);
+  };
+  const paymentDetailsBottomSheet = showPaymentDetailsBottomSheet ? (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end justify-center px-[0px]"
+      onClick={() => !isSubmitting && setShowPaymentDetailsBottomSheet(false)}
+      style={{ fontFamily: "'Manrope', sans-serif" }}
+    >
+      <div
+        className="bg-white w-full max-w-[360px] mx-auto rounded-t-[20px] shadow-lg max-h-[80vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center px-[16px] pt-[16px] pb-[8px] border-b border-[rgba(0,0,0,0.08)]">
+          <p className="text-[16px] font-semibold text-black">Payment Details</p>
+          <button
+            type="button"
+            onClick={() => !isSubmitting && setShowPaymentDetailsBottomSheet(false)}
+            className="text-[#9E9E9E] text-[20px] font-semibold hover:opacity-80"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 2L16 16M16 2L2 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-[16px] py-[16px] space-y-4">
+          <div className="grid grid-cols-3 gap-[8px]">
+            <div>
+              <p className="text-[11px] font-semibold text-black mb-1">Date</p>
+              <div className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
+                {paymentModalData.date ? new Date(paymentModalData.date).toLocaleDateString('en-GB') : '-'}
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold text-black mb-1">Amount</p>
+              <div className="h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
+                {paymentModalData.amount ? `₹${Number(paymentModalData.amount).toLocaleString('en-IN')}` : '-'}
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold text-black mb-1">Payment Mode</p>
+              <div className="h-[36px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] flex items-center text-[12px] font-medium bg-[#F5F5F5] text-[#666]">
+                {paymentModalData.paymentMode || '-'}
+              </div>
+            </div>
+          </div>
+
+          {isChequePaymentMode(paymentModalData.paymentMode) && (
+            <div className="grid grid-cols-2 gap-[12px]">
+              <div>
+                <p className="text-[12px] font-semibold text-black mb-1">Cheque No<span className="text-[#eb2f8e]">*</span></p>
+                <input
+                  type="text"
+                  value={paymentModalData.chequeNo}
+                  onChange={(e) => setPaymentModalData(prev => ({ ...prev, chequeNo: e.target.value }))}
+                  placeholder="Enter cheque number"
+                  className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] text-[12px] font-medium bg-white focus:outline-none"
+                />
+              </div>
+              <div>
+                <p className="text-[12px] font-semibold text-black mb-1">Cheque Date<span className="text-[#eb2f8e]">*</span></p>
+                <div
+                  onClick={() => setShowChequeDatePicker(true)}
+                  className="relative w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] flex items-center text-[12px] font-medium bg-white cursor-pointer"
+                  style={{ color: paymentModalData.chequeDate ? '#000' : '#9E9E9E' }}
+                >
+                  {paymentModalData.chequeDate
+                    ? new Date(paymentModalData.chequeDate).toLocaleDateString('en-GB')
+                    : 'dd-mm-yyyy'}
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="1" y="2.5" width="12" height="10" rx="1.5" stroke="#9E9E9E" strokeWidth="1.2" />
+                      <path d="M1 5H13" stroke="#9E9E9E" strokeWidth="1.2" />
+                      <path d="M4 1V4" stroke="#9E9E9E" strokeWidth="1.2" strokeLinecap="round" />
+                      <path d="M10 1V4" stroke="#9E9E9E" strokeWidth="1.2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-[12px] font-semibold text-black mb-1">Transaction Number</p>
+            <input
+              type="text"
+              value={paymentModalData.transactionNumber}
+              onChange={(e) => setPaymentModalData(prev => ({ ...prev, transactionNumber: e.target.value }))}
+              placeholder="Enter transaction number"
+              className="w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] text-[12px] font-medium bg-white focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <p className="text-[12px] font-semibold text-black mb-1">
+              Account Number<span className="text-[#eb2f8e]">*</span>
+            </p>
+            <div className="relative">
+              <div
+                onClick={() => {
+                  void (async () => {
+                    if (accountDetails.length === 0) {
+                      accountDetailsLoadedRef.current = false;
+                    }
+                    await ensureAccountDetailsLoaded();
+                    setShowAccountSelectModal(true);
+                  })();
+                }}
+                className="relative w-full h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
+                style={{ color: paymentModalData.accountNumber ? '#000' : '#9E9E9E' }}
+              >
+                {paymentModalData.accountNumber || 'Select Account'}
+                {paymentModalData.accountNumber ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPaymentModalData(prev => ({ ...prev, accountNumber: '' }));
+                    }}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M9 3L3 9M3 3L9 9" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                ) : (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M1 1L6 6L11 1" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-[12px] px-[16px] pb-[24px] pt-[8px] border-t border-[rgba(0,0,0,0.08)]">
+          <button
+            type="button"
+            onClick={() => !isSubmitting && setShowPaymentDetailsBottomSheet(false)}
+            className="flex-1 h-[40px] border border-[rgba(0,0,0,0.2)] rounded text-[14px] font-semibold text-black bg-white"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handlePaymentDetailsSubmit}
+            disabled={isSubmitting}
+            className="flex-1 h-[40px] rounded text-[14px] font-semibold text-white bg-black disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? 'Saving...' : 'Submit'}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div
@@ -1024,9 +1381,10 @@ const LoanForm = () => {
             <p className="text-[12px] font-semibold text-black leading-normal"># {entryNo}</p>
             <button
               type="button"
-              className="text-[12px] font-semibold text-black leading-normal underline-offset-2 hover:underline p-0 border-0 bg-transparent"
+              onClick={() => setShowDatePicker(true)}
+              className="text-[12px] font-semibold text-black leading-normal cursor-pointer hover:underline p-0 border-0 bg-transparent"
             >
-              {formatDate(dateValue)}
+              {formattedDate}
             </button>
           </div>
           <div className="flex items-center gap-[8px]">
@@ -1301,16 +1659,20 @@ const LoanForm = () => {
           <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
             <p className="text-[12px] font-medium text-[#9E9E9E]">Please select an associate to view loan records.</p>
           </div>
+        ) : !purpose ? (
+          <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
+            <p className="text-[12px] font-medium text-[#9E9E9E]">Please select a purpose to view loan records.</p>
+          </div>
         ) : (() => {
-          const filteredEntries = (purpose
-            ? associateRecords.filter((e) => String(e.from_purpose_id) === String(purpose))
-            : associateRecords
-          ).slice().sort((a, b) => (Number(b.entry_no) || 0) - (Number(a.entry_no) || 0));
+          const filteredEntries = associateRecords
+            .filter((e) => Number(e.from_purpose_id) === Number(purpose))
+            .slice()
+            .sort((a, b) => (Number(b.entry_no) || 0) - (Number(a.entry_no) || 0));
 
           if (filteredEntries.length === 0) {
             return (
               <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
-                <p className="text-[12px] font-medium text-[#9E9E9E]">No records found for the selected associate.</p>
+                <p className="text-[12px] font-medium text-[#9E9E9E]">No records found for the selected associate and purpose.</p>
               </div>
             );
           }
@@ -1533,10 +1895,50 @@ const LoanForm = () => {
           setShowPaymentModeModal(false);
         }}
         selectedValue={paymentMode}
-        options={paymentModeOptions.map(opt => opt.label)}
+        options={finalPaymentModeOptions.map(opt => opt.label)}
         fieldName="Payment Mode"
         showStarIcon={false}
       />
+
+      <DatePickerModal
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onConfirm={handleDateConfirm}
+        initialDate={formattedDate}
+      />
+
+      <DatePickerModal
+        isOpen={showChequeDatePicker}
+        onClose={() => setShowChequeDatePicker(false)}
+        onConfirm={handleChequeDateConfirm}
+        initialDate={
+          paymentModalData.chequeDate
+            ? new Date(paymentModalData.chequeDate).toLocaleDateString('en-GB')
+            : formattedDate
+        }
+      />
+
+      {typeof document !== 'undefined' && paymentDetailsBottomSheet
+        ? createPortal(paymentDetailsBottomSheet, document.body)
+        : null}
+
+      {typeof document !== 'undefined' && showAccountSelectModal
+        ? createPortal(
+          <SelectVendorModal
+            isOpen={showAccountSelectModal}
+            onClose={() => setShowAccountSelectModal(false)}
+            onSelect={(value) => {
+              setPaymentModalData(prev => ({ ...prev, accountNumber: value }));
+              setShowAccountSelectModal(false);
+            }}
+            selectedValue={paymentModalData.accountNumber}
+            options={accountNumberOptions}
+            fieldName="Account Number"
+            showStarIcon={false}
+          />,
+          document.body
+        )
+        : null}
 
       <ToastContainer position="top-center" autoClose={3000} theme="colored" />
     </div>

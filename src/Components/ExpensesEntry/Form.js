@@ -14,6 +14,7 @@ import {
     bankRegisterLogSaveUrlMatchingRequest,
     isPaymentModeRequiringBankRegisterLog,
 } from '../../utils/bankRegisterLogBeforeWeeklyBill';
+import { resolveExpensesEntryIdAfterSave } from '../../utils/advancePortalWeeklyPaymentBill';
 
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
@@ -257,16 +258,10 @@ const Form = ({
     const [userPermissions, setUserPermissions] = useState([]);
     const moduleName = "Expense Entry";
     const [paymentMode, setPaymentMode] = useState('');
-    const defaultPaymentModeOptions = [
-        { modeOfPayment: 'Cash' },
-        { modeOfPayment: 'GPay' },
-        { modeOfPayment: 'PhonePe' },
-        { modeOfPayment: 'Net Banking' },
-        { modeOfPayment: 'Cheque' }
-    ];
+    
     const [paymentModeOptions, setPaymentModeOptions] = useState([]);
     const selectablePaymentModeOptions = useMemo(() => {
-        const allModes = paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+        const allModes = Array.isArray(paymentModeOptions) ? paymentModeOptions : [];
         let modes = allModes.filter(
             (mode) => !isAdvanceAdjustmentPaymentMode(mode?.modeOfPayment)
         );
@@ -1058,6 +1053,7 @@ const Form = ({
                                 setComments(previousEntry.comments);
                             }
                             if (
+                                !lockUtilityPrefillFields &&
                                 previousEntry.paymentMode &&
                                 previousEntry.paymentMode !== 'Cash' &&
                                 !isAdvanceAdjustmentPaymentMode(previousEntry.paymentMode)
@@ -1122,6 +1118,7 @@ const Form = ({
         combinedOptions,
         vendorOptionsLoaded,
         contractorOptionsLoaded,
+        lockUtilityPrefillFields,
     ]);
     useEffect(() => {
         if (selectedSite && selectedSite.id) {
@@ -1850,7 +1847,8 @@ const Form = ({
                     ? (String(billArrivalDate || '').trim() || '')
                     : '',
                 branchId: activeBranchId,
-                enteredBy: username
+                enteredBy: username,
+                ...(eno != null ? { eno } : {}),
             };
             const formResponse = await fetch(buildBranchUrl("https://backendaab.in/demoAabuilderDash/expenses_form/save"), {
                 method: "POST",
@@ -1861,48 +1859,23 @@ const Form = ({
             });
             let expensesId = null;
             let savedExpenseData = null;
-            try {
-                const responseText = await formResponse.text();
-                if (!formResponse.ok) {
-                    throw new Error(`Form submission failed: ${responseText}`);
-                }
-                if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
-                    const expensesResult = JSON.parse(responseText);
-                    expensesId = expensesResult.id || expensesResult.eno;
-                    savedExpenseData = expensesResult;
-                } else {
-                    try {
-                        const allFormsRes = await fetch("https://backendaab.in/demoAabuilderDash/expenses_form/get_form");
-                        if (allFormsRes.ok) {
-                            const allForms = await allFormsRes.json();
-                            if (allForms.length > 0) {
-                                let matchingForm = allForms.find(f =>
-                                    f.eno === eno &&
-                                    f.date === date &&
-                                    f.siteName === selectedSite.label
-                                );
-                                if (matchingForm) {
-                                    expensesId = matchingForm.id;
-                                    savedExpenseData = matchingForm;
-                                } else {
-                                    const recentFormWithEno = allForms
-                                        .filter(f => f.eno === eno)
-                                        .sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date))[0];
-                                    if (recentFormWithEno) {
-                                        expensesId = recentFormWithEno.id;
-                                        savedExpenseData = recentFormWithEno;
-                                    }
-                                }
-                            }
-                        }
-                    } catch (fetchError) {
-                        console.error('Could not fetch expenses form ID:', fetchError);
-                    }
-                }
-            } catch (parseError) {
-                console.error('Response parsing error:', parseError);
-                if (parseError.message && parseError.message.includes('Form submission failed')) {
-                    throw parseError;
+            const responseText = await formResponse.text();
+            if (!formResponse.ok) {
+                throw new Error(`Form submission failed: ${responseText}`);
+            }
+            expensesId = resolveExpensesEntryIdAfterSave(responseText);
+            console.log("expensesId", expensesId);
+            if (!expensesId) {
+                throw new Error(
+                    'Expenses save response did not include id. Backend must return { id } from expenses_form/save.'
+                );
+            }
+            const trimmedSaveResponse = responseText.trim();
+            if (trimmedSaveResponse.startsWith('{') || trimmedSaveResponse.startsWith('[')) {
+                try {
+                    savedExpenseData = JSON.parse(trimmedSaveResponse);
+                } catch {
+                    savedExpenseData = null;
                 }
             }
             if (expensesId) {
@@ -2198,7 +2171,8 @@ const Form = ({
                     ? (String(billArrivalDate || '').trim() || '')
                     : '',
                 branchId: activeBranchId,
-                enteredBy: username
+                enteredBy: username,
+                ...(eno != null ? { eno } : {}),
             };
             const expensesSaveUrl = buildBranchUrl("https://backendaab.in/demoAabuilderDash/expenses_form/save");
             if (
@@ -2222,62 +2196,27 @@ const Form = ({
                 },
                 body: JSON.stringify(expensesPayload),
             });
-            let expensesResult;
             let expensesId = null;
             let savedExpenseData = null;
-            try {
-                const responseText = await expensesResponse.text();
-                if (!expensesResponse.ok) {
-                    throw new Error(`Expenses form submission failed: ${responseText}`);
+            const responseText = await expensesResponse.text();
+            if (!expensesResponse.ok) {
+                throw new Error(`Expenses form submission failed: ${responseText}`);
+            }
+            expensesId = resolveExpensesEntryIdAfterSave(responseText);
+            if (!expensesId) {
+                throw new Error(
+                    'Expenses save response did not include id. Backend must return { id } from expenses_form/save.'
+                );
+            }
+            const trimmedSaveResponse = responseText.trim();
+            if (trimmedSaveResponse.startsWith('{') || trimmedSaveResponse.startsWith('[')) {
+                try {
+                    savedExpenseData = JSON.parse(trimmedSaveResponse);
+                } catch {
+                    savedExpenseData = { id: expensesId };
                 }
-                if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
-                    expensesResult = JSON.parse(responseText);
-                    expensesId = expensesResult.id || expensesResult.eno;
-                    savedExpenseData = expensesResult;
-                } else {
-                    expensesResult = { message: responseText };
-                    try {
-                        const allFormsRes = await fetch("https://backendaab.in/demoAabuilderDash/expenses_form/get_form");
-                        if (allFormsRes.ok) {
-                            const allForms = await allFormsRes.json();
-                            if (allForms.length > 0) {
-                                let matchingForm = allForms.find(f =>
-                                    f.eno === eno &&
-                                    f.date === paymentModalData.date &&
-                                    f.siteName === selectedSite.label
-                                );
-                                if (matchingForm) {
-                                    expensesId = matchingForm.id;
-                                    savedExpenseData = matchingForm;
-                                } else {
-                                    const recentFormWithEno = allForms
-                                        .filter(f => f.eno === eno)
-                                        .sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date))[0];
-                                    if (recentFormWithEno) {
-                                        expensesId = recentFormWithEno.id;
-                                        savedExpenseData = recentFormWithEno;
-                                    } else {
-                                        const mostRecentForm = allForms
-                                            .sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date))[0];
-                                        if (mostRecentForm) {
-                                            expensesId = mostRecentForm.id;
-                                            savedExpenseData = mostRecentForm;
-                                        }
-                                    }
-                                }
-                            } else {
-                                console.log('No expenses forms found in response');
-                            }
-                        } else {
-                            console.error('Failed to fetch expenses forms:', allFormsRes.status, allFormsRes.statusText);
-                        }
-                    } catch (fetchError) {
-                        console.error('Could not fetch expenses form ID:', fetchError);
-                    }
-                }
-            } catch (parseError) {
-                console.error('Response parsing error:', parseError);
-                throw new Error('Failed to parse expenses form API response');
+            } else {
+                savedExpenseData = { id: expensesId, message: responseText };
             }
             if (expensesId) {
                 try {

@@ -36,6 +36,8 @@ import {
   EdbcFileBodyCell,
   EDBC_TABLE_EDGE_TABLE_CLASS,
 } from '../ExpensesEntry/databaseExpensesSharedColumns';
+import { syncWeeklyPaymentBillsForAdvancePortal, isAdvanceOnlinePaymentModeForModal, fetchWeeklyPaymentBillsByAdvancePortalId, getAdvancePortalDisplayAmount, syncExpensesEntryFromAdvancePortalEdit, resolveAdvancePortalExpensesEntryId, clearAdvancePortalRecordsOnDelete, deleteLinkedExpenseEntryOnAdvancePortalDelete, formatWeeklyBillDeleteMessage } from '../../utils/advancePortalWeeklyPaymentBill';
+import AdvancePortalEditPaymentModal from './AdvancePortalEditPaymentModal';
 
 const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], refreshSignal }) => {
   const BLANK_VALUE = 'BLANK';
@@ -106,6 +108,16 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
   const [progress, setProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
+  const pendingAdvanceUpdateRef = useRef(null);
+  const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [isEditPaymentSubmitting, setIsEditPaymentSubmitting] = useState(false);
+  const [editPaymentModalData, setEditPaymentModalData] = useState({
+    chequeNo: '',
+    chequeDate: '',
+    transactionNumber: '',
+    accountNumber: '',
+  });
+  const [accountDetails, setAccountDetails] = useState([]);
   const adminUsernames = ['Mahalingam M', 'Admin'];
   const normalizedUsername = (username || '').trim().toLowerCase();
   const isAdminUser = adminUsernames.some(name => name.toLowerCase() === normalizedUsername);
@@ -139,6 +151,21 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       }
     };
     fetchBranches();
+  }, []);
+
+  useEffect(() => {
+    const fetchAccountDetails = async () => {
+      try {
+        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/account-details/getAll');
+        if (response.ok) {
+          const data = await response.json();
+          setAccountDetails(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching account details:', error);
+      }
+    };
+    fetchAccountDetails();
   }, []);
 
   useEffect(() => {
@@ -1397,6 +1424,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           ...editFormData,
           ...overrides,
           file_url: fileUrl,
+          branch_id: editFormData.branch_id ?? currentEntry?.branch_id ?? currentEntry?.branchId ?? activeBranchId,
         };
         if (selectedOption) {
           if (selectedOption.type === 'Vendor') {
@@ -1439,7 +1467,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
         payload.entry_no = sanitizeNumberField(payload.entry_no);
         return payload;
       };
-      const updateRecord = async (id, payload) => {
+      const updateRecord = async (id, payload, modalPaymentData = null) => {
         const res = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/edit/${id}?editedBy=${username}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -1451,10 +1479,26 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           throw new Error(errorText || 'Failed to update record');
         }
         const contentType = res.headers.get('content-type') || '';
+        let updatedRecord = null;
         if (contentType.includes('application/json')) {
-          return res.json();
+          updatedRecord = await res.json();
         }
-        return null;
+        await syncWeeklyPaymentBillsForAdvancePortal(id, payload, {
+          editedBy: username,
+          branchId: activeBranchId,
+          modalPaymentData,
+        });
+        const sourceRecord = advanceData.find((e) => e.advancePortalId === id);
+        const expensesEntryId = resolveAdvancePortalExpensesEntryId(sourceRecord);
+        if (expensesEntryId) {
+          await syncExpensesEntryFromAdvancePortalEdit(expensesEntryId, payload, {
+            editedBy: username,
+            siteOptions,
+            selectedOption,
+            branchId: activeBranchId,
+          });
+        }
+        return updatedRecord;
       };
       const setAllowToEdit = async (id, allow) => {
         try {
@@ -1467,6 +1511,22 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           }
         } catch (error) {
           console.error('Error updating allowToEdit:', error);
+        }
+      };
+      const finishEditSuccess = async (payload) => {
+        await setAllowToEdit(editingId, false);
+        setAdvanceData(prev =>
+          prev.map(item =>
+            item.advancePortalId === editingId ? { ...item, ...payload } : item
+          )
+        );
+        await fetchAdvanceData();
+        setShowEditPaymentModal(false);
+        pendingAdvanceUpdateRef.current = null;
+        setIsEditModalOpen(false);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
         }
       };
       if (editFormData.type === 'Transfer') {
@@ -1530,13 +1590,28 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
         }
       } else {
         const payload = buildPayload();
-        const updatedRecord = await updateRecord(editingId, payload);
-        await setAllowToEdit(editingId, false);
-        setAdvanceData(prev =>
-          prev.map(item =>
-            item.advancePortalId === editingId ? { ...item, ...payload } : item
-          )
-        );
+        if (isAdvanceOnlinePaymentModeForModal(payload.payment_mode)) {
+          pendingAdvanceUpdateRef.current = { payload };
+          let existingBill = null;
+          try {
+            const bills = await fetchWeeklyPaymentBillsByAdvancePortalId(editingId);
+            existingBill = Array.isArray(bills) && bills.length > 0 ? bills[0] : null;
+          } catch (e) {
+            console.warn('Could not fetch existing weekly bill to prefill payment details', e);
+          }
+          setEditPaymentModalData({
+            chequeNo: existingBill?.cheque_number ?? existingBill?.chequeNumber ?? '',
+            chequeDate: existingBill?.cheque_date ?? existingBill?.chequeDate ?? '',
+            transactionNumber:
+              existingBill?.transaction_number ?? existingBill?.transactionNumber ?? '',
+            accountNumber: existingBill?.account_number ?? existingBill?.accountNumber ?? '',
+          });
+          setShowEditPaymentModal(true);
+          return;
+        }
+        await updateRecord(editingId, payload);
+        await finishEditSuccess(payload);
+        return;
       }
       await fetchAdvanceData();
       setIsEditModalOpen(false);
@@ -1546,6 +1621,67 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       }
     } catch (err) {
       console.error('Update error:', err);
+      alert('Failed to submit edit request. Please try again.');
+    }
+  };
+  const handleEditPaymentModalSubmit = async () => {
+    if (!editPaymentModalData.accountNumber) {
+      alert('Please select account number.');
+      return;
+    }
+    if (editFormData.payment_mode === 'Cheque' && (!editPaymentModalData.chequeNo || !editPaymentModalData.chequeDate)) {
+      alert('Please enter cheque number and date.');
+      return;
+    }
+    const pending = pendingAdvanceUpdateRef.current;
+    if (!pending?.payload || !editingId) return;
+    setIsEditPaymentSubmitting(true);
+    try {
+      const payload = pending.payload;
+      const res = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/edit/${editingId}?editedBy=${username}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to update record');
+      }
+      await syncWeeklyPaymentBillsForAdvancePortal(editingId, payload, {
+        editedBy: username,
+        branchId: activeBranchId,
+        modalPaymentData: editPaymentModalData,
+      });
+      try {
+        const allowRes = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/allow/${editingId}?allow=${false}`, {
+          method: 'PUT',
+          credentials: 'include',
+        });
+        if (!allowRes.ok) {
+          console.error('Failed to update allowToEdit');
+        }
+      } catch (allowError) {
+        console.error('Error updating allowToEdit:', allowError);
+      }
+      setAdvanceData(prev =>
+        prev.map(item =>
+          item.advancePortalId === editingId ? { ...item, ...payload } : item
+        )
+      );
+      await fetchAdvanceData();
+      setShowEditPaymentModal(false);
+      pendingAdvanceUpdateRef.current = null;
+      setIsEditModalOpen(false);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Update error:', err);
+      alert('Failed to submit edit request. Please try again.');
+    } finally {
+      setIsEditPaymentSubmitting(false);
     }
   };
   const handleDelete = async (idToDelete) => {
@@ -1557,52 +1693,43 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
         console.warn('Record not found for ID:', idToDelete);
         return;
       }
-      const entryNo = record.entry_no;
-      const clearedData = {
-        entry_no: entryNo,
-        date: record.date,
-        amount: '',
-        project_id: '',
-        vendor_id: '',
-        contractor_id: '',
-        file_url: '',
-        description: '',
-        bill_amount: '',
-        type: '',
-        transfer_site_id: '',
-        payment_mode: '',
-        refund_amount: ''
-      };
-      if (record.type === 'Transfer') {
-        const transferRecords = advanceData.filter(r => r.entry_no === entryNo);
-        if (transferRecords.length !== 2) {
-          console.warn(`Expected 2 Transfer records with entry_no ${entryNo}, but found ${transferRecords.length}`);
-        }
-        await Promise.all(
-          transferRecords.map(async rec => {
-            const res = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/edit/${rec.advancePortalId}?editedBy=${username}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(clearedData)
-            });
-            if (!res.ok) {
-              throw new Error(`Failed to clear transfer record with ID: ${rec.advancePortalId}`);
-            }
-          })
+      const expensesEntryId = resolveAdvancePortalExpensesEntryId(record);
+      let billDeleteMessage = '';
+      try {
+        const { weeklyBillDelete } = await clearAdvancePortalRecordsOnDelete(
+          idToDelete,
+          record,
+          advanceData,
+          username
         );
-      } else {
-        const res = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/edit/${idToDelete}?editedBy=${username}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(clearedData)
-        });
-        if (!res.ok) {
-          throw new Error('Failed to clear record');
+        billDeleteMessage = formatWeeklyBillDeleteMessage(
+          weeklyBillDelete.deletedCount,
+          weeklyBillDelete.failedCount
+        );
+      } catch (billDeleteError) {
+        console.error('Failed to delete related bill payments:', billDeleteError);
+        billDeleteMessage = ' Failed to delete related bill payment record(s).';
+      }
+      let expenseDeleteMessage = '';
+      if (expensesEntryId) {
+        try {
+          const { ok } = await deleteLinkedExpenseEntryOnAdvancePortalDelete(
+            expensesEntryId,
+            username
+          );
+          expenseDeleteMessage = ok
+            ? ' Linked expense entry was also deleted.'
+            : ' Failed to delete linked expense entry.';
+        } catch (expenseDeleteError) {
+          console.error('Failed to delete linked expense entry:', expenseDeleteError);
+          expenseDeleteMessage = ' Failed to delete linked expense entry.';
         }
       }
+      alert(`Record deleted successfully.${billDeleteMessage}${expenseDeleteMessage}`);
       await fetchAdvanceData();
     } catch (error) {
       console.error('Delete error:', error);
+      alert('Failed to delete record. Please try again.');
     }
   };
   const totals = currentData.reduce(
@@ -2395,26 +2522,28 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           </div>
         )}
         {isEditModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]">
-            <div className="bg-white rounded-md w-[65rem] px-6">
-              <div className="flex justify-end">
-                <button className="text-red-500 mt-3" onClick={() => {
-                  setIsEditModalOpen(false);
-                  setSelectedFile(null);
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                  }
-                }}>
-                  <img src={cross} alt='cross' className='w-5 h-5' />
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gray-800 bg-opacity-50 z-[9999]">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl">
+              <div className="flex items-center justify-between mb-6 border-b-2">
+                <h2 className="text-xl font-normal pb-2">Edit Entry</h2>
+                <button
+                  type="button"
+                  className="text-gray-500 hover:text-black"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setSelectedFile(null);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                  }}
+                >
+                  <img src={cross} alt="close" className="w-5 h-5" />
                 </button>
               </div>
-              <div className='overflow-y-auto pl-[50px] pr-[50px]'>
-                <form className="">
-                  <h2 className="text-2xl font-bold mb-5">Edit Entry</h2>
-                  <div className='text-left'>
-                    <div className='grid grid-cols-2 gap-5'>
-                      <div className=''>
-                        <label className='block font-semibold mb-2'>Select Type</label>
+              <div className="max-h-[75vh] overflow-y-auto">
+                <form className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-500 font-normal text-left">Select Type</label>
                         <Select
                           options={[
                             { value: 'Advance', label: 'Advance' },
@@ -2450,35 +2579,37 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                           styles={customStyles}
                           menuPortalTarget={document.body}
                           menuPosition="fixed"
-                          className='w-full focus:outline-none'
+                          className="w-full"
                         />
-                      </div>
-                      <div className=''>
-                        <label className='block font-semibold mb-2'>Date</label>
-                        <input
-                          type='date'
-                          placeholder='dd-mm-yyyy'
-                          value={editFormData.date}
-                          onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
-                          className='block w-full border-2 border-[#BF9853] border-opacity-25 font-[600px] p-2 rounded-lg focus:outline-none h-[45px]'
-                        />
-                      </div>
-                      <div className=''>
-                        <label className='block font-semibold mb-2'>Contractor/Vendor</label>
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 font-normal text-left">Date</label>
+                    <div className="mt-1">
+                      <input
+                        type="date"
+                        placeholder="dd-mm-yyyy"
+                        value={editFormData.date}
+                        onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                        className="block w-full p-2 border-2 border-[rgba(191,152,83,0.2)] rounded-lg focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-[rgba(191,152,83,0.4)] font-normal h-[45px]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 font-normal text-left">Contractor/Vendor</label>
                         <Select
                           options={combinedOptions}
                           value={selectedOption}
                           onChange={handleChange}
-                          className='w-full rounded-lg focus:outline-none'
+                          className="w-full"
                           isSearchable
                           isClearable
                           styles={customStyles}
                           menuPortalTarget={document.body}
                           menuPosition="fixed"
                         />
-                      </div>
-                      <div className=''>
-                        <label className='block font-semibold mb-2'>Project Name</label>
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 font-normal text-left">Project Name</label>
                         <Select
                           options={sortedSiteOptions || []}
                           placeholder="Select a site..."
@@ -2487,23 +2618,23 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                           onChange={(selected) => setEditFormData({ ...editFormData, project_id: selected?.id || '' })}
                           styles={customStyles}
                           isClearable
-                          className='w-full focus:outline-none'
+                          className="w-full"
                           menuPortalTarget={document.body}
                           menuPosition="fixed"
                         />
-                      </div>
+                  </div>
                       {editFormData.type === 'Bill Settlement' && (
-                        <div className=''>
-                          <label className='block font-semibold mb-2'>Bill Amount</label>
+                        <div>
+                          <label className="block text-gray-500 font-normal text-left">Bill Amount</label>
                           <input
                             value={editFormData.bill_amount}
                             onChange={(e) => setEditFormData({ ...editFormData, bill_amount: e.target.value })}
-                            className='block w-full border-2 border-[#BF9853] font-[600px] border-opacity-25 p-2 rounded-lg focus:outline-none h-[45px]'
+                            className="block w-full p-2 border-2 border-[rgba(191,152,83,0.2)] rounded-lg focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-[rgba(191,152,83,0.4)] font-normal h-[45px]"
                           />
                         </div>
                       )}
-                      <div className=''>
-                        <label className='block font-semibold mb-2'>
+                  <div>
+                    <label className="block text-gray-500 font-normal text-left">
                           {editFormData.type === 'Transfer'
                             ? 'Transfer Amount'
                             : editFormData.type === 'Refund'
@@ -2513,12 +2644,12 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                         <input
                           value={editFormData.type === 'Refund' ? formatWithCommas(editFormData.refund_amount) : formatWithCommas(editFormData.amount)}
                           onChange={handleAmountChange}
-                          className='block w-full no-spinner border-2 border-[#BF9853] border-opacity-25 font-[600px] p-2 rounded-lg focus:outline-none h-[45px]'
+                          className="block w-full no-spinner p-2 border-2 border-[rgba(191,152,83,0.2)] rounded-lg focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-[rgba(191,152,83,0.4)] font-normal h-[45px]"
                         />
-                      </div>
+                  </div>
                       {editFormData.type === 'Transfer' ? (
-                        <div className=''>
-                          <label className='block font-semibold mb-2'>Transfer To</label>
+                        <div>
+                          <label className="block text-gray-500 font-normal text-left">Transfer To</label>
                           <Select
                             options={sortedSiteOptions}
                             placeholder="Select a site..."
@@ -2527,15 +2658,15 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                             onChange={(selected) => setEditFormData({ ...editFormData, transfer_site_id: selected?.id || '' })}
                             styles={customStyles}
                             isClearable
-                            className='w-full focus:outline-none'
+                            className="w-full"
                             menuPortalTarget={document.body}
                             menuPosition="fixed"
                           />
                         </div>
                       ) : (
                         <>
-                          <div className=''>
-                            <label className='block font-semibold mb-2'>Payment Mode</label>
+                          <div>
+                            <label className="block text-gray-500 font-normal text-left">Payment Mode</label>
                             <Select
                               options={finalPaymentModeOptions}
                               value={editFormData.payment_mode ? { value: editFormData.payment_mode, label: editFormData.payment_mode } : null}
@@ -2546,48 +2677,57 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                               styles={customStyles}
                               menuPortalTarget={document.body}
                               menuPosition="fixed"
-                              className='w-full focus:outline-none'
+                              className="w-full"
                             />
                           </div>
                           {editFormData.type === 'Bill Settlement' && (
-                            <div className='mt-3'>
-                              <label className='block font-semibold mb-2'>Attach File</label>
-                              <div className="flex items-center gap-2">
-                                <label htmlFor="editFileInput" className="cursor-pointer flex items-center text-orange-600 text-sm font-semibold">
-                                  <img className='w-5 h-4 mr-1' alt='' src={Attach}></img>
-                                  Attach File
+                            <div>
+                              <div className="flex">
+                                <label
+                                  className="block text-gray-500 font-normal text-left cursor-pointer"
+                                  htmlFor="editFileInput"
+                                >
+                                  File URL
                                 </label>
-                                <input
-                                  type="file"
-                                  id="editFileInput"
-                                  ref={fileInputRef}
-                                  className="hidden"
-                                  onChange={handleEditFileChange}
-                                />
                                 {selectedFile && (
-                                  <span className="text-gray-600 text-sm">{selectedFile.name}</span>
+                                  <span className="text-orange-600 ml-4 text-sm">{selectedFile.name}</span>
                                 )}
                               </div>
+                              <input
+                                type="text"
+                                name="file_url"
+                                value={editFormData.file_url || ''}
+                                onChange={(e) =>
+                                  setEditFormData((prev) => ({ ...prev, file_url: e.target.value }))
+                                }
+                                className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
+                                placeholder="Paste file URL or click label to upload"
+                              />
+                              <input
+                                type="file"
+                                id="editFileInput"
+                                ref={fileInputRef}
+                                className="hidden"
+                                onChange={handleEditFileChange}
+                              />
                             </div>
                           )}
                         </>
                       )}
-                    </div>
-                    {/* Description */}
-                    <div className=' mt-8'>
-                      <label className='block font-semibold mb-2'>Description</label>
-                      <textarea
-                        rows={3}
-                        value={editFormData.description}
-                        onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                        className='block w-full h-[45px] border-2 border-[#BF9853] border-opacity-25 font-[600px] p-2 rounded-lg focus:outline-none'>
-                      </textarea>
-                    </div>
+                  <div className="col-span-2">
+                    <label className="block text-gray-500 font-normal text-left">Description</label>
+                    <textarea
+                      rows={3}
+                      value={editFormData.description}
+                      onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                      className="mt-1 block w-full p-2 border-2 border-[rgba(191,152,83,0.2)] rounded-lg focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-[rgba(191,152,83,0.4)] font-normal"
+                    />
                   </div>
                 </form>
               </div>
-              <div className="flex justify-end gap-3 mt-4 mb-5">
+              <div className="flex justify-end gap-3 mt-6">
                 <button
+                  type="button"
                   onClick={() => {
                     setIsEditModalOpen(false);
                     setSelectedFile(null);
@@ -2595,13 +2735,14 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                       fileInputRef.current.value = '';
                     }
                   }}
-                  className="px-4 py-2 border border-[#BF9853] w-[100px] h-[45px] rounded"
+                  className="px-4 py-2 border border-[#BF9853] rounded"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleUpdate}
-                  className="px-4 py-2 bg-[#BF9853] w-[100px] h-[45px] text-white rounded"
+                  className="px-4 py-2 bg-[#BF9853] text-white rounded"
                 >
                   Save
                 </button>
@@ -2609,6 +2750,22 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
             </div>
           </div>
         )}
+        <AdvancePortalEditPaymentModal
+          isOpen={showEditPaymentModal}
+          onClose={() => {
+            setShowEditPaymentModal(false);
+            pendingAdvanceUpdateRef.current = null;
+          }}
+          onSubmit={handleEditPaymentModalSubmit}
+          isSubmitting={isEditPaymentSubmitting}
+          paymentMode={editFormData.payment_mode}
+          date={editFormData.date}
+          amount={getAdvancePortalDisplayAmount(editFormData)}
+          paymentModalData={editPaymentModalData}
+          setPaymentModalData={setEditPaymentModalData}
+          accountDetails={accountDetails}
+          selectStyles={customStyles}
+        />
         {isRequestModalOpen && requestingEntry && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[9999]">
             <div className="bg-white p-6 rounded-lg w-[400px] text-center">

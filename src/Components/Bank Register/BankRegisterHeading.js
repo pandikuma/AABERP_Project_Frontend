@@ -5,8 +5,8 @@ import BankRegister6View from './BankRegisterPayments';
 import BankRegisterHistory from './BankRegisterHistory';
 import BankRegisterReconcile from './BankRegisterReconcile';
 
-const BANK_REGISTER_MODULE_TABS = ['billpayment', 'bankregister6', 'bankregisterhistory', 'bankregisterreconcile'];
-const BANK_REGISTER_DEFAULT_TAB = 'billpayment';
+const BANK_REGISTER_MODULE_TABS = ['bankregister6', 'bankregisterhistory', 'bankregisterreconcile'];
+const BANK_REGISTER_DEFAULT_TAB = 'bankregister6';
 
 const getInitialBankRegisterTab = () => {
     const savedTab = localStorage.getItem('activePaintTab');
@@ -32,12 +32,6 @@ const BankRegisterHeading = ({ username, userRoles = [] }) => {
         <div className="bg-[#FAF6ED] bank-register-heading-scope">
             <div className="topbar-title expense-entry-tabs w-full max-w-full overflow-x-auto no-scrollbar">
                 <h2
-                    className={`link whitespace-nowrap ${activeTab === 'billpayment' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('billpayment')}
-                >
-                    Bank Payment
-                </h2>
-                <h2
                     className={`link whitespace-nowrap ${activeTab === 'bankregister6' ? 'active' : ''}`}
                     onClick={() => setActiveTab('bankregister6')}
                 >
@@ -57,11 +51,6 @@ const BankRegisterHeading = ({ username, userRoles = [] }) => {
                 </h2>
             </div>
             <div className="content">
-                {visitedTabs.has('billpayment') && (
-                    <div className={activeTab === 'billpayment' ? '' : 'hidden'}>
-                        <BillPayment username={username} userRoles={userRoles} />
-                    </div>
-                )}
                 {visitedTabs.has('bankregister6') && (
                     <div className={activeTab === 'bankregister6' ? '' : 'hidden'}>
                         <BankRegister6View />

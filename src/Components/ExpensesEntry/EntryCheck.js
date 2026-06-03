@@ -734,10 +734,10 @@ const EntryChecking = () => {
             <div className='flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED]'>
                 <div className='px-[18px] pt-[18px] pb-[18px] flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]'>
                 <div className="w-full pt-[18px] px-[18px] pb-[18px] rounded-[6px] bg-white mb-[18px] shrink-0">
-                    <div className="flex flex-wrap gap-[12px] items-end text-left">
-                        <div className="flex flex-col w-[120px] shrink-0">
+                    <div className="flex flex-wrap lg:flex-nowrap gap-[12px] items-end">
+                        <div className="flex flex-col">
                             <label className="font-semibold text-left text-[16px]">Entry Date</label>
-                            <div className="mt-2 w-full">
+                            <div className="mt-2 w-full max-w-[155px]">
                                 <CustomDateField
                                     value={selectedDate}
                                     onChange={setSelectedDate}
@@ -747,10 +747,10 @@ const EntryChecking = () => {
                                 />
                             </div>
                         </div>
-                        <div className="flex flex-col w-[320px] shrink-0">
+                        <div className="flex flex-col flex-1 max-w-[320px] min-w-0">
                             <label className="font-semibold text-left text-[16px]">Project Name</label>
                             <Select
-                                className="mt-2 w-full"
+                                className="mt-2 min-w-0 w-full"
                                 classNames={nameSelectClassNames}
                                 options={projectNameOptions}
                                 value={selectedSiteName ? { value: selectedSiteName, label: selectedSiteName } : null}
@@ -760,10 +760,10 @@ const EntryChecking = () => {
                                 styles={customSelectStyles}
                             />
                         </div>
-                        <div className="flex flex-col w-[260px] shrink-0">
+                        <div className="flex flex-col flex-1 max-w-[260px] min-w-0">
                             <label className="font-semibold text-left text-[16px]">Vendor Name</label>
                             <Select
-                                className="mt-2 w-full"
+                                className="mt-2 min-w-0 w-full"
                                 classNames={nameSelectClassNames}
                                 options={vendorOptions}
                                 value={selectedVendor ? { value: selectedVendor, label: selectedVendor } : null}
@@ -773,10 +773,10 @@ const EntryChecking = () => {
                                 styles={customSelectStyles}
                             />
                         </div>
-                        <div className="flex flex-col w-[260px] shrink-0">
+                        <div className="flex flex-col flex-1 max-w-[260px] min-w-0">
                             <label className="font-semibold text-left text-[16px]">Contractor Name</label>
                             <Select
-                                className="mt-2 w-full"
+                                className="mt-2 min-w-0 w-full"
                                 classNames={nameSelectClassNames}
                                 options={contractorOptions}
                                 value={selectedContractor ? { value: selectedContractor, label: selectedContractor } : null}
@@ -786,10 +786,10 @@ const EntryChecking = () => {
                                 styles={customSelectStyles}
                             />
                         </div>
-                        <div className="flex flex-col w-[200px] shrink-0">
+                        <div className="flex flex-col flex-1 max-w-[200px] min-w-0">
                             <label className="font-semibold text-left text-[16px]">A/C Type</label>
                             <Select
-                                className="mt-2 w-full"
+                                className="mt-2 min-w-0 w-full"
                                 classNames={nameSelectClassNames}
                                 options={accountTypeOptions.map(type => ({ value: type, label: type }))}
                                 value={selectedAccountType ? { value: selectedAccountType, label: selectedAccountType } : null}
@@ -799,15 +799,15 @@ const EntryChecking = () => {
                                 styles={customSelectStyles}
                             />
                         </div>                        
-                        <div className="flex flex-col shrink-0">
+                        <div className="flex flex-col">
                             <label className="font-semibold text-left text-[16px]">No Of Bills</label>
-                            <div className="w-[80px] h-[40px] p-2 mt-2 rounded-lg bg-[#F2F2F2] border-2 border-[rgba(191,152,83,0.2)] hover:border-[rgba(191,152,83,0.4)] text-left">
+                            <div className="w-full lg:w-[80px] h-[40px] p-2 mt-2 rounded-lg bg-[#F2F2F2] border-2 border-[rgba(191,152,83,0.2)] hover:border-[rgba(191,152,83,0.4)] text-left">
                                 {isAnyFilterSelected ? filteredCount : ''}
                             </div>
                         </div>
-                        <div className="flex flex-col shrink-0">
+                        <div className="flex flex-col">
                             <label className="font-semibold text-left text-[16px]">Amount</label>
-                            <div className="w-[140px] h-[40px] p-2 mt-2 rounded-lg bg-[#F2F2F2] border-2 border-[rgba(191,152,83,0.2)] hover:border-[rgba(191,152,83,0.4)] text-left">
+                            <div className="w-full lg:w-[140px] h-[40px] p-2 mt-2 rounded-lg bg-[#F2F2F2] border-2 border-[rgba(191,152,83,0.2)] hover:border-[rgba(191,152,83,0.4)] text-left">
                                 {isAnyFilterSelected
                                     ? `₹${Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2, })}`
                                     : ''}
@@ -846,7 +846,7 @@ const EntryChecking = () => {
                                     <img
                                         src={Filter}
                                         alt="Toggle Filter"
-                                        className=" border rounded-md h-[34px]"
+                                        className=" border rounded-md"
                                     />
                                 </button>
                                 {isAnyFilterSelected && (
@@ -974,10 +974,10 @@ const EntryChecking = () => {
                                 )}
                             </div>
                             <div className='flex items-end gap-[6px]'>
-                                <button onClick={clearFilters} className='flex h-[34px] w-[32px] shrink-0 items-center justify-center'>
+                                <button onClick={clearFilters} className='flex h-[30px] w-[30px] shrink-0 items-center justify-center'>
                                     <img className='w-full h-full' src={Reload} alt="Reload" />
                                 </button>
-                                <div className="w-[286px] min-w-[286px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
+                                <div className="w-[286px] min-w-[286px] translate-y-[2px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
                                     <input
                                         type="text"
                                         value={overallSearch}

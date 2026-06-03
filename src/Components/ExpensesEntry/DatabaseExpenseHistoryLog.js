@@ -303,11 +303,11 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
                                 type="button"
                                 onClick={() => void loadHistory()}
                                 disabled={loading}
-                                className="flex h-[34px] w-[32px] shrink-0 items-center justify-center disabled:opacity-50"
+                                className="flex h-[30px] w-[30px] shrink-0 items-center justify-center disabled:opacity-50"
                             >
                                 <img className="w-full h-full" src={Reload} alt="Reload" />
                             </button>
-                            <div className="w-[286px] min-w-[286px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
+                            <div className="w-[286px] min-w-[286px] translate-y-[2px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
                                 <input
                                     type="text"
                                     value={search}

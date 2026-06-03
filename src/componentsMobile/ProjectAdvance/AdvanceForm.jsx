@@ -7,13 +7,14 @@ import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions'
 import {
   fetchAdvancePortalListForMobile,
   fetchMaxEntryNoFromBranch,
-  fetchAdvancePortalGetAll,
+  computeAdvanceTotalsFromGetAll,
 } from './advancePortalApi';
 import {
   postBankRegisterLogSave,
   bankRegisterLogSaveUrlMatchingRequest,
   isPaymentModeRequiringBankRegisterLog,
 } from '../../utils/bankRegisterLogBeforeWeeklyBill';
+import { resolveExpensesEntryIdAfterSave } from '../../utils/advancePortalWeeklyPaymentBill';
 
 /** Keeps dropdown mapping/render cheap on huge vendor/site lists. */
 const MAX_SELECT_OPTIONS = 500;
@@ -84,7 +85,6 @@ const AdvanceForm = ({
   const [transferSiteId, setTransferSiteId] = useState('');
   const [entryNo, setEntryNo] = useState(1);
   const [advanceData, setAdvanceData] = useState([]);
-  const [vendorProjectRecords, setVendorProjectRecords] = useState([]);
   const [overallAdvance, setOverallAdvance] = useState(0);
   const [selectedAdvanceFile, setSelectedAdvanceFile] = useState(null);
   const fileInputRef = useRef(null);
@@ -417,57 +417,29 @@ const AdvanceForm = ({
     onConsumedInitialFromHistory();
   }, [initialFromHistory, onConsumedInitialFromHistory]);
 
-  // Vendor overall + project advance + card list: full getAll (same as desktop), not paged last-150.
+  // Vendor overall + project advance: match desktop AdvancePortal.js (full getAll), not paged advanceData.
   const refreshTotalsFromServer = useCallback(async () => {
     if (!selectedOption) {
       setOverallAdvance(0);
       setProjectAdvance('');
-      setVendorProjectRecords([]);
       return;
     }
     try {
-      const data = await fetchAdvancePortalGetAll(withBranchUrl);
-      const vid = Number(selectedOption.id);
-      const isVendor = selectedOption.type === 'Vendor';
-      const pid = selectedSite ? Number(selectedSite.id) : null;
-
-      let overall = 0;
-      let projectSum = pid !== null ? 0 : null;
-      const listRows = [];
-
-      for (let i = 0; i < data.length; i++) {
-        const item = data[i];
-        const vendorMatch = isVendor
-          ? Number(item.vendor_id) === vid
-          : Number(item.contractor_id) === vid;
-        if (!vendorMatch) continue;
-
-        const amount = parseFloat(item.amount) || 0;
-        const billAmount = parseFloat(item.bill_amount) || 0;
-        const refundAmount = parseFloat(item.refund_amount) || 0;
-        const net = amount - billAmount - refundAmount;
-        overall += net;
-
-        if (pid !== null && Number(item.project_id) === pid) {
-          if (projectSum !== null) projectSum += net;
-          listRows.push(item);
-        }
-
-        if (i > 0 && i % 2000 === 0) await new Promise((r) => setTimeout(r, 0));
-      }
-
+      const { overall, projectAmount } = await computeAdvanceTotalsFromGetAll(
+        withBranchUrl,
+        selectedOption,
+        selectedSite || null
+      );
       setOverallAdvance(overall);
-      if (projectSum !== null) {
-        setProjectAdvance(projectSum.toLocaleString('en-IN', { maximumFractionDigits: 2 }));
+      if (projectAmount !== null) {
+        setProjectAdvance(projectAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 }));
       } else {
         setProjectAdvance('');
       }
-      setVendorProjectRecords(listRows);
     } catch (error) {
       console.error('Error fetching advance totals:', error);
       setOverallAdvance(0);
       setProjectAdvance('');
-      setVendorProjectRecords([]);
     }
   }, [withBranchUrl, selectedOption, selectedSite]);
 
@@ -668,7 +640,7 @@ const AdvanceForm = ({
       branchId: activeBranchId,
       enteredBy: username,
     };
-    if (includeEno) {
+    if (eno != null) {
       payload.eno = eno;
     }
     return payload;
@@ -684,19 +656,11 @@ const AdvanceForm = ({
     if (!expensesResponse.ok) {
       throw new Error(`Expenses form submission failed: ${responseText}`);
     }
-    let expensesEntryId = null;
-    const trimmed = responseText.trim();
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        const expensesResult = JSON.parse(trimmed);
-        expensesEntryId =
-          expensesResult.id ??
-          expensesResult.expensesEntryId ??
-          expensesResult.expenses_entry_id ??
-          null;
-      } catch {
-        // Response was not JSON; expensesEntryId stays null
-      }
+    const expensesEntryId = resolveExpensesEntryIdAfterSave(responseText);
+    if (!expensesEntryId) {
+      throw new Error(
+        'Expenses save response did not include id. Backend must return { id } from expenses_form/save.'
+      );
     }
     return expensesEntryId;
   };
@@ -1562,7 +1526,20 @@ const AdvanceForm = ({
             </p>
           </div>
         ) : (() => {
-          const filteredEntries = [...vendorProjectRecords].sort((a, b) => {
+          const vid = selectedOption?.id != null ? Number(selectedOption.id) : null;
+          const pid = selectedSite?.id != null ? Number(selectedSite.id) : null;
+          const filteredEntries = advanceData
+            .filter(entry => {
+              const isMatchingVendor =
+                selectedOption?.type === 'Vendor'
+                  ? Number(entry.vendor_id) === vid
+                  : selectedOption?.type === 'Contractor'
+                    ? Number(entry.contractor_id) === vid
+                    : false;
+              const isForCurrentProject = Number(entry.project_id) === pid;
+              return isMatchingVendor && isForCurrentProject;
+            })
+            .sort((a, b) => {
               const entryNoA = a.entry_no || 0;
               const entryNoB = b.entry_no || 0;
               return entryNoB - entryNoA;
@@ -1578,7 +1555,7 @@ const AdvanceForm = ({
           }
           return (
             <div
-              className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y space-y-[4px] pb-2 [&::-webkit-scrollbar]:hidden"
+              className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y [&::-webkit-scrollbar]:hidden"
               style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
             >
               {filteredEntries.map((entry, index) => {
