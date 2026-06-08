@@ -677,6 +677,7 @@ const AdvancePortal = ({
       color: '#999',
       textAlign: 'left',
     }),
+    indicatorSeparator: () => ({ display: 'none' }),
   };
   const fetchAdvanceData = async () => {
     try {
@@ -2051,16 +2052,23 @@ const AdvancePortal = ({
                       className='w-full h-[45px] border-2 border-[#BF9853] border-opacity-30 font-medium px-2 py-2 rounded-lg focus:outline-none text-sm'>
                     </textarea>
                   </div>
-                  <div className=''>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-2">
-                      <div className='flex items-center'>
-                        <label htmlFor="fileInput" className="cursor-pointer flex items-center text-orange-600 text-sm">
+                  <div className='col-span-1 sm:col-span-2 min-w-0 overflow-hidden'>
+                    <div className="flex flex-row items-center gap-2 mb-2 min-w-0 w-full overflow-hidden">
+                      <div className='flex items-center shrink-0'>
+                        <label htmlFor="fileInput" className="cursor-pointer flex items-center text-orange-600 text-sm whitespace-nowrap">
                           <img className='w-5 h-4 mr-1' alt='' src={Attach}></img>
                           Attach file
                         </label>
                         <input type="file" id="fileInput" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
                       </div>
-                      {selectedAdvanceFile && <span className="text-gray-600 text-sm">{selectedAdvanceFile.name}</span>}
+                      {selectedAdvanceFile && (
+                        <span
+                          className="text-gray-600 text-sm truncate min-w-0 flex-1"
+                          title={selectedAdvanceFile.name}
+                        >
+                          {selectedAdvanceFile.name}
+                        </span>
+                      )}
                     </div>
                     <button className='bg-[#c7934c] text-white w-full sm:w-[120px] h-[33px] rounded flex items-center justify-center text-sm xl:mb-0 mb-2'
                       onClick={handleSubmit} disabled={isSubmitting || checkingDuplicate}

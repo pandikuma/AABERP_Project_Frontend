@@ -39,6 +39,46 @@ function formatIsoToDisplay(iso) {
 /** In-progress yyyy-MM-dd so we do not insert dd-mm hyphens while typing a year-first date. */
 const ISO_DATE_TYPING = /^\d{4}(-\d{0,2})?(-\d{0,4})?$/;
 
+function normalizePartialMonth(month) {
+  if (!month) return "";
+  const digits = String(month).replace(/\D/g, "").slice(0, 2);
+  if (digits.length <= 1) return digits;
+  const n = Number(digits);
+  if (n < 1) return "01";
+  if (n > 12) return "12";
+  return String(n).padStart(2, "0");
+}
+
+function formatPartialDdMmYyyy({ day, month, year }) {
+  const normalizedMonth = normalizePartialMonth(month);
+  let out = `${day}-`;
+  out += normalizedMonth;
+  if (year.length > 0 || normalizedMonth.length === 2) {
+    out += `-${year}`;
+  }
+  return out;
+}
+
+/** Keep day/year in place while month is cleared or re-typed (dd-[mm]-yyyy). */
+function tryParsePartialDdMmYyyy(val) {
+  const s = String(val || "").replace(/\s/g, "");
+  if (!s.includes("-")) return null;
+
+  let m = s.match(/^(\d{2})--(\d{0,4})$/);
+  if (m) return { day: m[1], month: "", year: m[2] };
+
+  m = s.match(/^(\d{2})-(\d{0,2})-(\d{0,4})$/);
+  if (m) return { day: m[1], month: m[2] ?? "", year: m[3] ?? "" };
+
+  m = s.match(/^(\d{2})-(\d{4,})$/);
+  if (m) return { day: m[1], month: "", year: m[2] };
+
+  m = s.match(/^(\d{2})-(\d{0,2})$/);
+  if (m) return { day: m[1], month: m[2] ?? "", year: "" };
+
+  return null;
+}
+
 function formatDigitsAsDdMmYyyy(digits, val, prevText) {
   const d = digits.slice(0, 8);
   const v = String(val ?? "");
@@ -77,6 +117,7 @@ export default function CustomDateField({
   disabled = false,
   anchor = "left",
   alwaysOpenBelow = false,
+  alwaysOpenAbove = false,
   controlHeightPx,
   /** When empty, replaces default trigger typography (placeholder look only; calendar unchanged). */
   placeholderButtonClassName = "",
@@ -109,11 +150,10 @@ export default function CustomDateField({
       setText(formatIsoToDisplay(parsed));
       return;
     }
-    setText(formatIsoToDisplay(value));
   };
 
   const handleBlur = () => {
-    commitText();
+    // Keep in-progress text on blur; commit only via Enter or calendar.
   };
 
   const handleInputChange = (e) => {
@@ -142,6 +182,11 @@ export default function CustomDateField({
         return;
       }
     }
+    const partialSegments = tryParsePartialDdMmYyyy(val);
+    if (partialSegments) {
+      setText(formatPartialDdMmYyyy(partialSegments));
+      return;
+    }
     const digits = val.replace(/\D/g, "").slice(0, 8);
     setText(formatDigitsAsDdMmYyyy(digits, val, text));
   };
@@ -151,7 +196,7 @@ export default function CustomDateField({
   return (
     <div className={`relative ${className}`}>
       <div
-        className={`relative flex items-center ${controlHeightPx ? 'w-full' : 'w-[120px] h-[36px]'} rounded-lg border-2 border-[#BF9853] border-opacity-25 bg-[#FFFFFF] shadow-sm overflow-hidden ${
+        className={`relative flex items-center ${controlHeightPx ? 'w-[300px]' : 'w-[120px] h-[36px]'} rounded-lg border-2 border-[#BF9853] border-opacity-25 bg-[#FFFFFF] shadow-sm overflow-hidden ${
           disabled ? "opacity-70 cursor-not-allowed bg-gray-100" : "hover:border-[rgba(191,152,83,0.4)]"
         }`}
         style={controlBoxStyle}
@@ -206,6 +251,7 @@ export default function CustomDateField({
         variant="dropdown"
         anchor={anchor}
         alwaysOpenBelow={alwaysOpenBelow}
+        alwaysOpenAbove={alwaysOpenAbove}
       />
     </div>
   );

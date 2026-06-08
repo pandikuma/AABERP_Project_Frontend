@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import Select from 'react-select';
 import DateRangePicker from './DateRangePicker';
 import CustomDateField from './CustomDateField';
@@ -6,6 +6,10 @@ import CalendarIcon from '../Images/Calendoricon.png';
 import edit from '../Images/Edit.svg';
 import history from '../Images/History.svg';
 import remove from '../Images/Delete.svg';
+
+/** Expenses created from Advance Portal Bill Settlement — edit in Advance Portal only. */
+export const isAdvancePortalSourceExpense = (expense) =>
+    String(expense?.source ?? '').trim().toLowerCase() === 'advance portal';
 
 /** Shared column IDs — layout/styles live here; heading text is set per page via `label` on DstColumnHeader. */
 export const EDBC_IDS = {
@@ -98,7 +102,7 @@ export const EDBC_TABLE_BODY_ROW_CLASS = `odd:bg-white even:bg-[#FAF6ED] text-[1
 
 /** First/last visible column edge padding — apply on the shared table element in Table.js. */
 export const EDBC_TABLE_EDGE_TABLE_CLASS =
-    '[&_thead_tr>th:first-child]:!pl-[12px] [&_tbody_tr>td:first-child]:!pl-[12px] [&_thead_tr>th:last-child]:!pr-[12px] [&_tbody_tr>td:last-child]:!pr-[12px] [&_thead_tr>th:first-child>div]:!pl-0 [&_thead_tr>th#EDBC-2:first-child]:!w-[130px] [&_tbody_tr>td#EDBC-2:first-child]:!w-[130px]';
+    '[&_thead_tr>th:first-child]:!pl-[12px] [&_tbody_tr>td:first-child]:!pl-[12px] [&_thead_tr>th:last-child]:!pr-[12px] [&_tbody_tr>td:last-child]:!pr-[12px] [&_thead_tr>th:first-child>div]:!pl-0 [&_thead_tr>th#EDBC-2:first-child]:!w-[130px] [&_tbody_tr>td#EDBC-2:first-child]:!w-[130px] [&_thead>tr:first-child>th#EDBC-17]:!pr-[9px] [&_tbody_tr>td#EDBC-17]:!pr-[9px] [&_thead_tr:nth-child(2)>th#EDBC-17]:!pr-0 [&_thead_tr:nth-child(2)>th#EDBC-17>div]:!w-[120px] [&_thead_tr:nth-child(2)>th#EDBC-17>div]:!min-w-[120px] [&_thead_tr:nth-child(2)>th#EDBC-17>div]:!max-w-[120px] [&_thead_tr:nth-child(2)>th#EDBC-17>div>div]:!w-[120px] [&_thead_tr:nth-child(2)>th#EDBC-17>div>div]:!min-w-[120px] [&_thead_tr:nth-child(2)>th#EDBC-17>div>div]:!max-w-[120px] [&_thead_tr:nth-child(2)>th#EDBC-17>div>div]:!box-border';
 
 /**
  * Column layout per DST id.
@@ -257,18 +261,18 @@ const EDBC_CONFIG = {
         sortField: 'eno',
         columnWidthClass: EDBC17_COLUMN_W,
         filterWidthClass: EDBC17_COLUMN_W,
-        headerClass: `pl-[1px] pr-[1px] ${EDBC17_COLUMN_W} font-bold text-right cursor-pointer hover:bg-gray-200 select-none`,
-        filterThClass: 'pl-[1px] pr-[1px] text-right',
-        tdClass: `pl-[1px] pr-[1px] ${EDBC17_COLUMN_W} text-right`,
+        headerClass: `pl-[1px] pr-[9px] ${EDBC17_COLUMN_W} font-bold text-right cursor-pointer hover:bg-gray-200 select-none`,
+        filterThClass: 'pl-[1px] pr-0 text-right',
+        tdClass: `pl-[1px] pr-[9px] ${EDBC17_COLUMN_W} text-right`,
         bodyCellKey: 'eno',
     },
     [EDBC_IDS.EDBC18]: {
         sortField: 'billArrivalDate',
         columnWidthClass: EDBC18_COLUMN_W,
         filterWidthClass: 'w-[98px]',
-        headerClass: `pl-[1px] pr-[1px] ${EDBC18_COLUMN_W} font-bold text-right cursor-pointer hover:bg-gray-200 select-none`,
+        headerClass: `pl-[1px] pr-[9px] ${EDBC18_COLUMN_W} font-bold text-right cursor-pointer hover:bg-gray-200 select-none`,
         filterThClass: 'pl-[1px] pr-[1px] text-right',
-        tdClass: `pl-[1px] pr-[1px] ${EDBC18_COLUMN_W} text-right whitespace-nowrap`,
+        tdClass: `pl-[1px] pr-[9px] ${EDBC18_COLUMN_W} text-right whitespace-nowrap`,
         bodyCellKey: 'billArrival',
     },
     [EDBC_IDS.EDBC19]: {
@@ -303,6 +307,105 @@ const EDBC_CONFIG = {
 /** Lookup layout for a EDBC column id (e.g. EDBC_IDS.EDBC1 → 'EDBC-1'). */
 export const getEdbcColumnConfig = (columnId) => EDBC_CONFIG[columnId] ?? null;
 
+/** Sortable columns from EDBC_CONFIG — same keys EdbcColumnHeader uses on header click. */
+export const EDBC_SORT_OPTIONS = Object.values(EDBC_IDS)
+    .map((columnId) => {
+        const config = EDBC_CONFIG[columnId];
+        if (!config?.sortField) return null;
+        return { columnId, sortField: config.sortField };
+    })
+    .filter(Boolean);
+
+/** Spread on EdbcColumnHeader: `{...getEdbcColumnHeaderSortProps(sortField, sortDirection, handleSort)}` */
+export function getEdbcColumnHeaderSortProps(sortField, sortDirection, handleSort) {
+    if (typeof handleSort !== 'function') return {};
+    return { sortField, sortDirection, onSort: handleSort };
+}
+
+/** Shared sort state — only toggles fields listed in EDBC_SORT_OPTIONS / EDBC_CONFIG. */
+export function useEdbcTableSort({ initialSortField = '', initialSortDirection = 'asc', onSortChange } = {}) {
+    const [sortField, setSortField] = useState(initialSortField);
+    const [sortDirection, setSortDirection] = useState(initialSortDirection);
+    const handleSort = useCallback((field) => {
+        if (!EDBC_SORT_OPTIONS.some((option) => option.sortField === field)) return;
+        if (sortField === field) {
+            setSortDirection((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+        onSortChange?.(field);
+    }, [sortField, onSortChange]);
+    const sortProps = useMemo(
+        () => getEdbcColumnHeaderSortProps(sortField, sortDirection, handleSort),
+        [sortField, sortDirection, handleSort],
+    );
+    return {
+        sortField,
+        sortDirection,
+        handleSort,
+        setSortField,
+        setSortDirection,
+        sortProps,
+    };
+}
+
+/** Sort rows by EDBC sortField — pair with useEdbcTableSort on any page using EdbcColumnHeader. */
+export function sortEdbcExpenses(rows, sortField, sortDirection, resolvers = {}) {
+    if (!sortField || !Array.isArray(rows)) return rows;
+    const {
+        getMachineToolsItemIdDisplay = () => '',
+        getBranchName = () => '',
+        getExpenseBillArrivalRaw = (expense) =>
+            expense?.billArrivalDate ?? expense?.bill_arrival_date ?? '',
+    } = resolvers;
+    return [...rows].sort((a, b) => {
+        let aValue = a[sortField];
+        let bValue = b[sortField];
+        if (sortField === 'date' || sortField === 'timestamp') {
+            aValue = new Date(aValue);
+            bValue = new Date(bValue);
+        } else if (sortField === 'eno') {
+            aValue = parseInt(aValue, 10) || 0;
+            bValue = parseInt(bValue, 10) || 0;
+        } else if (sortField === 'machineTools') {
+            aValue = String(getMachineToolsItemIdDisplay(a.machineTools) || '').toLowerCase();
+            bValue = String(getMachineToolsItemIdDisplay(b.machineTools) || '').toLowerCase();
+        } else if (sortField === 'staff') {
+            const aLabourId = a.labourId || a.labour_id || a.labourID || a.labour_ID;
+            const aEmployeeId = a.employeeId || a.employee_id || a.employeeID || a.employee_ID;
+            const bLabourId = b.labourId || b.labour_id || b.labourID || b.labour_ID;
+            const bEmployeeId = b.employeeId || b.employee_id || b.employeeID || b.employee_ID;
+            aValue = aLabourId ?? aEmployeeId ?? '';
+            bValue = bLabourId ?? bEmployeeId ?? '';
+            const aNum = Number(aValue);
+            const bNum = Number(bValue);
+            if (Number.isFinite(aNum) && Number.isFinite(bNum)) {
+                aValue = aNum;
+                bValue = bNum;
+            } else {
+                aValue = String(aValue || '').toLowerCase();
+                bValue = String(bValue || '').toLowerCase();
+            }
+        } else if (sortField === 'branch') {
+            aValue = String(getBranchName(a.branch_id ?? a.branchId ?? '') || '').toLowerCase();
+            bValue = String(getBranchName(b.branch_id ?? b.branchId ?? '') || '').toLowerCase();
+        } else if (sortField === 'billArrivalDate') {
+            aValue = String(getExpenseBillArrivalRaw(a) || '').slice(0, 10);
+            bValue = String(getExpenseBillArrivalRaw(b) || '').slice(0, 10);
+        } else if (sortField === 'quantity' || sortField === 'amount') {
+            aValue = Number(aValue) || 0;
+            bValue = Number(bValue) || 0;
+        } else {
+            aValue = String(aValue ?? '').toLowerCase();
+            bValue = String(bValue ?? '').toLowerCase();
+        }
+        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+}
+
 const applyEdbc2WidthClass = (className, columnWidthClass) => {
     if (!columnWidthClass || columnWidthClass === EDBC2_COLUMN_W) return className;
     return className
@@ -324,6 +427,7 @@ export const DATABASE_TABLE_FILTER_SELECT_STYLES = {
         textAlign: 'left',
         borderColor: 'rgba(191, 152, 83, 0.2)',
         boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+        boxSizing: 'border-box',
         '&:hover': { borderColor: 'rgba(191, 152, 83, 0.4)' },
     }),
     clearIndicator: (provided) => ({ ...provided, cursor: 'pointer' }),
@@ -461,12 +565,16 @@ export const EdbcTableBodyRow = ({ children, className = '', ...rest }) => (
 export const EdbcColumnHeader = ({
     columnId,
     label,
-    sortField,
-    sortDirection,
-    onSort,
+    sortField: sortFieldProp,
+    sortDirection: sortDirectionProp,
+    onSort: onSortProp,
+    sortProps,
     headerClassName = '',
     columnWidthClass = '',
 }) => {
+    const sortField = sortProps?.sortField ?? sortFieldProp;
+    const sortDirection = sortProps?.sortDirection ?? sortDirectionProp;
+    const onSort = sortProps?.onSort ?? onSortProp;
     const config = EDBC_CONFIG[columnId];
     if (!config || !label) return null;
     const sortable = typeof onSort === 'function' && config.sortField;
@@ -729,7 +837,30 @@ export const EdbcSelectFilter = ({
     const resolvedValue = selectValue !== undefined
         ? selectValue
         : resolveSelectFilterValue(value, blankOption, blankValue);
-    const styles = textAlign === 'right' ? buildRightAlignedSelectStyles(selectStyles) : selectStyles;
+    const baseStyles = textAlign === 'right' ? buildRightAlignedSelectStyles(selectStyles) : selectStyles;
+    const styles = columnId === EDBC_IDS.EDBC17
+        ? {
+            ...baseStyles,
+            container: (provided) => ({
+                ...(typeof baseStyles.container === 'function' ? baseStyles.container(provided) : provided),
+                width: 120,
+                minWidth: 120,
+                maxWidth: 120,
+            }),
+            control: (provided, state) => {
+                const controlBase = typeof baseStyles.control === 'function'
+                    ? baseStyles.control(provided, state)
+                    : provided;
+                return {
+                    ...controlBase,
+                    width: 120,
+                    minWidth: 120,
+                    maxWidth: 120,
+                    boxSizing: 'border-box',
+                };
+            },
+        }
+        : baseStyles;
     return (
         <th id={columnId} className={config.filterThClass}>
             <Select
@@ -852,13 +983,20 @@ export const EdbcActivityBodyCell = ({
 }) => {
     const config = EDBC_CONFIG[columnId];
     if (!config) return null;
+    const editDisabled = isAdvancePortalSourceExpense(expense);
     return (
         <td id={columnId} className={config.tdClass}>
-            <button onClick={() => onEdit(expense)} className="rounded-full transition duration-200">
+            <button
+                type="button"
+                onClick={editDisabled ? undefined : () => onEdit(expense)}
+                disabled={editDisabled}
+                title={editDisabled ? 'Edit in Advance Portal' : 'Edit'}
+                className={`rounded-full transition duration-200 ${editDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
                 <img
                     src={edit}
                     alt="Edit"
-                    className=" w-4 h-6 transform hover:scale-110 hover:brightness-110 transition duration-200 "
+                    className={`w-4 h-6 transition duration-200 ${editDisabled ? '' : 'transform hover:scale-110 hover:brightness-110'}`}
                 />
             </button>
             <button className="">

@@ -29,6 +29,7 @@ export default function MonthPicker({
   onChange,
   anchor = "left", // "left" | "right"
   alwaysOpenBelow = false,
+  alwaysOpenAbove = false,
 }) {
   const selectedDate = useMemo(() => monthValueToDate(value), [value]);
   const [viewDate, setViewDate] = useState(() => selectedDate || new Date());
@@ -41,12 +42,12 @@ export default function MonthPicker({
   useEffect(() => {
     if (!isOpen) return;
     setViewDate(selectedDate || new Date());
-    setOpenUp(false);
-  }, [isOpen, selectedDate]);
+    setOpenUp(!!alwaysOpenAbove);
+  }, [isOpen, selectedDate, alwaysOpenAbove]);
 
   // If there's not enough space below, open upwards
   useEffect(() => {
-    if (!isOpen || alwaysOpenBelow) return;
+    if (!isOpen || alwaysOpenBelow || alwaysOpenAbove) return;
     const raf = requestAnimationFrame(() => {
       const trigger = containerRef.current;
       const panel = panelRef.current;
@@ -58,7 +59,7 @@ export default function MonthPicker({
       setOpenUp(wouldOverflowBottom);
     });
     return () => cancelAnimationFrame(raf);
-  }, [isOpen, alwaysOpenBelow, viewDate]);
+  }, [isOpen, alwaysOpenBelow, alwaysOpenAbove, viewDate]);
 
   // Close when clicking outside
   useEffect(() => {

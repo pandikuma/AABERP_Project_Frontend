@@ -5,8 +5,6 @@ import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import jsPDF from 'jspdf';
-import XL from '../Images/sheets.png'
-import Pdf from '../Images/pdf.png'
 import CustomMonthField from './CustomMonthField';
 import CustomDateField from './CustomDateField';
 import {
@@ -15,6 +13,7 @@ import {
     isPaymentModeRequiringBankRegisterLog,
 } from '../../utils/bankRegisterLogBeforeWeeklyBill';
 import { resolveExpensesEntryIdAfterSave } from '../../utils/advancePortalWeeklyPaymentBill';
+import SideTable from '../Advance Portal/SideTable';
 
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 const TELECOM_DIRECTORY_ENDPOINT = 'https://backendaab.in/demoAabuildersDash/api/utility-telecom/getAll';
@@ -53,15 +52,8 @@ const getPropertyProfessionTaxNo = (property) =>
 const getUtilityTypeNumberLabel = (utilityTypeValue) => {
     switch (utilityTypeValue) {
         case 'Electricity':
-            return 'EB No';
-        case 'Property':
-            return 'Property Tax No';
-        case 'Water':
-            return 'Water Tax No';
-        case 'Profession':
-            return 'Profession Tax No';
         default:
-            return 'Number';
+            return 'Service Number';
     }
 };
 
@@ -240,7 +232,7 @@ const Form = ({
     const [combinedOptions, setCombinedOptions] = useState([]);
     const [selectedOption, setSelectedOption] = useState(null);
     const [selectedType, setSelectedType] = useState("");
-    const [selectedAccountType, setSelectedAccountType] = useState('');
+    const [selectedAccountType, setSelectedAccountType] = useState('Sundry Payment');
     const [selectedAccountTypeId, setSelectedAccountTypeId] = useState(null);
     const [selectedSite, setSelectedSite] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState(null);
@@ -253,6 +245,11 @@ const Form = ({
     const [accountTypeOptions, setAccountTypeOptions] = useState([]);
     const [showMachineTools, setShowMachineTools] = useState(false);
     const fileInputRef = useRef(null);
+    const leftFormColRef = useRef(null);
+    const commentsSectionRef = useRef(null);
+    const advanceHeaderRef = useRef(null);
+    const [sideTableAreaHeight, setSideTableAreaHeight] = useState(null);
+    const [sideTableContentHeight, setSideTableContentHeight] = useState(null);
     const prevCategoryOptionsLenRef = useRef(0);
     const billPaymentsPrefillAttemptsRef = useRef(0);
     const [userPermissions, setUserPermissions] = useState([]);
@@ -272,6 +269,13 @@ const Form = ({
         }
         return modes;
     }, [paymentModeOptions, selectedAccountType]);
+    const filteredCategoryOptions = useMemo(() => {
+        const all = Array.isArray(categoryOptions) ? categoryOptions : [];
+        if (selectedAccountType === 'Sundry Payment') return all;
+        return all.filter(
+            (opt) => String(opt?.label ?? opt?.value ?? '').trim() !== 'Machine Repair'
+        );
+    }, [categoryOptions, selectedAccountType]);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentModalData, setPaymentModalData] = useState({
         date: new Date().toISOString().split('T')[0],
@@ -509,6 +513,13 @@ const Form = ({
     }, [categoryOptions, selectedOption]);
 
     useEffect(() => {
+        if (selectedAccountType === 'Sundry Payment') return;
+        if (selectedCategory?.label === 'Machine Repair') {
+            applyResolvedCategoryOption(null);
+        }
+    }, [selectedAccountType, selectedCategory]);
+
+    useEffect(() => {
         const fetchToolsItemIds = async () => {
             try {
                 const response = await fetch(`${TOOLS_API_BASE}/api/tools_item_id/getAll`, {
@@ -619,8 +630,8 @@ const Form = ({
 
     // Compute project advance locally whenever selection or data changes
     useEffect(() => {
-        if (!selectedOption || !selectedSite || !advanceData.length) {
-            setProjectAdvance('');
+        if (!selectedOption || !selectedSite) {
+            setProjectAdvance('0');
             return;
         }
         const isVendor = selectedOption.type === 'Vendor';
@@ -731,6 +742,13 @@ const Form = ({
             setSelectedAccountType('Utility Bills');
         }
     }, [lockUtilityPrefillFields, selectedAccountType]);
+
+    useEffect(() => {
+        if (lockAccountTypeDisplay) return;
+        if (!selectedAccountType) {
+            setSelectedAccountType('Sundry Payment');
+        }
+    }, [lockAccountTypeDisplay, selectedAccountType]);
 
     useEffect(() => {
         const prefillDataStr = localStorage.getItem('expenseEntryPrefill');
@@ -1136,7 +1154,7 @@ const Form = ({
         }
     }, [utilityType, projectData]);
     useEffect(() => {
-        if (utilityType !== 'Telecom') {
+        if (utilityType !== 'Telecom' && utilityType !== 'Subscription') {
             setServiceStartingDate('');
         }
     }, [utilityType]);
@@ -2364,22 +2382,196 @@ const Form = ({
         const formatted = today.toISOString().split('T')[0];
         setDate(formatted);
     }, []);
+    useEffect(() => {
+        if (embedded) return undefined;
+        const syncSideTableHeights = () => {
+            if (window.innerWidth < 1280) {
+                setSideTableAreaHeight(null);
+                setSideTableContentHeight(null);
+                return;
+            }
+            const leftEl = leftFormColRef.current;
+            const commentsEl = commentsSectionRef.current;
+            if (!leftEl || !commentsEl) return;
+            const leftTop = leftEl.getBoundingClientRect().top;
+            const commentsBottom = commentsEl.getBoundingClientRect().bottom;
+            const alignHeight = Math.round(commentsBottom - leftTop);
+            const headerH =
+                Math.round(advanceHeaderRef.current?.getBoundingClientRect().height) ||
+                advanceHeaderRef.current?.offsetHeight ||
+                0;
+            if (alignHeight > 0) {
+                setSideTableAreaHeight(alignHeight);
+                setSideTableContentHeight(Math.max(0, alignHeight - headerH));
+            }
+        };
+        const scheduleSync = () => {
+            requestAnimationFrame(() => requestAnimationFrame(syncSideTableHeights));
+        };
+        scheduleSync();
+        const leftEl = leftFormColRef.current;
+        if (!leftEl) return undefined;
+        const ro = new ResizeObserver(scheduleSync);
+        ro.observe(leftEl);
+        const commentsEl = commentsSectionRef.current;
+        if (commentsEl) ro.observe(commentsEl);
+        const headerEl = advanceHeaderRef.current;
+        if (headerEl) ro.observe(headerEl);
+        window.addEventListener('resize', scheduleSync);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', scheduleSync);
+        };
+    }, [embedded]);
 
     return (
-        <div className={embedded ? '' : 'bg-[#FAF6ED]  px-6'}>
+        <div className={embedded ? '' : 'bg-[#FAF6ED] px-[18px] pt-[18px] flex flex-col h-[calc(100vh-104px)] overflow-hidden pb-[18px]'}>
             <style jsx>{`
-                input:hover, select:hover {
+                input:hover, select:hover, textarea:hover {
                     border-color: rgba(191, 152, 83, 0.2) !important;
                 }
-                input:focus, select:focus {
+                input:focus, select:focus, textarea:focus {
                     border-color: rgba(191, 152, 83, 1) !important;
                     outline: none !important;
                 }
+                input::placeholder,
+                textarea::placeholder {
+                    color: #6b7280 !important;
+                }
+                .expense-entry-form-date > div > div:hover {
+                    border-color: rgba(191, 152, 83, 0.2) !important;
+                }
+                .expense-entry-form-date > div > button:hover {
+                    border-color: rgba(191, 152, 83, 0.2) !important;
+                }
+                .expense-entry-form-date > div > div:focus-within {
+                    border-color: rgba(191, 152, 83, 1) !important;
+                    outline: none !important;
+                    box-shadow: none !important;
+                }
+                .expense-entry-form-date > div:focus-within > button {
+                    border-color: rgba(191, 152, 83, 1) !important;
+                    outline: none !important;
+                    box-shadow: none !important;
+                }
+                .expense-entry-form-date input:not(:placeholder-shown) {
+                    font-weight: inherit !important;
+                }
             `}</style>
-            <div className={`p-6 pb-20 bg-white rounded shadow-lg w-full overflow-x-clip`}>
+            {!embedded && (
+                <style>{`
+                    .expense-form-side-table-host > div {
+                        height: auto !important;
+                        width: fit-content !important;
+                        max-width: 100% !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        min-height: 0 !important;
+                    }
+                    .expense-form-side-table-host > div > div {
+                        flex: none !important;
+                        min-height: 0 !important;
+                        width: fit-content !important;
+                        max-width: 100% !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                    }
+                    .expense-form-side-table-host .border-l-8 {
+                        flex: none !important;
+                        min-height: 0 !important;
+                        width: fit-content !important;
+                        max-width: 100% !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                    }
+                    .expense-form-side-table-host table {
+                        width: 908px !important;
+                        max-width: none !important;
+                        min-width: 908px !important;
+                    }
+                    .expense-form-side-table-host .overflow-y-scroll {
+                        max-height: 400px !important;
+                        height: auto !important;
+                        flex: none !important;
+                        min-height: 0 !important;
+                        overflow-x: auto !important;
+                    }
+                    .expense-form-side-table-host .overflow-y-scroll:has(table tbody > tr:only-child) {
+                        display: flex !important;
+                        flex-direction: column !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        width: 100% !important;
+                        min-height: 280px !important;
+                    }
+                    .expense-form-side-table-host .border-l-8:has(table tbody > tr:only-child) {
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        flex: 1 1 auto !important;
+                    }
+                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) {
+                        display: flex !important;
+                        flex-direction: column !important;
+                        flex: 1 1 auto !important;
+                        width: 100% !important;
+                        min-width: 100% !important;
+                        max-width: 100% !important;
+                        min-height: 100% !important;
+                        height: 100% !important;
+                    }
+                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) > thead {
+                        flex: 0 0 auto !important;
+                        width: 100% !important;
+                    }
+                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) > tbody {
+                        flex: 1 1 auto !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        width: 100% !important;
+                    }
+                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) > tbody > tr {
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        width: 100% !important;
+                        flex: 1 1 auto !important;
+                    }
+                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) > tbody > tr > td {
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        width: 100% !important;
+                        text-align: center !important;
+                        border: none !important;
+                    }
+                    @media (min-width: 1280px) {
+                        .expense-form-side-table-host .overflow-y-scroll:has(table tbody > tr:only-child) {
+                            min-height: 100% !important;
+                        }
+                        .expense-form-side-table-host > div {
+                            height: 100% !important;
+                        }
+                        .expense-form-side-table-host > div > div {
+                            flex: 1 1 0% !important;
+                        }
+                        .expense-form-side-table-host .border-l-8 {
+                            flex: 1 1 0% !important;
+                        }
+                        .expense-form-side-table-host .overflow-y-scroll {
+                            max-height: none !important;
+                            height: 100% !important;
+                            flex: 1 1 0% !important;
+                        }
+                    }
+                `}</style>
+            )}
+            <div className={`px-[18px] pt-[18px] pb-[18px] bg-white rounded w-full flex-1 min-h-0 overflow-auto no-scrollbar scrollbar-none`}>
                 <form onSubmit={handleFormSubmit}>
-                    <div className="grid grid-cols-1 md:grid-cols-[max-content_1fr] gap-x-32 min-w-0">
-                        <div className="md:col-start-1 md:row-start-1 space-y-3 min-w-0">
+                    <div className="flex flex-col xl:grid xl:grid-cols-[max-content_minmax(0,1fr)] gap-x-[18px] gap-y-[12px] min-w-0 items-start">
+                        <div ref={leftFormColRef} className="xl:col-start-1 xl:row-start-1 space-y-[12px]">
                             {summaryBillMode && (
                                 <div className=" rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
                                     <div className="text-sm font-semibold text-orange-800">
@@ -2404,7 +2596,7 @@ const Form = ({
                                                 const normalized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
                                                 setSummaryForceCloseAmount(normalized);
                                             }}
-                                            className="h-[34px] w-[185px] rounded-md border border-orange-300 bg-white px-3 text-[12px] text-black outline-none"
+                                            className="h-[40px] w-[185px] rounded-md border border-orange-300 bg-white px-3 text-[12px] text-black outline-none"
                                         />
                                         <button
                                             type="button"
@@ -2416,16 +2608,16 @@ const Form = ({
                                     </div>
                                 </div>
                             )}
-                            <div className='flex gap-10 flex-wrap items-start'>
-                                <div className='text-left'>
-                                    <h4 className="text-base font-semibold mb-0.5 text-[#E4572E]">Account Type <span className="text-red-500">*</span></h4>
+                            <div className='lg:flex gap-[16px] flex-wrap items-start'>
+                                <div className='text-left w-[300px] min-w-[300px] max-w-[300px] shrink-0'>
+                                    <h4 className="text-base font-semibold mb-[8px]">Account Type <span className="text-[#E4572E]">*</span></h4>
                                     {lockAccountTypeDisplay ? (
                                         <UtilityHubReadonlyField
                                             value={
                                                 selectedAccountType ||
                                                 (lockUtilityPrefillFields ? 'Utility Bills' : '')
                                             }
-                                            className="w-[290px]"
+                                            className="w-[300px]"
                                         />
                                     ) : (
                                     <Select
@@ -2442,18 +2634,18 @@ const Form = ({
                                         isSearchable={true}
                                         isClearable
                                         styles={customStyles}
-                                        className="custom-select rounded-lg w-[290px] h-[45px]"
+                                        className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                     />
                                     )}
 
                                     {(selectedAccountType === 'Utility Bills' || lockUtilityPrefillFields) && (
-                                       <div className='mt-3 w-[290px]'>
-                                       <h4 className="text-base font-semibold mb-0.5">
-                                         Utility Type <span className="text-red-500">*</span>
+                                       <div className='mt-[12px]'>
+                                       <h4 className="text-base font-semibold mb-[8px]">
+                                         Utility Type <span className="text-[#E4572E]">*</span>
                                        </h4>
                                      
                                        {lockUtilityPrefillFields ? (
-                                         <UtilityHubReadonlyField value={utilityType} className="w-[290px] lg:w-[615px]" />
+                                         <UtilityHubReadonlyField value={utilityType} className="w-[616px]" />
                                        ) : (
                                        <Select
                                          options={[
@@ -2475,26 +2667,30 @@ const Form = ({
                                          placeholder="Utility Type"
                                          styles={customStyles}
                                          isSearchable={true}
-                                         className="custom-select rounded-lg w-[290px] lg:w-[615px] h-[45px]"
+                                         isClearable
+                                         className="custom-select rounded-lg w-[616px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                        />
                                        )}
                                      </div>
                                     )}
                                 </div>
                                 <div className='text-left'>
-                                    <label className="text-md font-semibold mb-0.5 block">Date <span className="text-red-500">*</span></label>
-                                    <CustomDateField
-                                        value={date}
-                                        onChange={setDate}
-                                        placeholder="dd-mm-yyyy"
-                                        className="w-[290px]"
-                                        alwaysOpenBelow
-                                    />
+                                    <label className="text-md font-semibold mb-[8px] block">Date <span className="text-[#E4572E]">*</span></label>
+                                    <div className="expense-entry-form-date w-[300px]">
+                                        <CustomDateField
+                                            value={date}
+                                            onChange={setDate}
+                                            placeholder="dd-mm-yyyy"
+                                            className="w-full text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                            controlHeightPx={40}
+                                            alwaysOpenBelow
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div className='flex gap-10'>
+                            <div className='lg:flex gap-[16px]'>
                                 <div className='text-left'>
-                                    <label className="text-md font-semibold mb-0.5  block">Project Name <span className="text-red-500">*</span></label>
+                                    <label className="text-md font-semibold mb-[8px]  block">Project Name <span className="text-[#E4572E]">*</span></label>
                                     <Select
                                         options={sortedSiteOptions || []}
                                         placeholder="Project Name."
@@ -2503,13 +2699,13 @@ const Form = ({
                                         onChange={setSelectedSite}
                                         styles={customStyles}
                                         isClearable
-                                        className="custom-select rounded-lg w-[290px] h-[45px] no-scrollbar scrollbar-none"
+                                        className="custom-select rounded-lg w-[300px] h-[40px] no-scrollbar scrollbar-none text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                     />
                                 </div>
                                 <div className='text-left'>
-                                    <div className='flex  mb-0.5'>
-                                        <label className="text-md font-semibold block">Vendor/Contractor Name <span className="text-red-500">*</span></label>
-                                        {selectedType && <span className="text-xs text-orange-600 font-semibold block ml-10 mt-1.5">{selectedType}</span>}
+                                    <div className='flex justify-between  mb-[8px]'>
+                                        <label className="text-md font-semibold block">Vendor/Contractor Name <span className="text-[#E4572E]">*</span></label>
+                                        {selectedType && <span className="text-[14px] text-[#E4572E] font-semibold block mt-0.5">{selectedType}</span>}
                                     </div>
                                     <Select
                                         options={combinedOptions}
@@ -2518,50 +2714,52 @@ const Form = ({
                                         placeholder="Vendor/Contractor Name"
                                         styles={customStyles}
                                         isClearable
-                                        className="custom-select rounded-lg w-[290px] h-[45px] "
+                                        className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                     />
                                 </div>
                             </div>
-                            <div className='flex gap-10'>
+                            <div className='lg:flex gap-[16px]'>
                                 <div className='text-left'>
-                                    <label className="text-md font-semibold mb-0.5 block">Quantity</label>
+                                    <label className="text-md font-semibold mb-[8px] block">Quantity</label>
                                     <input
                                         type="text"
                                         value={quantity}
                                         onChange={(e) => setQuantity(e.target.value)}
-                                        className="border-2 border-[#BF9853] rounded-lg px-4 py-2 w-[290px] h-[45px] focus:outline-none border-opacity-[0.20]"
+                                        placeholder="Quantity"
+                                        className="border-2 border-[#BF9853] rounded-lg px-[8px] py-2 w-[300px] h-[40px] focus:outline-none border-opacity-[0.20] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                     />
                                 </div>
                                 <div className='text-left'>
-                                    <label className="text-md font-semibold mb-0.5 block">Amount <span className="text-red-500">*</span></label>
-                                    <div className="relative w-[290px] h-[45px]">
-                                        <span className="absolute top-1/2 left-4 transform -translate-y-1/2 text-gray-600 text-lg">₹</span>
+                                    <label className="text-md font-semibold mb-[8px] block">Amount <span className="text-[#E4572E]">*</span></label>
+                                    <div className="relative w-[300px] h-[40px]">
+                                        <span className="absolute top-1/2 left-[8px] transform -translate-y-1/2 text-gray-600 text-lg">₹</span>
                                         <input
                                             type="text"
                                             value={formatNumber(amount)}
                                             onChange={handleAmountChange}
+                                            placeholder="Amount"
                                             onWheel={(e) => e.target.blur()}
-                                            className="pl-8 pr-4 border-2 border-[#BF9853] rounded-lg w-full h-full focus:outline-none border-opacity-[0.20]"
+                                            className="pl-[20px] pr-4 border-2 border-[#BF9853] rounded-lg w-full h-full focus:outline-none border-opacity-[0.20] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                         />
                                     </div>
                                 </div>
                             </div>
-                            <div className='flex gap-10'>
+                            <div className='lg:flex gap-[16px]'>
                                 <div className={`text-left ${selectedAccountType === 'Claim Payment' ? '' : ''}`}>
-                                    <label className="text-md font-semibold mb-0.5 block">Category <span className="text-red-500">*</span></label>
+                                    <label className="text-md font-semibold mb-[8px] block">Category <span className="text-[#E4572E]">*</span></label>
                                     <Select
-                                        options={categoryOptions}
+                                        options={filteredCategoryOptions}
                                         value={selectedCategory}
                                         onChange={handleCategoryChange}
                                         styles={customStyles}
                                         isClearable
                                         placeholder="Category"
-                                        className="custom-select rounded-lg w-[290px] h-[45px]"
+                                        className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                     />
                                 </div>
                                 {(selectedAccountType === 'Claim Payment' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Sundry Payment') ? (
                                     <div className='text-left'>
-                                        <label className="text-md font-semibold mb-0.5 block">Payment Mode <span className="text-red-500">*</span></label>
+                                        <label className="text-md font-semibold mb-[8px] block">Payment Mode <span className="text-[#E4572E]">*</span></label>
                                         <Select
                                             options={selectablePaymentModeOptions.map((mode) => ({
                                                 value: mode.modeOfPayment,
@@ -2574,12 +2772,27 @@ const Form = ({
                                             isSearchable={true}
                                             isClearable
                                             styles={customStyles}
-                                            className="custom-select rounded-lg w-[290px] h-[43px]"
+                                            className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                        />
+                                    </div>
+                                ) : usesBillArrivalDate(selectedAccountType) ? (
+                                    <div className='text-left'>
+                                        <label className="text-md font-semibold mb-[8px] block">
+                                            Bill Arrival Date
+                                        </label>
+                                        <CustomDateField
+                                            value={billArrivalDate}
+                                            onChange={setBillArrivalDate}
+                                            placeholder="dd-mm-yyyy"
+                                            className="w-[300px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                            controlHeightPx={40}
+                                            alwaysOpenBelow
+                                            placeholderButtonClassName="!text-sm !font-normal !text-gray-500"
                                         />
                                     </div>
                                 ) : showMachineTools ? (
                                     <div className='text-left'>
-                                        <label className="text-md font-semibold mb-0.5 block">Item Name</label>
+                                        <label className="text-md font-semibold mb-[8px] block">Item Name</label>
                                         <Select
                                             options={toolsItemNameOptions}
                                             value={selectedToolsItemName}
@@ -2587,20 +2800,56 @@ const Form = ({
                                             styles={customStyles}
                                             isClearable
                                             placeholder="Item Name"
-                                            className="custom-select rounded-lg w-[290px] h-[45px]"
+                                            className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                         />
                                     </div>
                                 ) : null}
                             </div>
+                            {selectedAccountType === 'Sundry Payment' && showMachineTools && (
+                                <div className='lg:flex gap-[16px]'>
+                                    <div className='text-left'>
+                                        <label className="text-md font-semibold mb-[8px] block">Machine Name <span className="text-[#E4572E]">*</span></label>
+                                        <Select
+                                            options={toolsItemNameOptions}
+                                            value={selectedToolsItemName}
+                                            onChange={setSelectedToolsItemName}
+                                            styles={customStyles}
+                                            isClearable
+                                            isSearchable
+                                            placeholder="Machine Name"
+                                            className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                        />
+                                    </div>
+                                    <div className='text-left'>
+                                        <label className="text-md font-semibold mb-[8px] block">Machine ID <span className="text-[#E4572E]">*</span></label>
+                                        <Select
+                                            options={filteredMachineToolOptions}
+                                            value={selectedMachineTools}
+                                            onChange={setSelectedMachine}
+                                            styles={customStyles}
+                                            isClearable
+                                            isSearchable
+                                            placeholder={
+                                                !selectedToolsItemName
+                                                    ? 'Machine ID'
+                                                    : filteredMachineToolOptions.length === 0
+                                                        ? 'No IDs for this machine'
+                                                        : 'Machine ID'
+                                            }
+                                            className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                             {showMachineTools &&
                                 !(selectedAccountType === 'Claim Payment' ||
                                     selectedAccountType === 'Utility Bills' ||
                                     selectedAccountType === 'Sundry Payment' ||
                                     selectedAccountType === 'Bill Payments') && (
-                                    <div className='flex gap-10'>
-                                        <div className='w-[290px] min-w-[290px] shrink-0' aria-hidden="true" />
+                                    <div className='lg:flex gap-[16px]'>
+                                        <div className='w-[300px] min-w-[300px] shrink-0' aria-hidden="true" />
                                         <div className='text-left'>
-                                            <label className="text-md font-semibold mb-0.5 block">Machine Tool</label>
+                                            <label className="text-md font-semibold mb-[8px] block">Machine Tool</label>
                                             <Select
                                                 options={filteredMachineToolOptions}
                                                 value={selectedMachineTools}
@@ -2614,7 +2863,7 @@ const Form = ({
                                                             ? 'No tools for this item'
                                                             : 'Select a machine tool...'
                                                 }
-                                                className="custom-select rounded-lg w-[290px] h-[45px]"
+                                                className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                             />
                                         </div>
                                     </div>
@@ -2622,11 +2871,10 @@ const Form = ({
                             {showMachineTools &&
                                 (selectedAccountType === 'Claim Payment' ||
                                     selectedAccountType === 'Utility Bills' ||
-                                    selectedAccountType === 'Sundry Payment' ||
                                     selectedAccountType === 'Bill Payments') && (
-                                    <div className='flex gap-10'>
+                                    <div className='lg:flex gap-[16px]'>
                                         <div className='text-left'>
-                                            <label className="text-md font-semibold mb-0.5 block">Item Name</label>
+                                            <label className="text-md font-semibold mb-[8px] block">Item Name</label>
                                             <Select
                                                 options={toolsItemNameOptions}
                                                 value={selectedToolsItemName}
@@ -2634,11 +2882,11 @@ const Form = ({
                                                 styles={customStyles}
                                                 isClearable
                                                 placeholder="Item Name"
-                                                className="custom-select rounded-lg w-[290px] h-[45px]"
+                                                className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                             />
                                         </div>
                                         <div className='text-left'>
-                                            <label className="text-md font-semibold mb-0.5 block">Machine Tool</label>
+                                            <label className="text-md font-semibold mb-[8px] block">Machine Tool</label>
                                             <Select
                                                 options={filteredMachineToolOptions}
                                                 value={selectedMachineTools}
@@ -2652,16 +2900,16 @@ const Form = ({
                                                             ? 'No tools for this item'
                                                             : 'Select a machine tool...'
                                                 }
-                                                className="custom-select rounded-lg w-[290px] h-[45px]"
+                                                className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                             />
                                         </div>
                                     </div>
                                 )}
                             {selectedAccountType === 'Utility Bills' && (
                                 <>
-                                    <div className='flex gap-10'>
+                                    <div className='lg:flex gap-[16px]'>
                                         <div className='text-left'>
-                                            <label className="text-md font-semibold mb-0.5 block">
+                                            <label className="text-md font-semibold mb-[8px] block">
                                                 {getUtilityTypeNumberLabel(utilityType)}
                                             </label>
                                             <Select
@@ -2670,102 +2918,82 @@ const Form = ({
                                                 onChange={setSelectedEbNumber}
                                                 styles={customStyles}
                                                 isClearable
-                                                placeholder={`Select ${getUtilityTypeNumberLabel(utilityType)}`}
-                                                className="custom-select rounded-lg w-[290px] h-[45px]"
+                                                placeholder={`${getUtilityTypeNumberLabel(utilityType)}`}
+                                                className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                             />
                                         </div>
                                         <div className='text-left'>
-                                            <label className="text-md font-semibold mb-0.5 block">For The Month Of</label>
-                                            <CustomMonthField
-                                                value={selectedMonths}
-                                                onChange={(v) => setSelectedMonths(v)}
-                                                className="w-[290px]"
-                                                alwaysOpenBelow
-                                            />
+                                            <label className="text-md font-semibold mb-[8px] block">For The Month Of</label>
+                                            <div className="expense-entry-form-date w-[300px]">
+                                                <CustomMonthField
+                                                    value={selectedMonths}
+                                                    onChange={(v) => setSelectedMonths(v)}
+                                                    className="w-full text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                                    alwaysOpenAbove
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                     {(utilityType === 'Telecom' || utilityType === 'Subscription') && (
-                                        <div className="flex gap-4 items-end ">
-                                            <div className="text-left">
-                                                <label className="text-md font-semibold mb-0.5 block">Validity</label>
-                                                <input
-                                                    type="text"
-                                                    value={thirdInput}
-                                                    onChange={(e) => setThirdInput(e.target.value)}
-                                                    placeholder="Enter validity..."
-                                                    className="border-2 border-[#BF9853] rounded-lg px-4 py-2 w-[290px] h-[45px] focus:outline-none border-opacity-[0.20]"
-                                                />
-                                            </div>
-                                            <div className="flex gap-4 ml-[22px]">
-                                                <div className="text-left">
-                                                    <label className="text-md font-semibold mb-0.5 block">
-                                                        Validity Type
-                                                    </label>
-
-                                                    <select
-                                                        value={validityType}
-                                                        onChange={(e) => setValidityType(e.target.value)}
-                                                        className="h-[45px] border-2 border-[#BF9853] bg-white rounded-lg px-1 py-2 focus:outline-none border-opacity-[0.20] w-[125px]"
-                                                    >
-                                                        <option value="" disabled hidden>
-                                                            Validity Type
-                                                        </option>
-
-                                                        <option value="Days">Days</option>
-                                                        <option value="Month">Month</option>
-                                                        <option value="Year">Year</option>
-                                                    </select>
+                                        <div className="lg:flex gap-[16px] items-end">
+                                            <div className="text-left w-[300px]">
+                                                <label className="text-md font-semibold mb-[8px] block">Validity Duration<span className="text-[#E4572E]">*</span></label>
+                                                <div className="flex gap-2 w-[300px]">
+                                                    <input
+                                                        type="text"
+                                                        value={thirdInput}
+                                                        onChange={(e) => setThirdInput(e.target.value)}
+                                                        placeholder="Enter"
+                                                        className="min-w-0 flex-1 h-[40px] border-2 border-[#BF9853] rounded-lg px-3 text-sm focus:outline-none border-opacity-20 bg-white text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                                    />
+                                                    <Select
+                                                        options={[
+                                                            { value: 'Days', label: 'Days' },
+                                                            { value: 'Month', label: 'Month' },
+                                                            { value: 'Year', label: 'Year' },
+                                                        ]}
+                                                        value={validityType ? { value: validityType, label: validityType } : null}
+                                                        onChange={(selectedOption) => setValidityType(selectedOption ? selectedOption.value : '')}
+                                                        placeholder="Select"
+                                                        isSearchable
+                                                        isClearable
+                                                        styles={customStyles}
+                                                        className="custom-select rounded-lg w-[110px] h-[40px] text-[14px] font-semibold"
+                                                    />
                                                 </div>
-                                                {utilityType === 'Telecom' && (
-                                                    <div className="text-left">
-                                                        <label className="text-md font-semibold mb-0.5 block">Service Start Date</label>
-                                                        <CustomDateField
-                                                            value={serviceStartingDate}
-                                                            onChange={setServiceStartingDate}
-                                                            placeholder="dd-mm-yyyy"
-                                                            className="w-[150px]"
-                                                            alwaysOpenBelow
-                                                        />
-                                                    </div>
-                                                )}
+                                            </div>
+                                            <div className="text-left">
+                                                <label className="text-md font-semibold mb-[8px] block">Activation Date<span className="text-[#E4572E]">*</span></label>
+                                                <div className="expense-entry-form-date w-[300px]">
+                                                    <CustomDateField
+                                                        value={serviceStartingDate}
+                                                        onChange={setServiceStartingDate}
+                                                        placeholder="Date"
+                                                        className="w-full text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                                        controlHeightPx={40}
+                                                        alwaysOpenAbove
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     )}
                                 </>
                             )}
-                            {usesBillArrivalDate(selectedAccountType) && (
-                                <div className="flex gap-10">
-                                    <div className="text-left">
-                                        <label className="text-md font-semibold mb-0.5 block">
-                                            Bill Arrival Date
-                                        </label>
-                                        <CustomDateField
-                                            value={billArrivalDate}
-                                            onChange={setBillArrivalDate}
-                                            placeholder="dd-mm-yyyy"
-                                            className="w-[290px]"
-                                            alwaysOpenBelow
-                                            placeholderButtonClassName="!text-sm !font-normal !text-[#808080]"
-                                        />
-                                    </div>
-                                </div>
-                            )}
                             {/* Comments + Attach + Submit kept in left column so there is no empty gap next to the advance table */}
-                            <div className=" text-left">
-                                <label className="text-md font-semibold mb-0.5 block">Comments</label>
-                                <input
-                                    type="text"
+                            <div ref={commentsSectionRef} className=" text-left">
+                                <label className="text-md font-semibold mb-[8px] block">Description</label>
+                                <textarea
                                     value={comments}
                                     onChange={(e) => setComments(e.target.value)}
-                                    placeholder="Enter Your Comments ..."
-                                    className="border-2 border-[#BF9853] rounded-md px-4 py-2 lg:w-[615px] w-80 h-[45px] focus:outline-none border-opacity-[0.20]"
+                                    placeholder="Description"
+                                    className="border-2 border-[#BF9853] rounded-md px-[8px] pt-[8px] lg:w-[616px] w-[300px] h-[60px] focus:outline-none border-opacity-[0.20] resize-none text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                 />
                             </div>
                             <div className=" flex items-center justify-between">
                                 <div className='flex'>
-                                    <label htmlFor="fileInput" className="cursor-pointer flex items-center text-orange-600">
-                                        <img className='w-5 h-4' alt='' src={Attach}></img>
-                                        Attach file {(selectedAccountType === 'Utility Bills' || selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund') && <span className="text-red-500 ml-1">*</span>}
+                                    <label htmlFor="fileInput" className="cursor-pointer flex items-center gap-[6px] text-orange-600">
+                                        <img className='w-[15px] h-[16px]' alt='' src={Attach}></img>
+                                        <span className="text-[14px] font-semibold">Attach file</span> {(selectedAccountType === 'Utility Bills' || selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund')}
                                     </label>
                                     <input
                                         type="file"
@@ -2778,7 +3006,7 @@ const Form = ({
                                 </div>
                                 {selectedFile && <span className="text-gray-600">{selectedFile.name}</span>}
                             </div>
-                            <div className="mt-4 flex">
+                            <div className="mt-[12px] flex">
                                 {(embedded || userPermissions.includes("Create")) && (
                                     <button
                                         type='submit'
@@ -2791,133 +3019,38 @@ const Form = ({
                             </div>
                         </div>
                         {/* Advance history table for selected project and vendor/contractor (same logic as Advance Portal) */}
-                        {embedded ? null : (
-                            <div className="hidden lg:flex flex-col items-stretch lg:col-start-2 lg:row-start-1 min-w-0">
-                                <div className="flex items-center justify-between w-[465px] mb-2 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h2 className="text-base font-semibold text-[#E4572E]">Advance </h2>
-                                        <input
-                                            type="text"
-                                            readOnly
-                                            value={projectAdvance}
-                                            className="border-2 w-[112px] p-2 border-[#E4572E] text-[#E4572E] font-bold border-opacity-10 rounded h-[33px] bg-[#F2F2F2] focus:outline-none text-xs"
+                        {embedded || selectedAccountType === 'Utility Bills' ? null : (
+                            <div
+                                className="min-w-0 w-full overflow-x-auto xl:col-start-2 xl:row-start-1"
+                                style={sideTableAreaHeight != null ? { height: `${sideTableAreaHeight}px` } : undefined}
+                            >
+                                <div
+                                    className={`w-fit max-w-full min-w-0 flex flex-col ${sideTableAreaHeight != null ? 'h-full' : ''}`}
+                                >
+                                    <div
+                                        ref={advanceHeaderRef}
+                                        className="flex justify-between items-center mb-[8px] w-full min-w-0 shrink-0"
+                                    >
+                                        <h2 className="text-base font-semibold">Advance </h2>
+                                        <span className="text-base font-bold text-[#E4572E]">
+                                            ₹{projectAdvance || '0'}
+                                        </span>
+                                    </div>
+                                    <div
+                                        className={`expense-form-side-table-host min-h-0 overflow-hidden ${sideTableContentHeight != null ? 'flex-1 min-h-0' : ''}`}
+                                        style={
+                                            sideTableContentHeight != null
+                                                ? { height: `${sideTableContentHeight}px` }
+                                                : undefined
+                                        }
+                                    >
+                                        <SideTable
+                                            advanceData={advanceData}
+                                            selectedOption={selectedOption}
+                                            selectedSite={selectedSite}
+                                            siteOptions={siteOptions}
+                                            hideDiscountAndActivity
                                         />
-                                    </div>
-                                    <div className="flex flex-wrap gap-4 ml-16">
-                                        <span className='text-[#E4572E] mr-2 flex items-center gap-1 font-semibold hover:underline cursor-pointer'>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
-                                        <span className='text-[#007233] mr-1 flex items-center gap-1 font-semibold hover:underline cursor-pointer'>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
-                                    </div>
-                                </div>
-                                <div className="border-l-8 border-l-[#BF9853] rounded-lg overflow-hidden w-full max-w-[640px]">
-                                    <div className="overflow-x-auto max-h-[430px] overflow-y-auto thin-scrollbar w-full">
-                                        <table className="w-auto table-auto border-collapse">
-                                            <thead className="bg-[#FAF6ED] text-left sticky top-0 z-10">
-                                                <tr>
-                                                    <th className="pl-4 pr-6 py-2 text-xs sm:text-sm whitespace-nowrap">Date</th>
-                                                    <th className="pl-0 pr-5 py-2 text-xs sm:text-sm whitespace-nowrap text-right">Advance</th>
-                                                    <th className="pl-0 pr-5 py-2 text-xs sm:text-sm whitespace-nowrap text-right">Bill</th>
-                                                    <th className="pl-0 pr-6 py-2 text-xs sm:text-sm whitespace-nowrap">Transfer/Refund</th>
-                                                    <th className="pl-0 pr-4 py-2 text-xs sm:text-sm whitespace-nowrap">Mode</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {!selectedOption || !selectedSite ? (
-                                                    <tr>
-                                                        <td colSpan="5" className="text-center py-4 text-sm text-gray-500">
-                                                            Please select a project and vendor/contractor to view advance records.
-                                                        </td>
-                                                    </tr>
-                                                ) : (() => {
-                                                    const filtered = advanceData
-                                                        .filter(entry => {
-                                                            const isMatchingVendor =
-                                                                selectedOption?.type === 'Vendor'
-                                                                    ? entry.vendor_id === selectedOption.id
-                                                                    : selectedOption?.type === 'Contractor'
-                                                                        ? entry.contractor_id === selectedOption.id
-                                                                        : false;
-                                                            const isForCurrentProject = entry.project_id === selectedSite.id;
-                                                            return isMatchingVendor && isForCurrentProject;
-                                                        })
-                                                        .sort((a, b) => {
-                                                            const entryNoA = a.entry_no || 0;
-                                                            const entryNoB = b.entry_no || 0;
-                                                            return entryNoB - entryNoA;
-                                                        });
-                                                    if (!filtered.length) {
-                                                        return (
-                                                            <tr>
-                                                                <td colSpan="5" className="text-center py-4 text-sm text-gray-500">
-                                                                    No advance records found for the selected project and vendor/contractor.
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    }
-                                                    return filtered.map((entry, index) => {
-                                                        const {
-                                                            date: entryDate,
-                                                            amount: entryAmount,
-                                                            bill_amount,
-                                                            type,
-                                                            transfer_site_id,
-                                                            payment_mode,
-                                                            refund_amount,
-                                                            file_url,
-                                                        } = entry;
-                                                        const advanceAmount = (() => {
-                                                            if (type === 'Refund') {
-                                                                return `-${parseFloat(refund_amount || 0).toLocaleString('en-IN')}`;
-                                                            }
-                                                            return parseFloat(entryAmount || 0).toLocaleString('en-IN');
-                                                        })();
-                                                        const billAmount = type === 'Bill Settlement'
-                                                            ? parseFloat(bill_amount || 0).toLocaleString('en-IN')
-                                                            : '';
-                                                        let transferOrRefund = '';
-                                                        if (type === 'Refund') {
-                                                            transferOrRefund = 'Refund';
-                                                        } else if (type === 'Transfer') {
-                                                            const relatedSiteId = transfer_site_id;
-                                                            const siteLabel = siteOptions.find(site => site.id === parseInt(relatedSiteId))?.label;
-                                                            transferOrRefund =
-                                                                parseFloat(entryAmount) < 0
-                                                                    ? `Transfer to ${siteLabel || 'Unknown Site'}`
-                                                                    : `Transfer from ${siteLabel || 'Unknown Site'}`;
-                                                        }
-                                                        return (
-                                                            <tr key={index} className="border-t hover:bg-gray-50">
-                                                                <td className="pl-4 pr-6 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap">
-                                                                    {entryDate ? new Date(entryDate).toLocaleDateString('en-GB') : ''}
-                                                                </td>
-                                                                <td className="pl-0 pr-5 py-2 text-xs sm:text-sm text-right font-semibold whitespace-nowrap">
-                                                                    {advanceAmount}
-                                                                </td>
-                                                                <td className="pl-0 pr-5 py-2 text-xs sm:text-sm text-right font-semibold whitespace-nowrap">
-                                                                    {billAmount && file_url ? (
-                                                                        <a
-                                                                            href={file_url}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="hover:text-red-600 cursor-pointer"
-                                                                        >
-                                                                            {billAmount}
-                                                                        </a>
-                                                                    ) : (
-                                                                        billAmount
-                                                                    )}
-                                                                </td>
-                                                                <td className="pl-0 pr-6 py-2 text-xs sm:text-sm text-left font-semibold break-words min-w-[120px] sm:min-w-[200px]">
-                                                                    {transferOrRefund}
-                                                                </td>
-                                                                <td className="pl-0 pr-4 py-2 text-xs sm:text-sm text-left font-semibold whitespace-nowrap">
-                                                                    {payment_mode || ''}
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    });
-                                                })()}
-                                            </tbody>
-                                        </table>
                                     </div>
                                 </div>
                             </div>
@@ -3141,7 +3274,7 @@ const Form = ({
                                             <div>
                                                 <label className="text-sm font-semibold mb-1 block">Category</label>
                                                 <Select
-                                                    options={categoryOptions}
+                                                    options={filteredCategoryOptions}
                                                     value={selectedCategory}
                                                     onChange={handleCategoryChange}
                                                     styles={customStyles}
@@ -3213,7 +3346,7 @@ const Form = ({
                                                         />
                                                     </div>
                                                     {(utilityType === 'Telecom' || utilityType === 'Subscription') && (
-                                                        <div className={`grid gap-3 ${utilityType === 'Telecom' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                                                        <div className="grid gap-3 grid-cols-3">
                                                             <div>
                                                                 <label className="text-sm font-semibold mb-1 block">Validity</label>
                                                                 <input
@@ -3237,18 +3370,16 @@ const Form = ({
                                                                     <option value="Year">Year</option>
                                                                 </select>
                                                             </div>
-                                                            {utilityType === 'Telecom' && (
-                                                                <div>
-                                                                    <label className="text-sm font-semibold mb-1 block">Service Start Date</label>
-                                                                    <CustomDateField
-                                                                        value={serviceStartingDate}
-                                                                        onChange={setServiceStartingDate}
-                                                                        placeholder="dd-mm-yyyy"
-                                                                        className="w-full"
-                                                                        alwaysOpenBelow
-                                                                    />
-                                                                </div>
-                                                            )}
+                                                            <div>
+                                                                <label className="text-sm font-semibold mb-1 block">Activation Date</label>
+                                                                <CustomDateField
+                                                                    value={serviceStartingDate}
+                                                                    onChange={setServiceStartingDate}
+                                                                    placeholder="dd-mm-yyyy"
+                                                                    className="w-full"
+                                                                    alwaysOpenBelow
+                                                                />
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </>
@@ -3264,7 +3395,7 @@ const Form = ({
                                                         placeholder="dd-mm-yyyy"
                                                         className="w-full"
                                                         alwaysOpenBelow
-                                                        placeholderButtonClassName="!text-sm !font-normal !text-[#808080]"
+                                                        placeholderButtonClassName="!text-sm !font-normal !text-gray-500"
                                                     />
                                                 </div>
                                             )}
@@ -3486,6 +3617,21 @@ const customStyles = {
         },
     }),
 
+    valueContainer: (provided, state) => ({
+        ...provided,
+        flex: '1 1 0%',
+        minWidth: 0,
+        paddingRight: state.hasValue ? '0' : provided.paddingRight,
+    }),
+
+    singleValue: (provided) => ({
+        ...provided,
+        maxWidth: '100%',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+    }),
+
     menuList: (provided) => ({
         ...provided,
 
@@ -3497,5 +3643,35 @@ const customStyles = {
         '&::-webkit-scrollbar': {
             display: 'none',
         },
+    }),
+
+    indicatorSeparator: () => ({ display: 'none' }),
+
+    indicatorsContainer: (provided) => ({
+        ...provided,
+        flex: '0 0 auto',
+        paddingLeft: '0',
+    }),
+
+    dropdownIndicator: (provided, state) => ({
+        ...provided,
+        display: state.hasValue ? 'none' : 'flex',
+        color: '#000000',
+        flexShrink: 0,
+        padding: '8px',
+    }),
+
+    clearIndicator: (provided) => ({
+        ...provided,
+        cursor: 'pointer',
+        color: '#000000',
+        flexShrink: 0,
+        padding: '8px 4px',
+    }),
+    placeholder: (provided) => ({
+        ...provided,
+        fontWeight: 'normal',
+        fontSize: '14px',
+        color: '#6b7280',
     }),
 };

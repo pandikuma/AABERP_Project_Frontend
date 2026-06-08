@@ -40,6 +40,7 @@ import { Table, TableProvider } from './Table';
 import {
     TABLE_FILTER_MENU_MAX_HEIGHT_PX,
     TABLE_FILTER_OPTION_HEIGHT_PX,
+    isAdvancePortalSourceExpense,
 } from './databaseExpensesSharedColumns';
 Modal.setAppElement('#root');
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
@@ -273,9 +274,6 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const [selectedMachineTools, setSelectedMachineTools] = useState(() => {
         return localStorage.getItem('expenseFilter_machineTools') || '';
     });
-    const [selectedDate, setSelectedDate] = useState(() => {
-        return localStorage.getItem('expenseFilter_date') || '';
-    });
     const [startDate, setStartDate] = useState(() => {
         return localStorage.getItem('expenseFilter_startDate') || '';
     });
@@ -313,6 +311,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const billArrivalFilterRef = useRef(null);
     const [showFilters, setShowFilters] = useState(false);
     const [showDateRangePicker, setShowDateRangePicker] = useState(false);
+    const [showExpenseDateRangePicker, setShowExpenseDateRangePicker] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [sortField, setSortField] = useState('');
@@ -474,9 +473,6 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         localStorage.setItem('expenseFilter_accountType', selectedAccountType);
     }, [selectedAccountType]);
 
-    useEffect(() => {
-        localStorage.setItem('expenseFilter_date', selectedDate);
-    }, [selectedDate]);
     useEffect(() => {
         localStorage.setItem('expenseFilter_startDate', startDate);
     }, [startDate]);
@@ -1254,7 +1250,6 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                         ? isBlankish(expense.accountType)
                         : expense.accountType === selectedAccountType)
                     : true) &&
-                (selectedDate ? expense.date === selectedDate : true) &&
                 (selectedEno
                     ? (selectedEno === BLANK_VALUE
                         ? isBlankish(expense.eno)
@@ -1408,7 +1403,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         uniqueEno.unshift(BLANK_VALUE);
         setEnoOptions(uniqueEno);
 
-    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedSource, selectedPaymentMode, selectedBranch, selectedEnteredBy, selectedAccountType, selectedDate, startDate, endDate, timestampStartDate, timestampEndDate, selectedEno, selectedStaff, selectedQuantity, selectedDescription, selectedBillArrival, overallSearch, expenses, machineToolsIdToLabel, branchOptions]);
+    }, [selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools, selectedSource, selectedPaymentMode, selectedBranch, selectedEnteredBy, selectedAccountType, startDate, endDate, timestampStartDate, timestampEndDate, selectedEno, selectedStaff, selectedQuantity, selectedDescription, selectedBillArrival, overallSearch, expenses, machineToolsIdToLabel, branchOptions]);
     useEffect(() => {
         if (filterScrollResetSkipRef.current) {
             filterScrollResetSkipRef.current = false;
@@ -1424,7 +1419,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     }, [
         selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools,
         selectedSource, selectedPaymentMode, selectedBranch, selectedEnteredBy, selectedAccountType,
-        selectedDate, startDate, endDate, timestampStartDate, timestampEndDate, selectedEno,
+        startDate, endDate, timestampStartDate, timestampEndDate, selectedEno,
         selectedStaff, selectedBillArrival, selectedQuantity, selectedDescription,
     ]);
     const handleChange = (e) => {
@@ -1890,6 +1885,9 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         }
     };
     const handleEditClick = (expense) => {
+        if (isAdvancePortalSourceExpense(expense)) {
+            return;
+        }
         setEditId(expense.id);
         setFormData({
             ...expense,
@@ -2000,7 +1998,6 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         setSelectedPaymentMode('');
         setSelectedBranch('');
         setSelectedEnteredBy('');
-        setSelectedDate('');
         setStartDate('');
         setEndDate('');
         setTimestampStartDate('');
@@ -2026,7 +2023,6 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
         localStorage.removeItem('expenseFilter_paymentMode');
         localStorage.removeItem('expenseFilter_branch');
         localStorage.removeItem('expenseFilter_enteredBy');
-        localStorage.removeItem('expenseFilter_date');
         localStorage.removeItem('expenseFilter_startDate');
         localStorage.removeItem('expenseFilter_endDate');
         localStorage.removeItem('expenseFilter_timestampStartDate');
@@ -2154,7 +2150,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                     ) : null}
                     <div className="w-full pt-[18px] px-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
                         <div
-                            className={`text-left flex ${selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedStaff || selectedQuantity.trim() || selectedDescription.trim() || selectedBillArrival || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno
+                            className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedStaff || selectedQuantity.trim() || selectedDescription.trim() || selectedBillArrival || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno
                                 ? 'flex-col sm:flex-row sm:justify-between'
                                 : 'flex-row justify-between items-center'
                                 } mb-[12px] gap-[6px]`}>
@@ -2197,7 +2193,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                         className=" border rounded-md"
                                     />
                                 </button>
-                                {(selectedDate || selectedSiteName || selectedVendor || selectedContractor || selectedStaff || selectedQuantity.trim() || selectedDescription.trim() || selectedBillArrival || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno) && (
+                                {(selectedSiteName || selectedVendor || selectedContractor || selectedStaff || selectedQuantity.trim() || selectedDescription.trim() || selectedBillArrival || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || timestampStartDate || timestampEndDate || selectedEno) && (
                                     <div className="flex flex-row flex-wrap items-center gap-2 min-w-0">
                                         {timestampStartDate && (
                                             <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] font-medium w-fit max-w-full min-w-0 overflow-hidden">
@@ -2213,13 +2209,25 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                                 <button onClick={() => setTimestampEndDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                             </span>
                                         )}
-                                        {selectedDate && (
+                                        {startDate && endDate ? (
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Date: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(startDate)} – {formatChipDateDMY(endDate)}</span>
+                                                <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                            </span>
+                                        ) : startDate ? (
                                             <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
                                                 <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Date: </span>
-                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(selectedDate)}</span>
-                                                <button onClick={() => setSelectedDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(startDate)} onwards</span>
+                                                <button onClick={() => setStartDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                             </span>
-                                        )}
+                                        ) : endDate ? (
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Date until: </span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(endDate)}</span>
+                                                <button onClick={() => setEndDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                            </span>
+                                        ) : null}
                                         {selectedSiteName && (
                                             <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit max-w-full min-w-0 overflow-hidden">
                                                 <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Project Name: </span>
@@ -2363,7 +2371,16 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                 <TableProvider value={{
                                     currentItems, showFilters, filterRowRef, totalAmount, sortField, sortDirection, handleSort,
                                     timestampStartDate, setTimestampStartDate, timestampEndDate, setTimestampEndDate,
-                                    showDateRangePicker, setShowDateRangePicker, selectedDate, setSelectedDate,
+                                    showDateRangePicker, setShowDateRangePicker,
+                                    useExpenseDateRangeFilter: true,
+                                    expenseDateStartDate: startDate,
+                                    expenseDateEndDate: endDate,
+                                    showExpenseDateRangePicker,
+                                    setShowExpenseDateRangePicker,
+                                    setExpenseDateStartDate: setStartDate,
+                                    setExpenseDateEndDate: setEndDate,
+                                    selectedDate: '',
+                                    setSelectedDate: () => {},
                                     siteOptions, selectedSiteName, setSelectedSiteName, vendorOptions, selectedVendor, setSelectedVendor,
                                     contractorOptions, selectedContractor, setSelectedContractor, staffOptions, selectedStaff, setSelectedStaff,
                                     selectedQuantity, setSelectedQuantity, selectedDescription, setSelectedDescription,
@@ -2471,12 +2488,26 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                             <Select
                                                 name="accountType"
                                                 value={editAccountTypeOptions.find(option => option.value === formData.accountType) || null}
-                                                onChange={(selectedOption) =>
-                                                    setFormData({
-                                                        ...formData,
-                                                        accountType: selectedOption?.value || '',
-                                                    })
-                                                }
+                                                onChange={(selectedOption) => {
+                                                    const nextAccountType = selectedOption?.value || '';
+                                                    setFormData((prev) => {
+                                                        const parsed = parseFloat(String(prev.amount ?? '').replace(/,/g, ''));
+                                                        const hasAmount = prev.amount !== '' && prev.amount != null && !Number.isNaN(parsed);
+                                                        let nextAmount = prev.amount;
+                                                        if (hasAmount) {
+                                                            if (nextAccountType === 'Bill Refund') {
+                                                                nextAmount = String(-Math.abs(parsed));
+                                                            } else if (prev.accountType === 'Bill Refund') {
+                                                                nextAmount = String(Math.abs(parsed));
+                                                            }
+                                                        }
+                                                        return {
+                                                            ...prev,
+                                                            accountType: nextAccountType,
+                                                            amount: nextAmount,
+                                                        };
+                                                    });
+                                                }}
                                                 options={editAccountTypeOptions}
                                                 placeholder="Select"
                                                 isClearable

@@ -31,6 +31,7 @@ import {
     TABLE_FILTER_MAX_VISIBLE_OPTIONS,
     TABLE_FILTER_MENU_MAX_HEIGHT_PX,
     TABLE_FILTER_OPTION_HEIGHT_PX,
+    isAdvancePortalSourceExpense,
 } from './databaseExpensesSharedColumns';
 Modal.setAppElement('#root');
 const EDIT_POPUP_UTILITY_TYPE_OPTIONS = [
@@ -1910,6 +1911,9 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         return '';
     };
     const handleEditClick = (expense) => {
+        if (isAdvancePortalSourceExpense(expense)) {
+            return;
+        }
         setEditId(expense.id);
         setFormData({
             ...expense,
@@ -2389,12 +2393,26 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                         <Select
                                             name="accountType"
                                             value={editAccountTypeOptions.find(option => option.value === formData.accountType) || null}
-                                            onChange={(selectedOption) =>
-                                                setFormData({
-                                                    ...formData,
-                                                    accountType: selectedOption?.value || '',
-                                                })
-                                            }
+                                            onChange={(selectedOption) => {
+                                                const nextAccountType = selectedOption?.value || '';
+                                                setFormData((prev) => {
+                                                    const parsed = parseFloat(String(prev.amount ?? '').replace(/,/g, ''));
+                                                    const hasAmount = prev.amount !== '' && prev.amount != null && !Number.isNaN(parsed);
+                                                    let nextAmount = prev.amount;
+                                                    if (hasAmount) {
+                                                        if (nextAccountType === 'Bill Refund') {
+                                                            nextAmount = String(-Math.abs(parsed));
+                                                        } else if (prev.accountType === 'Bill Refund') {
+                                                            nextAmount = String(Math.abs(parsed));
+                                                        }
+                                                    }
+                                                    return {
+                                                        ...prev,
+                                                        accountType: nextAccountType,
+                                                        amount: nextAmount,
+                                                    };
+                                                });
+                                            }}
                                             options={editAccountTypeOptions}
                                             placeholder="Select"
                                             isClearable

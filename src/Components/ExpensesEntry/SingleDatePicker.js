@@ -31,6 +31,7 @@ export default function SingleDatePicker({
   variant = "dropdown", // "dropdown" | "modal"
   anchor = "left", // "left" | "right"
   alwaysOpenBelow = false,
+  alwaysOpenAbove = false,
 }) {
   const selectedDate = useMemo(() => (value ? parseISO(value) : null), [value]);
   const [viewDate, setViewDate] = useState(() => selectedDate || new Date());
@@ -46,12 +47,12 @@ export default function SingleDatePicker({
     if (!isOpen) return;
     setViewDate(selectedDate || new Date());
     setMode("day");
-    setOpenUp(false);
-  }, [isOpen, selectedDate]);
+    setOpenUp(!!alwaysOpenAbove);
+  }, [isOpen, selectedDate, alwaysOpenAbove]);
 
   // In dropdown mode, if there's not enough space below, open upwards
   useEffect(() => {
-    if (!isOpen || variant !== "dropdown" || alwaysOpenBelow) return;
+    if (!isOpen || variant !== "dropdown" || alwaysOpenBelow || alwaysOpenAbove) return;
     const raf = requestAnimationFrame(() => {
       const trigger = containerRef.current;
       const panel = panelRef.current;
@@ -64,7 +65,7 @@ export default function SingleDatePicker({
       setOpenUp(wouldOverflowBottom);
     });
     return () => cancelAnimationFrame(raf);
-  }, [isOpen, variant, mode, value, alwaysOpenBelow]);
+  }, [isOpen, variant, mode, value, alwaysOpenBelow, alwaysOpenAbove]);
 
   useEffect(() => {
     if (!isOpen || variant !== "dropdown") return;

@@ -439,6 +439,30 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
     };
     fetchContractorNames();
   }, []);
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch("https://backendaab.in/demoAabuilderDash/api/expenses_categories/getAll", {
+          method: "GET",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!response.ok) throw new Error("Network response was not ok: " + response.statusText);
+        const data = await response.json();
+        setCategoryOptions(
+          data.map((item) => ({
+            id: item.id,
+            value: item.category,
+            label: item.category,
+          }))
+        );
+      } catch (error) {
+        console.error("Fetch error: ", error);
+      }
+    };
+    fetchCategories();
+  }, []);
   useEffect(() => { setCombinedOptions([...vendorOptions, ...contractorOptions]); }, [vendorOptions, contractorOptions]);
   const exportPDF = () => {
     const doc = new jsPDF("l", "pt", "a4");
@@ -1326,6 +1350,8 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       file_url: entry.file_url || '',
       description: entry.description || '',
       bill_amount: entry.bill_amount || '',
+      category: entry.category || '',
+      discount_amount: entry.discount_amount ?? '',
       type: entry.type || '',
       transfer_site_id: entry.transfer_site_id || '',
       payment_mode: entry.payment_mode || '',
@@ -1458,6 +1484,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
         }
         payload.amount = sanitizeNumberField(payload.amount);
         payload.bill_amount = sanitizeNumberField(payload.bill_amount);
+        payload.discount_amount = sanitizeNumberField(payload.discount_amount);
         payload.refund_amount = sanitizeNumberField(payload.refund_amount);
         payload.project_id = sanitizeNumberField(payload.project_id);
         payload.transfer_site_id = sanitizeNumberField(payload.transfer_site_id);
@@ -2624,14 +2651,56 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                         />
                   </div>
                       {editFormData.type === 'Bill Settlement' && (
-                        <div>
-                          <label className="block text-gray-500 font-normal text-left">Bill Amount</label>
-                          <input
-                            value={editFormData.bill_amount}
-                            onChange={(e) => setEditFormData({ ...editFormData, bill_amount: e.target.value })}
-                            className="block w-full p-2 border-2 border-[rgba(191,152,83,0.2)] rounded-lg focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-[rgba(191,152,83,0.4)] font-normal h-[45px]"
-                          />
-                        </div>
+                        <>
+                          <div>
+                            <label className="block text-gray-500 font-normal text-left">Bill Amount</label>
+                            <input
+                              value={editFormData.bill_amount}
+                              onChange={(e) => setEditFormData({ ...editFormData, bill_amount: e.target.value })}
+                              className="block w-full p-2 border-2 border-[rgba(191,152,83,0.2)] rounded-lg focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-[rgba(191,152,83,0.4)] font-normal h-[45px]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-500 font-normal text-left">Category</label>
+                            <Select
+                              options={categoryOptions}
+                              value={
+                                editFormData.category
+                                  ? { value: editFormData.category, label: editFormData.category }
+                                  : null
+                              }
+                              onChange={(selected) =>
+                                setEditFormData((prev) => ({
+                                  ...prev,
+                                  category: selected ? selected.value : '',
+                                }))
+                              }
+                              placeholder="Select a category..."
+                              isSearchable
+                              isClearable
+                              styles={customStyles}
+                              menuPortalTarget={document.body}
+                              menuPosition="fixed"
+                              className="w-full"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-500 font-normal text-left">Discount</label>
+                            <input
+                              value={formatWithCommas(editFormData.discount_amount)}
+                              onChange={(e) => {
+                                const rawValue = e.target.value.replace(/,/g, '');
+                                if (rawValue === '' || !isNaN(rawValue)) {
+                                  setEditFormData((prev) => ({
+                                    ...prev,
+                                    discount_amount: rawValue === '' ? '' : Number(rawValue),
+                                  }));
+                                }
+                              }}
+                              className="block w-full no-spinner p-2 border-2 border-[rgba(191,152,83,0.2)] rounded-lg focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-[rgba(191,152,83,0.4)] font-normal h-[45px]"
+                            />
+                          </div>
+                        </>
                       )}
                   <div>
                     <label className="block text-gray-500 font-normal text-left">
@@ -2680,38 +2749,36 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
                               className="w-full"
                             />
                           </div>
-                          {editFormData.type === 'Bill Settlement' && (
-                            <div>
-                              <div className="flex">
-                                <label
-                                  className="block text-gray-500 font-normal text-left cursor-pointer"
-                                  htmlFor="editFileInput"
-                                >
-                                  File URL
-                                </label>
-                                {selectedFile && (
-                                  <span className="text-orange-600 ml-4 text-sm">{selectedFile.name}</span>
-                                )}
-                              </div>
-                              <input
-                                type="text"
-                                name="file_url"
-                                value={editFormData.file_url || ''}
-                                onChange={(e) =>
-                                  setEditFormData((prev) => ({ ...prev, file_url: e.target.value }))
-                                }
-                                className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
-                                placeholder="Paste file URL or click label to upload"
-                              />
-                              <input
-                                type="file"
-                                id="editFileInput"
-                                ref={fileInputRef}
-                                className="hidden"
-                                onChange={handleEditFileChange}
-                              />
+                          <div>
+                            <div className="flex">
+                              <label
+                                className="block text-gray-500 font-normal text-left cursor-pointer"
+                                htmlFor="editFileInput"
+                              >
+                                File URL
+                              </label>
+                              {selectedFile && (
+                                <span className="text-orange-600 ml-4 text-sm">{selectedFile.name}</span>
+                              )}
                             </div>
-                          )}
+                            <input
+                              type="text"
+                              name="file_url"
+                              value={editFormData.file_url || ''}
+                              onChange={(e) =>
+                                setEditFormData((prev) => ({ ...prev, file_url: e.target.value }))
+                              }
+                              className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
+                              placeholder="Paste file URL or click label to upload"
+                            />
+                            <input
+                              type="file"
+                              id="editFileInput"
+                              ref={fileInputRef}
+                              className="hidden"
+                              onChange={handleEditFileChange}
+                            />
+                          </div>
                         </>
                       )}
                   <div className="col-span-2">
