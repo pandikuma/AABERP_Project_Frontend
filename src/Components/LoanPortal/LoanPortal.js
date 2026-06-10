@@ -12,8 +12,10 @@ import {
   bankRegisterLogSaveUrlMatchingRequest,
   isPaymentModeRequiringBankRegisterLog,
 } from '../../utils/bankRegisterLogBeforeWeeklyBill';
+import { notifyOrbitModuleDataChanged } from '../../utils/orbitProjectDataSync';
+import { useTabRefreshSignal } from '../../utils/useTabRefreshSignal';
 
-const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
+const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [], refreshSignal, isActive = true }) => {
   const resolveActiveBranchId = () => {
     try {
       const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -240,7 +242,7 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       try {
         const response = await fetch('https://backendaab.in/demoAabuildersDash/api/loan-purposes/getAll', {
           method: "GET",
-          credentials: "include",
+          credentials: "include", 
           headers: {
             "Content-Type": "application/json"
           }
@@ -603,6 +605,18 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
     };
     fetchData();
   }, []);
+
+  useTabRefreshSignal(refreshSignal, isActive, async () => {
+    try {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/loans/all');
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+      const data = await response.json();
+      setLoanData(data);
+    } catch (error) {
+      console.error('Error refreshing loan portal data:', error);
+    }
+  });
+
   // Optimized handleChange with useCallback
   const handleChange = useCallback(async (selected) => {
     setSelectedOption(selected);
@@ -931,7 +945,9 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         description: transferDesc,
         file_url: "",
         advance_portal_id: null,
-        branch_id: activeBranchId
+        branch_id: activeBranchId,
+        source: "Loan Portal",
+        entered_by: username,
       };
 
       // Create Loan entry for receiver (add amount)
@@ -940,7 +956,7 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         : `${senderName} to ${receiverName} amount transferred`;
       
       const receiverPayload = {
-        type: "Loan",
+        type: "Transfer",
         date: dateValue,
         amount: Math.abs(transferAmountValue), // Positive amount for receiver
         loan_payment_mode: "",
@@ -956,7 +972,9 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         description: receiverLoanDesc,
         file_url: "",
         advance_portal_id: null,
-        branch_id: activeBranchId
+        branch_id: activeBranchId,
+        source: "Loan Portal",
+        entered_by: username,
       };
 
       try {
@@ -1018,6 +1036,7 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
             }
             const data = await response.json();
             setLoanData(data);
+            notifyOrbitModuleDataChanged('loan');
           } catch (error) {
             console.error('Error refreshing loan data:', error);
           }
@@ -1033,6 +1052,146 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
         return;
       }
     }
+
+    // Purpose-to-purpose transfer: two entries (same pattern as Advance Portal site transfer)
+    const isTransferToPurpose =
+      selectedLoanType === "Transfer" && transferSelection?.type === "Purpose";
+
+    if (isTransferToPurpose) {
+      const sourcePurposeId = parseInt(purpose, 10) || 0;
+      const destPurposeId = parseInt(transferSelection.id, 10) || 0;
+
+      if (!sourcePurposeId || !destPurposeId) {
+        toast.error("Invalid purpose selection for transfer!", {
+          position: "top-center",
+          autoClose: 3000,
+          theme: "colored"
+        });
+        return;
+      }
+
+      if (sourcePurposeId === destPurposeId) {
+        toast.error("Cannot transfer to the same purpose!", {
+          position: "top-center",
+          autoClose: 3000,
+          theme: "colored"
+        });
+        return;
+      }
+
+      const transferAmountValue = parseFloat(transferAmount) || 0;
+      const sourcePurposeLabel =
+        purposeOptions.find((p) => p.id === sourcePurposeId)?.label || "Purpose";
+      const destPurposeLabel =
+        purposeOptions.find((p) => p.id === destPurposeId)?.label || "Purpose";
+      const transferDesc = description
+        ? `${description} - ${sourcePurposeLabel} to ${destPurposeLabel}`
+        : `${sourcePurposeLabel} to ${destPurposeLabel} amount transferred`;
+
+      const associateFields = {
+        vendor_id: selectedOption?.type === "Vendor" ? selectedOption.id : 0,
+        contractor_id: selectedOption?.type === "Contractor" ? selectedOption.id : 0,
+        employee_id: selectedOption?.type === "Employee" ? selectedOption.id : 0,
+        labour_id: selectedOption?.type === "Labour" ? selectedOption.id : 0,
+      };
+
+      const buildPurposeTransferPayload = (overrides) => ({
+        type: "Transfer",
+        date: dateValue,
+        loan_payment_mode: "",
+        loan_refund_amount: 0,
+        transfer_Project_id: 0,
+        project_id: 0,
+        description: transferDesc,
+        file_url: "",
+        advance_portal_id: null,
+        branch_id: activeBranchId,
+        source: "Loan Portal",
+        entered_by: username,
+        ...associateFields,
+        ...overrides,
+      });
+
+      const sourcePayload = buildPurposeTransferPayload({
+        amount: -Math.abs(transferAmountValue),
+        from_purpose_id: sourcePurposeId,
+        to_purpose_id: destPurposeId,
+      });
+
+      const destPayload = buildPurposeTransferPayload({
+        amount: Math.abs(transferAmountValue),
+        from_purpose_id: destPurposeId,
+        to_purpose_id: sourcePurposeId,
+      });
+
+      try {
+        const loanSaveUrl = withBranchUrl("https://backendaab.in/demoAabuildersDash/api/loans/save");
+        const [sourceResponse, destResponse] = await Promise.all([
+          fetch(loanSaveUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(sourcePayload),
+          }),
+          fetch(loanSaveUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(destPayload),
+          }),
+        ]);
+
+        if (!sourceResponse.ok) {
+          throw new Error(`Failed to save source purpose transfer: ${sourceResponse.status}`);
+        }
+        if (!destResponse.ok) {
+          throw new Error(`Failed to save destination purpose transfer: ${destResponse.status}`);
+        }
+
+        toast.success("Transfer completed successfully!", {
+          position: "top-center",
+          autoClose: 3000,
+          theme: "colored",
+        });
+
+        setPaymentPopupData({
+          chequeNo: "",
+          chequeDate: "",
+          transactionNumber: "",
+          accountNumber: "",
+        });
+        setShowPaymentModal(false);
+        setShowReviewModal(false);
+        setAmountGiven("");
+        setTransferAmount("");
+        setDescription("");
+        setSelectedLoanFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        setTimeout(async () => {
+          try {
+            const response = await fetch("https://backendaab.in/demoAabuildersDash/api/loans/all");
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            const data = await response.json();
+            setLoanData(data);
+            notifyOrbitModuleDataChanged('loan');
+          } catch (error) {
+            console.error("Error refreshing loan data:", error);
+          }
+        }, 500);
+        return;
+      } catch (error) {
+        console.error("Error saving purpose-to-purpose transfer:", error);
+        toast.error("Failed to save transfer!", {
+          position: "top-center",
+          autoClose: 3000,
+          theme: "colored",
+        });
+        return;
+      }
+    }
+
     // Check if transferring to a project (Site) for Vendor or Contractor
     if (selectedLoanType === "Transfer" &&
       transferSelection?.type === "Site" &&
@@ -1062,7 +1221,9 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
           week_no: getWeekNumber(),
           description: "Transfer from Loan Portal",
           file_url: "",
-          branch_id: activeBranchId
+          branch_id: activeBranchId,
+          source: "Loan Portal",
+          entered_by: username,
         };
 
         const advanceResponse = await fetch(withBranchUrl('https://backendaab.in/demoAabuildersDash/api/advance_portal/save'), {
@@ -1102,7 +1263,7 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       loan_refund_amount: selectedLoanType === "Refund" ? parseFloat(amountGiven) || 0 : 0,
       from_purpose_id: purpose || 0,
       transfer_Project_id: transferSelection?.type === "Site" ? transferSelection.id : 0,
-      to_purpose_id: transferSelection?.type === "Purpose" ? transferSelection.id : 0,
+      to_purpose_id: 0,
       vendor_id: selectedOption?.type === "Vendor" ? selectedOption.id : 0,
       contractor_id: selectedOption?.type === "Contractor" ? selectedOption.id : 0,
       employee_id: selectedOption?.type === "Employee" ? selectedOption.id : 0,
@@ -1111,7 +1272,9 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       description,
       file_url: "",
       advance_portal_id: advancePortalId || null,
-      branch_id: activeBranchId
+      branch_id: activeBranchId,
+      source: "Loan Portal",
+      entered_by: username,
     };
     console.log("Submitting loan data with payload:", payload);
     try {
@@ -1210,6 +1373,7 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
           }
           const data = await response.json();
           setLoanData(data);
+        notifyOrbitModuleDataChanged('loan');
         } catch (error) {
           console.error('Error refreshing loan data:', error);
         }
@@ -1226,8 +1390,8 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
   // Function to handle payment modal submission
   const handlePaymentModalSubmit = async () => {
     // Validate payment details
-    if (!paymentPopupData.transactionNumber || !paymentPopupData.accountNumber) {
-      toast.error("Please fill all payment details!", {
+    if (!paymentPopupData.accountNumber) {
+      toast.error("Please select an account number!", {
         position: "top-center",
         autoClose: 3000,
         theme: "colored"
@@ -1725,6 +1889,7 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
       if (response.ok) {
         const data = await response.json();
         setLoanData(data);
+        notifyOrbitModuleDataChanged('loan');
       }
       setIsEditModalOpen(false);
       toast.success('Entry updated successfully!', {
@@ -2211,7 +2376,7 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
                           )}
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Number<span className="text-red-500">*</span></label>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Number</label>
                               <input
                                 type="text"
                                 value={paymentPopupData.transactionNumber}
@@ -2232,6 +2397,8 @@ const LoanPortal = ({ username, userRoles = [], paymentModeOptions = [] }) => {
                                 placeholder="Select Account"
                                 isSearchable
                                 isClearable
+                                menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                menuPosition="fixed"
                                 styles={customStyles}
                                 className="w-full focus:outline-none"
                               />

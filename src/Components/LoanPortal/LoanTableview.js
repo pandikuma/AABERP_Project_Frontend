@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import Select from 'react-select';
@@ -10,6 +10,8 @@ import Reload from '../Images/Clear.svg'
 import Pdf from '../Images/pdf.png';
 import XL from '../Images/sheets.png';
 import edit from '../Images/Edit.svg';
+import { useOrbitPageSync } from '../../utils/useOrbitPageSync';
+import { useTabRefreshSignal } from '../../utils/useTabRefreshSignal';
 import {
   EDBC_IDS,
   DATABASE_TABLE_FILTER_SELECT_STYLES,
@@ -28,8 +30,13 @@ import {
   EdbcExpandableBodyCell,
   EDBC_TABLE_EDGE_TABLE_CLASS,
 } from '../ExpensesEntry/databaseExpensesSharedColumns';
+import {
+  resolveLoanAdvancePortalId,
+  syncAdvancePortalFromLoanEdit,
+} from '../../utils/advancePortalWeeklyPaymentBill';
+import { notifyOrbitModuleDataChanged } from '../../utils/orbitProjectDataSync';
 
-const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) => {
+const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [], refreshSignal, isActive = true }) => {
   const [vendorOptions, setVendorOptions] = useState([]);
   const [contractorOptions, setContractorOptions] = useState([]);
   const [combinedOptions, setCombinedOptions] = useState([]);
@@ -662,21 +669,26 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
     };
     fetchProjectClients();
   }, []);
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/loans/all');
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const data = await response.json();
-        setLoanData(data);
-      } catch (error) {
-        console.error('Error fetching loan portal data:', error);
+  const fetchLoanTableData = useCallback(async () => {
+    try {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/loans/all');
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-    };
-    fetchData();
+      const data = await response.json();
+      setLoanData(data);
+    } catch (error) {
+      console.error('Error fetching loan portal data:', error);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchLoanTableData();
+  }, [fetchLoanTableData]);
+
+  useOrbitPageSync('loan', fetchLoanTableData, [fetchLoanTableData]);
+
+  useTabRefreshSignal(refreshSignal, isActive, fetchLoanTableData);
   useEffect(() => {
     const fetchBranches = async () => {
       try {
@@ -1083,6 +1095,9 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
   };
   const handleUpdate = async () => {
     try {
+      const currentEntry = loanData.find(
+        (entry) => String(entry.loanPortalId || entry.id) === String(editingId)
+      );
       const payload = {
         loanPortalId: editingId,
         type: editSelectedType,
@@ -1110,7 +1125,6 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         entry_no: editFormData.entry_no || 0,
         description: editDescription || "",
       };
-      console.log(payload);
       const res = await fetch(
         `https://backendaab.in/demoAabuildersDash/api/loans/${editingId}?editedBy=${username}`,
         {
@@ -1121,6 +1135,25 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
       );
       if (!res.ok) throw new Error('Failed to update');
       const updatedDataArray = await res.json();
+
+      const advancePortalId = resolveLoanAdvancePortalId(currentEntry);
+      if (advancePortalId) {
+        try {
+          await syncAdvancePortalFromLoanEdit(advancePortalId, payload, {
+            editedBy: username,
+            siteOptions,
+            selectedOption: editSelectedOption,
+          });
+        } catch (syncErr) {
+          console.error('Failed to sync linked advance portal entry:', syncErr);
+          toast.warning('Loan updated, but linked advance portal entry could not be synced.', {
+            position: 'top-center',
+            autoClose: 4000,
+            theme: 'colored',
+          });
+        }
+      }
+
       setLoanData(prev => {
         const newData = [...prev];
         updatedDataArray.forEach(entry => {
@@ -1130,8 +1163,8 @@ const LoanTableview = ({ username, userRoles = [], paymentModeOptions = [] }) =>
         });
         return newData;
       });
-      window.location.reload();
       setIsEditModalOpen(false);
+      notifyOrbitModuleDataChanged('loan');
       toast.success("Entry updated successfully!", {
         position: "top-center",
         autoClose: 3000,

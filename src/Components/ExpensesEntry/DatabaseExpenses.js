@@ -38,8 +38,7 @@ import Pdf from '../Images/pdf.png'
 import ExpenseEntryPaymentModal from './ExpenseEntryPaymentModal';
 import { Table, TableProvider } from './Table';
 import {
-    TABLE_FILTER_MENU_MAX_HEIGHT_PX,
-    TABLE_FILTER_OPTION_HEIGHT_PX,
+    DATABASE_TABLE_FILTER_SELECT_STYLES,
     isAdvancePortalSourceExpense,
 } from './databaseExpensesSharedColumns';
 Modal.setAppElement('#root');
@@ -552,101 +551,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
     const [projectData, setProjectData] = useState(null);
     const [ebNumberOptions, setEbNumberOptions] = useState([]);
     const [selectedEbNumber, setSelectedEbNumber] = useState(null);
-    const customStyles = useMemo(() => ({
-        control: (provided, state) => ({
-            ...provided,
-            borderWidth: '2px',
-            lineHeight: '20px',
-            fontSize: '14px',
-            fontWeight: 'normal',
-            height: '36px',
-            borderRadius: '8px',
-            textAlign: 'left',
-            borderColor: 'rgba(191, 152, 83, 0.2)',
-            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
-            '&:hover': {
-                borderColor: 'rgba(191, 152, 83, 0.4)',
-            },
-        }),
-        clearIndicator: (provided) => ({
-            ...provided,
-            cursor: 'pointer',
-        }),
-        menu: (provided) => ({
-            ...provided,
-            zIndex: 999,
-            maxHeight: `${TABLE_FILTER_MENU_MAX_HEIGHT_PX}px`,
-        }),
-        menuPortal: (provided) => ({
-            ...provided,
-            zIndex: 9999,
-        }),
-        menuList: (provided) => ({
-            ...provided,
-            maxHeight: `${TABLE_FILTER_MENU_MAX_HEIGHT_PX}px`,
-            paddingTop: 0,
-            paddingBottom: 0,
-            overflowY: 'auto',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            '&::-webkit-scrollbar': { display: 'none' },
-        }),
-        singleValue: (provided) => ({
-            ...provided,
-            color: '#111827',
-            fontWeight: 'normal',
-            marginRight: 0,
-        }),
-        valueContainer: (provided) => ({
-            ...provided,
-            paddingLeft: '12px',
-            paddingRight: '2px',
-        }),
-        indicatorsContainer: (provided) => ({
-            ...provided,
-            paddingLeft: '0px',
-        }),
-        dropdownIndicator: (provided) => ({
-            ...provided,
-            paddingTop: '0px',
-            paddingBottom: '0px',
-            paddingRight: '6px',
-            paddingLeft: '3px',
-        }),
-        option: (provided, state) => ({
-            ...provided,
-            minHeight: TABLE_FILTER_OPTION_HEIGHT_PX,
-            height: TABLE_FILTER_OPTION_HEIGHT_PX,
-            paddingTop: 0,
-            paddingBottom: 0,
-            display: 'flex',
-            alignItems: 'center',
-            textAlign: 'left',
-            fontWeight: 'normal',
-            fontSize: '15px',
-            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-            color: 'black',
-        }),
-        input: (provided) => ({
-            ...provided,
-            fontWeight: 'normal',
-            color: 'black',
-            textAlign: 'left',
-        }),
-        placeholder: (provided) => ({
-            ...provided,
-            color: '#A6A5A6',
-            textAlign: 'left',
-            fontWeight: 'normal',
-            paddingLeft: '0px',
-            paddingTop: '0px',
-            paddingBottom: '0px',
-        }),
-        indicatorSeparator: (provided) => ({
-            ...provided,
-            display: 'none',
-        }),
-    }), []);
+    const customStyles = DATABASE_TABLE_FILTER_SELECT_STYLES;
     const [modalIsOpen, setModalIsOpen] = useState(false);
 
     const fetchProjectData = async (projectId) => {
@@ -2198,7 +2103,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                         {timestampStartDate && (
                                             <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] font-medium w-fit max-w-full min-w-0 overflow-hidden">
                                                 <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">{dstCol1Label}: </span>
-                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(timestampStartDate)}{timestampEndDate ? ` – ${formatChipDateDMY(timestampEndDate)}` : ' onwards'}</span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{timestampEndDate ? (timestampStartDate === timestampEndDate ? formatChipDateDMY(timestampStartDate) : `${formatChipDateDMY(timestampStartDate)} – ${formatChipDateDMY(timestampEndDate)}`) : `${formatChipDateDMY(timestampStartDate)} onwards`}</span>
                                                 <button onClick={() => { setTimestampStartDate(''); setTimestampEndDate(''); }} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                             </span>
                                         )}
@@ -2212,7 +2117,7 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                                         {startDate && endDate ? (
                                             <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] font-medium w-fit max-w-full min-w-0 overflow-hidden">
                                                 <span className="font-medium text-[#BF9853] shrink-0 whitespace-nowrap">Date: </span>
-                                                <span className="font-semibold text-[14px] truncate min-w-0">{formatChipDateDMY(startDate)} – {formatChipDateDMY(endDate)}</span>
+                                                <span className="font-semibold text-[14px] truncate min-w-0">{startDate === endDate ? formatChipDateDMY(startDate) : `${formatChipDateDMY(startDate)} – ${formatChipDateDMY(endDate)}`}</span>
                                                 <button onClick={() => { setStartDate(''); setEndDate(''); }} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                             </span>
                                         ) : startDate ? (

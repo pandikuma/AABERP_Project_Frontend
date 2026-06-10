@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+﻿import React, { useMemo, useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import edit from '../Images/Edit.svg';
@@ -8,7 +9,20 @@ import Reload from '../Images/Clear.svg';
 import Pdf from '../Images/pdf.png';
 import XL from '../Images/sheets.png';
 import Select from 'react-select';
-import DateRangePicker from '../ExpensesEntry/DateRangePicker';
+import {
+  addDays,
+  addMonths,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  isWithinInterval,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from 'date-fns';
 import CalendarIcon from '../Images/Calendoricon.png';
 import {
   EDBC_IDS,
@@ -36,16 +50,68 @@ const SIDE_TABLE_DATE_FILTER_CALENDAR_CLASS =
   '[&_thead]:!overflow-visible [&_thead]:!z-30 [&_tbody]:!relative [&_tbody]:!z-0 [&_thead_tr:nth-child(2)>th:first-child]:!overflow-visible [&_thead_tr:nth-child(2)>th:first-child]:!relative [&_thead_tr:nth-child(2)>th:first-child]:!z-40 [&_thead_tr:nth-child(2)>th:first-child>div]:!overflow-visible';
 
 const SIDE_TABLE_DATE_COLUMN_CLASS =
-  '[&_thead_tr>th#EDBC-2:first-child]:!w-[130px] [&_thead_tr>th#EDBC-2:first-child]:!max-w-[130px] [&_thead_tr>th#EDBC-2:first-child]:!min-w-[130px] [&_thead_tr>th#EDBC-2:first-child]:!box-border [&_thead_tr:nth-child(2)>th#EDBC-2]:!w-[130px] [&_thead_tr:nth-child(2)>th#EDBC-2]:!max-w-[130px] [&_thead_tr:nth-child(2)>th#EDBC-2]:!min-w-[130px] [&_thead_tr:nth-child(2)>th#EDBC-2]:!box-border [&_thead_tr:nth-child(2)>th#EDBC-2>div]:!w-full [&_thead_tr:nth-child(2)>th#EDBC-2>div]:!max-w-full [&_thead_tr:nth-child(2)>th#EDBC-2>div]:!min-w-0 [&_thead_tr:nth-child(2)>th#EDBC-2>div>button]:!w-full [&_thead_tr:nth-child(2)>th#EDBC-2>div>button]:!max-w-full [&_thead_tr:nth-child(2)>th#EDBC-2>div>button]:!box-border';
+  '[&_thead_tr>th#EDBC-2:first-child]:!w-[130px] [&_thead_tr>th#EDBC-2:first-child]:!max-w-[130px] [&_thead_tr>th#EDBC-2:first-child]:!min-w-[130px] [&_thead_tr>th#EDBC-2:first-child]:!box-border [&_thead_tr:nth-child(2)>th#EDBC-2]:!w-[130px] [&_thead_tr:nth-child(2)>th#EDBC-2]:!max-w-[130px] [&_thead_tr:nth-child(2)>th#EDBC-2]:!min-w-[130px] [&_thead_tr:nth-child(2)>th#EDBC-2]:!box-border [&_thead_tr:nth-child(2)>th#EDBC-2>div]:!w-[120px] [&_thead_tr:nth-child(2)>th#EDBC-2>div]:!max-w-[120px] [&_thead_tr:nth-child(2)>th#EDBC-2>div]:!min-w-[120px] [&_thead_tr:nth-child(2)>th#EDBC-2>div]:!box-border';
+
+const SIDE_TABLE_FIELDS = {
+  date: 'Date',
+  advance: 'Advance',
+  bill: 'Bill',
+  discount: 'Discount',
+  transferRefund: 'Transfer/Refund',
+  entryNo: 'Entry No',
+  mode: 'Mode',
+  file: 'File',
+  activity: 'Activity',
+  searchTransactions: 'Search Transactions...',
+};
+
+const SIDE_TABLE_FORM_PATH_CSS = `
+.expense-form-side-table-host .side-table-form-path .form-side-table-toolbar-row {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 978px !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  align-content: flex-start !important;
+}
+.expense-form-side-table-host .side-table-form-path .form-side-table-filter-left {
+  flex: 1 1 200px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.expense-form-side-table-host .side-table-form-path .form-side-table-advance-header {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  flex: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.expense-form-side-table-host .side-table-form-path .form-side-table-search-column {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  align-items: flex-end !important;
+}
+.expense-form-side-table-host .side-table-form-path .form-side-table-advance-amount {
+  width: 322px !important;
+  max-width: 100% !important;
+  text-align: right !important;
+  flex: none !important;
+}
+.expense-form-side-table-host .side-table-form-path .form-side-table-search-row {
+  flex: 0 0 auto !important;
+  justify-content: flex-end !important;
+}
+`;
 
 const SIDE_TABLE_SORT_KEYS = {
-  Date: 'date',
-  Advance: 'amount',
-  Bill: 'bill_amount',
-  Discount: 'discount_amount',
-  'Transfer/Refund': 'siteName',
-  'Entry No': 'eno',
-  Mode: 'paymentMode',
+  [SIDE_TABLE_FIELDS.date]: 'date',
+  [SIDE_TABLE_FIELDS.advance]: 'amount',
+  [SIDE_TABLE_FIELDS.bill]: 'bill_amount',
+  [SIDE_TABLE_FIELDS.discount]: 'discount_amount',
+  [SIDE_TABLE_FIELDS.transferRefund]: 'siteName',
+  [SIDE_TABLE_FIELDS.entryNo]: 'eno',
+  [SIDE_TABLE_FIELDS.mode]: 'paymentMode',
 };
 
 const sideTableSortIndicator = (activeSortField, sortDirection, columnSortField) => {
@@ -131,6 +197,426 @@ const formatSideTableFilterChipDate = (dateString) => {
   return String(dateString);
 };
 
+const SIDE_TABLE_DATE_PICKER_PANEL_WIDTH_PX = 252;
+const SIDE_TABLE_DATE_PICKER_PANEL_PADDING_PX = 6;
+const SIDE_TABLE_DATE_PICKER_DAY_CELL_SIZE_PX = 26;
+const SIDE_TABLE_DATE_PICKER_NAV_BUTTON_SIZE_PX = 26;
+const SIDE_TABLE_DATE_PICKER_MONTHS = Array.from({ length: 12 }, (_, i) => format(new Date(2024, i, 1), 'MMM'));
+
+const buildSideTableYearGrid = (centerYear) => {
+  const start = centerYear - 4;
+  return Array.from({ length: 12 }, (_, i) => start + i);
+};
+
+const SideTableDateRangePicker = ({
+  isOpen,
+  onClose,
+  startDate,
+  endDate,
+  onApply,
+  controlHeightPx,
+  anchorRef,
+}) => {
+  const [viewDate, setViewDate] = useState(() => (startDate ? parseISO(startDate) : new Date()));
+  const [tempFrom, setTempFrom] = useState(startDate ? parseISO(startDate) : null);
+  const [tempTo, setTempTo] = useState(endDate ? parseISO(endDate) : null);
+  const [mode, setMode] = useState('day');
+  const [portalStyle, setPortalStyle] = useState(null);
+  const containerRef = useRef(null);
+  const panelRef = useRef(null);
+  const singleClickTimerRef = useRef(null);
+  const tempFromRef = useRef(tempFrom);
+  const tempToRef = useRef(tempTo);
+  const today = useMemo(() => new Date(), []);
+
+  useEffect(() => {
+    tempFromRef.current = tempFrom;
+  }, [tempFrom]);
+
+  useEffect(() => {
+    tempToRef.current = tempTo;
+  }, [tempTo]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const sd = startDate && startDate.trim() ? parseISO(startDate) : null;
+    const ed = endDate && endDate.trim() ? parseISO(endDate) : null;
+    setTempFrom(sd);
+    setTempTo(ed);
+    setViewDate(sd || ed || new Date());
+    setMode('day');
+    return () => {
+      if (singleClickTimerRef.current) {
+        clearTimeout(singleClickTimerRef.current);
+        singleClickTimerRef.current = null;
+      }
+    };
+  }, [isOpen, startDate, endDate]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onMouseDown = (e) => {
+      if (containerRef.current?.contains(e.target)) return;
+      if (anchorRef?.current?.contains(e.target)) return;
+      onClose();
+    };
+    window.addEventListener('mousedown', onMouseDown);
+    return () => window.removeEventListener('mousedown', onMouseDown);
+  }, [isOpen, onClose, anchorRef]);
+
+  const updatePortalPosition = useCallback(() => {
+    const anchor = anchorRef?.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    setPortalStyle({
+      position: 'fixed',
+      top: rect.bottom + 8,
+      left: rect.left,
+      width: SIDE_TABLE_DATE_PICKER_PANEL_WIDTH_PX,
+      minWidth: SIDE_TABLE_DATE_PICKER_PANEL_WIDTH_PX,
+      maxWidth: 'none',
+      zIndex: 99999,
+    });
+  }, [anchorRef]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onWheel = (e) => {
+      const el = panelRef.current;
+      if (!el) return;
+      if (el.contains(e.target)) e.preventDefault();
+    };
+    window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    return () => window.removeEventListener('wheel', onWheel, { capture: true });
+  }, [isOpen]);
+
+  const monthStart = startOfMonth(viewDate);
+  const monthEnd = endOfMonth(viewDate);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+  const weeks = useMemo(() => {
+    const rows = [];
+    let day = calendarStart;
+    while (day <= calendarEnd) {
+      const week = [];
+      for (let i = 0; i < 7; i++) {
+        week.push(day);
+        day = addDays(day, 1);
+      }
+      rows.push(week);
+    }
+    return rows;
+  }, [calendarStart, calendarEnd]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setPortalStyle(null);
+      return;
+    }
+    updatePortalPosition();
+    window.addEventListener('scroll', updatePortalPosition, true);
+    window.addEventListener('resize', updatePortalPosition);
+    return () => {
+      window.removeEventListener('scroll', updatePortalPosition, true);
+      window.removeEventListener('resize', updatePortalPosition);
+    };
+  }, [isOpen, mode, viewDate, weeks.length, updatePortalPosition]);
+
+  const years = useMemo(() => buildSideTableYearGrid(viewDate.getFullYear()), [viewDate]);
+
+  const applySingleDate = (d) => {
+    const dateStr = format(d, 'yyyy-MM-dd');
+    onApply(dateStr, dateStr);
+    onClose();
+  };
+
+  const applyDateRange = (fromDate, toDate) => {
+    onApply(format(fromDate, 'yyyy-MM-dd'), format(toDate, 'yyyy-MM-dd'));
+    onClose();
+  };
+
+  const handleDateClick = (d) => {
+    if (singleClickTimerRef.current) clearTimeout(singleClickTimerRef.current);
+    singleClickTimerRef.current = setTimeout(() => {
+      singleClickTimerRef.current = null;
+      const from = tempFromRef.current;
+      const to = tempToRef.current;
+      if (!from || to) {
+        setTempFrom(d);
+        setTempTo(null);
+      } else if (d < from) {
+        setTempTo(from);
+        setTempFrom(d);
+        applyDateRange(d, from);
+      } else {
+        setTempTo(d);
+        applyDateRange(from, d);
+      }
+    }, 250);
+  };
+
+  const handleDateDoubleClick = (d) => {
+    if (singleClickTimerRef.current) {
+      clearTimeout(singleClickTimerRef.current);
+      singleClickTimerRef.current = null;
+    }
+    applySingleDate(d);
+  };
+
+  const isInRange = (d) => {
+    if (!tempFrom || !tempTo) return false;
+    return isWithinInterval(d, { start: tempFrom, end: tempTo });
+  };
+
+  const isSelected = (d) => (tempFrom && isSameDay(d, tempFrom)) || (tempTo && isSameDay(d, tempTo));
+
+  const handleClear = () => {
+    setTempFrom(null);
+    setTempTo(null);
+  };
+
+  const handlePickMonth = (monthIndex) => {
+    const next = new Date(viewDate);
+    next.setMonth(monthIndex);
+    setViewDate(next);
+    setMode('day');
+  };
+
+  const handlePickYear = (year) => {
+    const next = new Date(viewDate);
+    next.setFullYear(year);
+    setViewDate(next);
+    setMode('day');
+  };
+
+  const navButtonStyle = {
+    width: SIDE_TABLE_DATE_PICKER_NAV_BUTTON_SIZE_PX,
+    height: SIDE_TABLE_DATE_PICKER_NAV_BUTTON_SIZE_PX,
+  };
+
+  if (!isOpen || !portalStyle) return null;
+
+  const pickerPanel = (
+    <div ref={containerRef} style={portalStyle}>
+      <div
+        ref={panelRef}
+        className="bg-white rounded-lg shadow-xl border border-gray-200 box-border"
+        style={{
+          width: SIDE_TABLE_DATE_PICKER_PANEL_WIDTH_PX,
+          minWidth: SIDE_TABLE_DATE_PICKER_PANEL_WIDTH_PX,
+          maxWidth: 'none',
+          padding: SIDE_TABLE_DATE_PICKER_PANEL_PADDING_PX,
+          boxSizing: 'border-box',
+        }}
+      >
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          {mode === 'day' ? (
+            <button
+              type="button"
+              onClick={() => setViewDate(subMonths(viewDate, 1))}
+              className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+              style={navButtonStyle}
+              aria-label="Previous month"
+            >
+              &lt;
+            </button>
+          ) : mode === 'month' ? (
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(viewDate.getFullYear() - 1, viewDate.getMonth(), 1))}
+              className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+              style={navButtonStyle}
+              aria-label="Previous year"
+            >
+              &lt;
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(viewDate.getFullYear() - 12, viewDate.getMonth(), 1))}
+              className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+              style={navButtonStyle}
+              aria-label="Previous years"
+            >
+              &lt;
+            </button>
+          )}
+
+          <div className="flex items-center justify-center min-w-0">
+            {(mode === 'day' || mode === 'month') && (
+              <button
+                type="button"
+                onClick={() => setMode((m) => (m === 'month' ? 'day' : 'month'))}
+                className="h-8 px-2 text-sm font-medium text-gray-800 hover:bg-gray-100 rounded inline-flex items-center"
+                style={{ height: SIDE_TABLE_DATE_PICKER_NAV_BUTTON_SIZE_PX }}
+                aria-label="Choose month"
+              >
+                {mode === 'month' ? 'Month' : format(viewDate, 'MMMM')}
+              </button>
+            )}
+            {(mode === 'day' || mode === 'year') && (
+              <button
+                type="button"
+                onClick={() => setMode((m) => (m === 'year' ? 'day' : 'year'))}
+                className="h-8 px-2 text-sm font-medium text-gray-800 hover:bg-gray-100 rounded inline-flex items-center"
+                style={{ height: SIDE_TABLE_DATE_PICKER_NAV_BUTTON_SIZE_PX }}
+                aria-label="Choose year"
+              >
+                {mode === 'year' ? 'Year' : format(viewDate, 'yyyy')}
+              </button>
+            )}
+          </div>
+
+          {mode === 'day' ? (
+            <button
+              type="button"
+              onClick={() => setViewDate(addMonths(viewDate, 1))}
+              className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+              style={navButtonStyle}
+              aria-label="Next month"
+            >
+              &gt;
+            </button>
+          ) : mode === 'month' ? (
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(viewDate.getFullYear() + 1, viewDate.getMonth(), 1))}
+              className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+              style={navButtonStyle}
+              aria-label="Next year"
+            >
+              &gt;
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(viewDate.getFullYear() + 12, viewDate.getMonth(), 1))}
+              className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+              style={navButtonStyle}
+              aria-label="Next years"
+            >
+              &gt;
+            </button>
+          )}
+        </div>
+
+        {mode === 'month' ? (
+          <div className="h-[163px] flex flex-col">
+            <div className="grid grid-cols-7 gap-0.5 mb-1 invisible shrink-0" aria-hidden="true">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                <div key={d} className="text-center text-[11px] font-medium py-0.5">&nbsp;</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-3 grid-rows-4 gap-0.5 flex-1 min-h-0">
+              {SIDE_TABLE_DATE_PICKER_MONTHS.map((label, idx) => {
+                const isActive = viewDate.getMonth() === idx;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => handlePickMonth(idx)}
+                    className={[
+                      'flex items-center justify-center h-full min-h-0 text-xs font-medium rounded-full text-center',
+                      isActive ? 'bg-blue-100 text-gray-900' : 'text-gray-800 hover:bg-gray-50',
+                    ].join(' ')}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : mode === 'year' ? (
+          <div className="h-[163px] flex flex-col">
+            <div className="grid grid-cols-7 gap-0.5 mb-1 invisible shrink-0" aria-hidden="true">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                <div key={d} className="text-center text-[11px] font-medium py-0.5">&nbsp;</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-3 grid-rows-4 gap-0.5 flex-1 min-h-0">
+              {years.map((y) => {
+                const isActive = viewDate.getFullYear() === y;
+                return (
+                  <button
+                    key={y}
+                    type="button"
+                    onClick={() => handlePickYear(y)}
+                    className={[
+                      'flex items-center justify-center h-full min-h-0 text-xs font-medium rounded-full text-center',
+                      isActive ? 'bg-blue-100 text-gray-900' : 'text-gray-800 hover:bg-gray-50',
+                    ].join(' ')}
+                  >
+                    {y}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-7 gap-0.5 mb-1">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, idx) => (
+                <div
+                  key={d}
+                  className={`text-center text-[11px] font-medium py-0.5 ${idx === 0 || idx === 6 ? 'text-red-500' : 'text-gray-500'}`}
+                >
+                  {d}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-0.5">
+              {weeks.flatMap((week) =>
+                week.map((d) => {
+                  const inMonth = isSameMonth(d, viewDate);
+                  const inRange = isInRange(d);
+                  const selected = isSelected(d);
+                  const isToday = isSameDay(d, today);
+                  return (
+                    <button
+                      key={d.toISOString()}
+                      type="button"
+                      onClick={() => handleDateClick(d)}
+                      onDoubleClick={() => handleDateDoubleClick(d)}
+                      className={[
+                        'flex items-center justify-center text-xs rounded',
+                        inMonth ? 'text-gray-900' : 'text-gray-300',
+                        inRange && !selected ? 'bg-gray-200' : '',
+                        selected ? 'bg-blue-600 text-white' : '',
+                        !selected && inMonth ? 'hover:bg-gray-100' : '',
+                        !selected && isToday ? 'ring-2 ring-blue-500 ring-inset' : '',
+                      ].filter(Boolean).join(' ')}
+                      style={{
+                        width: SIDE_TABLE_DATE_PICKER_DAY_CELL_SIZE_PX,
+                        height: SIDE_TABLE_DATE_PICKER_DAY_CELL_SIZE_PX,
+                      }}
+                    >
+                      {format(d, 'd')}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
+
+        <div className={`flex items-center justify-end gap-1 mt-1.5 pt-1.5${mode === 'day' ? '' : ' invisible pointer-events-none'}`}>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={handleClear}
+              className="px-3 py-1 text-sm font-medium rounded hover:bg-gray-50"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return typeof document !== 'undefined' ? createPortal(pickerPanel, document.body) : null;
+};
+
 function getFirstVisibleSideTableBodyRow(scroller) {
   if (!scroller) return null;
   const thead = scroller.querySelector('thead');
@@ -167,50 +653,57 @@ const SideTableDateRangeFilter = ({
   onOpen,
   onClose,
   onApply,
-  placeholder = 'Date',
+  placeholder = SIDE_TABLE_FIELDS.date,
 }) => {
   const config = getEdbcColumnConfig(EDBC_IDS.EDBC2);
+  const triggerRef = useRef(null);
   if (!config) return null;
   const { filterThClass } = config;
   const displayStart = formatSideTableFilterChipDate(startDate);
   const displayEnd = formatSideTableFilterChipDate(endDate);
   const displayLabel = startDate
     ? endDate
-      ? `${displayStart} – ${displayEnd}`
+      ? startDate === endDate
+        ? displayStart
+        : `${displayStart} – ${displayEnd}`
       : `From ${displayStart}`
     : endDate
         ? formatSideTableFilterChipDate(endDate)
         : placeholder;
-
   return (
     <th id={EDBC_IDS.EDBC2} className={filterThClass}>
       <div className={`relative w-full max-w-full min-w-0 ${SIDE_TABLE_DATE_FILTER_BUTTON_STYLES}`}>
         <button
+          ref={triggerRef}
           type="button"
           onClick={onOpen}
           style={EDBC_FILTER_CONTROL_BOX_STYLE}
-          className="w-full max-w-full min-w-0 box-border pl-[12px] pr-[3px] py-0 text-sm font-normal bg-white text-left flex items-center justify-between"
+          className="w-full max-w-full min-w-0 box-border pl-[12px] pr-0 py-0 text-sm font-normal bg-white text-left flex items-center overflow-hidden"
         >
           <span
-            className={`text-[14px] font-medium truncate flex-1 text-left ${
+            title={startDate || endDate ? displayLabel : undefined}
+            className={`text-[14px] font-medium w-[80px] h-[20px] shrink-0 text-left overflow-hidden text-ellipsis whitespace-nowrap ${
               startDate || endDate ? 'text-black font-normal' : 'text-[#A6A5A6] font-normal'
             }`}
           >
             {displayLabel}
           </span>
-          <img
-            src={CalendarIcon}
-            alt="Calendar"
-            className="w-[16px] h-[16px] text-gray-400 flex-shrink-0 mr-[6px] ml-[3px]"
-          />
+          <span className="shrink-0 ml-auto mr-[6px] w-[18px] h-[18px] flex items-center justify-center">
+            <img
+              src={CalendarIcon}
+              alt="Calendar"
+              className="w-[16px] h-[16px] text-gray-400 flex-shrink-0"
+            />
+          </span>
         </button>
-        <DateRangePicker
+        {/* SideTable date filter calendar */}
+        <SideTableDateRangePicker
           isOpen={isOpen}
           onClose={onClose}
           startDate={startDate}
           endDate={endDate}
-          variant="dropdown"
           controlHeightPx={EDBC_FILTER_CONTROL_HEIGHT_PX}
+          anchorRef={triggerRef}
           onApply={onApply}
         />
       </div>
@@ -463,6 +956,8 @@ const SideTable = ({
   siteOptions,
   onEditClick = () => {},
   hideDiscountAndActivity = false,
+  projectAdvance,
+  advanceHeaderRef,
 }) => {
   const [overallSearch, setOverallSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -594,6 +1089,16 @@ const SideTable = ({
       scroller.scrollTop = 0;
     });
   }, [filterDateStart, filterDateEnd, filterTransferRefund, filterMode, filterEntryNo]);
+  useLayoutEffect(() => {
+    if (!hideDiscountAndActivity) return undefined;
+    const el = document.createElement('style');
+    el.setAttribute('data-side-table-form-path', '');
+    el.textContent = SIDE_TABLE_FORM_PATH_CSS;
+    document.head.appendChild(el);
+    return () => {
+      el.remove();
+    };
+  }, [hideDiscountAndActivity]);
   /** Keep the same first visible data row below thead when filters open or close. */
   useLayoutEffect(() => {
     const scroller = scrollRef.current;
@@ -1020,115 +1525,107 @@ const SideTable = ({
     setShowFilters(false);
   };
 
-  return (
-    <div className={`side-table-root ${hideDiscountAndActivity ? 'w-[978px] shrink-0' : 'w-full'} min-w-0 max-w-full flex flex-col`}>
-      <div className={`${formSideTableHostWidthClass} max-w-full shrink-0 flex flex-col`}>
-      <div
-        className={`text-left flex mb-[12px] ${
-          hideDiscountAndActivity
-            ? `w-[985px] max-w-full flex-row items-center${hasActiveColumnFilters ? ' gap-[8px]' : ''}`
-            : `${hasActiveColumnFilters ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} gap-[px] w-full`
-        }`}
-      >
+  const formSideTableSearchActions = (
+    <>
+      <button type="button" onClick={clearFilters} className="flex h-[30px] w-[30px] shrink-0 items-center justify-center">
+        <img className="w-full h-full" src={Reload} alt="Reload" />
+      </button>
+      <div className="w-[286px] min-w-[286px] max-w-[286px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2">
+        <input
+          type="text"
+          value={overallSearch}
+          onChange={(e) => setOverallSearch(e.target.value)}
+          placeholder={SIDE_TABLE_FIELDS.searchTransactions}
+          className="h-full w-full border-0 p-0 text-[14px] text-[#000000] bg-transparent outline-none"
+        />
+        <img src={Search} alt="Search" className="w-[16px] h-[16px] pointer-events-none" />
+      </div>
+    </>
+  );
+
+  const formSideTableFilterToolbarLeft = (
+    <div
+      className={
+        hideDiscountAndActivity
+          ? `flex min-w-0 w-full items-center overflow-hidden${hasActiveColumnFilters ? ' gap-[8px]' : ' gap-[6px]'}`
+          : 'flex shrink-0 flex-col sm:flex-row sm:items-center sm:space-x-3'
+      }
+    >
+      <button type="button" onClick={toggleFilters} className="shrink-0">
+        <img src={Filter} alt="Toggle Filter" className="h-[34px] w-auto shrink-0 border rounded-md" />
+      </button>
+      {hasActiveColumnFilters && (
         <div
+          ref={hideDiscountAndActivity ? filterChipsScrollRef : null}
+          onMouseDown={hideDiscountAndActivity ? handleFilterChipsMouseDown : undefined}
+          onMouseMove={hideDiscountAndActivity ? handleFilterChipsMouseMove : undefined}
+          onMouseUp={hideDiscountAndActivity ? handleFilterChipsMouseUp : undefined}
+          onMouseLeave={hideDiscountAndActivity ? handleFilterChipsMouseUp : undefined}
           className={
             hideDiscountAndActivity
-              ? `flex min-w-0 flex-1 items-center overflow-hidden${hasActiveColumnFilters ? ' gap-[8px]' : ' gap-[6px]'}`
-              : 'flex shrink-0 flex-col sm:flex-row sm:items-center sm:space-x-3'
+              ? 'flex min-w-0 flex-1 overflow-x-auto flex-nowrap gap-2 no-scrollbar scrollbar-none cursor-grab select-none'
+              : 'flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0'
           }
         >
-          <button type="button" onClick={toggleFilters} className="shrink-0">
-            <img src={Filter} alt="Toggle Filter" className="h-[34px] w-auto shrink-0 border rounded-md" />
-          </button>
-          {hasActiveColumnFilters && (
-            <div
-              ref={hideDiscountAndActivity ? filterChipsScrollRef : null}
-              onMouseDown={hideDiscountAndActivity ? handleFilterChipsMouseDown : undefined}
-              onMouseMove={hideDiscountAndActivity ? handleFilterChipsMouseMove : undefined}
-              onMouseUp={hideDiscountAndActivity ? handleFilterChipsMouseUp : undefined}
-              onMouseLeave={hideDiscountAndActivity ? handleFilterChipsMouseUp : undefined}
-              className={
-                hideDiscountAndActivity
-                  ? 'flex min-w-0 flex-1 overflow-x-auto flex-nowrap gap-2 no-scrollbar scrollbar-none cursor-grab select-none'
-                  : 'flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0'
-              }
-            >
-              {(filterDateStart || filterDateEnd) && (
-                <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                  <span className="font-medium text-[#BF9853]">Date: </span>
-                  <span className="font-semibold text-[14px]">
-                    {filterDateStart && filterDateEnd
-                      ? `${formatSideTableFilterChipDate(filterDateStart)} – ${formatSideTableFilterChipDate(filterDateEnd)}`
-                      : filterDateStart
-                        ? `From ${formatSideTableFilterChipDate(filterDateStart)}`
-                        : formatSideTableFilterChipDate(filterDateEnd)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFilterDateStart('');
-                      setFilterDateEnd('');
-                    }}
-                    className="text-[#E4572E] ml-1 text-2xl"
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {filterTransferRefund && (
-                <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                  <span className="font-medium text-[#BF9853]">Transfer/Refund: </span>
-                  <span className="font-semibold text-[14px]">
-                    {filterTransferRefund === BLANK_VALUE ? BLANK_LABEL : filterTransferRefund}
-                  </span>
-                  <button type="button" onClick={() => setFilterTransferRefund('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
-                </span>
-              )}
-              {filterMode && (
-                <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                  <span className="font-medium text-[#BF9853]">Mode: </span>
-                  <span className="font-semibold text-[14px]">{filterMode}</span>
-                  <button type="button" onClick={() => setFilterMode('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
-                </span>
-              )}
-              {hideDiscountAndActivity && filterEntryNo && (
-                <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                  <span className="font-medium text-[#BF9853]">Entry No: </span>
-                  <span className="font-semibold text-[14px]">
-                    {filterEntryNo === BLANK_VALUE ? BLANK_LABEL : filterEntryNo}
-                  </span>
-                  <button type="button" onClick={() => setFilterEntryNo('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
-                </span>
-              )}
-            </div>
+          {(filterDateStart || filterDateEnd) && (
+            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+              <span className="font-medium text-[#BF9853]">{SIDE_TABLE_FIELDS.date}: </span>
+              <span className="font-semibold text-[14px]">
+                {filterDateStart && filterDateEnd
+                  ? filterDateStart === filterDateEnd
+                    ? formatSideTableFilterChipDate(filterDateStart)
+                    : `${formatSideTableFilterChipDate(filterDateStart)} – ${formatSideTableFilterChipDate(filterDateEnd)}`
+                  : filterDateStart
+                    ? `From ${formatSideTableFilterChipDate(filterDateStart)}`
+                    : formatSideTableFilterChipDate(filterDateEnd)}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterDateStart('');
+                  setFilterDateEnd('');
+                }}
+                className="text-[#E4572E] ml-1 text-2xl"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {filterTransferRefund && (
+            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+              <span className="font-medium text-[#BF9853]">{SIDE_TABLE_FIELDS.transferRefund}: </span>
+              <span className="font-semibold text-[14px]">
+                {filterTransferRefund === BLANK_VALUE ? BLANK_LABEL : filterTransferRefund}
+              </span>
+              <button type="button" onClick={() => setFilterTransferRefund('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+            </span>
+          )}
+          {filterMode && (
+            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+              <span className="font-medium text-[#BF9853]">{SIDE_TABLE_FIELDS.mode}: </span>
+              <span className="font-semibold text-[14px]">{filterMode}</span>
+              <button type="button" onClick={() => setFilterMode('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+            </span>
+          )}
+          {hideDiscountAndActivity && filterEntryNo && (
+            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+              <span className="font-medium text-[#BF9853]">{SIDE_TABLE_FIELDS.entryNo}: </span>
+              <span className="font-semibold text-[14px]">
+                {filterEntryNo === BLANK_VALUE ? BLANK_LABEL : filterEntryNo}
+              </span>
+              <button type="button" onClick={() => setFilterEntryNo('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+            </span>
           )}
         </div>
-        <div
-          className={
-            hideDiscountAndActivity
-              ? 'flex shrink-0 items-center gap-[6px]'
-              : 'flex min-w-0  items-end justify-end '
-          }
-        >
-          <button type="button" onClick={clearFilters} className="flex h-[30px] w-[30px] shrink-0 items-center justify-center">
-            <img className="w-full h-full" src={Reload} alt="Reload" />
-          </button>
-          <div className="min-w-0 w-[286px] max-w-[286px] shrink h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2">
-            <input
-              type="text"
-              value={overallSearch}
-              onChange={(e) => setOverallSearch(e.target.value)}
-              placeholder="Search Transactions..."
-              className="h-full w-full border-0 p-0 text-[14px] text-[#000000] bg-transparent outline-none"
-            />
-            <img src={Search} alt="Search" className="w-[16px] h-[16px] pointer-events-none" />
-          </div>
-        </div>
-      </div>
-      <div className={`border-l-8 border-l-[#BF9853] rounded-lg ${showFilters ? 'overflow-visible' : 'overflow-hidden'} box-border shrink-0 ${formSideTableHostWidthClass} max-w-full`}>
+      )}
+    </div>
+  );
+
+  const formSideTableTableSection = (
+    <div className={`border-l-8 border-l-[#BF9853] rounded-lg ${showFilters ? 'overflow-visible' : 'overflow-hidden'} box-border shrink-0 ${formSideTableHostWidthClass} ${hideDiscountAndActivity ? 'min-w-[978px]' : 'max-w-full'}`}>
         <div
           ref={scrollRef}
-          className={`overflow-x-hidden max-h-[400px] overflow-y-scroll no-scrollbar scrollbar-none select-none ${hideDiscountAndActivity ? 'w-[978px]' : 'w-full'}`}
+          className={`overflow-x-hidden max-h-[400px] overflow-y-scroll no-scrollbar scrollbar-none select-none ${hideDiscountAndActivity ? 'w-[978px] min-w-[978px] shrink-0' : 'w-full'}`}
           onWheel={() => { filterNudgeUsedRef.current = false; }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -1150,27 +1647,26 @@ const SideTable = ({
             </colgroup>
             <thead className={`sticky top-0 bg-white ${showFilters ? 'z-30' : 'z-10'}`}>
               <EdbcTableHeaderRow>
-                <SideTableColumnHeader
+                <EdbcColumnHeader
                   columnId={EDBC_IDS.EDBC2}
-                  label="Date"
+                  label={SIDE_TABLE_FIELDS.date}
                   columnWidthClass={EDBC2_FIRST_COLUMN_WIDTH_CLASS}
-                  sortKey={SIDE_TABLE_SORT_KEYS.Date}
                   sortField={sortField}
                   sortDirection={sortDirection}
                   onSort={handleSort}
                 />
                 <SideTableColumnHeader
                   columnId={EDBC_IDS.EDBC8}
-                  label="Advance"
-                  sortKey={SIDE_TABLE_SORT_KEYS.Advance}
+                  label={SIDE_TABLE_FIELDS.advance}
+                  sortKey={SIDE_TABLE_SORT_KEYS[SIDE_TABLE_FIELDS.advance]}
                   sortField={sortField}
                   sortDirection={sortDirection}
                   onSort={handleSort}
                 />
                 <SideTableColumnHeader
                   columnId={EDBC_IDS.EDBC8}
-                  label="Bill"
-                  sortKey={SIDE_TABLE_SORT_KEYS.Bill}
+                  label={SIDE_TABLE_FIELDS.bill}
+                  sortKey={SIDE_TABLE_SORT_KEYS[SIDE_TABLE_FIELDS.bill]}
                   sortField={sortField}
                   sortDirection={sortDirection}
                   onSort={handleSort}
@@ -1178,8 +1674,8 @@ const SideTable = ({
                 {!hideDiscountAndActivity && (
                   <SideTableColumnHeader
                     columnId={EDBC_IDS.EDBC8}
-                    label="Discount"
-                    sortKey={SIDE_TABLE_SORT_KEYS.Discount}
+                    label={SIDE_TABLE_FIELDS.discount}
+                    sortKey={SIDE_TABLE_SORT_KEYS[SIDE_TABLE_FIELDS.discount]}
                     sortField={sortField}
                     sortDirection={sortDirection}
                     onSort={handleSort}
@@ -1187,8 +1683,8 @@ const SideTable = ({
                 )}
                 <SideTableColumnHeader
                   columnId={EDBC_IDS.EDBC3}
-                  label="Transfer/Refund"
-                  sortKey={SIDE_TABLE_SORT_KEYS['Transfer/Refund']}
+                  label={SIDE_TABLE_FIELDS.transferRefund}
+                  sortKey={SIDE_TABLE_SORT_KEYS[SIDE_TABLE_FIELDS.transferRefund]}
                   sortField={sortField}
                   sortDirection={sortDirection}
                   onSort={handleSort}
@@ -1196,8 +1692,8 @@ const SideTable = ({
                 {hideDiscountAndActivity && (
                   <SideTableColumnHeader
                     columnId={EDBC_IDS.EDBC17}
-                    label="Entry No"
-                    sortKey={SIDE_TABLE_SORT_KEYS['Entry No']}
+                    label={SIDE_TABLE_FIELDS.entryNo}
+                    sortKey={SIDE_TABLE_SORT_KEYS[SIDE_TABLE_FIELDS.entryNo]}
                     sortField={sortField}
                     sortDirection={sortDirection}
                     onSort={handleSort}
@@ -1205,25 +1701,26 @@ const SideTable = ({
                 )}
                 <SideTableColumnHeader
                   columnId={EDBC_IDS.EDBC13}
-                  label="Mode"
-                  sortKey={SIDE_TABLE_SORT_KEYS.Mode}
+                  label={SIDE_TABLE_FIELDS.mode}
+                  sortKey={SIDE_TABLE_SORT_KEYS[SIDE_TABLE_FIELDS.mode]}
                   sortField={sortField}
                   sortDirection={sortDirection}
                   onSort={handleSort}
                 />
                 {hideDiscountAndActivity && (
-                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label="File" />
+                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label={SIDE_TABLE_FIELDS.file} />
                 )}
                 {!hideDiscountAndActivity && (
-                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC19} label="Activity" />
+                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC19} label={SIDE_TABLE_FIELDS.activity} />
                 )}
                 {!hideDiscountAndActivity && (
-                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label="File" />
+                  <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label={SIDE_TABLE_FIELDS.file} />
                 )}
               </EdbcTableHeaderRow>
               {showFilters && (
                 <EdbcTableFilterRow ref={filterRowRef}>
                   <SideTableDateRangeFilter
+                    placeholder={SIDE_TABLE_FIELDS.date}
                     startDate={filterDateStart}
                     endDate={filterDateEnd}
                     isOpen={showDateRangePicker}
@@ -1233,7 +1730,6 @@ const SideTable = ({
                       setFilterDateStart(from);
                       setFilterDateEnd(to);
                     }}
-                    placeholder="Date"
                   />
                   <EdbcTotalAmountFilter columnId={EDBC_IDS.EDBC8} totalAmount={totals.advance} />
                   <EdbcTotalAmountFilter columnId={EDBC_IDS.EDBC8} totalAmount={totals.bill} />
@@ -1243,7 +1739,7 @@ const SideTable = ({
                   {hideDiscountAndActivity ? (
                     <SideTableSelectFilter
                       columnId={EDBC_IDS.EDBC3}
-                      placeholder="Transfer/Refund"
+                      placeholder={SIDE_TABLE_FIELDS.transferRefund}
                       options={transferRefundFilterOptions}
                       value={filterTransferRefund}
                       onChange={setFilterTransferRefund}
@@ -1253,7 +1749,7 @@ const SideTable = ({
                     />
                   ) : (
                     <EdbcProjectNameFilter
-                      placeholder="Transfer/Refund"
+                      placeholder={SIDE_TABLE_FIELDS.transferRefund}
                       options={transferRefundFilterOptions}
                       value={filterTransferRefund}
                       onChange={setFilterTransferRefund}
@@ -1265,7 +1761,7 @@ const SideTable = ({
                   {hideDiscountAndActivity && (
                     <SideTableSelectFilter
                       columnId={EDBC_IDS.EDBC17}
-                      placeholder="Entry No."
+                      placeholder={SIDE_TABLE_FIELDS.entryNo}
                       options={entryNoFilterOptions}
                       value={filterEntryNo}
                       onChange={setFilterEntryNo}
@@ -1277,7 +1773,7 @@ const SideTable = ({
                   {hideDiscountAndActivity ? (
                     <SideTableSelectFilter
                       columnId={EDBC_IDS.EDBC13}
-                      placeholder="Mode"
+                      placeholder={SIDE_TABLE_FIELDS.mode}
                       options={modeFilterOptions}
                       value={filterMode}
                       onChange={setFilterMode}
@@ -1286,7 +1782,7 @@ const SideTable = ({
                   ) : (
                     <EdbcSelectFilter
                       columnId={EDBC_IDS.EDBC13}
-                      placeholder="Mode"
+                      placeholder={SIDE_TABLE_FIELDS.mode}
                       options={modeFilterOptions}
                       value={filterMode}
                       onChange={setFilterMode}
@@ -1333,6 +1829,7 @@ const SideTable = ({
                         expandedCells={expandedCells}
                         onToggleExpanded={toggleExpandedCell}
                         formatValue={(date) => new Date(date).toLocaleDateString('en-GB')}
+                        columnWidthClass={EDBC2_FIRST_COLUMN_WIDTH_CLASS}
                       />
                       <EdbcExpandableBodyCell
                         columnId={EDBC_IDS.EDBC8}
@@ -1426,7 +1923,66 @@ const SideTable = ({
           </table>
         </div>
       </div>
+  );
+
+  const formSideTableScrollInner = (
+    <>
+      <div
+        className={`text-left flex mb-[12px] ${
+          hasActiveColumnFilters ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'
+        } gap-[px] w-full`}
+      >
+        {formSideTableFilterToolbarLeft}
+        <div className="flex min-w-0 items-end justify-end">
+          {formSideTableSearchActions}
+        </div>
       </div>
+      {formSideTableTableSection}
+    </>
+  );
+
+  const formSideTableFormContent = (
+    <>
+      <div className="form-side-table-toolbar-row w-full max-w-[978px] min-w-0 shrink-0 text-left flex flex-wrap mb-[12px] justify-between items-start gap-y-2 gap-x-2">
+        <div className="form-side-table-filter-left flex min-w-0 flex-[1_1_200px] max-w-full flex-col gap-1">
+          {projectAdvance != null && (
+            <h2
+              ref={advanceHeaderRef}
+              className="form-side-table-advance-header text-base font-semibold leading-none"
+            >
+              Advance
+            </h2>
+          )}
+          {formSideTableFilterToolbarLeft}
+        </div>
+        <div className="form-side-table-search-column flex flex-col items-end gap-1 ml-auto shrink-0">
+          {projectAdvance != null && (
+            <span className="form-side-table-advance-amount text-base font-bold text-[#E4572E] leading-none">
+              ₹{projectAdvance || '0'}
+            </span>
+          )}
+          <div className="form-side-table-search-row flex shrink-0 items-center gap-[6px]">
+            {formSideTableSearchActions}
+          </div>
+        </div>
+      </div>
+      <div className="form-side-table-h-scroll min-w-0 w-full overflow-x-auto no-scrollbar scrollbar-none shrink-0">
+        <div className="w-[978px] min-w-[978px] shrink-0 flex flex-col">
+          {formSideTableTableSection}
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className={`side-table-root ${hideDiscountAndActivity ? 'side-table-form-path w-full min-w-0 max-w-full' : 'w-full min-w-0 max-w-full'} flex flex-col`}>
+      {hideDiscountAndActivity ? (
+        formSideTableFormContent
+      ) : (
+        <div className={`${formSideTableHostWidthClass} max-w-full shrink-0 flex flex-col`}>
+          {formSideTableScrollInner}
+        </div>
+      )}
     </div>
   );
 };

@@ -383,16 +383,9 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
                     >
                       {/* Left: Star Icon and Option Text */}
                       <div className="flex items-center gap-[12px] flex-1 min-w-0">
-                        <span
-                          role="button"
-                          tabIndex={0}
+                        <button
                           onClick={(e) => handleToggleFavorite(e, option)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              handleToggleFavorite(e, option);
-                            }
-                          }}
-                          className="w-6 h-6 flex items-center justify-center flex-shrink-0 cursor-pointer"
+                          className="w-6 h-6 flex items-center justify-center flex-shrink-0"
                         >
                           {isFavorite ? (
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -403,7 +396,7 @@ const SelectVendorModal = ({ isOpen, onClose, onSelect, selectedValue, options =
                               <path d="M10 2L12.5 7.5L18.5 8.5L14 12.5L15 18.5L10 15.5L5 18.5L6 12.5L1.5 8.5L7.5 7.5L10 2Z" stroke="#9E9E9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           )}
-                        </span>
+                        </button>
                         <div className="flex flex-col flex-1 min-w-0">
                           {(() => {
                             const { firstLine, secondLine } = splitOptionText(option);

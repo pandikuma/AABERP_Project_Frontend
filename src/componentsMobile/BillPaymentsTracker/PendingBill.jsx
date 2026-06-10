@@ -367,19 +367,6 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		return vendorMap[vendorId] || vendorMap[String(vendorId)] || '-';
 	};
 
-	const rowMatchesSelectedHeaderDate = (row) => {
-		if (!selectedDate) return true;
-		const sel = String(selectedDate).trim();
-		const arrivalRaw = row?.bill_arrival_date ?? row?.billArrivalDate;
-		const tsRaw = row?.timestamp ?? row?.created_at ?? row?.createdAt;
-		const arrivalDate = parseTrackerDateValue(arrivalRaw);
-		const tsDate = parseTrackerDateValue(tsRaw);
-		const candidates = [];
-		if (arrivalDate) candidates.push(formatDdMmYyyyFromDate(arrivalDate));
-		if (tsDate) candidates.push(formatDdMmYyyyFromDate(tsDate));
-		return candidates.some((d) => d && d === sel);
-	};
-
 	const formatIndianCurrency = (amount) => {
 		const n = Number(amount || 0);
 		if (!Number.isFinite(n)) return '₹0';
@@ -1618,6 +1605,30 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			const discountToSend = !discountSubmitted ? (Number(discount) || 0) : 0;
 			const amountNum = parseFloat(paymentForm.amount) || 0;
 			const isCarryForwardMode = paymentForm.mode === 'Carry Forward';
+			const vendorId = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
+			const isoDate = toYyyyMmDd(paymentForm.date);
+			// Match desktop PendingBill.js obligation / excess / carry-forward calculations
+			const existingRows = Array.isArray(bankDetails) ? bankDetails : [];
+			const currentReceivedAmount = existingRows.reduce(
+				(sum, p) => sum + (Number(p?.amount || 0) || 0) + (Number(p?.carry_forward_amount || 0) || 0),
+				0
+			);
+			const discountFromRows = existingRows.reduce((sum, p) => sum + (Number(p?.discount_amount || 0) || 0), 0);
+			const billDiscount = discountFromRows > 0 ? discountFromRows : discountToSend;
+			const totalRequiredToSettle = Math.max(0, actualAmount - billDiscount);
+			const obligationBeforeSession = Math.max(0, totalRequiredToSettle - currentReceivedAmount);
+			const totalPaymentAmount = isCarryForwardMode ? 0 : amountNum;
+			const totalCfRequested = isCarryForwardMode
+				? amountNum
+				: (useCarryForward
+					? Math.min(Number(carryForwardAmount || 0), Math.max(0, obligationBeforeSession - totalPaymentAmount))
+					: 0);
+			const carryForwardToUse = Math.min(
+				totalCfRequested,
+				Math.max(0, obligationBeforeSession - totalPaymentAmount)
+			);
+			const totalContributionThisSession = totalPaymentAmount + totalCfRequested;
+			const excessAmount = Math.max(0, totalContributionThisSession - obligationBeforeSession);
 			const paymentData = {
 				vendor_payments_tracker_id: trackerId,
 				date: toYyyyMmDd(paymentForm.date),
@@ -1656,30 +1667,6 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			if (!res.ok) throw new Error(`Failed to save payment details: ${res.statusText}`);
 			const savedPaymentDetail = await res.json().catch(() => ({}));
 			// Also send to respective APIs based on mode (same as desktop PendingBill.js)
-			const vendorId = selectedVerifyBill?.vendor_id ?? selectedVerifyBill?.vendorId ?? null;
-			const isoDate = toYyyyMmDd(paymentForm.date);
-			// For Carry Forward payments: also write a vendor carry-forward "bill_amount" row to consume balance.
-			if (isCarryForwardMode && vendorId != null && amountNum > 0) {
-				const cfConsumePayload = {
-					date: isoDate,
-					created_at: new Date().toISOString(),
-					vendor_id: vendorId,
-					amount: 0,
-					bill_amount: amountNum,
-					refund_amount: 0,
-					vendor_payment_tracker_id: trackerId,
-					branch_id: activeBranchId
-				};
-				try {
-					await fetchWithBranch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/save", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify(cfConsumePayload)
-					});
-				} catch {
-					// ignore; main payment is already saved
-				}
-			}
 			if (paymentForm.mode !== 'Cash' && paymentForm.mode !== 'Carry Forward') {
 				const weeklyPaymentBillPayload = {
 					date: isoDate,
@@ -1748,6 +1735,50 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 					});
 				} catch {
 					// ignore (desktop logs only)
+				}
+			}
+			// Bill Payment carry forward: consume only the amount applied toward this bill
+			if (carryForwardToUse > 0 && vendorId != null) {
+				try {
+					const carryForwardPayload = {
+						type: "Bill Payment",
+						date: isoDate,
+						vendor_id: vendorId,
+						payment_mode: "Carry Forward",
+						amount: 0,
+						bill_amount: carryForwardToUse,
+						refund_amount: 0,
+						branch_id: activeBranchId
+					};
+					await fetchWithBranch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/save", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(carryForwardPayload)
+					});
+				} catch {
+					// ignore; main payment is already saved
+				}
+			}
+			// Handle excess amount: if payment total exceeds actual amount needed
+			if (excessAmount > 0 && vendorId != null) {
+				try {
+					const excessAmountPayload = {
+						type: "Extra amount",
+						date: isoDate,
+						vendor_id: vendorId,
+						payment_mode: "",
+						amount: excessAmount,
+						bill_amount: 0,
+						refund_amount: 0,
+						branch_id: activeBranchId
+					};
+					await fetchWithBranch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/save", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(excessAmountPayload)
+					});
+				} catch {
+					// ignore; main payment is already saved
 				}
 			}
 			// Refresh carry forward availability (desktop fetchCarryForwardData)
@@ -2228,15 +2259,6 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 	// Backend already returns only the rows required for PendingBill.
 	const visibleRows = useMemo(() => (Array.isArray(apiData) ? apiData : []), [apiData]);
 
-	const cardVendorFilterOptions = useMemo(() => {
-		const names = new Set();
-		(visibleRows || []).forEach((row) => {
-			const name = getVendorNameById(row?.vendor_id ?? row?.vendorId);
-			if (name && String(name).trim()) names.add(String(name).trim());
-		});
-		return Array.from(names).sort((a, b) => a.localeCompare(b));
-	}, [visibleRows, vendorMap]);
-
 	const filtered = useMemo(() => {
 		const base = Array.isArray(visibleRows) ? [...visibleRows] : [];
 		// Match desktop: latest tracker first (higher id on top)
@@ -2245,7 +2267,8 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 			const bId = Number(b?.id ?? b?.bill_id ?? b?.billId ?? 0) || 0;
 			return bId - aId;
 		});
-		const q = String(query || '').trim().toLowerCase();
+		if (!query) return base;
+		const q = query.toLowerCase();
 		const toDateOnly = (input) => {
 			const d = parseTrackerDateValue(input);
 			if (!d) return '';
@@ -2261,9 +2284,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 		return base.filter((row) => {
 			const id = row?.vendor_id ?? row?.vendorId;
 			const name = getVendorNameById(id);
-			if (selectedDate && !rowMatchesSelectedHeaderDate(row)) return false;
-			if (selectedVendor && String(name).trim() !== String(selectedVendor).trim()) return false;
-			if (q && !(name || '').toLowerCase().includes(q)) return false;
+			if (!(name || '').toLowerCase().includes(q)) return false;
 
 			if (from || to) {
 				const dateOnly = toDateOnly(row?.bill_arrival_date ?? row?.billArrivalDate ?? row?.created_at ?? row?.createdAt ?? row?.timestamp);
@@ -2279,7 +2300,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 			return true;
 		});
-	}, [visibleRows, query, vendorMap, filterFromDate, filterToDate, filterPaymentStatus, paymentStatuses, selectedVendor, selectedDate]);
+	}, [visibleRows, query, vendorMap, filterFromDate, filterToDate, filterPaymentStatus, paymentStatuses]);
 
 	const fullScreenHeaderSubTitle = useMemo(() => {
 		const b = selectedVerifyBill;
@@ -3870,39 +3891,12 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 			{/* Date / Vendor row */}
 			<div className="flex items-center justify-between border-b border-[#E0E0E0] pt-[8px] pb-[8px]">
-				<div className="flex items-center gap-2">
-					<p
-						className="text-[12px] font-semibold text-[#111827] cursor-pointer"
-						onClick={() => setShowDatePicker(true)}
-					>
-						{selectedDate || "Date"}
-					</p>
-					{selectedDate && (
-						<span
-							className="cursor-pointer flex items-center"
-							onClick={(e) => {
-								e.stopPropagation();
-								setSelectedDate("");
-							}}
-						>
-							<svg
-								width="12"
-								height="12"
-								viewBox="0 0 12 12"
-								fill="none"
-								xmlns="http://www.w3.org/2000/svg"
-							>
-								<path
-									d="M9 3L3 9M3 3L9 9"
-									stroke="#848484"
-									strokeWidth="1.5"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-								/>
-							</svg>
-						</span>
-					)}
-				</div>
+				<p
+					className="text-[12px] font-semibold text-[#111827] cursor-pointer"
+					onClick={() => setShowDatePicker(true)}
+				>
+					{selectedDate || "Date"}
+				</p>
 				<div className="flex items-center gap-2">
 					<p
 						className="text-[12px] font-semibold text-[#111827] cursor-pointer"
@@ -5220,17 +5214,17 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 						{/* Vendor List Card */}
 						<div className=" rounded-[12px] shadow-sm overflow-y-auto no-scrollbar scrollbar-none">
-							{cardVendorFilterOptions.length > 0 ? (
-								cardVendorFilterOptions
-									.filter((name) =>
-										name.toLowerCase().includes(search.toLowerCase())
+							{vendorList.length > 0 ? (
+								vendorList
+									.filter(v =>
+										v.name.toLowerCase().includes(search.toLowerCase())
 									)
-									.map((name) => (
+									.map((vendor) => (
 										<div
-											key={name}
+											key={vendor.id}
 											className="flex items-center gap-3 p-3 rounded-[10px] cursor-pointer hover:bg-gray-100"
 											onClick={() => {
-												setSelectedVendor(name);
+												setSelectedVendor(vendor.name);
 												setShowVendorPopup(false);
 											}}
 										>
@@ -5239,7 +5233,7 @@ const PendingBillMobile = ({ username, userRoles = [] }) => {
 
 											{/* Vendor Name */}
 											<span className="text-[14px] text-gray-800">
-												{name}
+												{vendor.name}
 											</span>
 										</div>
 									))

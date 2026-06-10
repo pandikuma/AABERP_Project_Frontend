@@ -21,12 +21,27 @@ const MAX_SELECT_OPTIONS = 500;
 
 const AdvanceForm = ({
   username = '',
+  user = null,
   userRoles = [],
   paymentModeOptions = [],
   initialFromHistory = null,
   onConsumedInitialFromHistory,
   isAdvanceTabActive = true,
 }) => {
+  const resolveEnteredBy = () => {
+    const propUsername = typeof username === 'string' ? username.trim() : '';
+    if (propUsername) return propUsername;
+    const fromUser = user?.username || user?.name || user?.userName || '';
+    if (fromUser && String(fromUser).trim()) return String(fromUser).trim();
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || '{}');
+      return stored?.name || stored?.username || stored?.userName || '';
+    } catch {
+      return '';
+    }
+  };
+  const enteredBy = resolveEnteredBy();
+
   // Resolve module permissions — defer until Advance tab is active (avoid work when tab is hidden).
   const [modulePermissions, setModulePermissions] = useState([]);
   const canCreate = modulePermissions.includes('Create');
@@ -594,7 +609,7 @@ const AdvanceForm = ({
   const saveAdvancePortal = async (payload) => {
     const bodyPayload = {
       ...(payload && typeof payload === 'object' ? payload : {}),
-      entered_by: username,
+      entered_by: enteredBy,
       source: 'Advance Portal',
     };
     const response = await fetch(withBranchUrl('https://backendaab.in/demoAabuildersDash/api/advance_portal/save'), {
@@ -638,7 +653,7 @@ const AdvanceForm = ({
       billCopyUrl: fileUrl || '',
       source: 'Advance Portal',
       branchId: activeBranchId,
-      enteredBy: username,
+      enteredBy,
     };
     if (eno != null) {
       payload.eno = eno;
@@ -725,6 +740,8 @@ const AdvanceForm = ({
         description: description,
         file_url: fileUrl,
         branch_id: activeBranchId,
+        entered_by: enteredBy,
+        source: 'Advance Portal',
         ...overrides
       });
       if (selectedType === 'Transfer') {
@@ -748,7 +765,8 @@ const AdvanceForm = ({
             description: "Transfer from Advance Portal",
             file_url: "",
             branch_id: activeBranchId,
-            entered_by: username,
+            entered_by: enteredBy,
+            source: 'Advance Portal',
           };
           const loanResponse = await fetch(withBranchUrl("https://backendaab.in/demoAabuildersDash/api/loans/save"), {
             method: "POST",
@@ -775,7 +793,7 @@ const AdvanceForm = ({
             bill_amount: 0,
             refund_amount: 0,
             branch_id: activeBranchId,
-            entered_by: username,
+            entered_by: enteredBy,
             source: "Advance Portal",
           };
           const vendorCarryForwardResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/vendor_carry_forward/save", {
@@ -1018,7 +1036,7 @@ const AdvanceForm = ({
           {
             bill_payment_mode: paymentModalData.paymentMode,
             amount: parseFloat(paymentModalData.amount) || 0,
-            entered_by: username,
+            entered_by: enteredBy,
           }
         );
       }
@@ -1046,7 +1064,7 @@ const AdvanceForm = ({
         transaction_number: paymentModalData.transactionNumber || null,
         account_number: paymentModalData.accountNumber || null,
         branch_id: activeBranchId,
-        entered_by: username,
+        entered_by: enteredBy,
       };
       const weeklyBillSaveUrl = withBranchUrl('https://backendaab.in/demoAabuildersDash/api/weekly-payment-bills/save');
       const weeklyResponse = await fetch(weeklyBillSaveUrl, {

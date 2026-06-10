@@ -3,8 +3,25 @@ import {
   bankRegisterLogSaveUrlMatchingRequest,
   isPaymentModeRequiringBankRegisterLog,
 } from './bankRegisterLogBeforeWeeklyBill';
+import { fetchWeeklyPaymentBillsByExpensesEntryId } from './expensesEntryWeeklyPaymentBill';
 
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
+
+/** Parse /api/files/upload JSON — supports urls[], url, and legacy shapes (same as AdvancePortal.js). */
+export const resolveFilesUploadResponseUrl = (uploadResult) => {
+  if (uploadResult == null) return '';
+  if (typeof uploadResult === 'string') return uploadResult.trim();
+  if (typeof uploadResult !== 'object') return '';
+  const fromUrls = Array.isArray(uploadResult.urls) ? uploadResult.urls[0] : null;
+  return (
+    fromUrls ??
+    uploadResult.url ??
+    uploadResult.data?.url ??
+    uploadResult.fileUrl ??
+    uploadResult.downloadUrl ??
+    ''
+  );
+};
 
 const normalizeWeeklyBillNullableId = (value) => {
   if (value == null || value === '') return null;
@@ -81,12 +98,29 @@ export const fetchWeeklyPaymentBillsByAdvancePortalId = async (advancePortalId) 
   });
 };
 
+const pickAdvanceWeeklyBillModalOrExisting = (modalPaymentData, bill, modalKey, snakeKey, camelKey) => {
+  const fromModal = pickAdvanceModalPaymentField(modalPaymentData, modalKey);
+  if (fromModal != null) return fromModal;
+  return pickExistingBillField(bill, snakeKey, camelKey, null);
+};
+
 export const buildAdvancePortalWeeklyBillUpdatePayload = (
   advancePayload,
   existingBill,
-  { editedBy = '', advancePortalId } = {}
+  { editedBy = '', advancePortalId, modalPaymentData = null, expensesEntryId = null } = {}
 ) => {
   const bill = existingBill || {};
+  const chequeDateRaw = pickAdvanceWeeklyBillModalOrExisting(
+    modalPaymentData,
+    bill,
+    'chequeDate',
+    'cheque_date',
+    'chequeDate'
+  );
+  const chequeDate =
+    chequeDateRaw != null
+      ? normalizeWeeklyBillApiDate(chequeDateRaw) || String(chequeDateRaw).trim()
+      : null;
   const resolvedAdvancePortalId =
     normalizeWeeklyBillNullableId(advancePortalId) ??
     normalizeWeeklyBillNullableId(
@@ -135,17 +169,35 @@ export const buildAdvancePortalWeeklyBillUpdatePayload = (
       bill.rent_management_id ?? bill.rentManagementId
     ),
     loan_portal_id: normalizeWeeklyBillNullableId(bill.loan_portal_id ?? bill.loanPortalId),
-    expenses_entry_id: normalizeWeeklyBillNullableId(
-      bill.expenses_entry_id ?? bill.expensesEntryId
-    ),
+    expenses_entry_id:
+      normalizeWeeklyBillNullableId(expensesEntryId) ??
+      normalizeWeeklyBillNullableId(bill.expenses_entry_id ?? bill.expensesEntryId),
     claim_payment_id: normalizeWeeklyBillNullableId(
       bill.claim_payment_id ?? bill.claimPaymentId
     ),
     purpose_id: normalizeWeeklyBillNullableId(bill.purpose_id ?? bill.purposeId),
-    cheque_number: bill.cheque_number ?? bill.chequeNumber ?? null,
-    cheque_date: bill.cheque_date ?? bill.chequeDate ?? null,
-    transaction_number: bill.transaction_number ?? bill.transactionNumber ?? null,
-    account_number: bill.account_number ?? bill.accountNumber ?? null,
+    cheque_number: pickAdvanceWeeklyBillModalOrExisting(
+      modalPaymentData,
+      bill,
+      'chequeNo',
+      'cheque_number',
+      'chequeNumber'
+    ),
+    cheque_date: chequeDate,
+    transaction_number: pickAdvanceWeeklyBillModalOrExisting(
+      modalPaymentData,
+      bill,
+      'transactionNumber',
+      'transaction_number',
+      'transactionNumber'
+    ),
+    account_number: pickAdvanceWeeklyBillModalOrExisting(
+      modalPaymentData,
+      bill,
+      'accountNumber',
+      'account_number',
+      'accountNumber'
+    ),
     vendor_payment_tracker_id:
       bill.vendor_payment_tracker_id ?? bill.vendorPaymentTrackerId ?? null,
     branch_id: normalizeWeeklyBillNullableId(
@@ -231,7 +283,14 @@ export const saveWeeklyPaymentBill = async (payload, { branchId = null } = {}) =
     const errText = await response.text();
     throw new Error(`Weekly payment bill save failed: ${errText}`);
   }
-  return response.json();
+  const result = await response.json();
+  try {
+    const { notifyWeeklyPaymentBillsChanged } = await import('./orbitProjectDataSync');
+    notifyWeeklyPaymentBillsChanged();
+  } catch {
+    window.dispatchEvent(new Event('bankRegisterDataSync'));
+  }
+  return result;
 };
 
 export const updateWeeklyPaymentBillById = async (billId, payload) => {
@@ -245,13 +304,37 @@ export const updateWeeklyPaymentBillById = async (billId, payload) => {
     const errText = await response.text();
     throw new Error(`Weekly payment bill update failed: ${errText}`);
   }
-  return response.json();
+  const result = await response.json();
+  try {
+    const { notifyWeeklyPaymentBillsChanged } = await import('./orbitProjectDataSync');
+    notifyWeeklyPaymentBillsChanged();
+  } catch {
+    window.dispatchEvent(new Event('bankRegisterDataSync'));
+  }
+  return result;
+};
+
+const updateAdvancePortalWeeklyBills = async (
+  bills,
+  advancePayload,
+  { editedBy = '', advancePortalId, modalPaymentData = null, expensesEntryId = null } = {}
+) => {
+  for (const bill of bills) {
+    if (bill?.id == null) continue;
+    const payload = buildAdvancePortalWeeklyBillUpdatePayload(advancePayload, bill, {
+      editedBy,
+      advancePortalId,
+      modalPaymentData,
+      expensesEntryId,
+    });
+    await updateWeeklyPaymentBillById(bill.id, payload);
+  }
 };
 
 export const syncWeeklyPaymentBillsForAdvancePortal = async (
   advancePortalId,
   advancePayload,
-  { editedBy = '', branchId = null, modalPaymentData = null } = {}
+  { editedBy = '', branchId = null, modalPaymentData = null, expensesEntryId = null } = {}
 ) => {
   if (!advancePortalId) return;
 
@@ -262,6 +345,21 @@ export const syncWeeklyPaymentBillsForAdvancePortal = async (
     if (matchingBills.length > 0) {
       await deleteRelatedWeeklyPaymentBillsForAdvancePortal(advancePortalId);
     }
+    if (expensesEntryId) {
+      const expenseBills = await fetchWeeklyPaymentBillsByExpensesEntryId(expensesEntryId);
+      const advanceBillIds = new Set(matchingBills.map((b) => b.id));
+      for (const bill of expenseBills) {
+        if (bill?.id == null || advanceBillIds.has(bill.id)) continue;
+        await fetch(
+          `${TOOLS_API_BASE}/api/weekly-payment-bills/delete/${bill.id}`,
+          {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      }
+    }
     return;
   }
 
@@ -271,15 +369,36 @@ export const syncWeeklyPaymentBillsForAdvancePortal = async (
     return;
   }
 
+  let updatedAnyBill = false;
+
   if (matchingBills.length > 0) {
-    for (const bill of matchingBills) {
-      if (bill?.id == null) continue;
-      const payload = buildAdvancePortalWeeklyBillUpdatePayload(advancePayload, bill, {
+    await updateAdvancePortalWeeklyBills(matchingBills, advancePayload, {
+      editedBy,
+      advancePortalId,
+      modalPaymentData,
+      expensesEntryId,
+    });
+    updatedAnyBill = true;
+  }
+
+  if (expensesEntryId) {
+    const expenseBills = await fetchWeeklyPaymentBillsByExpensesEntryId(expensesEntryId);
+    const updatedBillIds = new Set(matchingBills.map((b) => b.id));
+    const expenseOnlyBills = expenseBills.filter(
+      (bill) => bill?.id != null && !updatedBillIds.has(bill.id)
+    );
+    if (expenseOnlyBills.length > 0) {
+      await updateAdvancePortalWeeklyBills(expenseOnlyBills, advancePayload, {
         editedBy,
         advancePortalId,
+        modalPaymentData,
+        expensesEntryId,
       });
-      await updateWeeklyPaymentBillById(bill.id, payload);
+      updatedAnyBill = true;
     }
+  }
+
+  if (updatedAnyBill) {
     return;
   }
 
@@ -363,6 +482,7 @@ export const parseExpensesFormSaveResponseId = (responseText) => {
       if (typeof obj !== 'object') return null;
       return pickPositiveNumericId(
         obj.id ??
+          obj.Id ??
           obj.expensesEntryId ??
           obj.expenses_entry_id ??
           obj.expenseId ??
@@ -732,4 +852,119 @@ export const formatWeeklyBillDeleteMessage = (deletedCount, failedCount) => {
 export const formatAdvancePortalClearOnExpenseDeleteMessage = (clearedAdvanceIds) => {
   if (!clearedAdvanceIds?.length) return '';
   return ' Related advance portal record(s) were also cleared.';
+};
+
+export const resolveLoanAdvancePortalId = (record) => {
+  const id = record?.advance_portal_id ?? record?.advancePortalId;
+  if (id == null || id === '' || id === 0) return null;
+  return id;
+};
+
+export const fetchAdvancePortalRecordById = async (advancePortalId) => {
+  if (!advancePortalId) return null;
+  const response = await fetch(`${TOOLS_API_BASE}/api/advance_portal/get/${advancePortalId}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) return null;
+  return response.json();
+};
+
+/** Map loan edit payload to advance portal edit payload (Loan Portal → Advance Portal transfer link). */
+export const buildAdvancePortalUpdatePayloadFromLoanEdit = (loanPayload, existingAdvance) => {
+  const existing = existingAdvance || {};
+  const loanType = loanPayload?.type || existing.type || 'Transfer';
+  const transferProjectId =
+    loanPayload?.transfer_Project_id ??
+    loanPayload?.transferProjectId ??
+    0;
+
+  const base = {
+    entry_no: existing.entry_no ?? existing.entryNo ?? loanPayload?.entry_no ?? 0,
+    week_no: existing.week_no ?? existing.weekNo ?? '',
+    date: loanPayload?.date ?? existing.date,
+    file_url: existing.file_url ?? existing.fileUrl ?? '',
+    description: existing.description ?? 'Transfer from Loan Portal',
+    branch_id: existing.branch_id ?? existing.branchId ?? loanPayload?.branch_id ?? null,
+    source: existing.source ?? 'Loan Portal',
+    loan_portal_id: existing.loan_portal_id ?? existing.loanPortalId ?? null,
+    expenses_entry_id: existing.expenses_entry_id ?? existing.expensesEntryId ?? null,
+  };
+
+  if (loanType === 'Transfer') {
+    const loanAmount = parseFloat(loanPayload?.amount) || 0;
+    return {
+      ...base,
+      type: 'Transfer',
+      vendor_id: loanPayload?.vendor_id || 0,
+      contractor_id: loanPayload?.contractor_id || 0,
+      project_id:
+        transferProjectId ||
+        loanPayload?.project_id ||
+        existing.project_id ||
+        existing.projectId ||
+        0,
+      transfer_site_id: existing.transfer_site_id ?? existing.transferSiteId ?? 11,
+      payment_mode: '',
+      amount: Math.abs(loanAmount),
+      bill_amount: 0,
+      refund_amount: 0,
+    };
+  }
+
+  return {
+    ...base,
+    type: existing.type || loanType,
+    vendor_id: loanPayload?.vendor_id || 0,
+    contractor_id: loanPayload?.contractor_id || 0,
+    project_id: loanPayload?.project_id || 0,
+    transfer_site_id: existing.transfer_site_id ?? existing.transferSiteId ?? '',
+    payment_mode: loanPayload?.loan_payment_mode || existing.payment_mode || existing.paymentMode || '',
+    amount: parseFloat(loanPayload?.amount) || 0,
+    bill_amount: 0,
+    refund_amount: 0,
+  };
+};
+
+/** PUT advance_portal/edit when loan row is linked via advance_portal_id */
+export const syncAdvancePortalFromLoanEdit = async (
+  advancePortalId,
+  loanPayload,
+  { editedBy = '', existingAdvanceRecord = null, siteOptions = [], selectedOption = null, branchId = null } = {}
+) => {
+  if (!advancePortalId) return;
+
+  const existingAdvance =
+    existingAdvanceRecord ?? (await fetchAdvancePortalRecordById(advancePortalId));
+  if (!existingAdvance) {
+    console.warn(`Linked advance portal entry ${advancePortalId} not found; skipping advance sync`);
+    return;
+  }
+
+  const advancePayload = buildAdvancePortalUpdatePayloadFromLoanEdit(loanPayload, existingAdvance);
+
+  const response = await fetch(
+    `${TOOLS_API_BASE}/api/advance_portal/edit/${advancePortalId}?editedBy=${encodeURIComponent(editedBy || '')}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(advancePayload),
+    }
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Failed to update linked advance portal entry: ${errText}`);
+  }
+
+  const expensesEntryId = resolveAdvancePortalExpensesEntryId(existingAdvance);
+  if (expensesEntryId) {
+    await syncExpensesEntryFromAdvancePortalEdit(expensesEntryId, advancePayload, {
+      editedBy,
+      siteOptions,
+      selectedOption,
+      branchId: branchId ?? advancePayload.branch_id,
+    });
+  }
 };
