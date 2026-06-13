@@ -62,6 +62,52 @@ const resolveAdvanceWeeklyBillAmount = (advancePayload) => {
 export const isAdvanceOnlinePaymentModeForModal = (paymentMode) =>
   isPaymentModeRequiringBankRegisterLog(paymentMode);
 
+export const resolveWeeklyBillAccountNumberForModal = (rawAccountNumber, accountDetails = []) => {
+  const normalizedRaw = String(rawAccountNumber ?? '').trim();
+  if (!normalizedRaw) return '';
+
+  const accounts = Array.isArray(accountDetails) ? accountDetails : [];
+  const match = accounts.find((acc) => {
+    const acct = String(acc?.account_number ?? acc?.accountNumber ?? '').trim();
+    if (!acct) return false;
+    const acctPrimary = acct.split(/\s+/)[0];
+    const rawPrimary = normalizedRaw.split(/\s+/)[0];
+    return (
+      acct === normalizedRaw ||
+      acctPrimary === rawPrimary ||
+      acct.startsWith(rawPrimary) ||
+      normalizedRaw.startsWith(acctPrimary)
+    );
+  });
+
+  if (match) {
+    return String(match.account_number ?? match.accountNumber ?? '').trim();
+  }
+  return normalizedRaw;
+};
+
+export const buildEditPaymentModalDataFromWeeklyBill = (existingBill, accountDetails = []) => ({
+  chequeNo: existingBill?.cheque_number ?? existingBill?.chequeNumber ?? '',
+  chequeDate: existingBill?.cheque_date ?? existingBill?.chequeDate ?? '',
+  transactionNumber:
+    existingBill?.transaction_number ?? existingBill?.transactionNumber ?? '',
+  accountNumber: resolveWeeklyBillAccountNumberForModal(
+    existingBill?.account_number ?? existingBill?.accountNumber ?? '',
+    accountDetails
+  ),
+});
+
+export const fetchAdvanceEditPaymentModalData = async (advancePortalId, accountDetails = []) => {
+  let existingBill = null;
+  try {
+    const bills = await fetchWeeklyPaymentBillsByAdvancePortalId(advancePortalId);
+    existingBill = Array.isArray(bills) && bills.length > 0 ? bills[0] : null;
+  } catch (e) {
+    console.warn('Could not fetch existing weekly bill to prefill payment details', e);
+  }
+  return buildEditPaymentModalDataFromWeeklyBill(existingBill, accountDetails);
+};
+
 /** Weekly-payment-bills are only for online modes (not Cash/Direct/Transfer). */
 const shouldSyncAdvanceToWeeklyBill = (advancePayload) => {
   if (advancePayload?.type === 'Transfer') return false;
@@ -858,6 +904,55 @@ export const resolveLoanAdvancePortalId = (record) => {
   const id = record?.advance_portal_id ?? record?.advancePortalId;
   if (id == null || id === '' || id === 0) return null;
   return id;
+};
+
+/** Clear advance portal row(s) linked from loan delete — mirrors Advance Database delete side effects. */
+export const clearLinkedAdvancePortalForLoanDelete = async (loanRecords, editedBy) => {
+  const records = Array.isArray(loanRecords) ? loanRecords : [];
+  const advanceIdsToClear = [
+    ...new Set(
+      records.map((record) => resolveLoanAdvancePortalId(record)).filter((id) => id != null)
+    ),
+  ];
+  if (!advanceIdsToClear.length) {
+    return { clearedAdvanceIds: [] };
+  }
+
+  const allAdvanceData = await fetchAllAdvancePortalRecords();
+  const processedEntryNos = new Set();
+  const clearedAdvanceIds = [];
+
+  for (const advId of advanceIdsToClear) {
+    const advRecord = (allAdvanceData || []).find((record) => {
+      const recordId = getAdvancePortalRecordId(record) ?? record?.id;
+      return recordId != null && String(recordId) === String(advId);
+    });
+    if (!advRecord) continue;
+
+    const advEntryNo = getAdvancePortalEntryNo(advRecord) ?? advId;
+    const entryKey = String(advEntryNo);
+    if (processedEntryNos.has(entryKey)) continue;
+    processedEntryNos.add(entryKey);
+
+    try {
+      await clearAdvancePortalRecordsOnDelete(advId, advRecord, allAdvanceData, editedBy);
+      clearedAdvanceIds.push(advId);
+    } catch (clearErr) {
+      console.error(`Failed to clear linked advance portal ${advId}:`, clearErr);
+      continue;
+    }
+
+    const expensesEntryId = resolveAdvancePortalExpensesEntryId(advRecord);
+    if (expensesEntryId) {
+      try {
+        await deleteLinkedExpenseEntryOnAdvancePortalDelete(expensesEntryId, editedBy);
+      } catch (expenseErr) {
+        console.error(`Failed to delete linked expense for advance portal ${advId}:`, expenseErr);
+      }
+    }
+  }
+
+  return { clearedAdvanceIds };
 };
 
 export const fetchAdvancePortalRecordById = async (advancePortalId) => {

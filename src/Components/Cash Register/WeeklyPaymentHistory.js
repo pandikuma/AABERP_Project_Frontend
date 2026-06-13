@@ -6,9 +6,11 @@ import history from '../Images/History.svg';
 import Change from '../Images/dropdownchange.png';
 import Select from 'react-select';
 import NotesStart from '../Images/notes _start.png';
-import NotesEnd from '../Images/notes_end.png';
-import fileUpload from '../Images/file_upload.png';
-import file from '../Images/file.png';
+import NotesEnd from '../Images/TextView.svg';
+import fileUpload from '../Images/FileUpload.svg';
+import file from '../Images/FileView.svg';
+import AddExtra from '../Images/AddExtra.svg';
+import FileRemover from '../Images/FileRemover.svg';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -32,6 +34,7 @@ import {
     EDBC_FILTER_CONTROL_BOX_STYLE,
     EDBC_FILTER_CONTROL_HEIGHT_PX,
     EDBC_IDS,
+    EDBC2_FIRST_COLUMN_WIDTH_CLASS,
     EDBC_TABLE_EDGE_TABLE_CLASS,
     EdbcColumnHeader,
     EdbcDateBodyCell,
@@ -326,6 +329,8 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
     });
     const scrollRef = useRef(null);
     const paymentsScrollRef = useRef(null);
+    const expensesFilterChipsRef = useRef(null);
+    const paymentsFilterChipsRef = useRef(null);
     const isDragging = useRef(false);
     const activeScrollRef = useRef(null); // Track which scroll container is currently active
     const start = useRef({ x: 0, y: 0 });
@@ -3581,7 +3586,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
         <body className="bg-[#FAF6ED] overflow-hidden">
             <div className="flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED] px-[18px] pt-[18px] pb-[18px]">
                 <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]">
-                    <div className="w-full pt-[18px] px-[18px] pb-[18px] rounded-[6px] bg-white mb-[18px] shrink-0">
+                    <div className="w-full rounded-[6px] bg-white mb-[18px] shrink-0">
                         <div className="flex flex-wrap items-center justify-between text-left">
                             {(() => {
                                 const entryCheckLikeSelectStyles = {
@@ -3688,7 +3693,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                 }));
                                 const yearSelectOptions = years.map((y) => ({ value: String(y), label: String(y) }));
                                 return (
-                                    <div className="flex flex-wrap items-center space-x-3 text-left">
+                                    <div className="flex flex-wrap items-center space-x-3 text-left p-[18px]">
                                         <div className="min-w-0">
                                             <h1 className='font-semibold mb-[8px]'>Select Week</h1>
                                             <Select
@@ -3721,11 +3726,25 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                 );
                             })()}
                             {!isExpensesEntryUploadOnly && (
-                                <div className="flex items-center space-x-3 flex-wrap justify-end">
+                                <div className="flex items-center space-x-3 flex-wrap justify-end pr-[18px]">
                                     {!selectedWeek && (
                                         <span className="text-xs text-gray-500">Select a week</span>
                                     )}
-                                    <div className="border border-dashed border-[#CCCCCC]  rounded-md px-4 py-2 text-sm shrink-0">
+                                    <div
+                                        className="rounded-md px-4 py-[8px] text-sm shrink-0"
+                                        style={{
+                                            backgroundColor: '#FFFDF9',
+                                            backgroundImage: [
+                                                'repeating-linear-gradient(90deg, #E4572E66 0 3px, transparent 3px 6px)',
+                                                'repeating-linear-gradient(90deg, #E4572E66 0 3px, transparent 3px 6px)',
+                                                'repeating-linear-gradient(0deg, #E4572E66 0 3px, transparent 3px 6px)',
+                                                'repeating-linear-gradient(0deg, #E4572E66 0 3px, transparent 3px 6px)',
+                                            ].join(', '),
+                                            backgroundSize: '100% 1px, 100% 1px, 1px 100%, 1px 100%',
+                                            backgroundPosition: '0 0, 0 100%, 0 0, 100% 0',
+                                            backgroundRepeat: 'repeat-x, repeat-x, repeat-y, repeat-y',
+                                        }}
+                                    >
                                         <div className="flex justify-between text-[14px] gap-6 py-0.5">
                                             <span className="flex shrink-0 w-[76px] text-black font-semibold">
                                                 <span>Income</span>
@@ -3789,30 +3808,37 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                     <div className="flex flex-row items-center sm:space-x-3 min-w-0 flex-1 overflow-hidden">
                                         <EdbcFilterToggleButton onClick={() => setShowFilters(!showFilters)} />
                                         {(selectDate || selectContractororVendorName || selectProjectName || selectType) && (
-                                            <div className="flex flex-row flex-wrap items-center gap-2 min-w-0">
+                                            <div
+                                                ref={expensesFilterChipsRef}
+                                                className="flex flex-row flex-wrap items-center gap-2 min-w-0 overflow-x-auto no-scrollbar cursor-grab"
+                                                onMouseDown={(e) => handleMouseDown(e, expensesFilterChipsRef)}
+                                                onMouseMove={(e) => handleMouseMove(e, expensesFilterChipsRef)}
+                                                onMouseUp={() => handleMouseUp(expensesFilterChipsRef)}
+                                                onMouseLeave={() => handleMouseUp(expensesFilterChipsRef)}
+                                            >
                                                 {selectDate && (
-                                                    <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                    <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
                                                         <span className="font-medium text-[#BF9853]">Date: </span>
                                                         <span className="font-semibold text-[14px]">{formatDateOnly(selectDate)}</span>
                                                         <button onClick={() => setSelectDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                                     </span>
                                                 )}
                                                 {selectContractororVendorName && (
-                                                    <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                    <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
                                                         <span className="font-medium text-[#BF9853]">Associate: </span>
                                                         <span className="font-semibold text-[14px]">{selectContractororVendorName}</span>
                                                         <button onClick={() => setSelectContractororVendorName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                                     </span>
                                                 )}
                                                 {selectProjectName && (
-                                                    <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                    <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
                                                         <span className="font-medium text-[#BF9853]">Project Name: </span>
                                                         <span className="font-semibold text-[14px]">{selectProjectName}</span>
                                                         <button onClick={() => setSelectProjectName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                                     </span>
                                                 )}
                                                 {selectType && (
-                                                    <span className="inline-flex items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                    <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
                                                         <span className="font-medium text-[#BF9853]">Type: </span>
                                                         <span className="font-semibold text-[14px]">{selectType}</span>
                                                         <button onClick={() => setSelectType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
@@ -3839,7 +3865,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                         onMouseLeave={() => handleMouseUp(scrollRef)}
                                     >
                                         {isExpensesEntryUploadOnly ? (
-                                            <table className={`border-collapse text-left w-max table-fixed ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_thead_tr>th#EDBC-19]:!pr-[1px] [&_tbody_tr>td#EDBC-19]:!pr-[1px]`}>
+                                            <table className={`border-collapse text-left w-max table-fixed ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_thead_tr>th#EDBC-19]:!pr-[1px] [&_tbody_tr>td#EDBC-19]:!pr-[1px] [&_thead_tr.bg-\\[\\#eeeeee\\]>th#EDBC-8]:!pr-0`}>
                                                 <thead className="sticky top-0 z-10 bg-white">
                                                     <EdbcTableHeaderRow>
                                                         <EdbcColumnHeader columnId={EDBC_IDS.EDBC21} label="S.No" />
@@ -3945,24 +3971,60 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             />
                                                             <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}></td>
                                                             <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}>
-                                                                {row.bill_copy_url ? (
-                                                                    <a
-                                                                        href={cleanUrl(row.bill_copy_url)}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        title="View File"
-                                                                    >
-                                                                        <img src={file} className="w-4 h-4" alt="Open File" />
-                                                                    </a>
-                                                                ) : (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleFileUploadClick(row)}
-                                                                        title="Upload File"
-                                                                    >
-                                                                        <img src={fileUpload} className="w-4 h-4" alt="Upload File" />
-                                                                    </button>
-                                                                )}
+                                                                <div className="flex w-full items-center justify-center">
+                                                                    <span className="inline-flex items-center gap-1">
+                                                                        {row.bill_copy_url ? (
+                                                                            <>
+                                                                                <a
+                                                                                    href={cleanUrl(row.bill_copy_url)}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="inline-flex shrink-0 h-4 w-4 items-center justify-center cursor-pointer"
+                                                                                    title="View File"
+                                                                                >
+                                                                                    <img src={file} className="w-4 h-4" alt="Open File" />
+                                                                                </a>
+                                                                                {canEditDelete ? (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleRemoveBillCopyUrl(row)}
+                                                                                        className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[#E4572E] text-[22px] font-bold leading-none hover:bg-[#fff1ee] p-0 border-0 bg-transparent"
+                                                                                        title="Remove File"
+                                                                                    >
+                                                                                        ×
+                                                                                    </button>
+                                                                                ) : (
+                                                                                    <span className="inline-flex h-[22px] w-[22px] shrink-0" aria-hidden="true" />
+                                                                                )}
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleFileUploadClick(row)}
+                                                                                    className="inline-flex shrink-0 h-4 w-4 items-center justify-center cursor-pointer p-0 border-0 bg-transparent"
+                                                                                    title="Upload File"
+                                                                                >
+                                                                                    <img src={fileUpload} className="w-4 h-4 opacity-70 hover:opacity-100" alt="Upload File" />
+                                                                                </button>
+                                                                                {canEditDelete && removedBillCopyRows[row.id] ? (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleRestoreBillCopyUrl(row)}
+                                                                                        className="inline-flex shrink-0 rounded-md border border-[#007233] px-2 py-[1px] text-[10px] font-semibold text-[#007233] hover:bg-[#e9f8f0]"
+                                                                                        title="Restore Removed File"
+                                                                                    >
+                                                                                        Restore
+                                                                                    </button>
+                                                                                ) : (
+                                                                                    <span className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center pointer-events-none" aria-hidden="true">
+                                                                                        <span className="text-[22px] font-bold leading-none opacity-0">×</span>
+                                                                                    </span>
+                                                                                )}
+                                                                            </>
+                                                                        )}
+                                                                    </span>
+                                                                </div>
                                                             </td>
                                                             <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}></td>
                                                         </EdbcTableBodyRow>
@@ -3970,7 +4032,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                 </tbody>
                                             </table>
                                         ) : (
-                                            <table className={`border-collapse text-left w-max table-fixed ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_thead_tr>th#EDBC-19]:!pr-[1px] [&_tbody_tr>td#EDBC-19]:!pr-[1px]`}>
+                                            <table className={`border-collapse text-left w-max table-fixed ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_thead_tr>th#EDBC-19]:!pr-[1px] [&_tbody_tr>td#EDBC-19]:!pr-[1px] [&_thead_tr.bg-\\[\\#eeeeee\\]>th#EDBC-8]:!pr-0`}>
                                                 <thead className="sticky top-0 z-10 bg-white">
                                                     <EdbcTableHeaderRow>
                                                         <EdbcColumnHeader columnId={EDBC_IDS.EDBC21} label="S.No" />
@@ -4565,6 +4627,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                 )}
                                                             </td>
                                                             <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}>
+                                                                <div className="flex items-center justify-between">
                                                                 {row.type !== "Daily" ? (
                                                                     <button
                                                                         type="button"
@@ -4583,10 +4646,10 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                             setPreviousPayments(previousPaymentsForExpense);
                                                                             setShowPaymentPopup(true);
                                                                         }}
-                                                                        className="bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-green-600 transition-colors text-xs"
+                                                                        className=" text-white flex items-center justify-center transition-colors text-xs"
                                                                         title="Add Payment"
                                                                     >
-                                                                        +
+                                                                        <img src={AddExtra} className="w-4 h-4" alt="Add Payment" />
                                                                     </button>
                                                                 ) : null}
                                                                 {row.type === "Project Advance" ? (
@@ -4618,26 +4681,63 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                         />
                                                                     </button>
                                                                 ) : null}
+                                                                </div>
                                                             </td>
                                                             <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}>
-                                                                {row.bill_copy_url ? (
-                                                                    <a
-                                                                        href={cleanUrl(row.bill_copy_url)}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        title="View File"
-                                                                    >
-                                                                        <img src={file} className="w-4 h-4" alt="Open File" />
-                                                                    </a>
-                                                                ) : (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleFileUploadClick(row)}
-                                                                        title="Upload File"
-                                                                    >
-                                                                        <img src={fileUpload} className="w-4 h-4" alt="Upload File" />
-                                                                    </button>
-                                                                )}
+                                                                <div className="flex w-full items-center justify-center">
+                                                                    <span className="inline-flex items-center gap-1">
+                                                                        {row.bill_copy_url ? (
+                                                                            <>
+                                                                                <a
+                                                                                    href={cleanUrl(row.bill_copy_url)}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="inline-flex shrink-0 h-4 w-4 items-center justify-center cursor-pointer"
+                                                                                    title="View File"
+                                                                                >
+                                                                                    <img src={file} className="w-4 h-4" alt="Open File" />
+                                                                                </a>
+                                                                                {canEditDelete ? (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleRemoveBillCopyUrl(row)}
+                                                                                        className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full p-0 border-0 bg-transparent"
+                                                                                        title="Remove File"
+                                                                                    >
+                                                                                        <img src={FileRemover} className="w-2 h-2" alt="Remove File" />
+                                                                                    </button>
+                                                                                ) : (
+                                                                                    <span className="inline-flex h-[22px] w-[22px] shrink-0" aria-hidden="true" />
+                                                                                )}
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleFileUploadClick(row)}
+                                                                                    className="inline-flex shrink-0 h-4 w-4 items-center justify-center cursor-pointer p-0 border-0 bg-transparent"
+                                                                                    title="Upload File"
+                                                                                >
+                                                                                    <img src={fileUpload} className="w-4 h-4 opacity-70 hover:opacity-100" alt="Upload File" />
+                                                                                </button>
+                                                                                {canEditDelete && removedBillCopyRows[row.id] ? (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleRestoreBillCopyUrl(row)}
+                                                                                        className="inline-flex shrink-0 rounded-md border border-[#007233] px-2 py-[1px] text-[10px] font-semibold text-[#007233] hover:bg-[#e9f8f0]"
+                                                                                        title="Restore Removed File"
+                                                                                    >
+                                                                                        Restore
+                                                                                    </button>
+                                                                                ) : (
+                                                                                    <span className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center pointer-events-none" aria-hidden="true">
+                                                                                        <img src={FileRemover} className="w-2 h-2 opacity-0" alt="" />
+                                                                                    </span>
+                                                                                )}
+                                                                            </>
+                                                                        )}
+                                                                    </span>
+                                                                </div>
                                                             </td>
                                                             <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}>
                                                                 {canEditSelectedWeek && (
@@ -4706,30 +4806,65 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                 </div>
                             </div>
                             {!isExpensesEntryUploadOnly && (
-                                <div className="flex-[1] min-w-0 flex flex-col min-h-0 overflow-hidden">
+                                <div className="w-fit shrink-0 flex flex-col">
                                     <div className="flex justify-between items-center">
                                         <h1 className="font-bold text-base">Income</h1>
                                         <h1 className="font-bold text-base" style={{ color: "#E4572E" }}>
                                             ₹{payments.reduce((total, row) => total + Number(row.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </h1>
                                     </div>
-                                    <div className="text-left flex flex-row justify-between items-center mb-[12px] gap-[6px]">
+                                    <div className={`text-left flex ${(selectPaymentDate || selectPaymentAmount || selectPaymentType) ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-[12px] gap-[6px]`}>
                                         <div className="flex flex-row items-center sm:space-x-3 min-w-0 flex-1 overflow-hidden">
                                             <EdbcFilterToggleButton onClick={() => setShowPaymentsFilters(!showPaymentsFilters)} />
+                                            {(selectPaymentDate || selectPaymentAmount || selectPaymentType) && (
+                                                <div
+                                                    ref={paymentsFilterChipsRef}
+                                                    className="flex flex-row flex-wrap items-center gap-2 min-w-0 overflow-x-auto no-scrollbar cursor-grab"
+                                                    onMouseDown={(e) => handleMouseDown(e, paymentsFilterChipsRef)}
+                                                    onMouseMove={(e) => handleMouseMove(e, paymentsFilterChipsRef)}
+                                                    onMouseUp={() => handleMouseUp(paymentsFilterChipsRef)}
+                                                    onMouseLeave={() => handleMouseUp(paymentsFilterChipsRef)}
+                                                >
+                                                    {selectPaymentDate && (
+                                                        <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                            <span className="font-medium text-[#BF9853]">Date: </span>
+                                                            <span className="font-semibold text-[14px]">{formatDateOnly(selectPaymentDate)}</span>
+                                                            <button onClick={() => setSelectPaymentDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                                        </span>
+                                                    )}
+                                                    {selectPaymentAmount && (
+                                                        <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                            <span className="font-medium text-[#BF9853]">Amount: </span>
+                                                            <span className="font-semibold text-[14px]">{selectPaymentAmount}</span>
+                                                            <button onClick={() => setSelectPaymentAmount('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                                        </span>
+                                                    )}
+                                                    {selectPaymentType && (
+                                                        <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                            <span className="font-medium text-[#BF9853]">Type: </span>
+                                                            <span className="font-semibold text-[14px]">{selectPaymentType}</span>
+                                                            <button onClick={() => setSelectPaymentType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         <EdbcTableToolbarRightActions
                                             onClearFilters={clearPaymentsFilters}
                                             overallSearch={paymentsOverallSearch}
                                             onOverallSearchChange={setPaymentsOverallSearch}
+                                            searchWrapperClassName="h-[34px] min-w-0 flex-1 max-w-[143px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1 sm:w-[143px] sm:min-w-[143px] sm:flex-none sm:shrink-0"
                                         />
                                     </div>
-                                    <div className="block flex-1 min-h-0 overflow-hidden">
-                                        <div ref={paymentsScrollRef} className="rounded-lg border-l-8 border-l-[#BF9853] w-max max-w-[526px] overflow-y-auto max-h-[300px] thin-scrollbar"
+                                    <div className="shrink-0">
+                                        <div ref={paymentsScrollRef} className="rounded-lg border-l-8 border-l-[#BF9853] w-fit max-w-full shrink-0 overflow-y-auto overflow-x-auto no-scrollbar"
                                             style={{
+                                                height: `${40 + (showPaymentsFilters ? 40 : 0) + (canEditSelectedWeek ? 40 : 0) + 180}px`,
+                                                maxHeight: `${40 + (showPaymentsFilters ? 40 : 0) + (canEditSelectedWeek ? 40 : 0) + 180}px`,
                                                 willChange: 'scroll-position',
                                                 WebkitOverflowScrolling: 'touch',
-                                                transform: 'translateZ(0)', // Force hardware acceleration
-                                                backfaceVisibility: 'hidden' // Optimize rendering
+                                                transform: 'translateZ(0)',
+                                                backfaceVisibility: 'hidden'
                                             }}
                                             onMouseDown={(e) => handleMouseDown(e, paymentsScrollRef)}
                                             onMouseMove={(e) => handleMouseMove(e, paymentsScrollRef)}
@@ -4737,16 +4872,11 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                             onMouseLeave={() => handleMouseUp(paymentsScrollRef)}
                                             onWheel={(e) => e.stopPropagation()}
                                         >
-                                            <table className={`border-collapse text-left table-fixed max-w-[526px] ${EDBC_TABLE_EDGE_TABLE_CLASS}`}>
-                                                <colgroup>
-                                                    <col style={{ width: 120 }} />
-                                                    <col style={{ width: 120 }} />
-                                                    <col style={{ width: 158 }} />
-                                                    <col style={{ width: 70 }} />
-                                                </colgroup>
-                                                <thead>
+                                            <table className={`border-collapse text-left w-max table-fixed ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_th#EDBC-8]:!box-border [&_td#EDBC-8]:!box-border [&_thead_tr.bg-\\[\\#eeeeee\\]>th#EDBC-8]:!pr-0`}>
+                                                
+                                                <thead className="sticky top-0 z-[99999] bg-white">
                                                     <EdbcTableHeaderRow>
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label="Date" />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label="Date" columnWidthClass={EDBC2_FIRST_COLUMN_WIDTH_CLASS} />
                                                         <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label="Amount" />
                                                         <EdbcColumnHeader columnId={EDBC_IDS.EDBC12} label="Type" />
                                                         <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label="Activity" />
@@ -4777,6 +4907,73 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
                                                         </EdbcTableFilterRow>
                                                     )}
+                                                    {canEditSelectedWeek ? (
+                                                        <EdbcTableBodyRow>
+                                                            <td id={EDBC_IDS.EDBC2} className={`pl-[12px] ${EDBC2_FIRST_COLUMN_WIDTH_CLASS} pr-[1px] text-left overflow-visible`}>
+                                                                <div
+                                                                    className={`${getEdbcColumnConfig(EDBC_IDS.EDBC2)?.filterWidthClass || ''} overflow-visible relative z-[99999]`}
+                                                                    onKeyDown={handleKeyDown1}
+                                                                >
+                                                                    <CustomDateField
+                                                                        value={newPayment.date}
+                                                                        onChange={(dateStr) => handlePaymentChange({ target: { name: 'date', value: dateStr } })}
+                                                                        placeholder="Date"
+                                                                        alwaysOpenBelow
+                                                                        calendarPortal
+                                                                        controlHeightPx={EDBC_FILTER_CONTROL_HEIGHT_PX}
+                                                                        className={` !z-[99999] !overflow-visible [&_.absolute]:!z-[99999] [&>div]:!w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] [&>div:hover]:!border-[rgba(191,152,83,0.4)] ${newPayment.date ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                            <td id={EDBC_IDS.EDBC8} className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.filterThClass}>
+                                                                <input
+                                                                    type="number"
+                                                                    name="amount"
+                                                                    style={EDBC_FILTER_CONTROL_BOX_STYLE}
+                                                                    className={`${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.inputClassName || ''} no-spinner`}
+                                                                    value={newPayment.amount}
+                                                                    onChange={handlePaymentChange}
+                                                                    onKeyDown={handleKeyDown1}
+                                                                    onWheel={(e) => e.preventDefault()}
+                                                                    onFocus={() => window.addEventListener("wheel", (e) => e.preventDefault(), { passive: false })}
+                                                                    onBlur={() => window.removeEventListener("wheel", (e) => e.preventDefault())}
+                                                                />
+                                                            </td>
+                                                            <td id={EDBC_IDS.EDBC12} className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.tdClass}>
+                                                                <div
+                                                                    className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass}
+                                                                    onKeyDown={handleKeyDown1}
+                                                                >
+                                                                    <Select
+                                                                        name="type"
+                                                                        className="text-xs focus:outline-none w-full"
+                                                                        value={newPayment.type ? { value: newPayment.type, label: newPayment.type } : null}
+                                                                        onChange={(selectedOption) => handlePaymentChange({ target: { name: 'type', value: selectedOption ? selectedOption.value : '' } })}
+                                                                        options={weeklyReceivedTypes.map((type) => ({ value: type.received_type, label: type.received_type }))}
+                                                                        placeholder="Select Type..."
+                                                                        isSearchable
+                                                                        isClearable
+                                                                        menuPortalTarget={document.body}
+                                                                        menuPosition="fixed"
+                                                                        classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
+                                                                        styles={{
+                                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                                            menu: (provided) => ({
+                                                                                ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
+                                                                                zIndex: 10050,
+                                                                            }),
+                                                                            menuList: entryRowSelectMenuListStyle,
+                                                                            menuPortal: (provided) => ({
+                                                                                ...provided,
+                                                                                zIndex: 10050,
+                                                                            }),
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </td>
+                                                            <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}></td>
+                                                        </EdbcTableBodyRow>
+                                                    ) : null}
                                                 </thead>
                                                 <tbody>
                                                     {payments.map((row, index) => ({ row, index })).filter(({ row }) => {
@@ -4803,14 +5000,14 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     }).map(({ row, index }) => (
                                                         <EdbcTableBodyRow key={row.id || index}>
                                                             {editingPaymentId === (row.id || null) ? (
-                                                                <td id={EDBC_IDS.EDBC2} className={getEdbcColumnConfig(EDBC_IDS.EDBC2)?.tdClass}>
+                                                                <td id={EDBC_IDS.EDBC2} className={`${EDBC2_FIRST_COLUMN_WIDTH_CLASS} pr-[1px] text-left`}>
                                                                     <input
                                                                         type="date"
                                                                         value={row.date || ""}
                                                                         onChange={(e) =>
                                                                             handleEditPayment(index, "date", e.target.value)
                                                                         }
-                                                                        className="p-1 rounded-md bg-transparent w-full box-border border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
+                                                                        className={`p-1 rounded-md bg-transparent box-border ${getEdbcColumnConfig(EDBC_IDS.EDBC2)?.filterWidthClass || ''} border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none`}
                                                                     />
                                                                 </td>
                                                             ) : (
@@ -4820,6 +5017,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                     expandedCells={expandedCells}
                                                                     onToggleExpanded={toggleExpandedCell}
                                                                     formatValue={formatDateOnly}
+                                                                    columnWidthClass={EDBC2_FIRST_COLUMN_WIDTH_CLASS}
                                                                 />
                                                             )}
                                                             {editingPaymentId === (row.id || null) ? (
@@ -4848,7 +5046,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                     expandedCells={expandedCells}
                                                                     onToggleExpanded={toggleExpandedCell}
                                                                     textAlignClass="text-right"
-                                                                    getDisplayValue={(entry) => Number(entry.amount).toLocaleString('en-IN')}
+                                                                    getDisplayValue={(entry) => `₹${Number(entry.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                                                 />
                                                             )}
                                                             {editingPaymentId === (row.id || null) ? (
@@ -4937,57 +5135,13 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             </td>
                                                         </EdbcTableBodyRow>
                                                     ))}
-                                                    {canEditSelectedWeek ? (
-                                                        <EdbcTableBodyRow>
-                                                            <td id={EDBC_IDS.EDBC2} className={getEdbcColumnConfig(EDBC_IDS.EDBC2)?.tdClass}>
-                                                                <input
-                                                                    type="date"
-                                                                    name="date"
-                                                                    className="p-1 rounded-md bg-transparent w-full box-border border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                                                                    value={newPayment.date}
-                                                                    onChange={handlePaymentChange}
-                                                                    onKeyDown={handleKeyDown1}
-                                                                />
-                                                            </td>
-                                                            <td id={EDBC_IDS.EDBC8} className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.tdClass}>
-                                                                <input
-                                                                    type="number"
-                                                                    name="amount"
-                                                                    className={`p-1 rounded-md bg-transparent box-border ${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.filterWidthClass || ''} h-[38px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none no-spinner text-right`}
-                                                                    value={newPayment.amount}
-                                                                    onChange={handlePaymentChange}
-                                                                    onKeyDown={handleKeyDown1}
-                                                                    onWheel={(e) => e.preventDefault()}
-                                                                    onFocus={() => window.addEventListener("wheel", (e) => e.preventDefault(), { passive: false })}
-                                                                    onBlur={() => window.removeEventListener("wheel", (e) => e.preventDefault())}
-                                                                />
-                                                            </td>
-                                                            <td id={EDBC_IDS.EDBC12} className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.tdClass}>
-                                                                <select
-                                                                    name="type"
-                                                                    className={`p-1 rounded-md bg-transparent box-border ${getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass || ''} h-[38px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none`}
-                                                                    value={newPayment.type}
-                                                                    onChange={handlePaymentChange}
-                                                                    onKeyDown={handleKeyDown1}
-                                                                >
-                                                                    <option value="">Select</option>
-                                                                    {weeklyReceivedTypes.map((type, index) => (
-                                                                        <option key={index} value={type.received_type}>
-                                                                            {type.received_type}
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
-                                                            </td>
-                                                            <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}></td>
-                                                        </EdbcTableBodyRow>
-                                                    ) : null}
                                                 </tbody>
                                             </table>
                                         </div>
                                     </div>
-                                    <div className="mt-4 rounded-xl bg-white p-[18px] border border-[#E0E0E0] shadow-[0_4px_12px_rgba(0,0,0,0.1)] text-left">
-                                        <div className="rounded-lg border border-[#E0E0E0] p-[14px]">
-                                            <div className="flex items-center justify-between rounded-lg mb-[8px]">
+                                    <div className="mt-2 shrink-0 rounded-xl bg-white p-[10px] border border-[#E0E0E0] shadow-[0_2px_8px_rgba(0,0,0,0.08)] text-left">
+                                        <div className="rounded-lg border border-[#E0E0E0] p-[10px]">
+                                            <div className="flex items-center justify-between rounded-lg mb-[4px]">
                                                 <p className="text-[14px] font-semibold text-black">Summary Details</p>
                                                 <div className="flex items-center gap-2">
                                                     {canEditDelete &&
@@ -5055,7 +5209,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     </p>
                                                 </div>
                                             ))}
-                                            <div className="border-t border-dashed border-[#E5E7EB] my-[8px]" />
+                                            <div className="border-t border-dashed border-[#E5E7EB] my-[4px]" />
                                             <div className="flex items-center justify-between py-[6px]">
                                                 <p className="text-[12px] font-semibold text-black">Total Amount</p>
                                                 <p className="text-[12px] font-semibold text-black">

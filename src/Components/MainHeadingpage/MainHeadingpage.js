@@ -18,7 +18,7 @@ export const ModuleHeadingBar = ({ children, className = '' }) => (
 
 export const ModuleHeadingTab = ({ active = false, onClick, children, className = '' }) => (
     <h2
-        className={`link whitespace-nowrap${active ? ' active' : ''}${className ? ` ${className}` : ''}`}
+        className={`link cursor-pointer whitespace-nowrap${active ? ' active' : ''}${className ? ` ${className}` : ''}`}
         onClick={onClick}
     >
         {children}

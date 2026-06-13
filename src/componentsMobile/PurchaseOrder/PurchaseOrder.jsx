@@ -3033,7 +3033,6 @@ const PurchaseOrder = ({ user, onLogout }) => {
                       <button type="button" onClick={downloadPDF} className="text-[12px] font-semibold text-black leading-normal" >
                         Download
                       </button>
-
                     </>
                   ) : !isViewOnlyFromHistory && areFieldsFilled ? (
                     <button
@@ -3047,7 +3046,6 @@ const PurchaseOrder = ({ user, onLogout }) => {
                       {(isGenerating || isGeneratePrecheckRunning) ? (isEditFromHistory ? 'Updating...' : 'Generating...') : (isEditFromHistory ? 'Update PO' : 'Generate PO')}
                     </button>
                   ) : null}
-
                   {!isViewOnlyFromHistory && (
                     <button
                       type="button"
@@ -3151,11 +3149,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                       {poData.projectName || 'Select Name'}
                     </div>
                     {poData.projectName ? (
-                      <button type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPoData({ ...poData, projectName: '' });
-                        }}
+                      <button type="button" onClick={(e) => {e.stopPropagation(); setPoData({ ...poData, projectName: '' });}}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
                         <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
@@ -3177,19 +3171,12 @@ const PurchaseOrder = ({ user, onLogout }) => {
                   <div className="relative">
                     <div onClick={() => setShowInchargeModal(true)}
                       className="w-[360px] h-[32px] border border-[rgba(0,0,0,0.16)] rounded pl-[12px] pr-[32px] text-[12px] font-medium bg-white flex items-center cursor-pointer"
-                      style={{
-                        boxSizing: 'border-box',
-                        color: poData.projectIncharge ? '#000' : '#9E9E9E'
-                      }}
+                      style={{ boxSizing: 'border-box', color: poData.projectIncharge ? '#000' : '#9E9E9E' }}
                     >
                       {poData.projectIncharge || 'Select Name'}
                     </div>
                     {poData.projectIncharge ? (
-                      <button type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPoData({ ...poData, projectIncharge: '' });
-                        }}
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setPoData({ ...poData, projectIncharge: '' }); }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors"
                       >
                         <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
@@ -3267,10 +3254,7 @@ const PurchaseOrder = ({ user, onLogout }) => {
                     </div>
                     {/* Items List - Scrollable */}
                     {items.length > 0 && (
-                      <div
-                        className="flex-1 overflow-y-auto no-scrollbar pb-[40px]"
-                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehaviorY: 'contain' }}
-                      >
+                      <div className="flex-1 overflow-y-auto no-scrollbar pb-[40px]" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehaviorY: 'contain' }}>
                         <div className="space-y-2">
                           {items.map((item) => {
                             // Use item.id as-is (can be string or number) for consistent swipe state lookup

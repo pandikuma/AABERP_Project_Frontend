@@ -1813,7 +1813,6 @@ const Form = ({
             if (selectedFile) {
                 try {
                     const formData = new FormData();
-
                     const now = new Date();
                     const timestamp = now.toLocaleString("en-GB", {
                         day: "2-digit",
@@ -1826,29 +1825,21 @@ const Form = ({
                     })
                         .replace(",", "")
                         .replace(/\s/g, "-");
-
                     const finalName = `${timestamp}_${selectedSite.sNo}_${vendor || contractor}`;
-
                     // ✅ IMPORTANT: key must be "files" (plural)
                     formData.append("files", selectedFile);
-
                     // ✅ required
                     formData.append("folder", "FileUpload / Expenses_Entry_Files");
-
                     // ✅ optional (your backend uses this as prefix)
                     formData.append("fileName", finalName);
-
                     const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
                         method: "POST",
                         body: formData,
                     });
-
                     if (!uploadResponse.ok) {
                         throw new Error("File upload failed");
                     }
-
                     const result = await uploadResponse.json();
-
                     // ✅ backend returns { urls: [] }
                     pdfUrl = result.urls[0];
 
@@ -1911,7 +1902,7 @@ const Form = ({
             console.log("expensesId", expensesId);
             if (!expensesId) {
                 throw new Error(
-                    'Expenses save response did not include id. Backend must return { id } from expenses_form/save.'
+                    'Expenses save response did not include id. Backend must return { id } from expenses_form.'
                 );
             }
             const trimmedSaveResponse = responseText.trim();
@@ -2249,7 +2240,7 @@ const Form = ({
             expensesId = resolveExpensesEntryIdAfterSave(responseText);
             if (!expensesId) {
                 throw new Error(
-                    'Expenses save response did not include id. Backend must return { id } from expenses_form/save.'
+                    'Expenses save response did not include id. Backend must return { id } from expenses_form.'
                 );
             }
             const trimmedSaveResponse = responseText.trim();
