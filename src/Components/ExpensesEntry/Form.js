@@ -2493,149 +2493,6 @@ const Form = ({
                     padding-bottom: 0 !important;
                 }
             `}</style>
-            {!embedded && (
-                <style>{`
-                    .expense-form-side-table-host {
-                        overflow-x: visible !important;
-                        overflow-y: hidden !important;
-                    }
-                    .expense-form-side-table-host > div {
-                        height: auto !important;
-                        width: 100% !important;
-                        min-width: 0 !important;
-                        max-width: 100% !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                        min-height: 0 !important;
-                    }
-                    .expense-form-side-table-host .form-side-table-h-scroll {
-                        flex: none !important;
-                        min-height: 0 !important;
-                        width: 100% !important;
-                        min-width: 0 !important;
-                        max-width: 100% !important;
-                        overflow-x: auto !important;
-                        display: block !important;
-                    }
-                    .expense-form-side-table-host .form-side-table-h-scroll > div {
-                        width: 978px !important;
-                        min-width: 978px !important;
-                        max-width: 978px !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                    }
-                    .expense-form-side-table-host .form-side-table-h-scroll > div > div:first-child {
-                        width: 978px !important;
-                        min-width: 978px !important;
-                        max-width: 978px !important;
-                        box-sizing: border-box !important;
-                    }
-                    .expense-form-side-table-host .border-l-8 {
-                        flex: none !important;
-                        min-height: 0 !important;
-                        width: 978px !important;
-                        min-width: 978px !important;
-                        max-width: 978px !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                        overflow-x: hidden !important;
-                    }
-                    .expense-form-side-table-host table {
-                        width: 978px !important;
-                        max-width: 978px !important;
-                        min-width: 978px !important;
-                    }
-                    .expense-form-side-table-host .overflow-y-scroll {
-                        width: 978px !important;
-                        min-width: 978px !important;
-                        max-width: 978px !important;
-                        max-height: 400px !important;
-                        height: auto !important;
-                        flex: none !important;
-                        min-height: 0 !important;
-                        overflow-x: hidden !important;
-                        overflow-y: auto !important;
-                    }
-                    .expense-form-side-table-host .overflow-y-scroll:has(table tbody > tr:only-child) {
-                        display: flex !important;
-                        flex-direction: column !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                        width: 100% !important;
-                        min-height: 280px !important;
-                    }
-                    .expense-form-side-table-host .border-l-8:has(table tbody > tr:only-child) {
-                        width: 100% !important;
-                        max-width: 100% !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                        flex: 1 1 auto !important;
-                    }
-                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) {
-                        display: flex !important;
-                        flex-direction: column !important;
-                        flex: 1 1 auto !important;
-                        width: 100% !important;
-                        min-width: 100% !important;
-                        max-width: 100% !important;
-                        min-height: 100% !important;
-                        height: 100% !important;
-                    }
-                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) > thead {
-                        flex: 0 0 auto !important;
-                        width: 100% !important;
-                    }
-                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) > tbody {
-                        flex: 1 1 auto !important;
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                        width: 100% !important;
-                    }
-                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) > tbody > tr {
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                        width: 100% !important;
-                        flex: 1 1 auto !important;
-                    }
-                    .expense-form-side-table-host .overflow-y-scroll > table:has(tbody > tr:only-child) > tbody > tr > td {
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-                        width: 100% !important;
-                        text-align: center !important;
-                        border: none !important;
-                    }
-                    @media (min-width: 1280px) {
-                        .expense-form-side-table-host .overflow-y-scroll:has(table tbody > tr:only-child) {
-                            min-height: 100% !important;
-                        }
-                        .expense-form-side-table-host > div {
-                            height: 100% !important;
-                        }
-                        .expense-form-side-table-host .form-side-table-h-scroll {
-                            height: 100% !important;
-                            flex: 1 1 0% !important;
-                            min-height: 0 !important;
-                            display: flex !important;
-                            flex-direction: column !important;
-                        }
-                        .expense-form-side-table-host .form-side-table-h-scroll > div {
-                            flex: 1 1 0% !important;
-                            min-height: 0 !important;
-                        }
-                        .expense-form-side-table-host .border-l-8 {
-                            flex: 1 1 0% !important;
-                        }
-                        .expense-form-side-table-host .overflow-y-scroll {
-                            max-height: none !important;
-                            height: 100% !important;
-                            flex: 1 1 0% !important;
-                        }
-                    }
-                `}</style>
-            )}
             <div className={`px-[18px] pt-[18px] pb-[18px] bg-white rounded w-full flex-1 min-h-0 overflow-auto no-scrollbar scrollbar-none`}>
                 <form onSubmit={handleFormSubmit}>
                     <div className="flex flex-col xl:grid xl:grid-cols-[max-content_minmax(0,1fr)] gap-x-[18px] gap-y-[12px] min-w-0 items-start">
@@ -2678,7 +2535,7 @@ const Form = ({
                             )}
                             <div className='lg:flex gap-[16px] flex-wrap items-start'>
                                 <div className='text-left w-[300px] min-w-[300px] max-w-[300px] shrink-0'>
-                                    <h4 className="text-base font-semibold mb-[8px]">{EXPENSE_FORM_FIELDS.accountType} <span className="text-[#E4572E]">*</span></h4>
+                                    <h4 className="text-base font-semibold mb-[8px]">{EXPENSE_FORM_FIELDS.accountType}<span className="text-[#E4572E]">*</span></h4>
                                     {lockAccountTypeDisplay ? (
                                         <UtilityHubReadonlyField
                                             value={
@@ -2709,7 +2566,7 @@ const Form = ({
                                     {(selectedAccountType === 'Utility Bills' || lockUtilityPrefillFields) && (
                                        <div className='mt-[12px]'>
                                        <h4 className="text-base font-semibold mb-[8px]">
-                                         {EXPENSE_FORM_FIELDS.utilityType} <span className="text-[#E4572E]">*</span>
+                                         {EXPENSE_FORM_FIELDS.utilityType}<span className="text-[#E4572E]">*</span>
                                        </h4>
                                      
                                        {lockUtilityPrefillFields ? (
@@ -2743,7 +2600,7 @@ const Form = ({
                                     )}
                                 </div>
                                 <div className='text-left'>
-                                    <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.date} <span className="text-[#E4572E]">*</span></label>
+                                    <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.date}<span className="text-[#E4572E]">*</span></label>
                                     <div className="expense-entry-form-date w-[300px]">
                                         <CustomDateField
                                             value={date}
@@ -2759,7 +2616,7 @@ const Form = ({
                             </div>
                             <div className='lg:flex gap-[16px]'>
                                 <div className='text-left'>
-                                    <label className="text-md font-semibold mb-[8px]  block">{EXPENSE_FORM_FIELDS.projectName} <span className="text-[#E4572E]">*</span></label>
+                                    <label className="text-md font-semibold mb-[8px]  block">{EXPENSE_FORM_FIELDS.projectName}<span className="text-[#E4572E]">*</span></label>
                                     <Select
                                         options={sortedSiteOptions || []}
                                         placeholder={EXPENSE_FORM_FIELDS.projectName}
@@ -2773,7 +2630,7 @@ const Form = ({
                                 </div>
                                 <div className='text-left'>
                                     <div className='flex justify-between  mb-[8px]'>
-                                        <label className="text-md font-semibold block">{EXPENSE_FORM_FIELDS.vendorContractorName} <span className="text-[#E4572E]">*</span></label>
+                                        <label className="text-md font-semibold block">{EXPENSE_FORM_FIELDS.vendorContractorName}<span className="text-[#E4572E]">*</span></label>
                                         {selectedType && <span className="text-[14px] text-[#E4572E] font-semibold block mt-0.5">{selectedType}</span>}
                                     </div>
                                     <Select
@@ -2799,7 +2656,7 @@ const Form = ({
                                     />
                                 </div>
                                 <div className='text-left'>
-                                    <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.amount} <span className="text-[#E4572E]">*</span></label>
+                                    <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.amount}<span className="text-[#E4572E]">*</span></label>
                                     <div className="relative w-[300px] h-[40px]">
                                         <span className="absolute top-1/2 left-[8px] transform -translate-y-1/2 text-gray-600 text-lg">₹</span>
                                         <input
@@ -2828,7 +2685,7 @@ const Form = ({
                                 </div>
                                 {(selectedAccountType === 'Claim Payment' || selectedAccountType === 'Utility Bills' || selectedAccountType === 'Sundry Payment') ? (
                                     <div className='text-left'>
-                                        <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.paymentMode} <span className="text-[#E4572E]">*</span></label>
+                                        <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.paymentMode}<span className="text-[#E4572E]">*</span></label>
                                         <Select
                                             options={selectablePaymentModeOptions.map((mode) => ({
                                                 value: mode.modeOfPayment,
@@ -2877,7 +2734,7 @@ const Form = ({
                             {selectedAccountType === 'Sundry Payment' && showMachineTools && (
                                 <div className='lg:flex gap-[16px]'>
                                     <div className='text-left'>
-                                        <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.machineName} <span className="text-[#E4572E]">*</span></label>
+                                        <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.machineName}<span className="text-[#E4572E]">*</span></label>
                                         <Select
                                             options={toolsItemNameOptions}
                                             value={selectedToolsItemName}
@@ -2890,7 +2747,7 @@ const Form = ({
                                         />
                                     </div>
                                     <div className='text-left'>
-                                        <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.machineId} <span className="text-[#E4572E]">*</span></label>
+                                        <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.machineId}<span className="text-[#E4572E]">*</span></label>
                                         <Select
                                             options={filteredMachineToolOptions}
                                             value={selectedMachineTools}
@@ -2988,9 +2845,10 @@ const Form = ({
                                                 styles={customStyles}
                                                 isClearable
                                                 placeholder={`${getUtilityTypeNumberLabel(utilityType)}`}
-                                                className="custom-select rounded-lg w-[300px] h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                                className={`custom-select rounded-lg ${utilityType === 'Telecom' || utilityType === 'Subscription' ? 'w-[616px]' : 'w-[300px]'} h-[40px] text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500`}
                                             />
                                         </div>
+                                        {utilityType !== 'Telecom' && utilityType !== 'Subscription' && (
                                         <div className='text-left'>
                                             <label className="text-md font-semibold mb-[8px] block">{EXPENSE_FORM_FIELDS.forTheMonthOf}</label>
                                             <div className="expense-entry-form-date w-[300px]">
@@ -2999,10 +2857,12 @@ const Form = ({
                                                     onChange={(v) => setSelectedMonths(v)}
                                                     placeholder={EXPENSE_FORM_FIELDS.forTheMonthOf}
                                                     className="w-full text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
+                                                    anchor="right"
                                                     alwaysOpenAbove
                                                 />
                                             </div>
                                         </div>
+                                        )}
                                     </div>
                                     {(utilityType === 'Telecom' || utilityType === 'Subscription') && (
                                         <div className="lg:flex gap-[16px] items-end">
@@ -3059,8 +2919,8 @@ const Form = ({
                                     className="border-2 border-[#BF9853] rounded-md px-[8px] lg:w-[616px] w-[300px] h-[60px] focus:outline-none border-opacity-[0.20] resize-none text-[14px] font-semibold placeholder:text-[14px] placeholder:font-normal placeholder:text-gray-500"
                                 />
                             </div>
-                            <div className=" flex items-center justify-between">
-                                <div className='flex'>
+                            <div className="flex items-start justify-between lg:w-[616px] w-[300px] gap-2 flex-wrap">
+                                <div className='flex shrink-0'>
                                     <label htmlFor="fileInput" className="cursor-pointer flex items-center gap-[6px] text-orange-600">
                                         <img className='w-[15px] h-[16px]' alt='' src={Attach}></img>
                                         <span className="text-[14px] font-semibold">Attach file</span> {(selectedAccountType === 'Utility Bills' || selectedAccountType === 'Bill Payments' || selectedAccountType === 'Bill Refund')}
@@ -3074,7 +2934,7 @@ const Form = ({
                                         accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,image/*,application/pdf"
                                     />
                                 </div>
-                                {selectedFile && <span className="text-gray-600">{selectedFile.name}</span>}
+                                {selectedFile && <span className="text-gray-600 text-[12px] break-words min-w-0 text-right">{selectedFile.name}</span>}
                             </div>
                             <div className="mt-[12px] flex">
                                 {(embedded || userPermissions.includes("Create")) && (
@@ -3775,16 +3635,23 @@ const customStyles = {
     option: (provided, state) => ({
         ...provided,
         minHeight: 36,
-        height: 36,
-        paddingTop: 0,
-        paddingBottom: 0,
+        height: 'auto',
+        paddingTop: 6,
+        paddingBottom: 6,
+        whiteSpace: 'normal',
         display: 'flex',
         alignItems: 'center',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTapHighlightColor: '#FAF6ED',
         backgroundColor: state.isSelected
             ? '#BF9853'
             : state.isFocused
             ? '#FAF6ED'
             : provided.backgroundColor,
         color: state.isSelected ? '#FFFFFF' : provided.color,
+        ':active': {
+            backgroundColor: state.isSelected ? '#BF9853' : '#FAF6ED',
+        },
     }),
 };

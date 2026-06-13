@@ -3,10 +3,8 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import Modal from 'react-modal';
 import edit from '../Images/Edit.svg';
-import Select from 'react-select';
-import Filter from '../Images/TableFilter.svg'
-import Reload from '../Images/Clear.svg'
-import Search from '../Images/Searchnew.svg'
+import Select, { components as selectComponents } from 'react-select';
+import UploadFile from '../Images/Upload file.svg'
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -21,9 +19,8 @@ import {
     buildExpenseEntryWeeklyBillSavePayload,
     saveExpenseEntryWeeklyPaymentBill,
 } from '../../utils/expensesEntryWeeklyPaymentBill';
-import XL from '../Images/sheets.png'
-import Pdf from '../Images/pdf.png'
 import CustomDateField from './CustomDateField';
+import CustomMonthField from './CustomMonthField';
 import ExpenseEntryPaymentModal from './ExpenseEntryPaymentModal';
 import { Calendar } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
@@ -32,7 +29,20 @@ import { Table, TableProvider, buildTableViewExpenseTableContext, BLANK_VALUE, b
 import {
     DATABASE_TABLE_FILTER_SELECT_STYLES,
     isAdvancePortalSourceExpense,
+    EdbcPaymentModeFilterChip,
+    buildEdbcSelectFilterOptions,
+    hasEdbcPaymentModeFilter,
+    loadEdbcPaymentModeFilterFromStorage,
+    matchesEdbcAmountFilter,
+    matchesEdbcPaymentModeFilter,
+    matchesEdbcSelectFilter,
+    normalizeEdbcFilterText,
+    saveEdbcPaymentModeFilterToStorage,
+    EdbcFilterToggleButton,
+    EdbcTableToolbarRightActions,
 } from './databaseExpensesSharedColumns';
+import { useExpensesListLoader } from './expensesListStore';
+import { uploadExpensesEntryBillCopy } from './expensesBillCopyUpload';
 Modal.setAppElement('#root');
 
 const TABLE_VIEW_EXPENSE_FIELDS = {
@@ -46,6 +56,8 @@ const TABLE_VIEW_EXPENSE_FIELDS = {
     description: 'Description',
     category: 'Category',
     machineTools: 'Machine Tools',
+    machineName: 'Machine Name',
+    machineId: 'Machine ID',
     accountType: 'A/C Type',
     mode: 'Mode',
     sourceFrom: 'Source From',
@@ -58,10 +70,19 @@ const TABLE_VIEW_EXPENSE_FIELDS = {
     searchTransactions: 'Search Transactions...',
 };
 
+const isAdvanceAdjustmentPaymentMode = (mode) =>
+    String(mode ?? '').trim().toLowerCase() === 'advance adjustment';
+
+const normalizeAccountTypeName = (name) => String(name ?? '').trim();
+
+const getPropertyProfessionTaxNo = (property) =>
+    String(property?.professionalTaxNo ?? property?.professionTaxNo ?? '').trim();
+
 const EDIT_POPUP_UTILITY_TYPE_OPTIONS = [
     { value: 'Electricity', label: 'Electricity' },
     { value: 'Property', label: 'Property' },
     { value: 'Water', label: 'Water' },
+    { value: 'Profession', label: 'Profession' },
     { value: 'Telecom', label: 'Telecom' },
     { value: 'Subscription', label: 'Subscription' },
 ];
@@ -70,6 +91,72 @@ const EDIT_POPUP_VALIDITY_TYPE_OPTIONS = [
     { value: 'Month', label: 'Month' },
     { value: 'Year', label: 'Year' },
 ];
+const getEditPopupHeading = (source, defaultTitle) => {
+    const s = String(source ?? '').trim();
+    return s ? `Edit ${s}` : defaultTitle;
+};
+const getUtilityTypeNumberLabel = (utilityTypeValue) => {
+    switch (utilityTypeValue) {
+        case 'Electricity':
+        default:
+            return 'Service Number';
+    }
+};
+const EDIT_POPUP_SELECT_INDICATOR_COMPONENTS = {
+    DropdownIndicator: (props) => {
+        if (props.selectProps.value) return null;
+        return (
+            <selectComponents.DropdownIndicator
+                {...props}
+                innerProps={{
+                    ...props.innerProps,
+                    style: { ...props.innerProps?.style, color: '#000000' },
+                }}
+            />
+        );
+    },
+    ClearIndicator: (props) => {
+        if (!props.selectProps.value) return null;
+        return (
+            <selectComponents.ClearIndicator
+                {...props}
+                innerProps={{
+                    ...props.innerProps,
+                    style: { ...props.innerProps?.style, color: '#000000' },
+                }}
+            />
+        );
+    },
+};
+const EDIT_POPUP_SELECT_CLASSNAME = 'font-semibold text-[14px]';
+const EDIT_POPUP_MACHINE_SELECT_STYLES = {
+    control: (base, state) => ({
+        ...base,
+        fontWeight: 600,
+        borderColor: 'rgba(191, 152, 83, 0.2)',
+        borderWidth: '2px',
+        borderRadius: '0.5rem',
+        height: '40px',
+        minHeight: '40px',
+        alignItems: 'center',
+        textAlign: 'left',
+        boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+        '&:hover': { borderColor: 'rgba(191, 152, 83, 0.4)' },
+    }),
+    indicatorSeparator: () => ({ display: 'none' }),
+    placeholder: (base) => ({ ...base, fontWeight: 'normal', color: '#6B7280', textAlign: 'left' }),
+    singleValue: (base) => ({ ...base, color: '#111827', fontWeight: 600 }),
+    option: (provided, state) => ({
+        ...provided,
+        textAlign: 'left',
+        fontWeight: 600,
+        fontSize: '15px',
+        backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+        color: 'black',
+    }),
+    menuPortal: (base) => ({ ...base, zIndex: 10001 }),
+    menu: (base) => ({ ...base, zIndex: 999 }),
+};
 const TOOLS_API_BASE = 'https://backendaab.in/demoAabuildersDash';
 
 /** API expects yyyy-MM-dd; expense form may send dd/MM/yyyy or ISO strings. */
@@ -208,8 +295,14 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         }
     }, []);
     const [activeBranchId, setActiveBranchId] = useState(() => resolveActiveBranchId());
+    const {
+        expenses,
+        expensesLoading,
+        expensesLoadingMore,
+        expensesTotalCount,
+        refetchExpenses,
+    } = useExpensesListLoader(activeBranchId);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [expenses, setExpenses] = useState([]);
     const [filteredExpenses, setFilteredExpenses] = useState([]);
     const [exportFilteredExpenses, setExportFilteredExpenses] = useState([]);
     const [overallSearch, setOverallSearch] = useState('');
@@ -221,6 +314,9 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const [categoryOptions, setCategoryOptions] = useState([]);
     const [machineToolsOptions, setMachineToolsOptions] = useState([]);
     const [machineToolsCatalog, setMachineToolsCatalog] = useState([]);
+    const [toolsItemNameOptions, setToolsItemNameOptions] = useState([]);
+    const [editPopupSelectedToolsItemName, setEditPopupSelectedToolsItemName] = useState(null);
+    const [editPopupSelectedMachine, setEditPopupSelectedMachine] = useState(null);
     const [branchOptions, setBranchOptions] = useState([]);
     const [sourceOptions, setSourceOptions] = useState([]);
     const [paymentModeFilterOptions, setPaymentModeFilterOptions] = useState([]);
@@ -241,7 +337,8 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         return localStorage.getItem('expenseFilter_category') || '';
     });
     const [enoOptions, setEnoOptions] = useState([]);
-    const [selectedFile, setSelectedFile] = useState(null);
+    const [pendingBillCopyFile, setPendingBillCopyFile] = useState(null);
+    const billCopyFileInputRef = useRef(null);
     const [selectedEno, setSelectedEno] = useState(() => {
         return localStorage.getItem('expenseFilter_eno') || '';
     });
@@ -261,9 +358,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const [selectedSource, setSelectedSource] = useState(() => {
         return localStorage.getItem('expenseFilter_source') || '';
     });
-    const [selectedPaymentMode, setSelectedPaymentMode] = useState(() => {
-        return localStorage.getItem('expenseFilter_paymentMode') || '';
-    });
+    const [selectedPaymentModes, setSelectedPaymentModes] = useState(() => loadEdbcPaymentModeFilterFromStorage());
     const [selectedBranch, setSelectedBranch] = useState(() => {
         return localStorage.getItem('expenseFilter_branch') || '';
     });
@@ -277,6 +372,9 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const [contractorOption, setContractorOption] = useState([]);
     const [categoryOption, setCategoryOption] = useState([]);
     const [machineToolsOption, setMachineToolsOption] = useState([]);
+    const [selectedQuantity, setSelectedQuantity] = useState('');
+    const [selectedAmount, setSelectedAmount] = useState('');
+    const [selectedDescription, setSelectedDescription] = useState('');
     const [showFilters, setShowFilters] = useState(false);
     const [showDateRangePicker, setShowDateRangePicker] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -298,6 +396,8 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     const animationFrame = useRef(null);
     const lastMove = useRef({ time: 0, x: 0, y: 0 });
     const handleMouseDown = (e) => {
+        if (e.target.closest('input, button, a, select, textarea, label, [role="button"], .react-select')) return;
+        if (!scrollRef.current) return;
         isDragging.current = true;
         start.current = { x: e.clientX, y: e.clientY };
         scroll.current = {
@@ -410,8 +510,8 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         localStorage.setItem('expenseFilter_source', selectedSource);
     }, [selectedSource]);
     useEffect(() => {
-        localStorage.setItem('expenseFilter_paymentMode', selectedPaymentMode);
-    }, [selectedPaymentMode]);
+        saveEdbcPaymentModeFilterToStorage(selectedPaymentModes);
+    }, [selectedPaymentModes]);
     useEffect(() => {
         localStorage.setItem('expenseFilter_branch', selectedBranch);
     }, [selectedBranch]);
@@ -431,6 +531,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         otherContractorName: '',
         machineTools: '',
         billCopy: '',
+        billCopyUrl: '',
         paymentMode: '',
         utilityType: '',
         utilityTypeNumber: '',
@@ -510,6 +611,9 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                 case 'Water':
                     optionValue = property.waterTaxNo || '';
                     break;
+                case 'Profession':
+                    optionValue = getPropertyProfessionTaxNo(property);
+                    break;
                 default:
                     return;
             }
@@ -570,6 +674,35 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     ];
     const [paymentModeOptions, setPaymentModeOptions] = useState([]);
     const finalPaymentModeOptions = paymentModeOptions.length > 0 ? paymentModeOptions : defaultPaymentModeOptions;
+    const editPopupSelectablePaymentModeOptions = useMemo(() => {
+        const allModes = Array.isArray(finalPaymentModeOptions) ? finalPaymentModeOptions : [];
+        let modes = allModes.filter(
+            (mode) => !isAdvanceAdjustmentPaymentMode(mode?.modeOfPayment)
+        );
+        const hideCash =
+            formData.accountType === 'Claim Payment' || formData.accountType === 'Sundry Payment';
+        if (hideCash) {
+            modes = modes.filter((mode) => String(mode?.modeOfPayment ?? '').trim() !== 'Cash');
+        }
+        return modes;
+    }, [finalPaymentModeOptions, formData.accountType]);
+    const editPopupSiteOptions = useMemo(
+        () => [...siteOption].sort((a, b) => a.label.localeCompare(b.label)),
+        [siteOption]
+    );
+    useEffect(() => {
+        if (!modalIsOpen) return;
+        if (isAdvanceAdjustmentPaymentMode(formData.paymentMode)) {
+            setFormData((prev) => ({ ...prev, paymentMode: '' }));
+            return;
+        }
+        if (
+            (formData.accountType === 'Claim Payment' || formData.accountType === 'Sundry Payment') &&
+            formData.paymentMode === 'Cash'
+        ) {
+            setFormData((prev) => ({ ...prev, paymentMode: '' }));
+        }
+    }, [modalIsOpen, formData.accountType, formData.paymentMode]);
     useEffect(() => {
         const fetchPaymentModes = async () => {
             try {
@@ -618,46 +751,6 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             window.removeEventListener("branchSelectionChanged", syncBranch);
         };
     }, [resolveActiveBranchId]);
-    const refetchExpenses = useCallback(async () => {
-        const response = await axios.get('https://backendaab.in/demoAabuilderDash/expenses_form/get_form', {
-            params: activeBranchId ? { branchId: activeBranchId } : {},
-        });
-        const sortedExpenses = response.data.sort((a, b) => {
-            const enoA = parseInt(a.eno, 10);
-            const enoB = parseInt(b.eno, 10);
-            return enoB - enoA;
-        });
-        setExpenses(sortedExpenses);
-        setFilteredExpenses(sortedExpenses);
-        const uniqueEnos = [...new Set(response.data.map(expense => expense.eno))];
-        const uniqueAccountTypes = [...new Set(response.data.map(expense => expense.accountType))];
-        const uniqueProjectNames = [...new Set(response.data.map(expense => expense.siteName))];
-        const siteOptions = uniqueProjectNames.map(name => ({ value: name, label: name }));
-        const uniqueVendorOptions = [...new Set(response.data.map(expense => expense.vendor))];
-        const vendorOptions = uniqueVendorOptions.map(name => ({ value: name, label: name }));
-        const uniqueContractorOptions = [...new Set(response.data.map(expense => expense.contractor))];
-        const uniqueCategoryOptions = [...new Set(response.data.map(expense => expense.category))];
-        const contractorOption = uniqueContractorOptions.map(name => ({ value: name, label: name }));
-        const categoryOption = uniqueCategoryOptions.map(name => ({ value: name, label: name }));
-        setEnoOptions(uniqueEnos);
-        setAccountTypeOptions(uniqueAccountTypes);
-        setSiteOptions(siteOptions);
-        setVendorOptions(vendorOptions);
-        setContractorOptions(contractorOption);
-        setCategoryOptions(categoryOption);
-    }, [activeBranchId]);
-    useEffect(() => {
-        refetchExpenses().catch((error) => {
-            console.error('Error fetching expenses:', error);
-        });
-    }, [refetchExpenses]);
-    const prevIsActiveRef = useRef(isActive);
-    useEffect(() => {
-        if (isActive && prevIsActiveRef.current === false) {
-            void refetchExpenses();
-        }
-        prevIsActiveRef.current = isActive;
-    }, [isActive, refetchExpenses]);
     useEffect(() => {
         const fetchSites = async () => {
             try {
@@ -828,6 +921,63 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         };
         fetchToolsItemIds();
     }, []);
+    useEffect(() => {
+        const fetchToolsItemNames = async () => {
+            try {
+                const response = await fetch(`${TOOLS_API_BASE}/api/tools_item_name/getAll`, {
+                    method: "GET",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error("Network response was not ok: " + response.statusText);
+                }
+                const data = await response.json();
+                const list = Array.isArray(data) ? data : [];
+                const formattedData = list
+                    .map((item) => ({
+                        value: String(item.id),
+                        label: item.item_name || "-",
+                        id: item.id,
+                    }))
+                    .sort((a, b) =>
+                        a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+                    );
+                setToolsItemNameOptions(formattedData);
+            } catch (error) {
+                console.error("Fetch error (tools_item_name): ", error);
+            }
+        };
+        fetchToolsItemNames();
+    }, []);
+    const editPopupCategoryOptions = useMemo(() => {
+        const all = Array.isArray(categoryOption) ? categoryOption : [];
+        if (formData.accountType === 'Sundry Payment') return all;
+        return all.filter(
+            (opt) => String(opt?.label ?? opt?.value ?? '').trim() !== 'Machine Repair'
+        );
+    }, [categoryOption, formData.accountType]);
+    const editPopupFilteredMachineOptions = useMemo(() => {
+        if (editPopupSelectedToolsItemName?.id == null) {
+            return [];
+        }
+        const nameId = String(editPopupSelectedToolsItemName.id);
+        return machineToolsCatalog.filter(
+            (opt) => String(opt.item_name_id ?? "").trim() === nameId
+        );
+    }, [machineToolsCatalog, editPopupSelectedToolsItemName]);
+    useEffect(() => {
+        setEditPopupSelectedMachine((current) => {
+            if (current == null) return null;
+            if (editPopupSelectedToolsItemName?.id == null) return null;
+            if (String(current.item_name_id ?? '').trim() === String(editPopupSelectedToolsItemName.id)) {
+                return current;
+            }
+            return null;
+        });
+    }, [editPopupSelectedToolsItemName]);
     const machineToolsIdToLabel = useMemo(() => {
         const map = {};
         machineToolsCatalog.forEach((opt) => {
@@ -881,12 +1031,19 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                     throw new Error("Network response was not ok: " + response.statusText);
                 }
                 const data = await response.json();
-                const formattedData = data.map(item => ({
-                    value: item.accountType,
-                    label: item.accountType,
-                    id: item.id,
-                }));
-                setAccountTypeOption(formattedData);
+                const formattedData = data
+                    .map((item) => {
+                        const typeName = normalizeAccountTypeName(
+                            item.accountType ?? item.account_type
+                        );
+                        return {
+                            value: typeName,
+                            label: typeName,
+                            id: item.id ?? item.Id ?? item.account_type_id ?? item.accountTypeId,
+                        };
+                    })
+                    .filter((item) => item.value);
+                setAccountTypeOption(formattedData.filter((item) => item.value !== 'Daily Wage'));
                 setEditAccountTypeOptions(formattedData);
             } catch (error) {
                 console.error("Fetch error: ", error);
@@ -1021,7 +1178,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                     getMachineToolsItemIdDisplay(expense.machineTools),
                     expense.source,
                     getBranchName(expense.branch_id ?? expense.branchId),
-                    expense.enteredBy || 'Sivaprakasm',
+                    expense.enteredBy || ' ',
                     expense.eno,
                     formatBillArrivalDisplay(expense),
                 ]
@@ -1030,60 +1187,26 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                 if (!searchable.includes(q)) return false;
             }
             return (
-                (selectedSiteName
-                    ? (selectedSiteName === BLANK_VALUE
-                        ? isBlankish(expense.siteName)
-                        : expense.siteName === selectedSiteName)
+                matchesEdbcSelectFilter(expense.siteName, selectedSiteName, { blankValue: BLANK_VALUE, isBlankish }) &&
+                matchesEdbcSelectFilter(expense.vendor, selectedVendor, { blankValue: BLANK_VALUE, isBlankish }) &&
+                matchesEdbcSelectFilter(expense.contractor, selectedContractor, { blankValue: BLANK_VALUE, isBlankish }) &&
+                matchesEdbcSelectFilter(expense.category, selectedCategory, { blankValue: BLANK_VALUE, isBlankish }) &&
+                matchesEdbcSelectFilter(expense.machineTools, selectedMachineTools, { blankValue: BLANK_VALUE, isBlankish }) &&
+                matchesEdbcSelectFilter(expense.source, selectedSource, { blankValue: BLANK_VALUE, isBlankish }) &&
+                matchesEdbcPaymentModeFilter(expense.paymentMode, selectedPaymentModes, {
+                    blankValue: BLANK_VALUE,
+                    isBlankish,
+                }) &&
+                matchesEdbcSelectFilter(expense.branch_id ?? expense.branchId, selectedBranch, { blankValue: BLANK_VALUE, isBlankish }) &&
+                matchesEdbcSelectFilter(expense.enteredBy || ' ', selectedEnteredBy, { blankValue: BLANK_VALUE, isBlankish }) &&
+                matchesEdbcSelectFilter(expense.accountType, selectedAccountType, { blankValue: BLANK_VALUE, isBlankish }) &&
+                matchesEdbcSelectFilter(expense.eno, selectedEno, { blankValue: BLANK_VALUE, isBlankish }) &&
+                (selectedQuantity.trim()
+                    ? String(expense.quantity ?? '').toLowerCase().includes(selectedQuantity.toLowerCase().trim())
                     : true) &&
-                (selectedVendor
-                    ? (selectedVendor === BLANK_VALUE
-                        ? isBlankish(expense.vendor)
-                        : expense.vendor === selectedVendor)
-                    : true) &&
-                (selectedContractor
-                    ? (selectedContractor === BLANK_VALUE
-                        ? isBlankish(expense.contractor)
-                        : expense.contractor === selectedContractor)
-                    : true) &&
-                (selectedCategory
-                    ? (selectedCategory === BLANK_VALUE
-                        ? isBlankish(expense.category)
-                        : expense.category === selectedCategory)
-                    : true) &&
-                (selectedMachineTools
-                    ? (selectedMachineTools === BLANK_VALUE
-                        ? isBlankish(expense.machineTools)
-                        : String(expense.machineTools ?? '') === String(selectedMachineTools))
-                    : true) &&
-                (selectedSource
-                    ? (selectedSource === BLANK_VALUE
-                        ? isBlankish(expense.source)
-                        : expense.source === selectedSource)
-                    : true) &&
-                (selectedPaymentMode
-                    ? (selectedPaymentMode === BLANK_VALUE
-                        ? isBlankish(expense.paymentMode)
-                        : expense.paymentMode === selectedPaymentMode)
-                    : true) &&
-                (selectedBranch
-                    ? (selectedBranch === BLANK_VALUE
-                        ? isBlankish(expense.branch_id ?? expense.branchId)
-                        : String(expense.branch_id ?? expense.branchId ?? '') === String(selectedBranch))
-                    : true) &&
-                (selectedEnteredBy
-                    ? (selectedEnteredBy === BLANK_VALUE
-                        ? isBlankish(expense.enteredBy)
-                        : (expense.enteredBy || 'Sivaprakasm') === selectedEnteredBy)
-                    : true) &&
-                (selectedAccountType ?
-                    (selectedAccountType === BLANK_VALUE
-                        ? isBlankish(expense.accountType)
-                        : expense.accountType === selectedAccountType)
-                    : true) &&
-                (selectedEno
-                    ? (selectedEno === BLANK_VALUE
-                        ? isBlankish(expense.eno)
-                        : String(expense.eno) === String(selectedEno))
+                matchesEdbcAmountFilter(expense.amount, selectedAmount) &&
+                (selectedDescription.trim()
+                    ? String(expense.comments ?? '').toLowerCase().includes(selectedDescription.toLowerCase().trim())
                     : true) &&
                 (selectedBillArrival
                     ? expenseBillArrivalToInput(expense) === selectedBillArrival
@@ -1099,22 +1222,21 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             selectedCategory,
             selectedMachineTools,
             selectedSource,
-            selectedPaymentMode,
+            selectedPaymentModes,
             selectedBranch,
             selectedEnteredBy,
             selectedAccountType,
             startDate,
             endDate,
             selectedEno,
-            selectedBillArrival
+            selectedBillArrival,
+            selectedQuantity.trim(),
+            selectedAmount.trim(),
+            selectedDescription.trim(),
         ].some(Boolean) || overallSearch.trim();
         setExportFilteredExpenses(anyFilterApplied ? filtered : []);
-        const getOptions = (data, key) => {
-            const unique = [...new Set(data.map(item => item[key]).filter(val => !isBlankish(val)))];
-            const options = unique.map(val => ({ value: val, label: val }));
-            options.unshift(blankOption);
-            return options;
-        };
+        const getOptions = (data, key) =>
+            buildEdbcSelectFilterOptions(data, key, { blankOption, isBlankish });
         setSiteOptions(getOptions(filtered, "siteName"));
         setVendorOptions(getOptions(filtered, "vendor"));
         setContractorOptions(getOptions(filtered, "contractor"));
@@ -1133,7 +1255,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         filtered.forEach((item) => {
             const enteredBy = item.enteredBy;
             if (isBlankish(enteredBy)) return;
-            const key = String(enteredBy);
+            const key = normalizeEdbcFilterText(enteredBy);
             if (!seenEnteredBy.has(key)) {
                 seenEnteredBy.add(key);
                 uniqueEnteredBy.push(String(enteredBy));
@@ -1163,7 +1285,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         selectedCategory,
         selectedMachineTools,
         selectedSource,
-        selectedPaymentMode,
+        selectedPaymentModes,
         selectedBranch,
         selectedEnteredBy,
         selectedAccountType,
@@ -1171,6 +1293,9 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         endDate,
         selectedEno,
         selectedBillArrival,
+        selectedQuantity,
+        selectedAmount,
+        selectedDescription,
         overallSearch,
         expenses,
         machineToolsIdToLabel,
@@ -1196,7 +1321,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         });
     }, [
         selectedSiteName, selectedVendor, selectedContractor, selectedCategory, selectedMachineTools,
-        selectedSource, selectedPaymentMode, selectedBranch, selectedEnteredBy, selectedAccountType, startDate, endDate,
+        selectedSource, selectedPaymentModes, selectedBranch, selectedEnteredBy, selectedAccountType, startDate, endDate,
         selectedEno, selectedBillArrival,
     ]);
     const handleChange = (e) => {
@@ -1219,8 +1344,10 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             [name]: type === "file" ? files[0] : value
         });
     };
-    const handleFileChange = (e) => {
-        setSelectedFile(e.target.files[0]);
+    const handleBillCopyFileSelected = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setPendingBillCopyFile(file);
     };
     const formatDateOnly = (dateString) => {
         const date = new Date(dateString);
@@ -1260,61 +1387,36 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
     };
     const handleSave = async (event) => {
         event.preventDefault();
-        let updatedBillCopy = formData.billCopy;
         setIsSubmitting(true);
-        if (selectedFile) {
+        let resolvedBillCopyUrl = String(formData.billCopyUrl || formData.billCopy || '').trim();
+        if (pendingBillCopyFile) {
             try {
-                const uploadFormData = new FormData();
-
-                const now = new Date();
-                const timestamp = now.toLocaleString("en-GB", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: true
-                })
-                    .replace(",", "")
-                    .replace(/\s/g, "-");
-
-                const finalName = `${timestamp}-${formData.siteName}-${formData.vendor || formData.contractor}`;
-
-                // ✅ CHANGE 1: key must be "files"
-                uploadFormData.append("files", selectedFile);
-
-                // ✅ CHANGE 2: required folder
-                uploadFormData.append("folder", "FileUpload / Expenses_Entry_Files");
-
-                // ✅ CHANGE 3: optional filename
-                uploadFormData.append("fileName", finalName);
-
-                const uploadResponse = await fetch("https://backendaab.in/demoAabuildersDash/api/files/upload", {
-                    method: "POST",
-                    body: uploadFormData,
+                resolvedBillCopyUrl = await uploadExpensesEntryBillCopy(pendingBillCopyFile, {
+                    siteName: formData.siteName,
+                    vendor: formData.vendor,
+                    contractor: formData.contractor,
                 });
-
-                if (!uploadResponse.ok) {
-                    throw new Error("File upload failed");
+                setPendingBillCopyFile(null);
+                if (billCopyFileInputRef.current) {
+                    billCopyFileInputRef.current.value = '';
                 }
-
-                const result = await uploadResponse.json();
-
-                // ✅ CHANGE 4: new response structure
-                updatedBillCopy = result.urls[0];
-
+                setFormData((prev) => ({ ...prev, billCopyUrl: resolvedBillCopyUrl, billCopy: resolvedBillCopyUrl }));
             } catch (error) {
-                console.error("Error during file upload:", error);
-                alert("Error during file upload. Please try again.");
+                console.error('Error during file upload:', error);
+                alert('Error during file upload. Please try again.');
                 setIsSubmitting(false);
                 return;
             }
         }
         const updatedFormData = {
             ...formData,
-            billCopy: updatedBillCopy,
+            billCopy: resolvedBillCopyUrl,
+            billCopyUrl: resolvedBillCopyUrl,
             editedBy: username,
+            machineTools:
+                formData.accountType === 'Sundry Payment' && formData.category === 'Machine Repair'
+                    ? (editPopupSelectedMachine?.id != null ? editPopupSelectedMachine.id : null)
+                    : formData.machineTools,
         };
         // Always ask payment details for online payment modes so user can confirm/change account number.
         if (
@@ -1345,6 +1447,10 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             await performUpdateAndWeeklyBills(updatedFormData);
             await refetchExpenses();
             setModalIsOpen(false);
+            setPendingBillCopyFile(null);
+            if (billCopyFileInputRef.current) {
+                billCopyFileInputRef.current.value = '';
+            }
             setIsSubmitting(false);
             alert('Updated successfully!');
         } catch (error) {
@@ -1457,6 +1563,10 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             await refetchExpenses();
             setShowPaymentModal(false);
             setModalIsOpen(false);
+            setPendingBillCopyFile(null);
+            if (billCopyFileInputRef.current) {
+                billCopyFileInputRef.current.value = '';
+            }
             setIsSubmitting(false);
             alert('Updated successfully!');
         } catch (error) {
@@ -1569,6 +1679,119 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         });
         return map;
     }, [contractorOption]);
+    const editPopupCombinedVendorContractorOptions = useMemo(
+        () => [...vendorOption, ...contractorOption, ...employeeOptions, ...laboursList],
+        [vendorOption, contractorOption, employeeOptions, laboursList]
+    );
+    const editPopupSelectedVendorContractor = useMemo(() => {
+        const employeeId = formData.employeeId || formData.employee_id || formData.employeeID || formData.employee_ID;
+        const labourId = formData.labourId || formData.labour_id || formData.labourID || formData.labour_ID;
+        if (formData.vendor) {
+            return editPopupCombinedVendorContractorOptions.find(
+                (o) => o.type === 'Vendor' && o.value === formData.vendor
+            ) || { value: formData.vendor, label: formData.vendor, type: 'Vendor' };
+        }
+        if (formData.contractor) {
+            return editPopupCombinedVendorContractorOptions.find(
+                (o) => o.type === 'Contractor' && o.value === formData.contractor
+            ) || { value: formData.contractor, label: formData.contractor, type: 'Contractor' };
+        }
+        if (employeeId) {
+            return editPopupCombinedVendorContractorOptions.find(
+                (o) => o.type === 'Employee' && String(o.id) === String(employeeId)
+            ) || employeeOptions.find((o) => String(o.id) === String(employeeId)) || {
+                value: String(employeeId),
+                label: String(employeeId),
+                type: 'Employee',
+                id: employeeId,
+            };
+        }
+        if (labourId) {
+            return editPopupCombinedVendorContractorOptions.find(
+                (o) => o.type === 'Labour' && String(o.id) === String(labourId)
+            ) || laboursList.find((o) => String(o.id) === String(labourId)) || {
+                value: String(labourId),
+                label: String(labourId),
+                type: 'Labour',
+                id: labourId,
+            };
+        }
+        return null;
+    }, [formData.vendor, formData.contractor, formData.employeeId, formData.employee_id, formData.labourId, formData.labour_id, editPopupCombinedVendorContractorOptions, employeeOptions, laboursList]);
+    const editPopupVendorContractorType = formData.vendor
+        ? 'Vendor'
+        : formData.contractor
+            ? 'Contractor'
+            : (formData.employeeId || formData.employee_id || formData.employeeID || formData.employee_ID)
+                ? 'Employee'
+                : (formData.labourId || formData.labour_id || formData.labourID || formData.labour_ID)
+                    ? 'Labour'
+                    : '';
+    const handleEditPopupVendorContractorChange = (selectedOption) => {
+        if (!selectedOption) {
+            setFormData((prev) => ({
+                ...prev,
+                vendor: '',
+                vendorId: '',
+                contractor: '',
+                contractorId: '',
+                employeeId: '',
+                employee_id: null,
+                labourId: '',
+                labour_id: null,
+            }));
+            return;
+        }
+        if (selectedOption.type === 'Vendor') {
+            setFormData((prev) => ({
+                ...prev,
+                vendor: selectedOption.value || '',
+                vendorId: selectedOption.id || '',
+                contractor: '',
+                contractorId: '',
+                employeeId: '',
+                employee_id: null,
+                labourId: '',
+                labour_id: null,
+            }));
+        } else if (selectedOption.type === 'Contractor') {
+            setFormData((prev) => ({
+                ...prev,
+                contractor: selectedOption.value || '',
+                contractorId: selectedOption.id || '',
+                vendor: '',
+                vendorId: '',
+                employeeId: '',
+                employee_id: null,
+                labourId: '',
+                labour_id: null,
+            }));
+        } else if (selectedOption.type === 'Employee') {
+            setFormData((prev) => ({
+                ...prev,
+                employeeId: selectedOption.id || '',
+                employee_id: selectedOption.id || null,
+                vendor: '',
+                vendorId: '',
+                contractor: '',
+                contractorId: '',
+                labourId: '',
+                labour_id: null,
+            }));
+        } else if (selectedOption.type === 'Labour') {
+            setFormData((prev) => ({
+                ...prev,
+                labourId: selectedOption.id || '',
+                labour_id: selectedOption.id || null,
+                vendor: '',
+                vendorId: '',
+                contractor: '',
+                contractorId: '',
+                employeeId: '',
+                employee_id: null,
+            }));
+        }
+    };
     const labourIdToName = React.useMemo(() => {
         const map = {};
         laboursList.forEach(option => {
@@ -1654,6 +1877,25 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         }
         return '';
     };
+    const applyEditPopupMachineSelection = (machineToolsId, catalog = machineToolsCatalog, nameOptions = toolsItemNameOptions) => {
+        if (machineToolsId == null || machineToolsId === '') {
+            setEditPopupSelectedMachine(null);
+            setEditPopupSelectedToolsItemName(null);
+            return;
+        }
+        const machineOpt = catalog.find(
+            (o) => o.id == machineToolsId || String(o.id) === String(machineToolsId)
+        ) || null;
+        setEditPopupSelectedMachine(machineOpt);
+        if (!machineOpt) {
+            setEditPopupSelectedToolsItemName(null);
+            return;
+        }
+        const nameOpt = nameOptions.find(
+            (o) => String(o.id) === String(machineOpt.item_name_id ?? '')
+        ) || null;
+        setEditPopupSelectedToolsItemName(nameOpt);
+    };
     const handleEditClick = (expense) => {
         if (isAdvancePortalSourceExpense(expense)) {
             return;
@@ -1671,13 +1913,25 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             projectId: expense.projectId || '',
             vendorId: expense.vendorId || '',
             contractorId: expense.contractorId || '',
-            billArrivalDate: expenseBillArrivalToInput(expense)
+            billArrivalDate: expenseBillArrivalToInput(expense),
+            billCopyUrl: expense.billCopyUrl || expense.billCopy || '',
+            billCopy: expense.billCopy || expense.billCopyUrl || '',
         });
+        applyEditPopupMachineSelection(expense.machineTools);
+        setPendingBillCopyFile(null);
+        if (billCopyFileInputRef.current) {
+            billCopyFileInputRef.current.value = '';
+        }
         setModalIsOpen(true);
     };
     const handleCancel = () => {
         setModalIsOpen(false);
-        setSelectedFile(null);
+        setEditPopupSelectedMachine(null);
+        setEditPopupSelectedToolsItemName(null);
+        setPendingBillCopyFile(null);
+        if (billCopyFileInputRef.current) {
+            billCopyFileInputRef.current.value = '';
+        }
     };
     const clearFilters = () => {
         setSelectedSiteName('');
@@ -1687,13 +1941,16 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         setSelectedMachineTools('');
         setSelectedAccountType('');
         setSelectedSource('');
-        setSelectedPaymentMode('');
+        setSelectedPaymentModes([]);
         setSelectedBranch('');
         setSelectedEnteredBy('');
         setStartDate('');
         setEndDate('');
         setSelectedEno('');
         setSelectedBillArrival('');
+        setSelectedQuantity('');
+        setSelectedAmount('');
+        setSelectedDescription('');
         setOverallSearch('');
         setFilteredExpenses(expenses);
         setCurrentPage(1);
@@ -1768,6 +2025,12 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             showFilters,
             filterRowRef,
             totalAmount,
+            selectedQuantity,
+            setSelectedQuantity,
+            selectedAmount,
+            setSelectedAmount,
+            selectedDescription,
+            setSelectedDescription,
             sortField,
             sortDirection,
             handleSort,
@@ -1822,8 +2085,8 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             billArrivalFilterRef,
         }),
         paymentModeFilterOptions,
-        selectedPaymentMode,
-        setSelectedPaymentMode,
+        selectedPaymentModes,
+        setSelectedPaymentModes,
         selectedBillArrival,
         setSelectedBillArrival,
         setBillArrivalCalendarPos,
@@ -1832,6 +2095,9 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         currentItems,
         showFilters,
         totalAmount,
+        selectedQuantity,
+        selectedAmount,
+        selectedDescription,
         sortField,
         sortDirection,
         startDate,
@@ -1852,7 +2118,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
         sourceOptions,
         selectedSource,
         paymentModeFilterOptions,
-        selectedPaymentMode,
+        selectedPaymentModes,
         branchFilterOptions,
         selectedBranch,
         enteredByOptions,
@@ -1866,11 +2132,15 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             <div className='flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED]'>
                 <div className='px-[18px] pt-[18px] pb-[18px] flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]'>
                     <div className="w-full pt-[18px] px-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
-                        <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || selectedEno || selectedBillArrival
+                        {expensesLoading && expenses.length === 0 ? (
+                            <div className="mb-[12px] flex items-center justify-center min-h-[80px] text-[16px] font-medium text-[#666666]">
+                                Loading latest expenses...
+                            </div>
+                        ) : null}
+                        <div className={`text-left flex ${selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || hasEdbcPaymentModeFilter(selectedPaymentModes) || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || selectedEno || selectedBillArrival || selectedQuantity.trim() || selectedAmount.trim() || selectedDescription.trim()
                             ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-[12px] gap-[6px]`}>
                             <div className="flex flex-row items-center sm:space-x-3 min-w-0 flex-1 overflow-hidden">
-                                <button
-                                    className=''
+                                <EdbcFilterToggleButton
                                     onClick={() => {
                                         const willOpen = !showFilters;
                                         const scroller = scrollRef.current;
@@ -1900,14 +2170,8 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                             });
                                         });
                                     }}
-                                >
-                                    <img
-                                        src={Filter}
-                                        alt="Toggle Filter"
-                                        className=" border rounded-md"
-                                    />
-                                </button>
-                                {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || selectedPaymentMode || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || selectedEno || selectedBillArrival) && (
+                                />
+                                {(selectedSiteName || selectedVendor || selectedContractor || selectedCategory || selectedAccountType || selectedMachineTools || hasEdbcPaymentModeFilter(selectedPaymentModes) || selectedSource || selectedBranch || selectedEnteredBy || startDate || endDate || selectedEno || selectedBillArrival || selectedQuantity.trim() || selectedAmount.trim() || selectedDescription.trim()) && (
                                     <div className="flex flex-row flex-wrap items-center gap-2 min-w-0">
                                         {startDate && endDate ? (
                                             <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 text-[16px] w-fit max-w-full min-w-0 overflow-hidden">
@@ -1956,6 +2220,27 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                 <button onClick={() => setSelectedCategory('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
+                                        {selectedQuantity.trim() && (
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-semibold shrink-0 whitespace-nowrap">{TABLE_VIEW_EXPENSE_FIELDS.quantity}: </span>
+                                                <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedQuantity}</span>
+                                                <button onClick={() => setSelectedQuantity('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectedAmount.trim() && (
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-semibold shrink-0 whitespace-nowrap">{TABLE_VIEW_EXPENSE_FIELDS.amount}: </span>
+                                                <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedAmount}</span>
+                                                <button onClick={() => setSelectedAmount('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectedDescription.trim() && (
+                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
+                                                <span className="font-semibold shrink-0 whitespace-nowrap">{TABLE_VIEW_EXPENSE_FIELDS.description}: </span>
+                                                <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedDescription}</span>
+                                                <button onClick={() => setSelectedDescription('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
                                         {selectedAccountType && (
                                             <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
                                                 <span className="font-semibold shrink-0 whitespace-nowrap">{TABLE_VIEW_EXPENSE_FIELDS.accountType}: </span>
@@ -1963,13 +2248,13 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                 <button onClick={() => setSelectedAccountType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
-                                        {selectedPaymentMode && (
-                                            <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
-                                                <span className="font-semibold shrink-0 whitespace-nowrap">{TABLE_VIEW_EXPENSE_FIELDS.mode}: </span>
-                                                <span className="font-semibold text-[14px] text-[#000000] truncate min-w-0">{selectedPaymentMode}</span>
-                                                <button onClick={() => setSelectedPaymentMode('')} className="text-[#E4572E] text-2xl ml-1">×</button>
-                                            </span>
-                                        )}
+                                        <EdbcPaymentModeFilterChip
+                                            fieldLabel={TABLE_VIEW_EXPENSE_FIELDS.mode}
+                                            selectedModes={selectedPaymentModes}
+                                            blankValue={BLANK_VALUE}
+                                            blankLabel={blankOption.label}
+                                            onClear={() => setSelectedPaymentModes([])}
+                                        />
                                         {selectedMachineTools && (
                                             <span className="inline-flex flex-nowrap items-center gap-1 whitespace-nowrap border text-[#BF9853] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm w-fit max-w-full min-w-0 overflow-hidden">
                                                 <span className="font-semibold shrink-0 whitespace-nowrap">{TABLE_VIEW_EXPENSE_FIELDS.machineTools}: </span>
@@ -2015,27 +2300,15 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                     </div>
                                 )}
                             </div>
-                            <div className='flex items-end gap-[6px]'>
-                                <button onClick={clearFilters} className='flex h-[30px] w-[30px] shrink-0 items-center justify-center'>
-                                    <img className='w-full h-full' src={Reload} alt="Reload" />
-                                </button>
-                                <div className="w-[286px] min-w-[286px] translate-y-[2px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
-                                    <input
-                                        type="text"
-                                        value={overallSearch}
-                                        onChange={(e) => setOverallSearch(e.target.value)}
-                                        placeholder={TABLE_VIEW_EXPENSE_FIELDS.searchTransactions}
-                                        className="h-full w-full border-0 p-0 text-[14px] text-[#000000] bg-transparent outline-none"
-                                    />
-                                    <img src={Search} alt="Search" className="w-[16px] h-[16px] pointer-events-none" />
-                                </div>
-                                <div className=' text-left md:text-right md:items-end items-end cursor-default flex justify-end max-w-screen-2xl table-auto overflow-auto w-full scrollbar-none no-scrollbar'>
-                                    <div className='flex items-end text-center'>
-                                        <span className='text-[#E4572E] mr-2 flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={generateFilteredPDF}>PDF<img src={Pdf} alt="Pdf" className='w-4 h-4' /></span>
-                                        <span className='text-[#007233] flex items-center gap-1 font-semibold hover:underline cursor-pointer' onClick={exportToCSV}>XL<img src={XL} alt="XL" className='w-4 h-4' /></span>
-                                    </div>
-                                </div>
-                            </div>
+                            <EdbcTableToolbarRightActions
+                                onClearFilters={clearFilters}
+                                overallSearch={overallSearch}
+                                onOverallSearchChange={setOverallSearch}
+                                searchPlaceholder={TABLE_VIEW_EXPENSE_FIELDS.searchTransactions}
+                                showExportIcons
+                                onExportPdf={generateFilteredPDF}
+                                onExportCsv={exportToCSV}
+                            />
                         </div>
                         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                             <div
@@ -2085,6 +2358,10 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                 <div className="flex items-center space-x-2">
                                     <span className="text-sm text-gray-700">
                                         Showing {startIndex + 1} to {Math.min(endIndex, sortedExpenses.length)} of {sortedExpenses.length} entries
+                                        {expensesLoadingMore ? ' (loading older records...)' : ''}
+                                        {!expensesLoadingMore && expensesTotalCount != null && expensesTotalCount > sortedExpenses.length
+                                            ? ` / ${expensesTotalCount} total`
+                                            : ''}
                                     </span>
                                 </div>
                                 <div className="flex items-center space-x-1">
@@ -2131,34 +2408,28 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                             <Modal
                                 isOpen={modalIsOpen}
                                 onRequestClose={handleCancel}
-                                contentLabel="Edit Expense"
+                                contentLabel={getEditPopupHeading(formData.source, 'Edit Expense')}
                                 className="fixed inset-0 flex items-center justify-center p-4 bg-gray-800 bg-opacity-50 z-[9999]"
                                 overlayClassName="fixed inset-0 z-[9999]">
-                                <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl">
-                                    <h2 className="text-xl font-normal mb-6 border-b-2">Edit Expense</h2>
-                                    <form className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-gray-500 font-normal text-left">Date</label>
-                                            <div className="mt-1">
-                                                <CustomDateField
-                                                    value={formData.date}
-                                                    onChange={(v) => {
-                                                        if (!v) return;
-                                                        setFormData((prev) => ({ ...prev, date: v }));
-                                                    }}
-                                                    placeholder="Select date"
-                                                    alwaysOpenBelow
-                                                    className="[&>button]:!border-2 [&>button]:!border-[rgba(191,152,83,0.2)] [&>button]:!rounded-lg [&>button]:!shadow-none [&>button:hover]:!border-[rgba(191,152,83,0.4)] [&>button:focus]:!outline-none [&>button:focus]:!ring-0 [&>button:focus]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button:focus-visible]:!outline-none [&>button:focus-visible]:!ring-0 [&>button:focus-visible]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button]:!font-normal"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-gray-500 font-normal text-left">Account Type *</label>
+                                <div className="bg-white text-left p-6 rounded-lg shadow-lg w-full max-w-2xl">
+                                    <div className="flex justify-between items-center mb-[12px]">
+                                        <h2 className="text-xl font-bold">{getEditPopupHeading(formData.source, 'Edit Expense')}</h2>
+                                        <span className="text-[16px] font-semibold text-[#E4572E]"> {formData.eno}</span>
+                                    </div>
+                                    <form className="flex flex-col gap-[12px]">
+                                        <div className="flex gap-[16px] flex-wrap items-start">
+                                        <div className="text-left w-[300px] min-w-[300px] max-w-[300px] shrink-0">
+                                            <label className="block text-black font-semibold mb-[8px] text-left">Account Type<span className="text-[#E4572E]">*</span></label>
+                                            <div className="w-[300px]">
                                             <Select
                                                 name="accountType"
                                                 value={editAccountTypeOptions.find(option => option.value === formData.accountType) || null}
                                                 onChange={(selectedOption) => {
                                                     const nextAccountType = selectedOption?.value || '';
+                                                    if (nextAccountType !== 'Sundry Payment') {
+                                                        setEditPopupSelectedToolsItemName(null);
+                                                        setEditPopupSelectedMachine(null);
+                                                    }
                                                     setFormData((prev) => {
                                                         const parsed = parseFloat(String(prev.amount ?? '').replace(/,/g, ''));
                                                         const hasAmount = prev.amount !== '' && prev.amount != null && !Number.isNaN(parsed);
@@ -2180,19 +2451,38 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                 options={editAccountTypeOptions}
                                                 placeholder="Select"
                                                 isClearable
+                                                components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                className={EDIT_POPUP_SELECT_CLASSNAME}
                                                 styles={{
                                                     control: (base, state) => ({
                                                         ...base,
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                         borderColor: 'rgba(191, 152, 83, 0.2)',
                                                         borderWidth: '2px',
                                                         borderRadius: '0.5rem',
-                                                        padding: '0.25rem',
+                                                        height: '40px',
+                                                        minHeight: '40px',
+                                                        alignItems: 'center',
+                                                        paddingTop: 0,
+                                                        paddingBottom: 0,
                                                         textAlign: 'left',
                                                         boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
                                                         '&:hover': {
                                                             borderColor: 'rgba(191, 152, 83, 0.4)',
                                                         },
+                                                    }),
+                                                    valueContainer: (base) => ({
+                                                        ...base,
+                                                        alignItems: 'center',
+                                                        paddingTop: 0,
+                                                        paddingBottom: 0,
+                                                    }),
+                                                    indicatorsContainer: (base) => ({
+                                                        ...base,
+                                                        alignItems: 'center',
+                                                    }),
+                                                    indicatorSeparator: () => ({
+                                                        display: 'none',
                                                     }),
                                                     placeholder: (base) => ({
                                                         ...base,
@@ -2203,7 +2493,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                     option: (provided, state) => ({
                                                         ...provided,
                                                         textAlign: 'left',
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                         fontSize: '15px',
                                                         backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                         color: 'black',
@@ -2211,7 +2501,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                     singleValue: (base) => ({
                                                         ...base,
                                                         color: '#111827',
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                     }),
                                                     menu: (base) => ({
                                                         ...base,
@@ -2227,12 +2517,118 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                 menuPlacement="bottom"
                                                 menuPosition="absolute"
                                             />
+                                            </div>
+                                            {formData.accountType === 'Utility Bills' && (
+                                                <div className="mt-[12px]">
+                                                    <label className="block text-black font-semibold mb-[8px] text-left">Utility Type<span className="text-[#E4572E]">*</span></label>
+                                                    <div className="w-[616px]">
+                                                    <Select
+                                                        name="utilityType"
+                                                        options={EDIT_POPUP_UTILITY_TYPE_OPTIONS}
+                                                        value={EDIT_POPUP_UTILITY_TYPE_OPTIONS.find((o) => o.value === formData.utilityType) || null}
+                                                        onChange={(selectedOption) =>
+                                                            setFormData({
+                                                                ...formData,
+                                                                utilityType: selectedOption?.value || '',
+                                                            })
+                                                        }
+                                                        placeholder="--- Select ---"
+                                                        isClearable
+                                                        isSearchable
+                                                        components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                        className={EDIT_POPUP_SELECT_CLASSNAME}
+                                                        styles={{
+                                                            control: (base, state) => ({
+                                                                ...base,
+                                                                fontWeight: 600,
+                                                                borderColor: 'rgba(191, 152, 83, 0.2)',
+                                                                borderWidth: '2px',
+                                                                borderRadius: '0.5rem',
+                                                                height: '40px',
+                                                                minHeight: '40px',
+                                                                alignItems: 'center',
+                                                                paddingTop: 0,
+                                                                paddingBottom: 0,
+                                                                textAlign: 'left',
+                                                                boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+                                                                '&:hover': {
+                                                                    borderColor: 'rgba(191, 152, 83, 0.4)',
+                                                                },
+                                                            }),
+                                                            valueContainer: (base) => ({
+                                                                ...base,
+                                                                alignItems: 'center',
+                                                                paddingTop: 0,
+                                                                paddingBottom: 0,
+                                                            }),
+                                                            indicatorsContainer: (base) => ({
+                                                                ...base,
+                                                                alignItems: 'center',
+                                                            }),
+                                                            indicatorSeparator: () => ({
+                                                                display: 'none',
+                                                            }),
+                                                            placeholder: (base) => ({
+                                                                ...base,
+                                                                fontWeight: 'normal',
+                                                                color: '#6B7280',
+                                                                textAlign: 'left',
+                                                            }),
+                                                            option: (provided, state) => ({
+                                                                ...provided,
+                                                                textAlign: 'left',
+                                                                fontWeight: 600,
+                                                                fontSize: '15px',
+                                                                backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
+                                                                color: 'black',
+                                                            }),
+                                                            singleValue: (base) => ({
+                                                                ...base,
+                                                                color: '#111827',
+                                                                fontWeight: 600,
+                                                            }),
+                                                            menu: (base) => ({
+                                                                ...base,
+                                                                zIndex: 999,
+                                                            }),
+                                                            menuList: (base) => ({
+                                                                ...base,
+                                                                scrollbarWidth: 'none',
+                                                                msOverflowStyle: 'none',
+                                                                '&::-webkit-scrollbar': { display: 'none' },
+                                                            }),
+                                                        }}
+                                                        menuPlacement="bottom"
+                                                        menuPosition="absolute"
+                                                    />
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div>
-                                            <label className="block text-gray-500 font-normal text-left">Site Name *</label>
+                                        <div className="text-left w-[300px]">
+                                            <label className="block text-black font-semibold mb-[8px] text-left">Date<span className="text-[#E4572E]">*</span></label>
+                                            <div className="w-[300px]">
+                                                <CustomDateField
+                                                    value={formData.date}
+                                                    onChange={(v) => {
+                                                        if (!v) return;
+                                                        setFormData((prev) => ({ ...prev, date: v }));
+                                                    }}
+                                                    placeholder="Date"
+                                                    alwaysOpenBelow
+                                                    controlHeightPx={40}
+                                                    className="w-full [&>div]:!w-full [&>div]:!max-w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div:hover]:!border-[rgba(191,152,83,0.4)] [&>div:focus-within]:!outline-none [&>div:focus-within]:!ring-0 [&>div:focus-within]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button]:!font-semibold"
+                                                />
+                                            </div>
+                                        </div>
+                                        </div>
+                                        <div className="flex gap-[16px]">
+                                        <div className="text-left w-[300px]">
+                                            <label className="block text-black font-semibold mb-[8px] text-left">Project Name<span className="text-[#E4572E]">*</span></label>
+                                            <div className="w-[300px]">
                                             <Select
                                                 name="siteName"
-                                                value={siteOption.find(option => option.value === formData.siteName)}
+                                                value={editPopupSiteOptions.find(option => option.value === formData.siteName)}
                                                 onChange={(selectedOption) =>
                                                     setFormData({
                                                         ...formData,
@@ -2240,22 +2636,41 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                         projectId: selectedOption?.id || ''
                                                     })
                                                 }
-                                                options={siteOption}
+                                                options={editPopupSiteOptions}
                                                 placeholder="Select Site"
                                                 isClearable
+                                                components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                className={EDIT_POPUP_SELECT_CLASSNAME}
                                                 styles={{
                                                     control: (base, state) => ({
                                                         ...base,
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                         borderColor: 'rgba(191, 152, 83, 0.2)',
                                                         borderWidth: '2px',
                                                         borderRadius: '0.5rem',
-                                                        padding: '0.25rem',
+                                                        height: '40px',
+                                                        minHeight: '40px',
+                                                        alignItems: 'center',
+                                                        paddingTop: 0,
+                                                        paddingBottom: 0,
                                                         textAlign: 'left',
                                                         boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
                                                         '&:hover': {
                                                             borderColor: 'rgba(191, 152, 83, 0.4)',
                                                         },
+                                                    }),
+                                                    valueContainer: (base) => ({
+                                                        ...base,
+                                                        alignItems: 'center',
+                                                        paddingTop: 0,
+                                                        paddingBottom: 0,
+                                                    }),
+                                                    indicatorsContainer: (base) => ({
+                                                        ...base,
+                                                        alignItems: 'center',
+                                                    }),
+                                                    indicatorSeparator: () => ({
+                                                        display: 'none',
                                                     }),
                                                     placeholder: (base) => ({
                                                         ...base,
@@ -2266,7 +2681,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                     option: (provided, state) => ({
                                                         ...provided,
                                                         textAlign: 'left',
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                         fontSize: '15px',
                                                         backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                         color: 'black',
@@ -2274,7 +2689,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                     singleValue: (base) => ({
                                                         ...base,
                                                         color: '#111827',
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                     }),
                                                     menu: (base) => ({
                                                         ...base,
@@ -2290,48 +2705,72 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                 menuPlacement="bottom"
                                                 menuPosition="absolute"
                                             />
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-gray-500 font-normal text-left">Vendor Name *</label>
+                                        <div className="text-left w-[300px]">
+                                            <div className="flex justify-between mb-[8px]">
+                                                <label className="block text-black font-semibold text-left">Associate Name<span className="text-[#E4572E]">*</span></label>
+                                                {editPopupVendorContractorType && (
+                                                    <span className="text-[14px] text-[#E4572E] font-semibold">{editPopupVendorContractorType}</span>
+                                                )}
+                                            </div>
+                                            <div className="w-[300px]">
                                             <Select
-                                                name="vendor"
-                                                options={vendorOption}
-                                                value={vendorOption.find(opt => opt.value === formData.vendor)}
-                                                onChange={(selectedOption) =>
-                                                    setFormData({
-                                                        ...formData,
-                                                        vendor: selectedOption?.value || '',
-                                                        vendorId: selectedOption?.id || '',
-                                                        contractor: selectedOption ? '' : formData.contractor,
-                                                        contractorId: selectedOption ? '' : formData.contractorId
-                                                    })
-                                                }
-                                                isDisabled={!!formData.contractor}
+                                                name="vendorContractor"
+                                                options={editPopupCombinedVendorContractorOptions}
+                                                value={editPopupSelectedVendorContractor}
+                                                onChange={handleEditPopupVendorContractorChange}
                                                 isClearable
+                                                isSearchable
+                                                components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                className={EDIT_POPUP_SELECT_CLASSNAME}
                                                 styles={{
                                                     control: (base, state) => ({
                                                         ...base,
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                         borderColor: 'rgba(191, 152, 83, 0.2)',
                                                         borderWidth: '2px',
                                                         borderRadius: '0.5rem',
-                                                        padding: '0.25rem',
+                                                        height: '40px',
+                                                        minHeight: '40px',
+                                                        alignItems: 'center',
+                                                        paddingTop: 0,
+                                                        paddingBottom: 0,
                                                         textAlign: 'left',
                                                         boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
                                                         '&:hover': {
                                                             borderColor: 'rgba(191, 152, 83, 0.4)',
                                                         },
                                                     }),
+                                                    valueContainer: (base) => ({
+                                                        ...base,
+                                                        alignItems: 'center',
+                                                        paddingTop: 0,
+                                                        paddingBottom: 0,
+                                                        flexWrap: 'nowrap',
+                                                        overflow: 'hidden',
+                                                    }),
+                                                    indicatorsContainer: (base) => ({
+                                                        ...base,
+                                                        alignItems: 'center',
+                                                    }),
+                                                    indicatorSeparator: () => ({
+                                                        display: 'none',
+                                                    }),
                                                     placeholder: (base) => ({
                                                         ...base,
                                                         fontWeight: 'normal',
                                                         color: '#6B7280',
                                                         textAlign: 'left',
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        maxWidth: '100%',
                                                     }),
                                                     option: (provided, state) => ({
                                                         ...provided,
                                                         textAlign: 'left',
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                         fontSize: '15px',
                                                         backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                         color: 'black',
@@ -2339,7 +2778,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                     singleValue: (base) => ({
                                                         ...base,
                                                         color: '#111827',
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                     }),
                                                     menu: (base) => ({
                                                         ...base,
@@ -2352,108 +2791,91 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                         '&::-webkit-scrollbar': { display: 'none' },
                                                     }),
                                                 }}
-                                                placeholder="Select Vendor"
+                                                placeholder="Vendor/Contractor/Employee/Labour"
                                             />
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-gray-500 font-normal text-left">Contractor Name *</label>
-                                            <Select
-                                                name="contractor"
-                                                options={contractorOption}
-                                                value={contractorOption.find(opt => opt.value === formData.contractor)}
-                                                onChange={(selectedOption) =>
-                                                    setFormData({
-                                                        ...formData,
-                                                        contractor: selectedOption?.value || '',
-                                                        contractorId: selectedOption?.id || '',
-                                                        vendor: selectedOption ? '' : formData.vendor,
-                                                        vendorId: selectedOption ? '' : formData.vendorId
-                                                    })
-                                                }
-                                                isDisabled={!!formData.vendor}
-                                                isClearable
-                                                styles={{
-                                                    control: (base, state) => ({
-                                                        ...base,
-                                                        fontWeight: 'normal',
-                                                        borderColor: 'rgba(191, 152, 83, 0.2)',
-                                                        borderWidth: '2px',
-                                                        borderRadius: '0.5rem',
-                                                        padding: '0.25rem',
-                                                        textAlign: 'left',
-                                                        boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
-                                                        '&:hover': {
-                                                            borderColor: 'rgba(191, 152, 83, 0.4)',
-                                                        },
-                                                    }),
-                                                    placeholder: (base) => ({
-                                                        ...base,
-                                                        fontWeight: 'normal',
-                                                        color: '#6B7280',
-                                                        textAlign: 'left',
-
-                                                    }),
-                                                    option: (provided, state) => ({
-                                                        ...provided,
-                                                        textAlign: 'left',
-                                                        fontWeight: 'normal',
-                                                        fontSize: '15px',
-                                                        backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                        color: 'black',
-                                                    }),
-                                                    singleValue: (base) => ({
-                                                        ...base,
-                                                        color: '#111827',
-                                                        fontWeight: 'normal',
-                                                    }),
-                                                    menu: (base) => ({
-                                                        ...base,
-                                                        zIndex: 999,
-                                                    }),
-                                                    menuList: (base) => ({
-                                                        ...base,
-                                                        scrollbarWidth: 'none',
-                                                        msOverflowStyle: 'none',
-                                                        '&::-webkit-scrollbar': { display: 'none' },
-                                                    }),
-                                                }}
-                                                placeholder="Select Contractor"
-                                            />
                                         </div>
-                                        <div>
-                                            <label className="block text-gray-500 font-normal text-left">Quantity *</label>
+                                        <div className="flex gap-[16px]">
+                                        <div className="text-left w-[300px]">
+                                            <label className="block text-black font-semibold mb-[8px] text-left">Quantity</label>
                                             <input
                                                 type="text"
                                                 name="quantity"
                                                 value={formData.quantity}
                                                 onChange={handleChange}
-                                                className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
+                                                placeholder="Quantity"
+                                                className="w-[300px] h-[40px] text-[14px] py-0 px-2 box-border border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-semibold placeholder:font-normal"
                                             />
                                         </div>
-                                        <div>
-                                            <label className="block text-gray-500 font-normal text-left">Category *</label>
+                                        <div className="text-left w-[300px] relative">
+                                            <label className="block text-black font-semibold mb-[8px] text-left">Amount<span className="text-[#E4572E]">*</span></label>
+                                            <span className="absolute top-[40px] left-3 text-gray-600 font-normal">₹</span>
+                                            <input
+                                                type="text"
+                                                name="amount"
+                                                value={formData.amount}
+                                                onChange={handleChange}
+                                                placeholder="Amount"
+                                                className="w-[300px] h-[40px] text-[14px] py-0 px-2 pl-6 box-border border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-semibold placeholder:font-normal"
+                                                onWheel={(e) => e.target.blur()}
+                                            />
+                                        </div>
+                                        </div>
+                                        <div className="flex gap-[16px]">
+                                        <div className="text-left w-[300px]">
+                                            <label className="block text-black font-semibold mb-[8px] text-left">Category<span className="text-[#E4572E]">*</span></label>
+                                            <div className="w-[300px]">
                                             <Select
                                                 name="category"
                                                 value={categoryOption.find(option => option.value === formData.category)}
-                                                onChange={(selectedOption) =>
-                                                    setFormData({ ...formData, category: selectedOption?.value || '' })
-                                                }
-                                                options={categoryOption}
+                                                onChange={(selectedOption) => {
+                                                    const newCategory = selectedOption?.value || '';
+                                                    if (newCategory !== 'Machine Repair') {
+                                                        setEditPopupSelectedToolsItemName(null);
+                                                        setEditPopupSelectedMachine(null);
+                                                    }
+                                                    setFormData({
+                                                        ...formData,
+                                                        category: newCategory,
+                                                        machineTools: newCategory === 'Machine Repair' ? formData.machineTools : null,
+                                                    });
+                                                }}
+                                                options={editPopupCategoryOptions}
                                                 placeholder="Select Category"
                                                 isClearable
+                                                components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                className={EDIT_POPUP_SELECT_CLASSNAME}
                                                 styles={{
                                                     control: (base, state) => ({
                                                         ...base,
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                         borderColor: 'rgba(191, 152, 83, 0.2)',
                                                         borderWidth: '2px',
                                                         borderRadius: '0.5rem',
-                                                        padding: '0.25rem',
+                                                        height: '40px',
+                                                        minHeight: '40px',
+                                                        alignItems: 'center',
+                                                        paddingTop: 0,
+                                                        paddingBottom: 0,
                                                         textAlign: 'left',
                                                         boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
                                                         '&:hover': {
                                                             borderColor: 'rgba(191, 152, 83, 0.4)',
                                                         },
+                                                    }),
+                                                    valueContainer: (base) => ({
+                                                        ...base,
+                                                        alignItems: 'center',
+                                                        paddingTop: 0,
+                                                        paddingBottom: 0,
+                                                    }),
+                                                    indicatorsContainer: (base) => ({
+                                                        ...base,
+                                                        alignItems: 'center',
+                                                    }),
+                                                    indicatorSeparator: () => ({
+                                                        display: 'none',
                                                     }),
                                                     placeholder: (base) => ({
                                                         ...base,
@@ -2464,7 +2886,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                     option: (provided, state) => ({
                                                         ...provided,
                                                         textAlign: 'left',
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                         fontSize: '15px',
                                                         backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                         color: 'black',
@@ -2472,7 +2894,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                     singleValue: (base) => ({
                                                         ...base,
                                                         color: '#111827',
-                                                        fontWeight: 'normal',
+                                                        fontWeight: 600,
                                                     }),
                                                     menu: (base) => ({
                                                         ...base,
@@ -2488,66 +2910,35 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                 menuPlacement="bottom"
                                                 menuPosition="absolute"
                                             />
-                                        </div>
-                                        <div className="relative">
-                                            <label className="block text-gray-500 font-normal text-left">Amount *</label>
-                                            <span className="absolute top-9 left-3 mt-[2px] text-gray-600 font-normal">₹</span>
-                                            <input
-                                                type="text"
-                                                name="amount"
-                                                value={formData.amount}
-                                                onChange={handleChange}
-                                                className="mt-1 block w-full p-2 pl-6 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
-                                                onWheel={(e) => e.target.blur()}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-gray-500 font-normal text-left">Comments *</label>
-                                            <input
-                                                type="text"
-                                                name="comments"
-                                                value={formData.comments}
-                                                onChange={handleChange}
-                                                className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
-                                            />
-                                        </div>
-                                        <div>
-                                            <div className=' flex'>
-                                                <label className="block text-gray-500 font-normal text-left cursor-pointer" htmlFor="fileInput">Bill Copy URL</label>
-                                                {selectedFile && <span className="text-orange-600 ml-4">{selectedFile.name}</span>}
                                             </div>
-                                            <input
-                                                type="text"
-                                                name="billCopy"
-                                                value={formData.billCopy}
-                                                onChange={handleChange}
-                                                className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
-                                            />
-                                            <input type="file" className="hidden" id="fileInput" onChange={handleFileChange} />
                                         </div>
-                                        {(formData.accountType === 'Bill Payments' || formData.accountType === 'Bill Refund') && (
-                                            <div>
-                                                <label className="block text-gray-500 font-normal text-left">Bill Arrival Date</label>
-                                                <input
-                                                    type="date"
-                                                    name="billArrivalDate"
-                                                    value={formData.billArrivalDate || ''}
-                                                    onChange={handleChange}
-                                                    className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
-                                                />
+                                        {(formData.accountType === 'Bill Payments' || formData.accountType === 'Bill Refund' || formData.accountType === 'Bill Payments + Claim') && (
+                                            <div className="text-left w-[300px]">
+                                                <label className="block text-black font-semibold mb-[8px] text-left">Bill Arrival Date</label>
+                                                <div className="w-[300px]">
+                                                    <CustomDateField
+                                                        value={formData.billArrivalDate || ''}
+                                                        onChange={(v) => setFormData((prev) => ({ ...prev, billArrivalDate: v }))}
+                                                        placeholder="Bill Arrival Date"
+                                                        controlHeightPx={40}
+                                                        alwaysOpenBelow
+                                                        className="w-full [&>div]:!w-full [&>div]:!max-w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div:hover]:!border-[rgba(191,152,83,0.4)] [&>div:focus-within]:!outline-none [&>div:focus-within]:!ring-0 [&>div:focus-within]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button]:!font-semibold"
+                                                    />
+                                                </div>
                                             </div>
                                         )}
                                         {(formData.accountType === 'Claim Payment' || formData.accountType === 'Utility Bills' || formData.accountType === 'Sundry Payment') && (
-                                            <div>
-                                                <label className="block text-gray-500 font-normal text-left">Payment Mode *</label>
+                                            <div className="text-left w-[300px]">
+                                                <label className="block text-black font-semibold mb-[8px] text-left">Payment Mode<span className="text-[#E4572E]">*</span></label>
+                                                <div className="w-[300px]">
                                                 <Select
                                                     name="paymentMode"
-                                                    options={finalPaymentModeOptions.map((mode) => ({
+                                                    options={editPopupSelectablePaymentModeOptions.map((mode) => ({
                                                         value: mode.modeOfPayment,
                                                         label: mode.modeOfPayment,
                                                     }))}
                                                     value={
-                                                        finalPaymentModeOptions
+                                                        editPopupSelectablePaymentModeOptions
                                                             .map((mode) => ({
                                                                 value: mode.modeOfPayment,
                                                                 label: mode.modeOfPayment,
@@ -2562,21 +2953,40 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                     }
                                                     placeholder="Select Payment Mode"
                                                     isClearable
+                                                    components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                    className={EDIT_POPUP_SELECT_CLASSNAME}
                                                     maxMenuHeight={200}
                                                     menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
                                                     styles={{
                                                         control: (base, state) => ({
                                                             ...base,
-                                                            fontWeight: 'normal',
+                                                            fontWeight: 600,
                                                             borderColor: 'rgba(191, 152, 83, 0.2)',
                                                             borderWidth: '2px',
                                                             borderRadius: '0.5rem',
-                                                            padding: '0.25rem',
+                                                            height: '40px',
+                                                            minHeight: '40px',
+                                                            alignItems: 'center',
+                                                            paddingTop: 0,
+                                                            paddingBottom: 0,
                                                             textAlign: 'left',
                                                             boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
                                                             '&:hover': {
                                                                 borderColor: 'rgba(191, 152, 83, 0.4)',
                                                             },
+                                                        }),
+                                                        valueContainer: (base) => ({
+                                                            ...base,
+                                                            alignItems: 'center',
+                                                            paddingTop: 0,
+                                                            paddingBottom: 0,
+                                                        }),
+                                                        indicatorsContainer: (base) => ({
+                                                            ...base,
+                                                            alignItems: 'center',
+                                                        }),
+                                                        indicatorSeparator: () => ({
+                                                            display: 'none',
                                                         }),
                                                         placeholder: (base) => ({
                                                             ...base,
@@ -2587,7 +2997,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                         option: (provided, state) => ({
                                                             ...provided,
                                                             textAlign: 'left',
-                                                            fontWeight: 'normal',
+                                                            fontWeight: 600,
                                                             fontSize: '15px',
                                                             backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                             color: 'black',
@@ -2595,7 +3005,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                         singleValue: (base) => ({
                                                             ...base,
                                                             color: '#111827',
-                                                            fontWeight: 'normal',
+                                                            fontWeight: 600,
                                                         }),
                                                         menuPortal: (base) => ({
                                                             ...base,
@@ -2615,77 +3025,64 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                     menuPlacement="bottom"
                                                     menuPosition="fixed"
                                                 />
+                                                </div>
+                                            </div>
+                                        )}
+                                        </div>
+                                        {formData.accountType === 'Sundry Payment' && formData.category === 'Machine Repair' && (
+                                            <div className="flex gap-[16px]">
+                                                <div className="text-left w-[300px]">
+                                                    <label className="block text-black font-semibold mb-[8px] text-left">{TABLE_VIEW_EXPENSE_FIELDS.machineName}<span className="text-[#E4572E]">*</span></label>
+                                                    <div className="w-[300px]">
+                                                        <Select
+                                                            options={toolsItemNameOptions}
+                                                            value={editPopupSelectedToolsItemName}
+                                                            onChange={setEditPopupSelectedToolsItemName}
+                                                            placeholder={TABLE_VIEW_EXPENSE_FIELDS.machineName}
+                                                            isClearable
+                                                            isSearchable
+                                                            components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                            className={EDIT_POPUP_SELECT_CLASSNAME}
+                                                            styles={EDIT_POPUP_MACHINE_SELECT_STYLES}
+                                                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                                            menuPlacement="bottom"
+                                                            menuPosition="fixed"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="text-left w-[300px]">
+                                                    <label className="block text-black font-semibold mb-[8px] text-left">{TABLE_VIEW_EXPENSE_FIELDS.machineId}<span className="text-[#E4572E]">*</span></label>
+                                                    <div className="w-[300px]">
+                                                        <Select
+                                                            options={editPopupFilteredMachineOptions}
+                                                            value={editPopupSelectedMachine}
+                                                            onChange={setEditPopupSelectedMachine}
+                                                            placeholder={
+                                                                !editPopupSelectedToolsItemName
+                                                                    ? TABLE_VIEW_EXPENSE_FIELDS.machineId
+                                                                    : editPopupFilteredMachineOptions.length === 0
+                                                                        ? 'No IDs for this machine'
+                                                                        : TABLE_VIEW_EXPENSE_FIELDS.machineId
+                                                            }
+                                                            isClearable
+                                                            isSearchable
+                                                            components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                            className={EDIT_POPUP_SELECT_CLASSNAME}
+                                                            styles={EDIT_POPUP_MACHINE_SELECT_STYLES}
+                                                            menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                                                            menuPlacement="bottom"
+                                                            menuPosition="fixed"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
                                         {formData.accountType === 'Utility Bills' && (
                                             <>
-                                                <div>
-                                                    <label className="block text-gray-500 font-normal text-left">Utility Type *</label>
-                                                    <Select
-                                                        name="utilityType"
-                                                        options={EDIT_POPUP_UTILITY_TYPE_OPTIONS}
-                                                        value={EDIT_POPUP_UTILITY_TYPE_OPTIONS.find((o) => o.value === formData.utilityType) || null}
-                                                        onChange={(selectedOption) =>
-                                                            setFormData({
-                                                                ...formData,
-                                                                utilityType: selectedOption?.value || '',
-                                                            })
-                                                        }
-                                                        placeholder="--- Select ---"
-                                                        isClearable
-                                                        styles={{
-                                                            control: (base, state) => ({
-                                                                ...base,
-                                                                fontWeight: 'normal',
-                                                                borderColor: 'rgba(191, 152, 83, 0.2)',
-                                                                borderWidth: '2px',
-                                                                borderRadius: '0.5rem',
-                                                                padding: '0.25rem',
-                                                                textAlign: 'left',
-                                                                boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
-                                                                '&:hover': {
-                                                                    borderColor: 'rgba(191, 152, 83, 0.4)',
-                                                                },
-                                                            }),
-                                                            placeholder: (base) => ({
-                                                                ...base,
-                                                                fontWeight: 'normal',
-                                                                color: '#6B7280',
-                                                                textAlign: 'left',
-                                                            }),
-                                                            option: (provided, state) => ({
-                                                                ...provided,
-                                                                textAlign: 'left',
-                                                                fontWeight: 'normal',
-                                                                fontSize: '15px',
-                                                                backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                                color: 'black',
-                                                            }),
-                                                            singleValue: (base) => ({
-                                                                ...base,
-                                                                color: '#111827',
-                                                                fontWeight: 'normal',
-                                                            }),
-                                                            menu: (base) => ({
-                                                                ...base,
-                                                                zIndex: 999,
-                                                            }),
-                                                            menuList: (base) => ({
-                                                                ...base,
-                                                                scrollbarWidth: 'none',
-                                                                msOverflowStyle: 'none',
-                                                                '&::-webkit-scrollbar': { display: 'none' },
-                                                            }),
-                                                        }}
-                                                        menuPlacement="bottom"
-                                                        menuPosition="absolute"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-gray-500 font-normal text-left">
-                                                        {formData.utilityType === 'Electricity' ? 'EB Number' :
-                                                            formData.utilityType === 'Property' ? 'Property Tax Number' :
-                                                                formData.utilityType === 'Water' ? 'Water Tax Number' : 'Number'}
+                                                <div className="flex gap-[16px]">
+                                                <div className={formData.utilityType === 'Telecom' || formData.utilityType === 'Subscription' ? 'w-[616px]' : 'w-[300px]'}>
+                                                    <label className="block text-black font-semibold mb-[8px] text-left">
+                                                        {getUtilityTypeNumberLabel(formData.utilityType)}
                                                     </label>
                                                     <Select
                                                         options={ebNumberOptions}
@@ -2695,14 +3092,48 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                             setFormData((prev) => ({ ...prev, utilityTypeNumber: opt?.label || "" }));
                                                         }}
                                                         isClearable
-                                                        placeholder={`Select ${formData.utilityType === 'Electricity' ? 'EB Number' :
-                                                            formData.utilityType === 'Property' ? 'Property Tax Number' :
-                                                                formData.utilityType === 'Water' ? 'Water Tax Number' : 'Number'}...`}
+                                                        components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                        className={EDIT_POPUP_SELECT_CLASSNAME}
+                                                        placeholder={getUtilityTypeNumberLabel(formData.utilityType)}
                                                         styles={{
                                                             ...customStyles,
+                                                            control: (base, state) => ({
+                                                                ...(typeof customStyles.control === 'function' ? customStyles.control(base, state) : base),
+                                                                fontWeight: 600,
+                                                                borderColor: 'rgba(191, 152, 83, 0.2)',
+                                                                borderWidth: '2px',
+                                                                borderRadius: '0.5rem',
+                                                                height: '40px',
+                                                                minHeight: '40px',
+                                                                alignItems: 'center',
+                                                                paddingTop: 0,
+                                                                paddingBottom: 0,
+                                                                textAlign: 'left',
+                                                                boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
+                                                                '&:hover': {
+                                                                    borderColor: 'rgba(191, 152, 83, 0.4)',
+                                                                },
+                                                            }),
+                                                            valueContainer: (base) => ({
+                                                                ...(typeof customStyles.valueContainer === 'function' ? customStyles.valueContainer(base) : base),
+                                                                alignItems: 'center',
+                                                                paddingTop: 0,
+                                                                paddingBottom: 0,
+                                                            }),
+                                                            indicatorsContainer: (base) => ({
+                                                                ...(typeof customStyles.indicatorsContainer === 'function' ? customStyles.indicatorsContainer(base) : base),
+                                                                alignItems: 'center',
+                                                            }),
+                                                            indicatorSeparator: () => ({
+                                                                display: 'none',
+                                                            }),
+                                                            option: (provided, state) => ({
+                                                                ...(typeof customStyles.option === 'function' ? customStyles.option(provided, state) : provided),
+                                                                fontWeight: 600,
+                                                            }),
                                                             singleValue: (provided) => ({
                                                                 ...(typeof customStyles.singleValue === 'function' ? customStyles.singleValue(provided) : provided),
-                                                                fontWeight: 'normal',
+                                                                fontWeight: 600,
                                                             }),
                                                             menuList: (base) => ({
                                                                 ...(typeof customStyles.menuList === 'function' ? customStyles.menuList(base) : base),
@@ -2715,36 +3146,35 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                         menuPosition="absolute"
                                                     />
                                                 </div>
-                                                <div>
-                                                    <label className="block text-gray-500 font-normal text-left">Months</label>
-                                                    <input
-                                                        type="month"
-                                                        name="utilityForTheMonth"
-                                                        value={formData.utilityForTheMonth}
-                                                        onChange={handleChange}
-                                                        placeholder="Enter months..."
-                                                        className="mt-1 block w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
-                                                    />
+                                                {formData.utilityType !== 'Telecom' && formData.utilityType !== 'Subscription' && (
+                                                <div className="w-[300px]">
+                                                    <label className="block text-black font-semibold mb-[8px] text-left">For The Month Of</label>
+                                                    <div className="w-[300px]">
+                                                        <CustomMonthField
+                                                            value={formData.utilityForTheMonth}
+                                                            onChange={(v) => setFormData((prev) => ({ ...prev, utilityForTheMonth: v }))}
+                                                            placeholder="For The Month Of"
+                                                            className="w-full"
+                                                            alwaysOpenAbove
+                                                        />
+                                                    </div>
+                                                </div>
+                                                )}
                                                 </div>
                                                 {(formData.utilityType === 'Telecom' || formData.utilityType === 'Subscription') && (
-                                                    <div className="col-span-2 grid grid-cols-3 gap-4 w-full">
-
-                                                        {/* Validity */}
-                                                        <div>
-                                                            <label className="block text-gray-500 font-normal text-left">Validity</label>
+                                                    <div className="flex gap-[16px] items-end">
+                                                        <div className="w-[300px]">
+                                                            <label className="block text-black font-semibold mb-[8px] text-left">Validity Duration<span className="text-[#E4572E]">*</span></label>
+                                                            <div className="flex gap-2 w-[300px]">
                                                             <input
                                                                 type="text"
                                                                 name="utilityValidityDays"
                                                                 value={formData.utilityValidityDays}
                                                                 onChange={handleChange}
-                                                                placeholder="Enter validity..."
-                                                                className="mt-1 w-full p-2 border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-normal"
+                                                                placeholder="Validity Duration"
+                                                                className="min-w-0 flex-1 h-[40px] text-[14px] py-0 px-2 box-border border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-semibold placeholder:font-normal"
                                                             />
-                                                        </div>
-
-                                                        {/* Validity Type */}
-                                                        <div>
-                                                            <label className="block text-gray-500 font-normal text-left">Validity Type</label>
+                                                            <div className="w-[110px]">
                                                             <Select
                                                                 name="utilityValidityType"
                                                                 options={EDIT_POPUP_VALIDITY_TYPE_OPTIONS}
@@ -2755,21 +3185,41 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                                         utilityValidityType: selectedOption?.value || '',
                                                                     })
                                                                 }
-                                                                placeholder="--- Select ---"
+                                                                placeholder="Validity Type"
                                                                 isClearable
+                                                                isSearchable
+                                                                components={EDIT_POPUP_SELECT_INDICATOR_COMPONENTS}
+                                                                className={EDIT_POPUP_SELECT_CLASSNAME}
                                                                 styles={{
                                                                     control: (base, state) => ({
                                                                         ...base,
-                                                                        fontWeight: 'normal',
+                                                                        fontWeight: 600,
                                                                         borderColor: 'rgba(191, 152, 83, 0.2)',
                                                                         borderWidth: '2px',
                                                                         borderRadius: '0.5rem',
-                                                                        padding: '0.25rem',
+                                                                        height: '40px',
+                                                                        minHeight: '40px',
+                                                                        alignItems: 'center',
+                                                                        paddingTop: 0,
+                                                                        paddingBottom: 0,
                                                                         textAlign: 'left',
                                                                         boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.4)' : 'none',
                                                                         '&:hover': {
                                                                             borderColor: 'rgba(191, 152, 83, 0.4)',
                                                                         },
+                                                                    }),
+                                                                    valueContainer: (base) => ({
+                                                                        ...base,
+                                                                        alignItems: 'center',
+                                                                        paddingTop: 0,
+                                                                        paddingBottom: 0,
+                                                                    }),
+                                                                    indicatorsContainer: (base) => ({
+                                                                        ...base,
+                                                                        alignItems: 'center',
+                                                                    }),
+                                                                    indicatorSeparator: () => ({
+                                                                        display: 'none',
                                                                     }),
                                                                     placeholder: (base) => ({
                                                                         ...base,
@@ -2780,7 +3230,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                                     option: (provided, state) => ({
                                                                         ...provided,
                                                                         textAlign: 'left',
-                                                                        fontWeight: 'normal',
+                                                                        fontWeight: 600,
                                                                         fontSize: '15px',
                                                                         backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
                                                                         color: 'black',
@@ -2788,7 +3238,7 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                                     singleValue: (base) => ({
                                                                         ...base,
                                                                         color: '#111827',
-                                                                        fontWeight: 'normal',
+                                                                        fontWeight: 600,
                                                                     }),
                                                                     menu: (base) => ({
                                                                         ...base,
@@ -2804,33 +3254,70 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
                                                                 menuPlacement="bottom"
                                                                 menuPosition="absolute"
                                                             />
-                                                        </div>
-
-                                                        {/* Service Start Date */}
-                                                        {formData.utilityType === 'Telecom' && (
-                                                            <div>
-                                                                <label className="block text-gray-500 font-normal text-left">Service Start Date</label>
-                                                                <div className="mt-1">
-                                                                    <CustomDateField
-                                                                        value={formData.serviceStartingDate}
-                                                                        onChange={(v) => setFormData((prev) => ({ ...prev, serviceStartingDate: v }))}
-                                                                        placeholder="Service start date"
-                                                                        className="[&>button]:!font-normal"
-                                                                    />
-                                                                </div>
                                                             </div>
-                                                        )}
-
+                                                            </div>
+                                                        </div>
+                                                        <div className="w-[300px]">
+                                                            <label className="block text-black font-semibold mb-[8px] text-left">Activation Date<span className="text-[#E4572E]">*</span></label>
+                                                            <div className="w-[300px]">
+                                                                <CustomDateField
+                                                                    value={formData.serviceStartingDate}
+                                                                    onChange={(v) => setFormData((prev) => ({ ...prev, serviceStartingDate: v }))}
+                                                                    placeholder="Activation Date"
+                                                                    controlHeightPx={40}
+                                                                    alwaysOpenAbove
+                                                                    className="w-full [&>div]:!w-full [&>div]:!max-w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div:hover]:!border-[rgba(191,152,83,0.4)] [&>div:focus-within]:!outline-none [&>div:focus-within]:!ring-0 [&>div:focus-within]:!shadow-[0_0_0_1px_rgba(191,152,83,0.4)] [&>button]:!font-semibold"
+                                                                />
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </>
                                         )}
-                                        <div className="col-span-2 flex justify-end space-x-4 mt-4 border-t-2 ">
-                                            <button type="button" onClick={handleCancel} className="px-4 py-2 border-2 border-opacity-[] border-[#BF9853] text-[#BF9853] rounded mt-3">
+                                        <div className="text-left">
+                                            <label className="block text-black font-semibold mb-[8px] text-left">Bill Copy URL</label>
+                                            <div className="flex w-[616px] items-center gap-[8px]">
+                                                <input
+                                                    type="text"
+                                                    name="billCopyUrl"
+                                                    value={formData.billCopyUrl ?? formData.billCopy ?? ''}
+                                                    onChange={handleChange}
+                                                    placeholder="Bill copy URL"
+                                                    className="min-w-0 flex-1 h-[40px] text-[14px] py-0 px-2 box-border border-2 border-[#BF9853] rounded-lg border-opacity-[0.20] focus:outline-none focus:ring-0 focus:shadow-[0_0_0_1px_rgba(191,152,83,0.4)] hover:border-opacity-[0.40] font-semibold placeholder:font-normal"
+                                                />
+                                                <input
+                                                    ref={billCopyFileInputRef}
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,image/*,application/pdf"
+                                                    onChange={handleBillCopyFileSelected}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => billCopyFileInputRef.current?.click()}
+                                                    disabled={isSubmitting}
+                                                    className="shrink-0 h-[40px] text-[#BF9853]"
+                                                >
+                                                    <img src={UploadFile} alt="Upload" className="w-[40px] h-[40px]" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="text-left">
+                                            <label className="block text-black font-semibold mb-[8px] text-left">Description</label>
+                                            <textarea
+                                                name="comments"
+                                                value={formData.comments}
+                                                onChange={handleChange}
+                                                placeholder="Description"
+                                                className="border-2 border-[#BF9853] text-[14px] rounded-md px-[8px] w-[616px] h-[60px] focus:outline-none border-opacity-[0.20] resize-none font-semibold placeholder:font-normal placeholder:text-gray-500"
+                                            />
+                                        </div>
+                                        <div className="flex justify-end space-x-4 ">
+                                            <button type="button" onClick={handleCancel} className="px-4 py-2 border-2 border-opacity-[] border-[#BF9853] text-[#BF9853] rounded">
                                                 Cancel
                                             </button>
                                             <button type="submit" disabled={isSubmitting} onClick={handleSave}
-                                                className={`px-4 py-2 bg-[#BF9853] text-white rounded mt-3 transition duration-200 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                className={`px-4 py-2 bg-[#BF9853] text-white rounded transition duration-200 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                                 {isSubmitting ? 'Submitting...' : 'Submit'}
                                             </button>
                                         </div>

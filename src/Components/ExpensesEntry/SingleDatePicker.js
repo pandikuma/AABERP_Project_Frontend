@@ -163,7 +163,7 @@ export default function SingleDatePicker({
           <button
             type="button"
             onClick={() => setViewDate(subMonths(viewDate, 1))}
-            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-bold"
             style={navButtonStyle}
             aria-label="Previous month"
           >
@@ -173,7 +173,7 @@ export default function SingleDatePicker({
           <button
             type="button"
             onClick={() => setViewDate(new Date(viewDate.getFullYear() - 1, viewDate.getMonth(), 1))}
-            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-bold"
             style={navButtonStyle}
             aria-label="Previous year"
           >
@@ -183,7 +183,7 @@ export default function SingleDatePicker({
           <button
             type="button"
             onClick={() => setViewDate(new Date(viewDate.getFullYear() - 12, viewDate.getMonth(), 1))}
-            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-bold"
             style={navButtonStyle}
             aria-label="Previous years"
           >
@@ -196,7 +196,7 @@ export default function SingleDatePicker({
             <button
               type="button"
               onClick={() => setMode((m) => (m === "month" ? "day" : "month"))}
-              className="h-8 px-2 text-sm font-medium text-gray-800 hover:bg-gray-100 rounded inline-flex items-center"
+              className="h-8 px-1 text-sm font-bold text-gray-800 hover:bg-gray-100 rounded inline-flex items-center"
               style={{ height: CALENDAR_NAV_BUTTON_SIZE_PX }}
               aria-label="Choose month"
             >
@@ -207,7 +207,7 @@ export default function SingleDatePicker({
             <button
               type="button"
               onClick={() => setMode((m) => (m === "year" ? "day" : "year"))}
-              className="h-8 px-2 text-sm font-medium text-gray-800 hover:bg-gray-100 rounded inline-flex items-center"
+              className="h-8 px-1 text-sm font-bold text-gray-800 hover:bg-gray-100 rounded inline-flex items-center"
               style={{ height: CALENDAR_NAV_BUTTON_SIZE_PX }}
               aria-label="Choose year"
             >
@@ -220,7 +220,7 @@ export default function SingleDatePicker({
           <button
             type="button"
             onClick={() => setViewDate(addMonths(viewDate, 1))}
-            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-bold"
             style={navButtonStyle}
             aria-label="Next month"
           >
@@ -230,7 +230,7 @@ export default function SingleDatePicker({
           <button
             type="button"
             onClick={() => setViewDate(new Date(viewDate.getFullYear() + 1, viewDate.getMonth(), 1))}
-            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-bold"
             style={navButtonStyle}
             aria-label="Next year"
           >
@@ -240,7 +240,7 @@ export default function SingleDatePicker({
           <button
             type="button"
             onClick={() => setViewDate(new Date(viewDate.getFullYear() + 12, viewDate.getMonth(), 1))}
-            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-medium"
+            className="flex items-center justify-center rounded hover:bg-gray-100 text-gray-700 text-lg font-bold"
             style={navButtonStyle}
             aria-label="Next years"
           >
@@ -253,7 +253,7 @@ export default function SingleDatePicker({
         <div className="h-[163px] flex flex-col">
           <div className="grid grid-cols-7 gap-0.5 mb-1 invisible shrink-0" aria-hidden="true">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-              <div key={d} className="text-center text-[11px] font-medium py-0.5">
+              <div key={d} className="text-center text-[11px] font-bold py-0.5">
                 &nbsp;
               </div>
             ))}
@@ -267,8 +267,8 @@ export default function SingleDatePicker({
                   type="button"
                   onClick={() => handlePickMonth(idx)}
                   className={[
-                    "flex items-center justify-center h-full min-h-0 text-xs font-medium rounded-full text-center",
-                    isActive ? "bg-blue-100 text-gray-900" : "text-gray-800 hover:bg-gray-50",
+                    "flex items-center justify-center h-full min-h-0 text-xs font-bold rounded-full text-center",
+                    isActive ? "bg-[#BF9853] text-white" : "text-gray-800 hover:bg-[#FAF6ED]",
                   ].join(" ")}
                 >
                   {label}
@@ -281,7 +281,7 @@ export default function SingleDatePicker({
         <div className="h-[163px] flex flex-col">
           <div className="grid grid-cols-7 gap-0.5 mb-1 invisible shrink-0" aria-hidden="true">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-              <div key={d} className="text-center text-[11px] font-medium py-0.5">
+              <div key={d} className="text-center text-[11px] font-bold py-0.5">
                 &nbsp;
               </div>
             ))}
@@ -295,8 +295,8 @@ export default function SingleDatePicker({
                   type="button"
                   onClick={() => handlePickYear(y)}
                   className={[
-                    "flex items-center justify-center h-full min-h-0 text-xs font-medium rounded-full text-center",
-                    isActive ? "bg-blue-100 text-gray-900" : "text-gray-800 hover:bg-gray-50",
+                    "flex items-center justify-center h-full min-h-0 text-xs font-bold rounded-full text-center",
+                    isActive ? "bg-[#BF9853] text-white" : "text-gray-800 hover:bg-[#FAF6ED]",
                   ].join(" ")}
                 >
                   {y}
@@ -311,7 +311,7 @@ export default function SingleDatePicker({
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, idx) => (
               <div
                 key={d}
-                className={`text-center text-[11px] font-medium py-0.5 ${
+                className={`text-center text-[11px] font-bold py-0.5 ${
                   idx === 0 || idx === 6 ? "text-red-500" : "text-gray-500"
                 }`}
               >
@@ -332,10 +332,10 @@ export default function SingleDatePicker({
                     onClick={() => handleSelectDay(d)}
                     className={[
                       "flex items-center justify-center text-xs rounded",
-                      inMonth ? "text-gray-900" : "text-gray-300",
-                      selected ? "bg-blue-600 text-white" : "",
+                      inMonth ? "text-black" : "text-gray-300",
+                      selected ? "bg-[#BF9853] text-white font-semibold" : "font-bold",
                       !selected && inMonth ? "hover:bg-gray-100" : "",
-                      !selected && isToday ? "ring-2 ring-blue-500 ring-inset" : "",
+                      !selected && isToday ? "ring-2 ring-[#BF9853] ring-inset" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -359,7 +359,7 @@ export default function SingleDatePicker({
         <button
           type="button"
           onClick={handleClear}
-          className="px-3 py-1 text-sm font-medium rounded hover:bg-gray-50"
+          className="px-3 py-1 text-sm font-bold rounded hover:bg-gray-50"
         >
           Clear
         </button>
