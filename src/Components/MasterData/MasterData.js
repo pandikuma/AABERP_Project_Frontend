@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import search from '../Images/search.png';
 import imports from '../Images/Import.svg';
@@ -12,6 +12,25 @@ import * as XLSX from 'xlsx';
 import QRCode from '../Images/AAB_QR_CODE.jpeg';
 import DownloadIcon from '../Images/download_icon.png';
 import Select from 'react-select';
+import {
+  getArrangementModuleName,
+  getArrangementPaymentModeIds,
+  getArrangementPaymentModeList,
+  refreshPaymentModeArrangementCaches,
+} from '../../utils/paymentModeArrangement';
+
+const PAYMENT_MODE_ARRANGEMENT_MODULE_OPTIONS = [
+  'Staff Advance',
+  'Loan Portal',
+  'Advance Portal',
+  'Rent Management',
+  'Expense Entry',
+  'Bill Payment Tracker',
+  'Claim Payments',
+  'Bank Register',
+  'Cash Register',
+];
+
 const MasterData = ({ username, userRoles = [] }) => {
   // Normalize userRoles - supports both ['Create'] and [{roles: 'Create'}] formats
   const roleNames = useMemo(() => (
@@ -118,6 +137,20 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [isPropertyTypeEditOpen, setIsPropertyTypeEditOpen] = useState(false);
   const [selectedPropertyTypeId, setSelectedPropertyTypeId] = useState(null);
   const [editPropertyType, setEditPropertyType] = useState('');
+
+  const [paymentModeArrangements, setPaymentModeArrangements] = useState([]);
+  const [paymentModesMasterList, setPaymentModesMasterList] = useState([]);
+  const [paymentModeArrangementSearch, setPaymentModeArrangementSearch] = useState('');
+  const [isPaymentModeArrangementOpen, setIsPaymentModeArrangementOpen] = useState(false);
+  const [isPaymentModeArrangementEditOpen, setIsPaymentModeArrangementEditOpen] = useState(false);
+  const [selectedPaymentModeArrangementId, setSelectedPaymentModeArrangementId] = useState(null);
+  const [arrangementModuleName, setArrangementModuleName] = useState('');
+  const [arrangementSelectedModeIds, setArrangementSelectedModeIds] = useState([]);
+  const [arrangementDragIndex, setArrangementDragIndex] = useState(null);
+  const [arrangementDragOverIndex, setArrangementDragOverIndex] = useState(null);
+  const [isArrangementModePickerOpen, setIsArrangementModePickerOpen] = useState(false);
+  const [arrangementModesPendingAdd, setArrangementModesPendingAdd] = useState([]);
+  const arrangementDragIndexRef = useRef(null);
 
   // State for Contractor Names
   const [isContractorNameOpens, setContractorNameOpens] = useState(false);
@@ -460,6 +493,7 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [tooltipData, setTooltipData] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [tooltipTitle, setTooltipTitle] = useState("");
+  const [tooltipAlign, setTooltipAlign] = useState('cursor');
 
   // Export functionality states
   const [isExportTypeModalOpen, setIsExportTypeModalOpen] = useState(false);
@@ -495,7 +529,12 @@ const MasterData = ({ username, userRoles = [] }) => {
     { id: 'Account Details', name: 'Account Details', description: 'Manage account information' },
     { id: 'bank-account-type', name: 'Bank Account Type', description: 'Manage bank account types' },
     { id: 'support-staff-name', name: 'Support Staff Name', description: 'Manage Support Staff Names' },
-    { id: 'property-type', name: 'Property Type', description: 'Manage property types' }
+    { id: 'property-type', name: 'Property Type', description: 'Manage property types' },
+    {
+      id: 'payment-mode-arrangement',
+      name: 'Payment Mode Arrangement',
+      description: 'Set payment mode order for each module',
+    },
   ];
   const [vendorQrImageFile, setVendorQrImageFile] = useState(null);
   const [vendorQrImagePreview, setVendorQrImagePreview] = useState(null);
@@ -682,6 +721,90 @@ const MasterData = ({ username, userRoles = [] }) => {
   const closePropertyType = () => {
     setIsPropertyTypeOpen(false);
     setPropertyType('');
+  };
+  const resetPaymentModeArrangementForm = () => {
+    setArrangementModuleName('');
+    setArrangementSelectedModeIds([]);
+    setSelectedPaymentModeArrangementId(null);
+    setArrangementDragIndex(null);
+    setArrangementDragOverIndex(null);
+    setIsArrangementModePickerOpen(false);
+    setArrangementModesPendingAdd([]);
+    arrangementDragIndexRef.current = null;
+  };
+  const openPaymentModeArrangement = () => {
+    resetPaymentModeArrangementForm();
+    setIsPaymentModeArrangementOpen(true);
+  };
+  const closePaymentModeArrangement = () => {
+    setIsPaymentModeArrangementOpen(false);
+    resetPaymentModeArrangementForm();
+  };
+  const closePaymentModeArrangementEdit = () => {
+    setIsPaymentModeArrangementEditOpen(false);
+    resetPaymentModeArrangementForm();
+  };
+  const openArrangementModePicker = () => {
+    setArrangementModesPendingAdd([]);
+    setIsArrangementModePickerOpen(true);
+  };
+  const closeArrangementModePicker = () => {
+    setIsArrangementModePickerOpen(false);
+    setArrangementModesPendingAdd([]);
+  };
+  const confirmArrangementModesAdd = () => {
+    if (arrangementModesPendingAdd.length === 0) return;
+    setArrangementSelectedModeIds((prev) => {
+      const next = [...prev];
+      arrangementModesPendingAdd.forEach((modeId) => {
+        const numericId = Number(modeId);
+        if (Number.isFinite(numericId) && numericId > 0 && !next.includes(numericId)) {
+          next.push(numericId);
+        }
+      });
+      return next;
+    });
+    closeArrangementModePicker();
+  };
+  const removeModeFromArrangement = (modeId) => {
+    const numericId = Number(modeId);
+    setArrangementSelectedModeIds((prev) => prev.filter((item) => Number(item) !== numericId));
+  };
+  const reorderArrangementModes = (fromIndex, toIndex) => {
+    if (fromIndex == null || toIndex == null || fromIndex === toIndex) return;
+    setArrangementSelectedModeIds((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+  const handleArrangementDragStart = (e, index) => {
+    arrangementDragIndexRef.current = index;
+    setArrangementDragIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+  const handleArrangementDragOver = (e, index) => {
+    e.preventDefault();
+    const dragIndex = arrangementDragIndexRef.current;
+    if (dragIndex !== null && dragIndex !== index) {
+      setArrangementDragOverIndex(index);
+    }
+  };
+  const handleArrangementDrop = (e, dropIndex) => {
+    e.preventDefault();
+    const fromIndex = arrangementDragIndexRef.current;
+    if (fromIndex == null) return;
+    reorderArrangementModes(fromIndex, dropIndex);
+    arrangementDragIndexRef.current = null;
+    setArrangementDragIndex(null);
+    setArrangementDragOverIndex(null);
+  };
+  const handleArrangementDragEnd = () => {
+    arrangementDragIndexRef.current = null;
+    setArrangementDragIndex(null);
+    setArrangementDragOverIndex(null);
   };
   const openProjectManagement = () => {
     // Generate next project ID
@@ -942,6 +1065,34 @@ const MasterData = ({ username, userRoles = [] }) => {
       console.error('Error:', error);
     }
   };
+  const fetchPaymentModesMasterList = async () => {
+    try {
+      const response = await fetchMasterDataGet('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentModesMasterList(Array.isArray(data) ? data : []);
+      } else {
+        setPaymentModesMasterList([]);
+      }
+    } catch (error) {
+      console.error('Error fetching payment modes:', error);
+      setPaymentModesMasterList([]);
+    }
+  };
+  const fetchPaymentModeArrangements = async () => {
+    try {
+      const response = await fetchMasterDataGet('https://backendaab.in/demoAabuildersDash/api/payment_mode_arrangement/getAll');
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentModeArrangements(Array.isArray(data) ? data : []);
+      } else {
+        setPaymentModeArrangements([]);
+      }
+    } catch (error) {
+      console.error('Error fetching payment mode arrangements:', error);
+      setPaymentModeArrangements([]);
+    }
+  };
   const refetchAllMasterData = async () => {
     await Promise.all([
       fetchSiteNames(),
@@ -958,6 +1109,8 @@ const MasterData = ({ username, userRoles = [] }) => {
       fetchSupportStaffNameList(),
       fetchPropertyTypes(),
       fetchProjects(),
+      fetchPaymentModesMasterList(),
+      fetchPaymentModeArrangements(),
     ]);
   };
   const refetchCurrentTableData = async () => {
@@ -1823,6 +1976,83 @@ const MasterData = ({ username, userRoles = [] }) => {
     setEditPropertyType(item.propertyType || '');
     setIsPropertyTypeEditOpen(true);
   };
+  const handleEditPaymentModeArrangement = (item) => {
+    setSelectedPaymentModeArrangementId(item.id);
+    setArrangementModuleName(getArrangementModuleName(item));
+    setArrangementSelectedModeIds([...getArrangementPaymentModeIds(item)]);
+    setIsPaymentModeArrangementEditOpen(true);
+  };
+  const handleSubmitPaymentModeArrangement = async (e) => {
+    e.preventDefault();
+    const moduleName = arrangementModuleName.trim();
+    if (!moduleName) {
+      setMessage('Module name is required.');
+      return;
+    }
+    if (arrangementSelectedModeIds.length === 0) {
+      setMessage('Select at least one payment mode.');
+      return;
+    }
+    try {
+      const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode_arrangement/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          module_name: moduleName,
+          payment_mode_ids: arrangementSelectedModeIds,
+        }),
+      });
+      if (response.ok) {
+        setMessage('Payment mode arrangement saved successfully!');
+        closePaymentModeArrangement();
+        void refetchCurrentTableData();
+        void refreshPaymentModeArrangementCaches();
+      } else {
+        const errorText = await response.text();
+        setMessage(errorText || 'Failed to save payment mode arrangement.');
+      }
+    } catch (error) {
+      console.error('Error saving payment mode arrangement:', error);
+      setMessage('Failed to save payment mode arrangement.');
+    }
+  };
+  const handleSubmitEditPaymentModeArrangement = async (e) => {
+    e.preventDefault();
+    if (!selectedPaymentModeArrangementId) return;
+    const moduleName = arrangementModuleName.trim();
+    if (!moduleName) {
+      setMessage('Module name is required.');
+      return;
+    }
+    if (arrangementSelectedModeIds.length === 0) {
+      setMessage('Select at least one payment mode.');
+      return;
+    }
+    try {
+      const response = await fetch(
+        `https://backendaab.in/demoAabuildersDash/api/payment_mode_arrangement/edit/${selectedPaymentModeArrangementId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            payment_mode_ids: arrangementSelectedModeIds,
+          }),
+        }
+      );
+      if (response.ok) {
+        setMessage('Payment mode arrangement updated successfully!');
+        closePaymentModeArrangementEdit();
+        void refetchCurrentTableData();
+        void refreshPaymentModeArrangementCaches();
+      } else {
+        const errorText = await response.text();
+        setMessage(errorText || 'Failed to update payment mode arrangement.');
+      }
+    } catch (error) {
+      console.error('Error updating payment mode arrangement:', error);
+      setMessage('Failed to update payment mode arrangement.');
+    }
+  };
   const handleEditEbServiceLink = (item) => {
     setSelectedEbServiceLinkId(item.id);
     setEditProjectId(item.project_id?.toString() || '');
@@ -2374,6 +2604,25 @@ const MasterData = ({ username, userRoles = [] }) => {
     }
   };
 
+  const handleDeletePaymentModeArrangement = async (id) => {
+    if (!window.confirm('Delete this payment mode arrangement?')) return;
+    try {
+      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/payment_mode_arrangement/delete/${id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setMessage('Payment mode arrangement deleted successfully!');
+        void refetchCurrentTableData();
+        void refreshPaymentModeArrangementCaches();
+      } else {
+        const errorText = await response.text();
+        setMessage(errorText || 'Failed to delete payment mode arrangement.');
+      }
+    } catch (error) {
+      console.error('Error deleting payment mode arrangement:', error);
+      setMessage('Failed to delete payment mode arrangement.');
+    }
+  };
   const handleDeletePropertyType = async (id) => {
     if (window.confirm('Are you sure you want to delete this property type?')) {
       try {
@@ -2425,6 +2674,50 @@ const MasterData = ({ username, userRoles = [] }) => {
   const filteredPropertyTypes = propertyTypes.filter((item) =>
     (item.propertyType || '').toLowerCase().includes(propertyTypeSearch.toLowerCase())
   );
+  const allPaymentModeLabels = useMemo(
+    () =>
+      (paymentModesMasterList || [])
+        .map((item) => String(item?.modeOfPayment || '').trim())
+        .filter(Boolean),
+    [paymentModesMasterList]
+  );
+  const getPaymentModeLabelById = (modeId) => {
+    const match = (paymentModesMasterList || []).find((item) => Number(item?.id) === Number(modeId));
+    return String(match?.modeOfPayment || '').trim() || `ID ${modeId}`;
+  };
+  const availablePaymentModesForArrangement = useMemo(
+    () =>
+      (paymentModesMasterList || []).filter((item) => {
+        const id = Number(item?.id);
+        return Number.isFinite(id) && id > 0 && !arrangementSelectedModeIds.includes(id);
+      }),
+    [paymentModesMasterList, arrangementSelectedModeIds]
+  );
+  const arrangementModePickerOptions = useMemo(
+    () =>
+      availablePaymentModesForArrangement.map((item) => ({
+        value: Number(item.id),
+        label: String(item?.modeOfPayment || '').trim(),
+      })),
+    [availablePaymentModesForArrangement]
+  );
+  const availableModulesForArrangementAdd = useMemo(
+    () =>
+      PAYMENT_MODE_ARRANGEMENT_MODULE_OPTIONS.filter(
+        (moduleName) =>
+          !paymentModeArrangements.some(
+            (row) => getArrangementModuleName(row).toLowerCase() === moduleName.toLowerCase()
+          )
+      ),
+    [paymentModeArrangements]
+  );
+  const filteredPaymentModeArrangements = paymentModeArrangements.filter((item) => {
+    const query = paymentModeArrangementSearch.toLowerCase().trim();
+    if (!query) return true;
+    const moduleName = getArrangementModuleName(item).toLowerCase();
+    const modesText = getArrangementPaymentModeList(item).join(' ').toLowerCase();
+    return moduleName.includes(query) || modesText.includes(query);
+  });
   const filteredAccountDetails = accountDetails.filter((item) =>
     (item.account_holder_name || '').toLowerCase().includes(accountDetailsSearch.toLowerCase()) ||
     (item.account_number || '').toLowerCase().includes(accountDetailsSearch.toLowerCase()) ||
@@ -2445,6 +2738,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     const gpayNumber = accountItem.gpay_number || '-';
     const accountType = accountItem.account_type || '-';
     setTooltipTitle('');
+    setTooltipAlign('cursor');
     setTooltipData([
       { label: 'Account Holder', value: accountHolderName },
       { label: 'Bank Name', value: bankName },
@@ -2459,6 +2753,19 @@ const MasterData = ({ username, userRoles = [] }) => {
   const handleAccountMouseLeave = () => {
     setTooltipData(null);
     setTooltipTitle("");
+    setTooltipAlign('cursor');
+  };
+  const handlePaymentModeArrangementMouseEnter = (event, item) => {
+    const modes = getArrangementPaymentModeList(item);
+    const rect = event.currentTarget.getBoundingClientRect();
+    setTooltipTitle(getArrangementModuleName(item));
+    setTooltipAlign('left');
+    setTooltipData(
+      modes.length === 0
+        ? [{ label: '', value: 'No payment modes configured' }]
+        : modes.map((mode, index) => ({ label: '', value: `${index + 1}. ${mode}` }))
+    );
+    setTooltipPosition({ x: rect.left, y: rect.bottom + 6 });
   };
   // QR Image upload handlers
   const handleQrImageUpload = (event) => {
@@ -4335,6 +4642,96 @@ const MasterData = ({ username, userRoles = [] }) => {
                               </td>
                             </tr>
                           ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {table.id === 'payment-mode-arrangement' && (
+                <div>
+                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                    <input
+                      type="text"
+                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
+                      placeholder="Search Module or Mode.."
+                      value={paymentModeArrangementSearch}
+                      onChange={(e) => setPaymentModeArrangementSearch(e.target.value)}
+                    />
+                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                      <img src={search} alt='search' className=' w-5 h-5' />
+                    </button>
+                    <button
+                      className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]"
+                      onClick={() => handleAddClick(openPaymentModeArrangement)}
+                    >
+                      + Add
+                    </button>
+                  </div>
+                  <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
+                    <div className="bg-[#FAF6ED]">
+                      <table className="table-auto w-full min-w-[360px]">
+                        <thead className='bg-[#FAF6ED]'>
+                          <tr className="border-b">
+                            <th className="p-2 text-left w-16 text-xl font-bold">S.No</th>
+                            <th className="p-2 text-left text-xl font-bold">Module Name</th>
+                          </tr>
+                        </thead>
+                      </table>
+                    </div>
+                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-auto w-full min-w-[360px]">
+                        <tbody>
+                          {filteredPaymentModeArrangements.length === 0 ? (
+                            <tr>
+                              <td colSpan={2} className="p-4 text-center text-sm text-gray-500">
+                                No payment mode arrangement found.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredPaymentModeArrangements.map((item) => (
+                              <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED] align-top">
+                                <td className="p-2 text-left font-semibold w-16">
+                                  {(paymentModeArrangements.findIndex((row) => row.id === item.id) + 1)
+                                    .toString()
+                                    .padStart(2, '0')}
+                                </td>
+                                <td className="p-2 text-left font-semibold group">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <span
+                                      className="cursor-help decoration-dotted underline-offset-4"
+                                      onMouseEnter={(e) => handlePaymentModeArrangementMouseEnter(e, item)}
+                                      onMouseLeave={handleAccountMouseLeave}
+                                    >
+                                      {getArrangementModuleName(item)}
+                                    </span>
+                                    <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
+                                      {hasEditPermission && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleEditPaymentModeArrangement(item)}
+                                          className="text-blue-600 hover:text-blue-800"
+                                          title="Edit"
+                                        >
+                                          <img src={edit} alt="Edit" className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                      {hasDeletePermission && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeletePaymentModeArrangement(item.id)}
+                                          className="text-red-600 hover:text-red-800"
+                                          title="Delete"
+                                        >
+                                          <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -6591,6 +6988,221 @@ const MasterData = ({ username, userRoles = [] }) => {
           </div>
         </div>
       )}
+      {(isPaymentModeArrangementOpen || isPaymentModeArrangementEditOpen) && (
+        <>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 overflow-y-auto z-40">
+          <div className="bg-white rounded-md w-full max-w-2xl max-h-[90vh] overflow-y-auto px-4 py-3">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="text-red-500"
+                onClick={isPaymentModeArrangementEditOpen ? closePaymentModeArrangementEdit : closePaymentModeArrangement}
+              >
+                <img src={cross} alt='close' className='w-5 h-5' />
+              </button>
+            </div>
+            <form
+              onSubmit={
+                isPaymentModeArrangementEditOpen
+                  ? handleSubmitEditPaymentModeArrangement
+                  : handleSubmitPaymentModeArrangement
+              }
+            >
+              <h2 className="text-lg font-semibold mb-4 text-[#BF9853]">
+                {isPaymentModeArrangementEditOpen ? 'Edit Payment Mode Arrangement' : 'Add Payment Mode Arrangement'}
+              </h2>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Module Name</label>
+                {isPaymentModeArrangementEditOpen ? (
+                  <div className="w-full max-w-md rounded border border-[#FAF6ED] border-r-[0.25rem] border-l-[0.25rem] border-b-[0.25rem] border-t-[0.25rem] bg-[#FAF6ED] p-2 h-12 flex items-center text-gray-700">
+                    {arrangementModuleName}
+                  </div>
+                ) : (
+                  <Select
+                    className="max-w-md"
+                    placeholder="Select module..."
+                    options={availableModulesForArrangementAdd.map((moduleName) => ({
+                      value: moduleName,
+                      label: moduleName,
+                    }))}
+                    value={
+                      arrangementModuleName
+                        ? { value: arrangementModuleName, label: arrangementModuleName }
+                        : null
+                    }
+                    onChange={(option) => setArrangementModuleName(option ? option.value : '')}
+                    isClearable
+                  />
+                )}
+              </div>
+              <div className="mb-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <label className="block text-sm font-medium">Selected Order</label>
+                    <p className="text-xs text-gray-500 mt-1">Drag and drop to change order</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openArrangementModePicker}
+                    disabled={
+                      allPaymentModeLabels.length === 0 || availablePaymentModesForArrangement.length === 0
+                    }
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[#BF9853] text-lg font-semibold text-[#BF9853] transition-colors hover:bg-[#FFFDF9] disabled:cursor-not-allowed disabled:opacity-40"
+                    title="Add payment mode"
+                  >
+                    +
+                  </button>
+                </div>
+                <div className="rounded-lg border border-gray-200 max-h-72 overflow-y-auto p-2 bg-white">
+                  {arrangementSelectedModeIds.length === 0 ? (
+                    <p className="text-sm text-gray-500 p-2">Click + to add payment modes.</p>
+                  ) : (
+                    arrangementSelectedModeIds.map((modeId, index) => (
+                      <div
+                        key={`${modeId}-${index}`}
+                        draggable
+                        onDragStart={(e) => handleArrangementDragStart(e, index)}
+                        onDragOver={(e) => handleArrangementDragOver(e, index)}
+                        onDrop={(e) => handleArrangementDrop(e, index)}
+                        onDragEnd={handleArrangementDragEnd}
+                        className={`mb-2 flex items-center justify-between rounded-md border bg-white px-2 py-2 cursor-grab active:cursor-grabbing select-none ${
+                          arrangementDragIndex === index
+                            ? 'opacity-50 border-[#BF9853]'
+                            : arrangementDragOverIndex === index
+                              ? 'border-[#BF9853] border-2 bg-[#FFFDF9]'
+                              : 'border-[#BF9853] border-opacity-20'
+                        }`}
+                      >
+                        <span className="text-sm font-medium flex items-center gap-2">
+                          <span className="text-gray-400 text-base leading-none" aria-hidden="true">
+                            ⋮⋮
+                          </span>
+                          <span className="text-[#BF9853]">{index + 1}.</span>
+                          {getPaymentModeLabelById(modeId)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeModeFromArrangement(modeId)}
+                          className="px-2 py-1 text-xs border rounded text-red-600 shrink-0"
+                          title="Remove"
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 mt-6">
+                <button
+                  type="submit"
+                  className="btn bg-[#BF9853] text-white px-8 py-2 rounded-lg hover:bg-yellow-800 font-semibold"
+                >
+                  {isPaymentModeArrangementEditOpen ? 'Update' : 'Submit'}
+                </button>
+                <button
+                  type="button"
+                  className="px-8 py-2 border rounded-lg text-[#BF9853] border-[#BF9853]"
+                  onClick={isPaymentModeArrangementEditOpen ? closePaymentModeArrangementEdit : closePaymentModeArrangement}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+        {isArrangementModePickerOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-lg font-semibold text-[#BF9853]">Select Payment Modes</h3>
+                <button
+                  type="button"
+                  className="text-red-500"
+                  onClick={closeArrangementModePicker}
+                >
+                  <img src={cross} alt="close" className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-4 text-left">
+                <label className="mb-2 block text-sm font-medium">Payment Modes</label>
+                {allPaymentModeLabels.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    No payment modes found. Add them in Rent Management Input Data.
+                  </p>
+                ) : availablePaymentModesForArrangement.length === 0 ? (
+                  <p className="text-sm text-gray-500">All payment modes are already selected.</p>
+                ) : (
+                  <Select
+                    isMulti
+                    options={arrangementModePickerOptions}
+                    value={arrangementModesPendingAdd.map((modeId) => {
+                      const numericId = Number(modeId);
+                      const option = arrangementModePickerOptions.find((item) => item.value === numericId);
+                      return option || { value: numericId, label: getPaymentModeLabelById(numericId) };
+                    })}
+                    onChange={(selected) =>
+                      setArrangementModesPendingAdd(
+                        selected ? selected.map((option) => Number(option.value)) : []
+                      )
+                    }
+                    placeholder="Choose payment modes..."
+                    isClearable
+                    closeMenuOnSelect={false}
+                    menuPortalTarget={document.body}
+                    styles={{
+                      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                      control: (base) => ({
+                        ...base,
+                        minHeight: '48px',
+                        borderColor: 'rgba(191, 152, 83, 0.3)',
+                        boxShadow: 'none',
+                        '&:hover': { borderColor: '#BF9853' },
+                      }),
+                      multiValue: (base) => ({
+                        ...base,
+                        backgroundColor: '#FAF6ED',
+                      }),
+                      multiValueLabel: (base) => ({
+                        ...base,
+                        color: '#BF9853',
+                        fontWeight: 500,
+                      }),
+                      option: (base, state) => ({
+                        ...base,
+                        backgroundColor: state.isSelected ? '#BF9853' : state.isFocused ? '#FFFDF9' : 'white',
+                        color: state.isSelected ? 'white' : 'black',
+                      }),
+                    }}
+                  />
+                )}
+                <p className="mt-2 text-xs text-gray-500">
+                  Select one or more payment modes, then click Add.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
+                <button
+                  type="button"
+                  className="rounded-lg border border-[#BF9853] px-6 py-2 text-[#BF9853]"
+                  onClick={closeArrangementModePicker}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg bg-[#BF9853] px-6 py-2 font-semibold text-white hover:bg-yellow-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={confirmArrangementModesAdd}
+                  disabled={arrangementModesPendingAdd.length === 0}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        </>
+      )}
       {isProjectManagementOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 overflow-y-auto z-40">
           <div className="bg-white rounded-md w-full max-w-[95rem] max-h-[90vh] text-left overflow-y-auto pl-4 sm:pl-20">
@@ -8116,13 +8728,31 @@ const MasterData = ({ username, userRoles = [] }) => {
       )
       }
       {tooltipData && (
-        <div className="fixed z-50 bg-white text-black p-3 rounded shadow-lg text-sm max-w-xs border"
-          style={{ left: tooltipPosition.x + 10, top: tooltipPosition.y - 10, pointerEvents: 'none' }}
+        <div
+          className={`fixed z-50 bg-white text-black p-3 rounded shadow-lg text-sm border ${
+            tooltipAlign === 'left' ? 'min-w-[10rem] text-left' : 'max-w-xs'
+          }`}
+          style={{
+            left: tooltipAlign === 'left' ? tooltipPosition.x : tooltipPosition.x + 10,
+            top: tooltipAlign === 'left' ? tooltipPosition.y : tooltipPosition.y - 10,
+            pointerEvents: 'none',
+          }}
         >
+          {tooltipTitle ? (
+            <div className="font-semibold text-[#BF9853] mb-2 border-b border-gray-200 pb-1 text-left">
+              {tooltipTitle}
+            </div>
+          ) : null}
           {tooltipData.map((entry, index) => (
-            <div key={index} className="mb-1">
-              <span className="font-semibold text-gray-700">{entry.label}:</span>
-              <span className="ml-1 text-gray-900">{entry.value}</span>
+            <div key={index} className={`mb-1 ${tooltipAlign === 'left' ? 'text-left' : ''}`}>
+              {entry.label ? (
+                <>
+                  <span className="font-semibold text-gray-700">{entry.label}:</span>
+                  <span className="ml-1 text-gray-900">{entry.value}</span>
+                </>
+              ) : (
+                <span className="block text-left text-gray-900">{entry.value}</span>
+              )}
             </div>
           ))}
         </div>

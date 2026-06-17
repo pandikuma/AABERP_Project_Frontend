@@ -36,8 +36,13 @@ import {
   EDBC_TABLE_EDGE_TABLE_CLASS,
   formatEdbcFilterDateDMY,
 } from '../ExpensesEntry/databaseExpensesSharedColumns';
-import { syncWeeklyPaymentBillsForAdvancePortal, isAdvanceOnlinePaymentModeForModal, fetchAdvanceEditPaymentModalData, getAdvancePortalDisplayAmount, syncExpensesEntryFromAdvancePortalEdit, resolveAdvancePortalExpensesEntryId, clearAdvancePortalRecordsOnDelete, deleteLinkedExpenseEntryOnAdvancePortalDelete, formatWeeklyBillDeleteMessage, resolveFilesUploadResponseUrl } from '../../utils/advancePortalWeeklyPaymentBill';
+import { syncWeeklyPaymentBillsForAdvancePortal, isAdvanceOnlinePaymentModeForModal, fetchAdvanceEditPaymentModalData, getAdvancePortalDisplayAmount, syncExpensesEntryFromAdvancePortalEdit, resolveAdvancePortalExpensesEntryId, clearAdvancePortalRecordsOnDelete, deleteLinkedExpenseEntryOnAdvancePortalDelete, formatWeeklyBillDeleteMessage, formatVendorCarryForwardDeleteMessage, resolveFilesUploadResponseUrl, syncVendorCarryForwardFromAdvancePortalEdit } from '../../utils/advancePortalWeeklyPaymentBill';
 import { isChequePaymentMode } from '../../utils/bankRegisterLogBeforeWeeklyBill';
+import {
+  ADVANCE_PORTAL_MODULE_NAME,
+  fetchPaymentModeSelectOptionsForModule,
+  subscribePaymentModeArrangementRefresh,
+} from '../../utils/paymentModeArrangement';
 import { useOrbitPageSync } from '../../utils/useOrbitPageSync';
 import { useTabRefreshSignal } from '../../utils/useTabRefreshSignal';
 import AdvancePortalEditPaymentModal from './AdvancePortalEditPaymentModal';
@@ -178,22 +183,18 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
   useEffect(() => {
     const fetchPaymentModes = async () => {
       try {
-        const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/getAll');
-        if (response.ok) {
-          const data = await response.json();
-          const options = Array.isArray(data)
-            ? data
-              .filter(mode => mode.modeOfPayment)
-              .map(mode => ({ value: mode.modeOfPayment, label: mode.modeOfPayment }))
-            : [];
-          setBackendPaymentModeOptions(options);
-        }
+        const options = await fetchPaymentModeSelectOptionsForModule(
+          ADVANCE_PORTAL_MODULE_NAME,
+          paymentModeOptions
+        );
+        setBackendPaymentModeOptions(options);
       } catch (error) {
         console.error('Error fetching payment modes:', error);
       }
     };
     fetchPaymentModes();
-  }, []);
+    return subscribePaymentModeArrangementRefresh(fetchPaymentModes);
+  }, [paymentModeOptions]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -1589,6 +1590,13 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
             console.error('Linked expense sync failed after advance edit:', expenseErr);
           }
         }
+        if (sourceRecord) {
+          try {
+            await syncVendorCarryForwardFromAdvancePortalEdit(sourceRecord, payload);
+          } catch (carryForwardErr) {
+            console.error('Linked vendor carry forward sync failed after advance edit:', carryForwardErr);
+          }
+        }
       };
       const setAllowToEdit = async (id, allow) => {
         try {
@@ -1764,6 +1772,13 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
           console.error('Linked expense sync failed after advance edit:', expenseErr);
         }
       }
+      if (sourceRecord) {
+        try {
+          await syncVendorCarryForwardFromAdvancePortalEdit(sourceRecord, payload);
+        } catch (carryForwardErr) {
+          console.error('Linked vendor carry forward sync failed after advance edit:', carryForwardErr);
+        }
+      }
       try {
         const allowRes = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/allow/${editingId}?allow=${false}`, {
           method: 'PUT',
@@ -1811,8 +1826,9 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       }
       const expensesEntryId = resolveAdvancePortalExpensesEntryId(record);
       let billDeleteMessage = '';
+      let vendorCarryForwardDeleteMessage = '';
       try {
-        const { weeklyBillDelete } = await clearAdvancePortalRecordsOnDelete(
+        const { weeklyBillDelete, vendorCarryForwardDelete } = await clearAdvancePortalRecordsOnDelete(
           idToDelete,
           record,
           advanceData,
@@ -1821,6 +1837,10 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
         billDeleteMessage = formatWeeklyBillDeleteMessage(
           weeklyBillDelete.deletedCount,
           weeklyBillDelete.failedCount
+        );
+        vendorCarryForwardDeleteMessage = formatVendorCarryForwardDeleteMessage(
+          vendorCarryForwardDelete?.deletedCount ?? 0,
+          vendorCarryForwardDelete?.failedCount ?? 0
         );
       } catch (billDeleteError) {
         console.error('Failed to delete related bill payments:', billDeleteError);
@@ -1919,7 +1939,7 @@ const AdvanceDatabase = ({ username, userRoles = [], paymentModeOptions = [], re
       }
 
       alert(
-        `Record deleted successfully.${billDeleteMessage}${expenseDeleteMessage}${loanDeleteMessage}`
+        `Record deleted successfully.${billDeleteMessage}${vendorCarryForwardDeleteMessage}${expenseDeleteMessage}${loanDeleteMessage}`
       );
       await fetchAdvanceData();
     } catch (error) {
