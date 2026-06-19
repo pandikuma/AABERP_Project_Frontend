@@ -4,6 +4,7 @@ import search from '../Images/search.png';
 import imports from '../Images/Import.svg';
 import cross from '../Images/cross.png';
 import edit from '../Images/Edit.svg';
+import Add from '../Images/+Add.svg';
 import deleteIcon from '../Images/Delete.svg';
 import share from '../Images/share.png';
 import jsPDF from "jspdf";
@@ -138,6 +139,14 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [selectedPropertyTypeId, setSelectedPropertyTypeId] = useState(null);
   const [editPropertyType, setEditPropertyType] = useState('');
 
+  // Payment Mode
+  const [paymentModeSearch, setPaymentModeSearch] = useState('');
+  const [modeOfPayment, setModeOfPayment] = useState('');
+  const [isPaymentModeOpen, setIsPaymentModeOpen] = useState(false);
+  const [isPaymentModeEditOpen, setIsPaymentModeEditOpen] = useState(false);
+  const [selectedPaymentModeId, setSelectedPaymentModeId] = useState(null);
+  const [editModeOfPayment, setEditModeOfPayment] = useState('');
+
   const [paymentModeArrangements, setPaymentModeArrangements] = useState([]);
   const [paymentModesMasterList, setPaymentModesMasterList] = useState([]);
   const [paymentModeArrangementSearch, setPaymentModeArrangementSearch] = useState('');
@@ -223,6 +232,14 @@ const MasterData = ({ username, userRoles = [] }) => {
   const [originalVendorData, setOriginalVendorData] = useState({});
   const [originalContractorData, setOriginalContractorData] = useState({});
   const [originalAccountData, setOriginalAccountData] = useState({});
+  const [expandedCells, setExpandedCells] = useState({});
+
+  const toggleExpandedCell = (cellKey) => {
+    setExpandedCells((prev) => ({
+      ...prev,
+      [cellKey]: !prev[cellKey],
+    }));
+  };
   // State for Categories
   const [isCategoryOpens, setIsCategoryOpens] = useState(false);
   const [expensesCategorySearch, setExpensesCategorySearch] = useState("");
@@ -530,6 +547,7 @@ const MasterData = ({ username, userRoles = [] }) => {
     { id: 'bank-account-type', name: 'Bank Account Type', description: 'Manage bank account types' },
     { id: 'support-staff-name', name: 'Support Staff Name', description: 'Manage Support Staff Names' },
     { id: 'property-type', name: 'Property Type', description: 'Manage property types' },
+    { id: 'payment-mode', name: 'Payment Mode', description: 'Manage payment modes' },
     {
       id: 'payment-mode-arrangement',
       name: 'Payment Mode Arrangement',
@@ -721,6 +739,16 @@ const MasterData = ({ username, userRoles = [] }) => {
   const closePropertyType = () => {
     setIsPropertyTypeOpen(false);
     setPropertyType('');
+  };
+  const openPaymentMode = () => setIsPaymentModeOpen(true);
+  const closePaymentMode = () => {
+    setIsPaymentModeOpen(false);
+    setModeOfPayment('');
+  };
+  const closePaymentModeEdit = () => {
+    setIsPaymentModeEditOpen(false);
+    setSelectedPaymentModeId(null);
+    setEditModeOfPayment('');
   };
   const resetPaymentModeArrangementForm = () => {
     setArrangementModuleName('');
@@ -1976,6 +2004,11 @@ const MasterData = ({ username, userRoles = [] }) => {
     setEditPropertyType(item.propertyType || '');
     setIsPropertyTypeEditOpen(true);
   };
+  const handleEditPaymentMode = (item) => {
+    setSelectedPaymentModeId(item.id);
+    setEditModeOfPayment(item.modeOfPayment || '');
+    setIsPaymentModeEditOpen(true);
+  };
   const handleEditPaymentModeArrangement = (item) => {
     setSelectedPaymentModeArrangementId(item.id);
     setArrangementModuleName(getArrangementModuleName(item));
@@ -2640,6 +2673,24 @@ const MasterData = ({ username, userRoles = [] }) => {
       }
     }
   };
+  const handleDeletePaymentMode = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this payment mode?')) return;
+    try {
+      const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/payment_mode/delete/${id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setMessage('Payment mode deleted successfully!');
+        void refetchCurrentTableData();
+        void refreshPaymentModeArrangementCaches();
+      } else {
+        setMessage('Failed to delete payment mode.');
+      }
+    } catch (error) {
+      console.error('Error deleting payment mode:', error);
+      setMessage('Failed to delete payment mode.');
+    }
+  };
   // Filter functions
   const filteredVendorNames = vendorNames.filter((item) =>
     item.vendorName.toLowerCase().includes(vendorNameSearch.toLowerCase())
@@ -2673,6 +2724,9 @@ const MasterData = ({ username, userRoles = [] }) => {
   );
   const filteredPropertyTypes = propertyTypes.filter((item) =>
     (item.propertyType || '').toLowerCase().includes(propertyTypeSearch.toLowerCase())
+  );
+  const filteredPaymentModes = (paymentModesMasterList || []).filter((item) =>
+    (item.modeOfPayment || '').toLowerCase().includes(paymentModeSearch.toLowerCase())
   );
   const allPaymentModeLabels = useMemo(
     () =>
@@ -3731,10 +3785,10 @@ const MasterData = ({ username, userRoles = [] }) => {
     setIsExportSelectionModalOpen(false);
   };
   return (
-    <div className="p-4  ml-6">
-      <div className="border-t pt-6 mt-20">
+    <div className="flex flex-col h-[calc(100vh-104px)] px-[18px] pt-[18px] pb-[18px] overflow-hidden bg-[#FAF6ED]">
+      <div className="flex flex-col flex-1 min-h-0 px-[18px] pt-[18px] pb-[18px] overflow-hidden bg-white">
         <div
-          className="lg:flex space-x-[2%] lg:w-full md:w-[32rem] w-[20rem] overflow-x-auto select-none h-[780px]"
+          className="flex-1 min-h-0 lg:flex space-x-[18px] lg:w-full md:w-[32rem] w-[20rem] overflow-x-auto overflow-y-hidden no-scrollbar scrollbar-none select-none"
           style={{ cursor: isDragging ? 'grabbing' : 'default' }}
           onMouseDown={handleMouseDown} onMouseLeave={handleMouseLeave} onMouseUp={handleMouseUp}
           onMouseMove={handleMouseMove} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
@@ -3753,17 +3807,17 @@ const MasterData = ({ username, userRoles = [] }) => {
             </div>
             <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
               <div className="bg-[#FAF6ED]">
-                <table className="table-auto w-[300px]">
+                <table className="table-fixed w-[320px]">
                   <thead className='bg-[#FAF6ED]'>
-                    <tr className="border-b">
-                      <th className="p-2 text-left text-xl font-bold">S.No</th>
-                      <th className="p-2 text-left text-xl font-bold">Table Name</th>
+                    <tr className="border-b h-[40px]">
+                      <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                      <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Table Name</th>
                     </tr>
                   </thead>
                 </table>
               </div>
-              <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                <table className="table-auto w-[350px]">
+              <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <table className="table-fixed w-[320px]">
                   <tbody>
                     {masterTableData.map((table, index) => (
                       <tr
@@ -3771,13 +3825,13 @@ const MasterData = ({ username, userRoles = [] }) => {
                         onClick={() => handleTableSelection(table.id)}
                         className={`border-b cursor-pointer transition-all duration-200 hover:bg-[#FAF6ED] ${selectedTable === table.id
                           ? 'bg-[#FAF6ED] border-l-4 border-l-[#BF9853]'
-                          : 'odd:bg-white even:bg-gray-50'
+                          : 'odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]'
                           }`}
                       >
-                        <td className="p-3 text-left font-semibold">
+                        <td className="pl-[12px] pr-[12px] text-left text-[14px] font-semibold w-16">
                           {(index + 1).toString().padStart(2, '0')}
                         </td>
-                        <td className="p-3 text-left font-semibold text-[#BF9853]">
+                        <td className="pl-0 pr-[8px] text-left text-[14px] font-semibold text-[#BF9853]">
                           {table.name}
                         </td>
                       </tr>
@@ -3793,25 +3847,25 @@ const MasterData = ({ username, userRoles = [] }) => {
             >
               {table.id === 'project-management' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Project.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Project Name"
                       value={projectManagementSearch}
                       onChange={(e) => setProjectManagementSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]"
+                    <button className="text-black font-bold px-1 ml-4"
                       onClick={() => handleAddClick(openProjectManagement)}>
-                      + Add
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold px-1 ml-4 mt-2" onClick={() => document.getElementById('projectManagementFileInput').click()}>
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
+                  <button className="text-[#E4572E] flex mb-[8px]" onClick={() => document.getElementById('projectManagementFileInput').click()}>
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
                   </button>
                   <input
                     type="file"
@@ -3820,39 +3874,42 @@ const MasterData = ({ username, userRoles = [] }) => {
                     style={{ display: 'none' }}
                     onChange={(e) => handleProjectManagementBulkUpload(e)}
                   />
-                  <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853] mt-6'>
+                  <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-[470px]">
+                      <table className="table-fixed w-[400px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">
-                              <div className="flex items-center gap-2">
-                                <span>Project Name</span>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">
+                              <div className="flex items-center justify-between gap-[12px]">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span>Project Name</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowOnGoingProjectsOnly((prev) => !prev)}
+                                    title={
+                                      showOnGoingProjectsOnly
+                                        ? 'Show all projects'
+                                        : 'Show On Going projects only'
+                                    }
+                                    className={`text-xl leading-none transition-colors ${
+                                      showOnGoingProjectsOnly
+                                        ? 'text-[#BF9853]'
+                                        : 'text-gray-400 hover:text-[#BF9853]'
+                                    }`}
+                                    aria-pressed={showOnGoingProjectsOnly}
+                                    aria-label="Filter On Going projects"
+                                  >
+                                    ★
+                                  </button>
+                                </div>
                                 <button
                                   type="button"
-                                  onClick={() => setShowOnGoingProjectsOnly((prev) => !prev)}
-                                  title={
-                                    showOnGoingProjectsOnly
-                                      ? 'Show all projects'
-                                      : 'Show On Going projects only'
-                                  }
-                                  className={`text-xl leading-none transition-colors ${
-                                    showOnGoingProjectsOnly
-                                      ? 'text-[#BF9853]'
-                                      : 'text-gray-400 hover:text-[#BF9853]'
-                                  }`}
-                                  aria-pressed={showOnGoingProjectsOnly}
-                                  aria-label="Filter On Going projects"
+                                  onClick={() => handleDownloadIconClick('project')}
+                                  className="inline-flex shrink-0 items-center justify-center"
+                                  title="Download"
                                 >
-                                  ★
-                                </button>
-                              </div>
-                            </th>
-                            <th>
-                              <div>
-                                <button onClick={() => handleDownloadIconClick('project')}>
-                                  <img src={DownloadIcon} alt='download' className=' cursor-pointer hover:opacity-75' />
+                                  <img src={DownloadIcon} alt='download' className='w-6 h-6 cursor-pointer hover:opacity-75' />
                                 </button>
                               </div>
                             </th>
@@ -3860,52 +3917,58 @@ const MasterData = ({ username, userRoles = [] }) => {
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-full w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[400px]">
                         <tbody>
                           {filteredProjectsForTable.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED] group">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px] group">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(index + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left font-semibold">
-                                <span className="inline-flex items-center gap-1.5">
-                                  <span>{item.projectName || ''}</span>
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0 gap-1.5">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-projectName`)}
+                                    className={`min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-projectName`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.projectName || ''}
+                                  >
+                                    {item.projectName || ''}
+                                  </span>
                                   {isOnGoingProject(item) && (
                                     <span
-                                      className="text-[#BF9853] text-base leading-none"
+                                      className="text-[#BF9853] text-base leading-none shrink-0"
                                       title="On Going"
                                       aria-hidden
                                     >
                                       ★
                                     </span>
                                   )}
-                                </span>
-                              </td>
-                              <td className="p-2 text-left font-semibold">
-                                {item.projectCategory === 'Client Project' && (
-                                  <span className="text-xs font-semibold text-[#E4572E]  px-2 py-1 rounded">
-                                    Client
-                                  </span>
-                                )}
-                                {item.projectCategory === 'Own Project' && (
-                                  <span className="text-xs font-semibold text-[#007233] px-2 py-1 rounded">
-                                    Own
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-2 text-left font-semibold">
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  {hasEditPermission && (
-                                    <button onClick={() => handleEditProject(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
-                                      <img src={edit} alt="Edit" className="w-6 h-6" />
-                                    </button>
+                                  {item.projectCategory === 'Client Project' && (
+                                    <span className="text-xs font-semibold text-[#E4572E] shrink-0 whitespace-nowrap">
+                                      Client
+                                    </span>
                                   )}
-                                  {hasDeletePermission && (
-                                    <button onClick={() => handleDeleteProject(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
-                                      <img src={deleteIcon} alt="Delete" className="w-6 h-6" />
-                                    </button>
+                                  {item.projectCategory === 'Own Project' && (
+                                    <span className="text-xs font-semibold text-[#007233] shrink-0 whitespace-nowrap">
+                                      Own
+                                    </span>
                                   )}
+                                  <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    {hasEditPermission && (
+                                      <button onClick={() => handleEditProject(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                        <img src={edit} alt="Edit" className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                    {hasDeletePermission && (
+                                      <button onClick={() => handleDeleteProject(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                        <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                             </tr>
@@ -3918,25 +3981,25 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'vendor-names' && (
                 <div>
-                  <div className="flex items-center mb-2">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Vendor Name.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Vendor Name"
                       value={vendorNameSearch}
                       onChange={(e) => setVendorNameSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]"
+                    <button className="text-black font-bold px-1 ml-4"
                       onClick={() => handleAddClick(openvendorNames)}>
-                      + Add
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold ml-4 " onClick={() => document.getElementById('vendorNamesFileInput').click()}>
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
+                  <button className="text-[#E4572E] flex mb-[8px]" onClick={() => document.getElementById('vendorNamesFileInput').click()}>
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
                   </button>
                   <input
                     type="file"
@@ -3945,35 +4008,46 @@ const MasterData = ({ username, userRoles = [] }) => {
                     style={{ display: 'none' }}
                     onChange={(e) => handleBulkUpload(e, 'vendorNames')}
                   />
-                  <div>
-                    <button onClick={() => handleDownloadIconClick('vendor')}>
-                      <img src={DownloadIcon} alt='download' className='-mb-10 mt-5 ml-[15rem] cursor-pointer hover:opacity-75' />
-                    </button>
-                  </div>
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-72">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">Vendor Name</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">
+                            <div className="flex items-center justify-between gap-[12px]">
+                              <span>Vendor Name</span>
+                              <button type="button" onClick={() => handleDownloadIconClick('vendor')} className="inline-flex shrink-0 items-center justify-center">
+                                <img src={DownloadIcon} alt='download' className='w-6 h-6 cursor-pointer hover:opacity-75' />
+                              </button>
+                            </div>
+                          </th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-72 w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredVendorNames.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(vendorNames.findIndex(v => v.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow">
-                                  {item.vendorName}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-vendorName`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-vendorName`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.vendorName}
+                                  >
+                                    {item.vendorName}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   <button onClick={() => handleVendorShare(item)}>
                                     <img src={share} alt='Share' className='w-4 h-4' />
                                   </button>
@@ -3988,6 +4062,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                     </button>
                                   )}
                                 </div>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -3999,24 +4074,24 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'contractor-names' && (
                 <div>
-                  <div className="flex items-center ">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Contractor Name.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Contractor Name"
                       value={contractorNameSearch}
                       onChange={(e) => setContractorNameSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openContractorNames)}>
-                      + Add
+                    <button className="text-black font-bold px-1 ml-4" onClick={() => handleAddClick(openContractorNames)}>
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold px-1 ml-4 mt-2 " onClick={() => document.getElementById('contractorNamesFileInput').click()}>
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
+                  <button className="text-[#E4572E] flex mb-[8px]" onClick={() => document.getElementById('contractorNamesFileInput').click()}>
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
                   </button>
                   <input
                     type="file"
@@ -4025,33 +4100,46 @@ const MasterData = ({ username, userRoles = [] }) => {
                     style={{ display: 'none' }}
                     onChange={(e) => handleBulkUpload(e, 'contractorNames')}
                   />
-                  <button onClick={() => handleDownloadIconClick('contractor')}>
-                    <img src={DownloadIcon} alt='download' className='-mb-10 mt-5 ml-[15rem] cursor-pointer hover:opacity-75' />
-                  </button>
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-72">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">Contractor Name</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">
+                            <div className="flex items-center justify-between gap-[12px]">
+                              <span>Contractor Name</span>
+                              <button type="button" onClick={() => handleDownloadIconClick('contractor')} className="inline-flex shrink-0 items-center justify-center">
+                                <img src={DownloadIcon} alt='download' className='w-6 h-6 cursor-pointer hover:opacity-75' />
+                              </button>
+                            </div>
+                          </th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-72 w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredContractorNames.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(contractorNames.findIndex(c => c.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow">
-                                  {item.contractorName}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-contractorName`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-contractorName`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.contractorName}
+                                  >
+                                    {item.contractorName}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   <button onClick={() => handleContractorShare(item)}>
                                     <img src={share} alt='Share' className='w-4 h-4' />
                                   </button>
@@ -4066,6 +4154,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                     </button>
                                   )}
                                 </div>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -4077,25 +4166,25 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'categories' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Categories.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Category"
                       value={expensesCategorySearch}
                       onChange={(e) => setExpensesCategorySearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]"
+                    <button className="text-black font-bold px-1 ml-4"
                       onClick={() => handleAddClick(openCategory)}>
-                      + Add
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold px-1 ml-4 mt-2 mb-6" onClick={() => document.getElementById('categoriesFileInput').click()}>
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
+                  <button className="text-[#E4572E] flex mb-[8px]" onClick={() => document.getElementById('categoriesFileInput').click()}>
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
                   </button>
                   <input
                     type="file"
@@ -4106,28 +4195,37 @@ const MasterData = ({ username, userRoles = [] }) => {
                   />
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-72">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">Category</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Category</th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-72 w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredCategories.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(expensesCategory.findIndex(c => c.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow">
-                                  {item.category}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-category`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-category`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.category}
+                                  >
+                                    {item.category}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   {hasEditPermission && (
                                     <button onClick={() => handleEditCategory(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
                                       <img src={edit} alt="Edit" className="w-4 h-4" />
@@ -4138,6 +4236,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                       <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
                                     </button>
                                   )}
+                                </div>
                                 </div>
                               </td>
                             </tr>
@@ -4150,24 +4249,24 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'machine-tools' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Tools.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Machine Tools"
                       value={machineToolsSearch}
                       onChange={(e) => setMachineToolsSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openMachineTools)}>
-                      + Add
+                    <button className="text-black font-bold px-1 ml-4" onClick={() => handleAddClick(openMachineTools)}>
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold px-1 ml-4 mt-2 mb-6" onClick={() => document.getElementById('machineToolsFileInput').click()}>
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
+                  <button className="text-[#E4572E] flex mb-[8px]" onClick={() => document.getElementById('machineToolsFileInput').click()}>
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
                   </button>
                   <input
                     type="file"
@@ -4178,28 +4277,37 @@ const MasterData = ({ username, userRoles = [] }) => {
                   />
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-72">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">Machine Tools</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Machine Tools</th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-72 w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredMachineTools.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(machineToolsOptions.findIndex(tool => tool.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow">
-                                  {item.machineTool}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-machineTool`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-machineTool`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.machineTool}
+                                  >
+                                    {item.machineTool}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   {hasEditPermission && (
                                     <button onClick={() => handleEditMachineTool(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
                                       <img src={edit} alt="Edit" className="w-4 h-4" />
@@ -4210,6 +4318,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                       <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
                                     </button>
                                   )}
+                                </div>
                                 </div>
                               </td>
                             </tr>
@@ -4222,24 +4331,24 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'employee-details' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Employee Name.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Employee Name"
                       value={employeeSearch}
                       onChange={(e) => setEmployeeSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openEmployeeDetails)}>
-                      + Add
+                    <button className="text-black font-bold px-1 ml-4" onClick={() => handleAddClick(openEmployeeDetails)}>
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold px-1 ml-4 mt-2" onClick={() => document.getElementById('employeeDetailsFileInput').click()}>
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
+                  <button className="text-[#E4572E] flex mb-[8px]" onClick={() => document.getElementById('employeeDetailsFileInput').click()}>
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
                   </button>
                   <input
                     type="file"
@@ -4249,34 +4358,47 @@ const MasterData = ({ username, userRoles = [] }) => {
                     onChange={(e) => handleBulkUpload(e, 'employeeDetails')}
                   />
                   <div>
-                    <button onClick={() => handleDownloadIconClick('employee')}>
-                      <img src={DownloadIcon} alt='download' className='-mb-10 mt-5 ml-[15rem] cursor-pointer hover:opacity-75' />
-                    </button>
                   </div>
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-72">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">Employee Name</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">
+                            <div className="flex items-center justify-between gap-[12px]">
+                              <span>Employee Name</span>
+                              <button type="button" onClick={() => handleDownloadIconClick('employee')} className="inline-flex shrink-0 items-center justify-center">
+                                <img src={DownloadIcon} alt='download' className='w-6 h-6 cursor-pointer hover:opacity-75' />
+                              </button>
+                            </div>
+                          </th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-72 w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredEmployeeData.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(employeeList.findIndex(acc => acc.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow">
-                                  {item.employee_name}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-employee_name`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-employee_name`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.employee_name}
+                                  >
+                                    {item.employee_name}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   <button onClick={() => handleEmployeeShare(item)}>
                                     <img src={share} alt='Share' className='w-4 h-4' />
                                   </button>
@@ -4291,6 +4413,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                     </button>
                                   )}
                                 </div>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -4302,24 +4425,24 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'labours-list' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Labour Name.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Labour Name"
                       value={laboursListSearch}
                       onChange={(e) => setLaboursListSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openLabourDetails)}>
-                      + Add
+                    <button className="text-black font-bold px-1 ml-4" onClick={() => handleAddClick(openLabourDetails)}>
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold px-1 ml-4 mt-2 mb-6" onClick={() => document.getElementById('labourDetailsFileInput').click()}>
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
+                  <button className="text-[#E4572E] flex mb-[8px]" onClick={() => document.getElementById('labourDetailsFileInput').click()}>
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
                   </button>
                   <input
                     type="file"
@@ -4330,28 +4453,37 @@ const MasterData = ({ username, userRoles = [] }) => {
                   />
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-72">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">Labour Name</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Labour Name</th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-72 w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredLaboursData.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(laboursList.findIndex(acc => acc.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow">
-                                  {item.labour_name}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-labour_name`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-labour_name`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.labour_name}
+                                  >
+                                    {item.labour_name}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   {hasEditPermission && (
                                     <button onClick={() => handleEditLabourData(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
                                       <img src={edit} alt="Edit" className="w-4 h-4" />
@@ -4362,6 +4494,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                       <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
                                     </button>
                                   )}
+                                </div>
                                 </div>
                               </td>
                             </tr>
@@ -4374,24 +4507,24 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'Account Details' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Account Details.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Account Details"
                       value={accountDetailsSearch}
                       onChange={(e) => setAccountDetailsSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openAccountDetails)}>
-                      + Add
+                    <button className="text-black font-bold px-1 ml-4" onClick={() => handleAddClick(openAccountDetails)}>
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold px-1 ml-4 mt-2 mb-6" onClick={() => document.getElementById('accountDetailsFileInput').click()}>
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
+                  <button className="text-[#E4572E] flex mb-[8px]" onClick={() => document.getElementById('accountDetailsFileInput').click()}>
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
                   </button>
                   <input
                     type="file"
@@ -4402,28 +4535,39 @@ const MasterData = ({ username, userRoles = [] }) => {
                   />
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-[300px]">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-32 text-xl font-bold">Account No</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Account No</th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-[300px] w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredAccountDetails.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(accountDetails.findIndex(acc => acc.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow cursor-help relative" onMouseEnter={(e) => handleAccountMouseEnter(e, item)} onMouseLeave={handleAccountMouseLeave}>
-                                  {item.account_number}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-account_number`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer cursor-help ${
+                                      expandedCells[`${item.id}-account_number`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.account_number}
+                                    onMouseEnter={(e) => handleAccountMouseEnter(e, item)}
+                                    onMouseLeave={handleAccountMouseLeave}
+                                  >
+                                    {item.account_number}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   <button onClick={() => handleAccountShare(item)}>
                                     <img src={share} alt='Share' className='w-4 h-4' />
                                   </button>
@@ -4438,6 +4582,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                     </button>
                                   )}
                                 </div>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -4449,24 +4594,24 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'bank-account-type' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Bank Account Type.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Bank Account Type"
                       value={bankAccountTypeSearch}
                       onChange={(e) => setBankAccountTypeSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openBankAccountType)}>
-                      + Add
+                    <button className="text-black font-bold px-1 ml-4" onClick={() => handleAddClick(openBankAccountType)}>
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold px-1 ml-4 mt-2 mb-6" onClick={() => document.getElementById('bankAccountTypeFileInput').click()}>
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
+                  <button className="text-[#E4572E] flex mb-[8px]" onClick={() => document.getElementById('bankAccountTypeFileInput').click()}>
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
                   </button>
                   <input
                     type="file"
@@ -4477,28 +4622,37 @@ const MasterData = ({ username, userRoles = [] }) => {
                   />
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-72">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">Bank Account Type</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Bank Account Type</th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-72 w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredBankAccountTypes.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(bankAccountTypes.findIndex(b => b.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow">
-                                  {item.bank_account_type}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-bank_account_type`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-bank_account_type`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.bank_account_type}
+                                  >
+                                    {item.bank_account_type}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   {hasEditPermission && (
                                     <button onClick={() => handleEditBankAccountType(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
                                       <img src={edit} alt="Edit" className="w-4 h-4" />
@@ -4509,6 +4663,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                       <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
                                     </button>
                                   )}
+                                </div>
                                 </div>
                               </td>
                             </tr>
@@ -4521,49 +4676,55 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'support-staff-name' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Support Staff.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Support Staff"
                       value={supportStaffSearch}
                       onChange={(e) => setSupportStaffSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
-                    <button className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]" onClick={() => handleAddClick(openSupportStaffName)}>
-                      + Add
+                    <button className="text-black font-bold px-1 ml-4" onClick={() => handleAddClick(openSupportStaffName)}>
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
-                  <button className="flex items-center text-[#E4572E] font-bold px-1 ml-4 mt-2 mb-6">
-                    <img src={imports} alt='import' className='w-4 h-4 mr-1' />
-                    Import File
-                  </button>
+                  <button className="text-[#E4572E] flex mb-[8px]"><img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' /><h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1></button>
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-72">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">Support Staff Name</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Support Staff Name</th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-full w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredSupportStaffNameList.map((item, index) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(supportStaffNameList.findIndex(e => e.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow">
-                                  {item.support_staff_name || ''}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-support_staff_name`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-support_staff_name`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.support_staff_name || ''}
+                                  >
+                                    {item.support_staff_name || ''}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   {hasEditPermission && (
                                     <button onClick={() => handleEditSupportStaffName(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
                                       <img src={edit} alt="Edit" className="w-4 h-4" />
@@ -4574,6 +4735,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                       <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
                                     </button>
                                   )}
+                                </div>
                                 </div>
                               </td>
                             </tr>
@@ -4586,48 +4748,61 @@ const MasterData = ({ username, userRoles = [] }) => {
               )}
               {table.id === 'property-type' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Property Type.."
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Property Type"
                       value={propertyTypeSearch}
                       onChange={(e) => setPropertyTypeSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
                     <button
-                      className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]"
+                      className="text-black font-bold px-1 ml-4"
                       onClick={() => handleAddClick(openPropertyType)}
                     >
-                      + Add
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
+                  <button type="button" className="text-[#E4572E] flex mb-[8px]">
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
+                  </button>
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto lg:w-72">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left lg:w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left lg:w-72 text-xl font-bold">Property Type</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Property Type</th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto lg:w-full w-full">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
                         <tbody>
                           {filteredPropertyTypes.map((item) => (
-                            <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED]">
-                              <td className="p-2 text-left font-semibold">
+                            <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                              <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                 {(propertyTypes.findIndex(e => e.id === item.id) + 1).toString().padStart(2, '0')}
                               </td>
-                              <td className="p-2 text-left group flex font-semibold">
-                                <div className="flex flex-grow">
-                                  {item.propertyType || ''}
-                                </div>
-                                <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                <div className="flex items-center min-w-0">
+                                  <span
+                                    onClick={() => toggleExpandedCell(`${item.id}-propertyType`)}
+                                    className={`block min-w-0 flex-1 cursor-pointer ${
+                                      expandedCells[`${item.id}-propertyType`]
+                                        ? 'whitespace-normal break-words'
+                                        : 'truncate whitespace-nowrap overflow-hidden'
+                                    }`}
+                                    title={item.propertyType || ''}
+                                  >
+                                    {item.propertyType || ''}
+                                  </span>
+                                <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                   {hasEditPermission && (
                                     <button onClick={() => handleEditPropertyType(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
                                       <img src={edit} alt="Edit" className="w-4 h-4" />
@@ -4639,6 +4814,7 @@ const MasterData = ({ username, userRoles = [] }) => {
                                     </button>
                                   )}
                                 </div>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -4648,39 +4824,131 @@ const MasterData = ({ username, userRoles = [] }) => {
                   </div>
                 </div>
               )}
-              {table.id === 'payment-mode-arrangement' && (
+              {table.id === 'payment-mode' && (
                 <div>
-                  <div className="flex items-center mb-2 lg:mt-0 mt-3">
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
                     <input
                       type="text"
-                      className="border border-[#FAF6ED] border-r-4 border-l-4 border-b-4 border-t-4 rounded-lg p-2 flex-1 w-44 h-12 focus:outline-none"
-                      placeholder="Search Module or Mode.."
-                      value={paymentModeArrangementSearch}
-                      onChange={(e) => setPaymentModeArrangementSearch(e.target.value)}
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Payment Mode"
+                      value={paymentModeSearch}
+                      onChange={(e) => setPaymentModeSearch(e.target.value)}
                     />
-                    <button className="-ml-6 mt-5 transform -translate-y-1/2 text-gray-500">
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
                       <img src={search} alt='search' className=' w-5 h-5' />
                     </button>
                     <button
-                      className="text-black font-bold px-1 ml-4 border-dashed border-b-2 border-[#BF9853]"
-                      onClick={() => handleAddClick(openPaymentModeArrangement)}
+                      className="text-black font-bold px-1 ml-4"
+                      onClick={() => handleAddClick(openPaymentMode)}
                     >
-                      + Add
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
                     </button>
                   </div>
+                  <button type="button" className="text-[#E4572E] flex mb-[8px]">
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
+                  </button>
                   <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
                     <div className="bg-[#FAF6ED]">
-                      <table className="table-auto w-full min-w-[360px]">
+                      <table className="table-fixed w-[320px]">
                         <thead className='bg-[#FAF6ED]'>
-                          <tr className="border-b">
-                            <th className="p-2 text-left w-16 text-xl font-bold">S.No</th>
-                            <th className="p-2 text-left text-xl font-bold">Module Name</th>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Payment Mode</th>
                           </tr>
                         </thead>
                       </table>
                     </div>
-                    <div className="overflow-y-auto max-h-[550px] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                      <table className="table-auto w-full min-w-[360px]">
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px]">
+                        <tbody>
+                          {filteredPaymentModes.length === 0 ? (
+                            <tr>
+                              <td colSpan={2} className="p-4 text-center text-sm text-gray-500">
+                                No payment mode found.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredPaymentModes.map((item) => (
+                              <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px]">
+                                <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
+                                  {(paymentModesMasterList.findIndex((row) => row.id === item.id) + 1)
+                                    .toString()
+                                    .padStart(2, '0')}
+                                </td>
+                                <td className="pl-0 pr-[8px] text-left group font-semibold max-w-0">
+                                  <div className="flex items-center min-w-0">
+                                    <span
+                                      onClick={() => toggleExpandedCell(`${item.id}-modeOfPayment`)}
+                                      className={`block min-w-0 flex-1 cursor-pointer ${
+                                        expandedCells[`${item.id}-modeOfPayment`]
+                                          ? 'whitespace-normal break-words'
+                                          : 'truncate whitespace-nowrap overflow-hidden'
+                                      }`}
+                                      title={item.modeOfPayment || ''}
+                                    >
+                                      {item.modeOfPayment || ''}
+                                    </span>
+                                    <div className="flex shrink-0 space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                      {hasEditPermission && (
+                                        <button onClick={() => handleEditPaymentMode(item)} className="text-blue-600 hover:text-blue-800" title="Edit">
+                                          <img src={edit} alt="Edit" className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                      {hasDeletePermission && (
+                                        <button onClick={() => handleDeletePaymentMode(item.id)} className="text-red-600 hover:text-red-800" title="Delete">
+                                          <img src={deleteIcon} alt="Delete" className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {table.id === 'payment-mode-arrangement' && (
+                <div>
+                  <div className="flex items-center mb-[6px] lg:mt-0 mt-3">
+                    <input
+                      type="text"
+                      className="border-[#BF9853] border-2 border-opacity-25 rounded-full text-[14px] pl-[16px] flex-1 w-44 h-[40px] focus:outline-none"
+                      placeholder="Module or Mode"
+                      value={paymentModeArrangementSearch}
+                      onChange={(e) => setPaymentModeArrangementSearch(e.target.value)}
+                    />
+                    <button className="-ml-8 mt-5 transform -translate-y-1/2 text-gray-500">
+                      <img src={search} alt='search' className=' w-5 h-5' />
+                    </button>
+                    <button
+                      className="text-black font-bold px-1 ml-4"
+                      onClick={() => handleAddClick(openPaymentModeArrangement)}
+                    >
+                      <img src={Add} alt='add' className='w-[30px] h-[30px]' />
+                    </button>
+                  </div>
+                  <button type="button" className="text-[#E4572E] flex mb-[8px]">
+                    <img src={imports} alt='import' className=' w-6 h-5 bg-transparent pr-2 mt-[6px]' />
+                    <h1 className='mt-1.5 text-[14px] font-semibold'>Import file</h1>
+                  </button>
+                  <div className='rounded-lg border border-gray-200 border-l-8 border-l-[#BF9853]'>
+                    <div className="bg-[#FAF6ED]">
+                      <table className="table-fixed w-[320px]">
+                        <thead className='bg-[#FAF6ED]'>
+                          <tr className="border-b h-[40px]">
+                            <th className="pl-[12px] pr-[12px] text-left w-16 text-[16px] font-bold">S.No</th>
+                            <th className="pl-0 pr-[8px] text-left text-[16px] font-bold">Module Name</th>
+                          </tr>
+                        </thead>
+                      </table>
+                    </div>
+                    <div className="overflow-y-auto max-h-[calc(100vh-300px)] no-scrollbar scrollbar-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <table className="table-fixed w-[320px] ">
                         <tbody>
                           {filteredPaymentModeArrangements.length === 0 ? (
                             <tr>
@@ -4690,22 +4958,21 @@ const MasterData = ({ username, userRoles = [] }) => {
                             </tr>
                           ) : (
                             filteredPaymentModeArrangements.map((item) => (
-                              <tr key={item.id} className="border-b odd:bg-white even:bg-[#FAF6ED] align-top">
-                                <td className="p-2 text-left font-semibold w-16">
+                              <tr key={item.id} className="border-b odd:bg-white text-[14px] even:bg-[#FAF6ED] h-[40px] align-middle">
+                                <td className="pl-[12px] pr-[12px] text-left font-semibold w-16">
                                   {(paymentModeArrangements.findIndex((row) => row.id === item.id) + 1)
                                     .toString()
                                     .padStart(2, '0')}
                                 </td>
-                                <td className="p-2 text-left font-semibold group">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <span
-                                      className="cursor-help decoration-dotted underline-offset-4"
-                                      onMouseEnter={(e) => handlePaymentModeArrangementMouseEnter(e, item)}
-                                      onMouseLeave={handleAccountMouseLeave}
-                                    >
-                                      {getArrangementModuleName(item)}
-                                    </span>
-                                    <div className="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
+                                <td className="pl-0 pr-[8px] text-left font-semibold group max-w-0 relative">
+                                  <span
+                                    className="cursor-help decoration-dotted underline-offset-4"
+                                    onMouseEnter={(e) => handlePaymentModeArrangementMouseEnter(e, item)}
+                                    onMouseLeave={handleAccountMouseLeave}
+                                  >
+                                    {getArrangementModuleName(item)}
+                                  </span>
+                                  <div className="absolute right-[8px] top-1/2 -translate-y-1/2 flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                       {hasEditPermission && (
                                         <button
                                           type="button"
@@ -4727,7 +4994,6 @@ const MasterData = ({ username, userRoles = [] }) => {
                                         </button>
                                       )}
                                     </div>
-                                  </div>
                                 </td>
                               </tr>
                             ))
@@ -6981,6 +7247,110 @@ const MasterData = ({ username, userRoles = [] }) => {
                   Update
                 </button>
                 <button type="button" className="px-8 py-2 border rounded-lg text-[#BF9853] border-[#BF9853]" onClick={() => setIsPropertyTypeEditOpen(false)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {isPaymentModeOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 overflow-y-auto z-40">
+          <div className="bg-white rounded-md w-full max-w-[30rem] min-h-[260px] max-h-[90vh] overflow-y-auto px-2 py-2">
+            <div>
+              <button className="text-red-500 ml-[95%]" onClick={closePaymentMode}>
+                <img src={cross} alt='cross' className='w-5 h-5' />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                const response = await fetch('https://backendaab.in/demoAabuildersDash/api/payment_mode/save', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ modeOfPayment }),
+                });
+                if (response.ok) {
+                  setMessage('Payment mode saved successfully!');
+                  closePaymentMode();
+                  void refetchCurrentTableData();
+                  void refreshPaymentModeArrangementCaches();
+                } else {
+                  setMessage('Failed to save payment mode.');
+                }
+              } catch (error) {
+                console.error('Error saving payment mode:', error);
+                setMessage('Failed to save payment mode.');
+              }
+            }}>
+              <div className="mb-4">
+                <label className="block text-lg font-medium mb-2 -ml-56">Payment Mode</label>
+                <input
+                  type="text"
+                  className="w-96 ml-4 border border-[#FAF6ED] border-r-[0.25rem] border-l-[0.25rem] border-b-[0.25rem] border-t-[0.25rem] p-2 rounded h-14 focus:outline-none"
+                  placeholder="Enter Payment Mode"
+                  value={modeOfPayment}
+                  onChange={(e) => setModeOfPayment(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex justify-end mr-5 space-x-2 mt-4 ">
+                <button type="submit" className="btn bg-[#BF9853] text-white px-8 py-2 rounded-lg hover:bg-yellow-800 font-semibold">
+                  Submit
+                </button>
+                <button type="button" className="px-8 py-2 border rounded-lg text-[#BF9853] border-[#BF9853]" onClick={closePaymentMode}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {isPaymentModeEditOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4 overflow-y-auto z-40">
+          <div className="bg-white rounded-md w-full max-w-[30rem] min-h-[260px] max-h-[90vh] overflow-y-auto px-2 py-2">
+            <div>
+              <button className="text-red-500 ml-[95%]" onClick={closePaymentModeEdit}>
+                <img src={cross} alt='cross' className='w-5 h-5' />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/payment_mode/edit/${selectedPaymentModeId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ modeOfPayment: editModeOfPayment }),
+                });
+                if (response.ok) {
+                  setMessage('Payment mode updated successfully!');
+                  closePaymentModeEdit();
+                  void refetchCurrentTableData();
+                  void refreshPaymentModeArrangementCaches();
+                } else {
+                  setMessage('Failed to update payment mode.');
+                }
+              } catch (error) {
+                console.error('Error updating payment mode:', error);
+                setMessage('Failed to update payment mode.');
+              }
+            }}>
+              <div className="mb-4">
+                <label className="block text-lg font-medium mb-2 -ml-56">Payment Mode</label>
+                <input
+                  type="text"
+                  className="w-96 ml-4 border border-[#FAF6ED] border-r-[0.25rem] border-l-[0.25rem] border-b-[0.25rem] border-t-[0.25rem] p-2 rounded h-14 focus:outline-none"
+                  placeholder="Enter Payment Mode"
+                  value={editModeOfPayment}
+                  onChange={(e) => setEditModeOfPayment(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex justify-end mr-5 space-x-2 mt-4 ">
+                <button type="submit" className="btn bg-[#BF9853] text-white px-8 py-2 rounded-lg hover:bg-yellow-800 font-semibold">
+                  Update
+                </button>
+                <button type="button" className="px-8 py-2 border rounded-lg text-[#BF9853] border-[#BF9853]" onClick={closePaymentModeEdit}>
                   Cancel
                 </button>
               </div>

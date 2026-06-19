@@ -3,12 +3,14 @@ import Edit from '../Images/Edit.svg'
 import Delete from '../Images/Delete.svg'
 import Select from 'react-select';
 import history from '../Images/History.svg';
-import Filter from '../Images/filter (3).png'
-import NotesStart from '../Images/notes _start.png';
-import NotesEnd from '../Images/notes_end.png';
-import fileUpload from '../Images/file_upload.png';
+import NotesStart from '../Images/TextUpload.svg';
+import NotesEnd from '../Images/TextView.svg';
+import fileUpload from '../Images/FileUpload.svg';
+import fileSignatureUpload from '../Images/SignatureIcon.svg';
 import download from '../Images/file_download.png'
-import file from '../Images/file.png';
+import file from '../Images/FileView.svg';
+import FileRemover from '../Images/FileRemover.svg';
+import AddExtra from '../Images/AddExtra.svg';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -26,9 +28,52 @@ import {
     getExpenseSummaryType,
 } from '../../utils/weeklyPaymentStaffAdvancePdf';
 import Change from '../Images/dropdownchange.png';
+import { useLiveDataSync } from '../../utils/useLiveDataSync';
+import CustomDateField from '../ExpensesEntry/CustomDateField';
 import ExpenseEntryForm from '../ExpensesEntry/Form';
 import AdvancePortalForm from '../Advance Portal/AdvancePortal';
 import restore from '../Images/data-recovery.png';
+import {
+    DATABASE_TABLE_FILTER_SELECT_STYLES,
+    EDBC_FILTER_CONTROL_BOX_STYLE,
+    EDBC_FILTER_CONTROL_HEIGHT_PX,
+    EDBC_IDS,
+    EDBC_TABLE_EDGE_TABLE_CLASS,
+    EdbcColumnHeader,
+    EdbcDateBodyCell,
+    EdbcDateFilter,
+    EdbcEmptyFilterCell,
+    EdbcFilterToggleButton,
+    EdbcExpandableBodyCell,
+    EdbcProjectNameBodyCell,
+    EdbcProjectNameFilter,
+    EdbcSelectFilter,
+    EdbcTableBodyRow,
+    EdbcTableFilterRow,
+    EdbcTableHeaderRow,
+    EdbcTableToolbarRightActions,
+    EdbcTotalAmountFilter,
+    EDBC2_FIRST_COLUMN_WIDTH_CLASS,
+    getEdbcColumnConfig,
+    matchesEdbcAmountFilter,
+    useEdbcExpandedCells,
+} from '../ExpensesEntry/databaseExpensesSharedColumns';
+
+const ENTRY_ROW_SELECT_CLASS_NAMES = {
+    menuList: () => 'no-scrollbar',
+};
+const entryRowSelectMenuListStyle = (provided) => ({
+    ...provided,
+    maxHeight: '300px',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+});
+
+const WEEKLY_PAYMENT_EDBC8_TABLE_CLASS =
+    '[&_thead_tr.bg-\\[\\#eeeeee\\]>th#EDBC-8]:!pr-0 [&_th#EDBC-8]:!w-[120px] [&_td#EDBC-8]:!w-[120px] [&_th#EDBC-8]:!max-w-[120px] [&_td#EDBC-8]:!max-w-[120px] [&_th#EDBC-8]:!overflow-hidden [&_td#EDBC-8]:!overflow-hidden';
+
+const formatWeeklyPaymentAmountDisplay = (amount) =>
+    `₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 // Helper function to clean URL by removing surrounding quotes and parsing JSON if needed
 function cleanUrl(url) {
     if (!url) return url;
@@ -93,7 +138,7 @@ function getStartAndEndDateOfISOWeek(weekNo, year) {
     ISOweekEnd.setHours(23, 59, 59, 999);
     return { startDate: ISOweekStart, endDate: ISOweekEnd };
 }
-const WeeklyPayment = ({ username, userRoles = [] }) => {
+const WeeklyPayment = ({ username, userRoles = [], onExportActionsReady }) => {
     const resolveEnteredBy = () => {
         const propUsername = typeof username === 'string' ? username.trim() : '';
         if (propUsername) return propUsername;
@@ -215,6 +260,11 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     const [weeklyReceivedTypes, setWeeklyReceivedTypes] = useState([]);
     const [currentRow, setCurrentRow] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
+    const [showPaymentsFilters, setShowPaymentsFilters] = useState(false);
+    const [paymentsOverallSearch, setPaymentsOverallSearch] = useState('');
+    const [selectPaymentDate, setSelectPaymentDate] = useState('');
+    const [selectPaymentAmount, setSelectPaymentAmount] = useState('');
+    const [selectPaymentType, setSelectPaymentType] = useState('');
     const [selectDate, setSelectDate] = useState('');
     const [selectContractororVendorName, setSelectContractororVendorName] = useState('');
     const [selectProjectName, setSelectProjectName] = useState('');
@@ -226,53 +276,75 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
     });
     // Click and drag scrolling functionality
     const scrollRef = useRef(null);
+    const paymentsScrollRef = useRef(null);
+    const expensesFilterChipsRef = useRef(null);
+    const paymentsFilterChipsRef = useRef(null);
     const isDragging = useRef(false);
+    const activeScrollRef = useRef(null);
     const start = useRef({ x: 0, y: 0 });
-    const scroll = useRef({ left: 0, top: 0 });
+    const lastPosition = useRef({ x: 0, y: 0 });
     const velocity = useRef({ x: 0, y: 0 });
     const animationFrame = useRef(null);
     const lastMove = useRef({ time: 0, x: 0, y: 0 });
-    const handleMouseDown = (e) => {
-        if (!scrollRef.current) return;
+    const [overallSearch, setOverallSearch] = useState('');
+    const { expandedCells, toggleExpandedCell } = useEdbcExpandedCells();
+    const handleMouseDown = (e, ref = scrollRef) => {
+        if (!ref.current) return;
+        const interactiveSelector = 'input, select, textarea, button, a, [contenteditable="true"], [role="button"]';
+        if (e.target instanceof Element && e.target.closest(interactiveSelector)) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
         isDragging.current = true;
+        activeScrollRef.current = ref.current;
         start.current = { x: e.clientX, y: e.clientY };
-        scroll.current = {
-            left: scrollRef.current.scrollLeft,
-            top: scrollRef.current.scrollTop,
-        };
+        lastPosition.current = { x: e.clientX, y: e.clientY };
         lastMove.current = {
             time: Date.now(),
             x: e.clientX,
             y: e.clientY,
         };
-        scrollRef.current.style.cursor = 'grabbing';
-        scrollRef.current.style.userSelect = 'none';
+        ref.current.style.cursor = 'grabbing';
+        ref.current.style.userSelect = 'none';
+        ref.current.style.scrollBehavior = 'auto';
         cancelMomentum();
     };
-    const handleMouseMove = (e) => {
-        if (!isDragging.current || !scrollRef.current) return;
-        const dx = e.clientX - start.current.x;
-        const dy = e.clientY - start.current.y;
+    const handleMouseMove = (e, ref = scrollRef) => {
+        if (!isDragging.current || !ref.current || activeScrollRef.current !== ref.current) return;
+        e.stopPropagation();
         const now = Date.now();
         const dt = now - lastMove.current.time || 16;
+        const deltaX = e.clientX - lastPosition.current.x;
+        const deltaY = e.clientY - lastPosition.current.y;
         velocity.current = {
             x: (e.clientX - lastMove.current.x) / dt,
             y: (e.clientY - lastMove.current.y) / dt,
         };
-        scrollRef.current.scrollLeft = scroll.current.left - dx;
-        scrollRef.current.scrollTop = scroll.current.top - dy;
+        if (ref.current && (deltaX !== 0 || deltaY !== 0)) {
+            ref.current.scrollBy({
+                left: -deltaX,
+                top: -deltaY,
+                behavior: 'auto',
+            });
+        }
+        lastPosition.current = { x: e.clientX, y: e.clientY };
         lastMove.current = {
             time: now,
             x: e.clientX,
             y: e.clientY,
         };
     };
-    const handleMouseUp = () => {
-        if (!isDragging.current || !scrollRef.current) return;
+    const handleMouseUp = (ref = scrollRef) => {
+        if (!isDragging.current || !ref.current || activeScrollRef.current !== ref.current) return;
         isDragging.current = false;
-        scrollRef.current.style.cursor = '';
-        scrollRef.current.style.userSelect = '';
+        if (ref.current) {
+            ref.current.style.cursor = '';
+            ref.current.style.userSelect = '';
+            ref.current.style.scrollBehavior = '';
+        }
         applyMomentum();
+        activeScrollRef.current = null;
     };
     const cancelMomentum = () => {
         if (animationFrame.current) {
@@ -281,20 +353,25 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         }
     };
     const applyMomentum = () => {
-        if (!scrollRef.current) return;
+        if (!activeScrollRef.current) return;
         const friction = 0.95;
         const minVelocity = 0.1;
         const step = () => {
             const { x, y } = velocity.current;
-            if (!scrollRef.current) return;
+            const activeRef = activeScrollRef.current;
+            if (!activeRef) {
+                cancelMomentum();
+                return;
+            }
             if (Math.abs(x) > minVelocity || Math.abs(y) > minVelocity) {
-                scrollRef.current.scrollLeft -= x * 20;
-                scrollRef.current.scrollTop -= y * 20;
+                activeRef.scrollLeft -= x * 20;
+                activeRef.scrollTop -= y * 20;
                 velocity.current.x *= friction;
                 velocity.current.y *= friction;
                 animationFrame.current = requestAnimationFrame(step);
             } else {
                 cancelMomentum();
+                activeScrollRef.current = null;
             }
         };
         animationFrame.current = requestAnimationFrame(step);
@@ -1548,6 +1625,18 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         fetchPayments,
         fetchRefundPayments
     ]);
+    useLiveDataSync(
+        refreshWeeklyPaymentData,
+        Boolean(
+            editingRowId ||
+            editingPaymentId ||
+            isSubmitting ||
+            showPurposePopup ||
+            showPopup ||
+            showPopups ||
+            fileUploadPopup
+        )
+    );
     // Initial fetch of current week number
     useEffect(() => {
         fetchCurrentWeekNumber();
@@ -1591,6 +1680,40 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
             if (numericValue < 0) numericValue = 0;
             setNewExpense((prev) => ({ ...prev, amount: numericValue }));
         } else if (name === "type") {
+            const allowedTypesForClient = ["Loan", "Bank", "Claim"];
+            const isClientTypeAllowed = allowedTypesForClient.includes(value);
+            if (value === "Staff Advance") {
+                if (selectedContractor || selectedVendor || selectedClient) {
+                    alert("Staff Advance type only allows Employee. Please select an Employee or clear the Contractor/Vendor/Client selection.");
+                    return;
+                }
+            } else if (value === "Project Advance") {
+                if (selectedEmployee || selectedClient) {
+                    alert("Project Advance type only allows Contractor or Vendor. Please select a Contractor or Vendor or clear the Employee/Client selection.");
+                    return;
+                }
+            }
+            if (!isClientTypeAllowed && isClientToggleActive) {
+                setIsClientToggleActive(false);
+                setSelectedClient(null);
+                setClientProjectOptions([]);
+                setNewExpense((prev) => ({
+                    ...prev,
+                    [name]: value,
+                    client_name: "",
+                    client_id: "",
+                }));
+                setSelectedProjectName(null);
+                return;
+            }
+            setNewExpense((prev) => ({ ...prev, [name]: value }));
+        } else {
+            setNewExpense((prev) => ({ ...prev, [name]: value }));
+        }
+    };
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        if (name === "type") {
             const allowedTypesForClient = ["Loan", "Bank", "Claim"];
             const isClientTypeAllowed = allowedTypesForClient.includes(value);
             if (value === "Staff Advance") {
@@ -2678,6 +2801,17 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         }
         return null;
     };
+    const getPartyDisplayName = (entry) => {
+        const hasContractorVendorEmployee = entry.contractor_id || entry.vendor_id || entry.employee_id;
+        if (!hasContractorVendorEmployee && entry.type === "Loan") {
+            const client = getClientName(entry);
+            if (client) return client;
+        }
+        if (entry.vendor_id) return getVendorName(entry.vendor_id);
+        if (entry.contractor_id) return getContractorName(entry.contractor_id);
+        if (entry.employee_id) return getEmployeeName(entry.employee_id);
+        return "";
+    };
     const getExpenseFilterSnapshot = (entry) =>
         editingRowId === entry.id && editingOriginalRow ? editingOriginalRow : entry;
     const filteredExpenses = expenses.filter((entry) => {
@@ -2714,11 +2848,29 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         }
         return true;
     });
+    const contractorVendorFilterOptions = React.useMemo(() => {
+        const labels = new Set();
+        return filteredExpenses.map(exp => {
+            const label = getPartyDisplayName(exp);
+            if (label && !labels.has(label)) {
+                labels.add(label);
+                return { value: label, label };
+            }
+            return null;
+        }).filter(Boolean);
+    }, [filteredExpenses, combinedOptions, clientOptions, projectIdToClientName]);
     const clearFilters = () => {
         setSelectDate('');
         setSelectContractororVendorName('');
         setSelectProjectName('');
         setSelectType('');
+        setOverallSearch('');
+    };
+    const clearPaymentsFilters = () => {
+        setPaymentsOverallSearch('');
+        setSelectPaymentDate('');
+        setSelectPaymentAmount('');
+        setSelectPaymentType('');
     };
     const handleSort = (key) => {
         let direction = 'asc';
@@ -3555,329 +3707,225 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
         newTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : newTableY + 50;
         doc.save(`PR ${operationalWeekNumber || ""} - Weekly Payment Report ${formatDateOnly(lastPeriodEndDate)}.pdf`);
     };
+    useEffect(() => {
+        if (!onExportActionsReady) return;
+        onExportActionsReady({ generatePDF });
+        return () => onExportActionsReady(null);
+    }, [onExportActionsReady, generatePDF]);
+    const customStyles = {
+        control: (provided, state) => ({
+            ...provided,
+            borderWidth: '2px',
+            borderRadius: '8px',
+            borderColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'rgba(191, 152, 83, 0.2)',
+            boxShadow: state.isFocused ? '0 0 0 1px rgba(101, 102, 53, 0.1)' : 'none',
+            '&:hover': {
+                borderColor: 'rgba(191, 152, 83, 0.2)',
+            }
+        }),
+        menu: (provided) => ({
+            ...provided,
+            zIndex: 10050,
+        }),
+        menuPortal: (provided) => ({
+            ...provided,
+            zIndex: 10050,
+        }),
+    };
+    const expensesDstCol21Label = 'S.No';
+    const expensesDstCol2Label = 'Date';
+    const expensesDstCol4Label = 'Associate';
+    const expensesDstCol4ClientLabel = 'Client Name';
+    const expensesDstCol3Label = 'Project Name';
+    const expensesDstCol12Label = 'Type';
+    const expensesDstCol8Label = 'Amount';
+    const expensesDstCol20FileLabel = 'File';
+    const expensesDstCol20ActivityLabel = 'Activity';
+    const expensesAssociateLabel = isClientToggleActive ? expensesDstCol4ClientLabel : expensesDstCol4Label;
+    const paymentsDstCol2Label = 'Date';
+    const paymentsDstCol8Label = 'Amount';
+    const paymentsDstCol12Label = 'Type';
+    const paymentsDstCol20Label = 'Activity';
     return (
-        <div>
-            <div className="mx-auto w-auto p-6 bg-white ml-[30px] mr-6 rounded-md border border-transparent">
-                <div className="flex justify-between">
-                    <div className="text-left">
-                        <button onClick={() => setShowFilters(!showFilters)}>
-                            <img
-                                src={Filter}
-                                alt="Toggle Filter"
-                                className="w-7 h-7 border border-[#BF9853] rounded-md mb-3"
-                            />
-                        </button>
-                    </div>
-                    <div className="-mt-4justify-end mr-6">
-                        <h1 className="font-bold text-xl">
-                            Balance: <span style={{ color: "#E4572E" }}>
-                                {(balance - (Number(newExpense.amount) || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2, })}
-                            </span>
-                        </h1>
-                        {(username === 'Admin' || username === 'Mahalingam M') && (
-                            <button className="font-semibold text-lg cursor-pointer flex items-center gap-2" onClick={generatePDF}>
-                                Report
-                                <img className='w-6 h-5' src={download} alt="Download" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-                <div className="w-full flex flex-col xl:flex-row gap-6">
-                    <div className="flex-[3] min-w-0">
-                        <div className="flex justify-between">
-                            <h1 className="font-bold text-xl">
+        <div className="bg-[#FAF6ED] overflow-hidden">
+            <div className="flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED] px-[18px] pt-[18px] pb-[18px]">
+                <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]">
+                    <div className="w-full rounded-[6px] bg-white mb-[18px] shrink-0">
+                        <div className="flex flex-wrap items-center justify-between text-left p-[18px]">
+                            <h1 className="font-bold text-base">
                                 PS: {operationalWeekNumber ?? "-"}
                             </h1>
+                            <div className="flex items-center space-x-3 flex-wrap justify-end">
+                                <div
+                                    className="rounded-md px-4 py-[8px] text-sm shrink-0"
+                                    style={{
+                                        backgroundColor: '#FFFDF9',
+                                        backgroundImage: [
+                                            'repeating-linear-gradient(90deg, #E4572E66 0 3px, transparent 3px 6px)',
+                                            'repeating-linear-gradient(90deg, #E4572E66 0 3px, transparent 3px 6px)',
+                                            'repeating-linear-gradient(0deg, #E4572E66 0 3px, transparent 3px 6px)',
+                                            'repeating-linear-gradient(0deg, #E4572E66 0 3px, transparent 3px 6px)',
+                                        ].join(', '),
+                                        backgroundSize: '100% 1px, 100% 1px, 1px 100%, 1px 100%',
+                                        backgroundPosition: '0 0, 0 100%, 0 0, 100% 0',
+                                        backgroundRepeat: 'repeat-x, repeat-x, repeat-y, repeat-y',
+                                    }}
+                                >
+                                    <div className="flex justify-between text-[14px] gap-6 py-0.5">
+                                        <span className="flex shrink-0 w-[76px] text-black font-semibold">
+                                            <span>Income</span>
+                                            <span className="ml-auto">:</span>
+                                        </span>
+                                        <span className="font-semibold" style={{ color: "#E4572E" }}>
+                                            ₹{Number(totalPayments).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between text-[14px] gap-6 py-0.5">
+                                        <span className="flex shrink-0 w-[76px] text-black font-semibold">
+                                            <span>Expenses</span>
+                                            <span className="ml-auto">:</span>
+                                        </span>
+                                        <span className="font-semibold" style={{ color: "#E4572E" }}>
+                                            ₹{Number(totalExpenses).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between text-[14px] gap-6 py-0.5">
+                                        <span className="flex shrink-0 w-[76px] text-black font-semibold">
+                                            <span>Balance</span>
+                                            <span className="ml-auto">:</span>
+                                        </span>
+                                        <span className="font-semibold" style={{ color: "#E4572E" }}>
+                                            ₹{(balance - (Number(newExpense.amount) || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="w-full pt-[18px] px-[18px] pb-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="flex flex-col xl:flex-row gap-[18px] flex-1 min-h-0 overflow-hidden">
+                    <div className="flex flex-col min-h-0 overflow-hidden min-w-[1240] max-w-[1240] shrink-0">
+                        <div className="flex justify-between items-center mb-[8px]">
                             <h1 className="font-bold text-base">
-                                Expenses: <span style={{ color: "#E4572E" }}>
-                                    {Number(totalExpenses).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
+                                Expenses (PS {operationalWeekNumber ?? "-"})
+                            </h1>
+                            <h1 className="font-bold text-base" style={{ color: "#E4572E" }}>
+                                ₹{Number(totalExpenses).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </h1>
                         </div>
-                        <div className={`text-left flex ${selectDate || selectContractororVendorName || selectProjectName || selectType
-                            ? 'flex-col sm:flex-row sm:justify-between'
-                            : 'flex-row justify-between items-center'
-                            } mb-3 gap-2`}>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
+                        <div className={`text-left flex ${(selectDate || selectContractororVendorName || selectProjectName || selectType) ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-[12px] gap-[6px]`}>
+                            <div className="flex flex-row items-center sm:space-x-3 min-w-0 flex-1 overflow-hidden">
+                                <EdbcFilterToggleButton onClick={() => setShowFilters(!showFilters)} />
                                 {(selectDate || selectContractororVendorName || selectProjectName || selectType) && (
-                                    <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2 sm:mt-0">
+                                    <div
+                                        ref={expensesFilterChipsRef}
+                                        className="flex flex-row flex-wrap items-center gap-2 min-w-0 overflow-x-auto no-scrollbar cursor-grab"
+                                        onMouseDown={(e) => handleMouseDown(e, expensesFilterChipsRef)}
+                                        onMouseMove={(e) => handleMouseMove(e, expensesFilterChipsRef)}
+                                        onMouseUp={() => handleMouseUp(expensesFilterChipsRef)}
+                                        onMouseLeave={() => handleMouseUp(expensesFilterChipsRef)}
+                                    >
                                         {selectDate && (
-                                            <span className="inline-flex items-center gap-1 border text-[#BF9853] border-[#BF9853] rounded px-2 text-sm font-medium w-fit">
-                                                <span className="font-normal">Date: </span>
-                                                <span className="font-bold">{selectDate}</span>
-                                                <button onClick={() => setSelectDate('')} className="text-[#BF9853] ml-1 text-2xl">×</button>
+                                            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Date: </span>
+                                                <span className="font-semibold text-[14px]">{formatDateOnly(selectDate)}</span>
+                                                <button onClick={() => setSelectDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
                                             </span>
                                         )}
                                         {selectContractororVendorName && (
-                                            <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-normal">
-                                                    {isClientToggleActive ? 'Client Name:' : 'Contractor/Vendor Name:'}
-                                                </span>
-                                                <span className="font-bold">{selectContractororVendorName}</span>
-                                                <button onClick={() => setSelectContractororVendorName('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                                            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Associate: </span>
+                                                <span className="font-semibold text-[14px]">{selectContractororVendorName}</span>
+                                                <button onClick={() => setSelectContractororVendorName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectProjectName && (
-                                            <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-normal">Project Name:</span>
-                                                <span className="font-bold">{selectProjectName}</span>
-                                                <button onClick={() => setSelectProjectName('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                                            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Project Name: </span>
+                                                <span className="font-semibold text-[14px]">{selectProjectName}</span>
+                                                <button onClick={() => setSelectProjectName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                         {selectType && (
-                                            <span className="inline-flex items-center gap-1 text-[#BF9853] border border-[#BF9853] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                <span className="font-normal">Type: </span>
-                                                <span className="font-bold">{selectType}</span>
-                                                <button onClick={() => setSelectType('')} className="text-[#BF9853] text-2xl ml-1">×</button>
+                                            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Type: </span>
+                                                <span className="font-semibold text-[14px]">{selectType}</span>
+                                                <button onClick={() => setSelectType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
                                             </span>
                                         )}
                                     </div>
                                 )}
                             </div>
+                            <EdbcTableToolbarRightActions
+                                onClearFilters={clearFilters}
+                                overallSearch={overallSearch}
+                                onOverallSearchChange={setOverallSearch}
+                            />
                         </div>
-                        <div className="w-full h-[600px] rounded-lg border-l-8 border-l-[#BF9853] overflow-hidden">
-                            <div ref={scrollRef} className="overflow-auto max-h-[600px] thin-scrollbar"
-                                onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
-                                onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+                        <div className="flex flex-col flex-1 min-h-0 w-fit max-w-full rounded-lg border-l-8 border-l-[#BF9853] overflow-hidden">
+                            <div
+                                ref={scrollRef}
+                                className="w-fit max-w-full flex-1 min-h-0 overflow-auto no-scrollbar"
+                                onMouseDown={(e) => handleMouseDown(e, scrollRef)}
+                                onMouseMove={(e) => handleMouseMove(e, scrollRef)}
+                                onMouseUp={() => handleMouseUp(scrollRef)}
+                                onMouseLeave={() => handleMouseUp(scrollRef)}
                             >
-                                <table className="w-[1320px] border-collapse text-left">
+                                <table className={`border-collapse text-left w-max table-fixed ${EDBC_TABLE_EDGE_TABLE_CLASS} [&_thead_tr>th#EDBC-19]:!pr-[1px] [&_tbody_tr>td#EDBC-19]:!pr-[1px] ${WEEKLY_PAYMENT_EDBC8_TABLE_CLASS}`}>
                                     <thead className="sticky top-0 z-10 bg-white">
-                                        <tr className="bg-[#FAF6ED]">
-                                            <th className="pt-2 pl-2 w-[60px] font-bold text-left">S.No</th>
-                                            <th className="pt-2 w-[135px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('date')}>
-                                                Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                            </th>
-                                            <th className="px-1 w-[200px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('contractor_vendor')}>
-                                                <div className="flex items-center gap-2">
-                                                    <span>{isClientToggleActive ? 'Client Name' : 'Contractor/Vendor/Employee'}</span>
-                                                    {sortConfig.key === 'contractor_vendor' && (
-                                                        <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                                                    )}
-                                                </div>
-                                            </th>
-                                            <th className="px-1 w-[240px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('project_name')}>
-                                                Project Name {sortConfig.key === 'project_name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                            </th>
-                                            <th className="px-1 w-[100px] font-bold text-left cursor-pointer hover:bg-gray-200" onClick={() => handleSort('type')}>
-                                                Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                            </th>
-                                            <th className="px-1 w-[110px] font-bold text-left">Amount</th>
-                                            <th className="px-1 w-[120px] font-bold text-left">Activity</th>
-                                        </tr>
+                                        <EdbcTableHeaderRow>
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC21} label={expensesDstCol21Label} />
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label={expensesDstCol2Label} />
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC4} label={expensesAssociateLabel} />
+                                            <th className="w-[30px] min-w-[30px] max-w-[30px] p-0 overflow-visible" aria-hidden="true"></th>
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC3} label={expensesDstCol3Label} />
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC12} label={expensesDstCol12Label} />
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={expensesDstCol8Label} />
+                                            <th
+                                                id={EDBC_IDS.EDBC20}
+                                                className={`${getEdbcColumnConfig(EDBC_IDS.EDBC20)?.headerClass || ''}`.replace(/\bcursor-pointer\b/g, '').replace(/\bhover:bg-gray-200\b/g, '').replace(/\bselect-none\b/g, '').replace(/\s+/g, ' ').trim() + ' !pr-0'}
+                                                style={{ paddingRight: 0 }}
+                                                aria-hidden="true"
+                                            />
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label={expensesDstCol20FileLabel} />
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label={expensesDstCol20ActivityLabel} />
+                                        </EdbcTableHeaderRow>
                                         {showFilters && (
-                                            <tr className="bg-[#FAF6ED] border-b border-gray-200">
-                                                <th className="pt-2 pb-2 w-[60px]"></th>
-                                                <th className="pt-2 pb-2 w-[140px]">
-                                                    <input
-                                                        type="date"
-                                                        value={selectDate}
-                                                        onChange={(e) => setSelectDate(e.target.value)}
-                                                        className="p-1 rounded-md bg-transparent w-[140px] border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                                                        placeholder="Search Date..."
-                                                    />
-                                                </th>
-                                                <th className="pt-2 pb-2 w-[200px]">
-                                                    <Select
-                                                        options={partyFilterOptions}
-                                                        value={selectContractororVendorName ? { value: selectContractororVendorName, label: selectContractororVendorName } : null}
-                                                        onChange={(opt) => setSelectContractororVendorName(opt ? opt.value : "")}
-                                                        className="text-xs focus:outline-none"
-                                                        placeholder={isClientToggleActive ? "Client Name..." : "Contractor/Ven..."}
-                                                        isSearchable
-                                                        isClearable
-                                                        menuPortalTarget={document.body}
-                                                        menuPosition="fixed"
-                                                        styles={{
-                                                            control: (provided, state) => ({
-                                                                ...provided,
-                                                                backgroundColor: 'transparent',
-                                                                width: '200px',
-                                                                maxWidth: '200px',
-                                                                minWidth: '200px',
-                                                                borderWidth: '3px',
-                                                                borderColor: state.isFocused
-                                                                    ? 'rgba(191, 152, 83, 0.2)'
-                                                                    : 'rgba(191, 152, 83, 0.2)',
-                                                                borderRadius: '6px',
-                                                                boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                                                                '&:hover': {
-                                                                    borderColor: 'rgba(191, 152, 83, 0.2)',
-                                                                },
-                                                            }),
-                                                            placeholder: (provided) => ({
-                                                                ...provided,
-                                                                color: '#999',
-                                                                textAlign: 'left',
-                                                            }),
-                                                            menu: (provided) => ({
-                                                                ...provided,
-                                                                zIndex: 10050,
-                                                            }),
-                                                            menuPortal: (provided) => ({
-                                                                ...provided,
-                                                                zIndex: 10050,
-                                                            }),
-                                                            option: (provided, state) => ({
-                                                                ...provided,
-                                                                textAlign: 'left',
-                                                                fontWeight: 'normal',
-                                                                fontSize: '15px',
-                                                                backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                                color: 'black',
-                                                            }),
-                                                            valueContainer: (provided) => ({
-                                                                ...provided,
-                                                                maxWidth: '160px',
-                                                                overflow: 'hidden',
-                                                            }),
-                                                            singleValue: (provided) => ({
-                                                                ...provided,
-                                                                textAlign: 'left',
-                                                                fontWeight: 'normal',
-                                                                color: 'black',
-                                                                maxWidth: '100%',
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                whiteSpace: 'nowrap',
-                                                            }),
-                                                            indicatorSeparator: () => ({
-                                                                display: 'none'
-                                                            }),
-                                                            indicatorsContainer: (provided) => ({
-                                                                ...provided,
-                                                                height: '40px',
-                                                                gap: '0px'
-                                                            }),
-                                                            clearIndicator: (provided) => ({
-                                                                ...provided,
-                                                                padding: '2px'
-                                                            }),
-                                                            dropdownIndicator: (provided) => ({
-                                                                ...provided,
-                                                                padding: '2px'
-                                                            })
-                                                        }}
-                                                    />
-                                                </th>
-                                                <th className="pt-2 pb-2 w-[240px]">
-                                                    <Select
-                                                        options={projectFilterOptions}
-                                                        value={selectProjectName ? { value: selectProjectName, label: selectProjectName } : null}
-                                                        onChange={(opt) => setSelectProjectName(opt ? opt.value : "")}
-                                                        className="focus:outline-none text-xs"
-                                                        placeholder="Project Name..."
-                                                        isSearchable
-                                                        isClearable
-                                                        menuPortalTarget={document.body}
-                                                        menuPosition="fixed"
-                                                        styles={{
-                                                            control: (provided, state) => ({
-                                                                ...provided,
-                                                                backgroundColor: 'transparent',
-                                                                borderWidth: '3px',
-                                                                borderColor: state.isFocused
-                                                                    ? 'rgba(191, 152, 83, 0.2)'
-                                                                    : 'rgba(191, 152, 83, 0.2)',
-                                                                borderRadius: '6px',
-                                                                boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                                                                '&:hover': {
-                                                                    borderColor: 'rgba(191, 152, 83, 0.2)',
-                                                                },
-                                                            }),
-                                                            placeholder: (provided) => ({
-                                                                ...provided,
-                                                                color: '#999',
-                                                                textAlign: 'left',
-                                                            }),
-                                                            menu: (provided) => ({
-                                                                ...provided,
-                                                                zIndex: 10050,
-                                                            }),
-                                                            menuPortal: (provided) => ({
-                                                                ...provided,
-                                                                zIndex: 10050,
-                                                            }),
-                                                            option: (provided, state) => ({
-                                                                ...provided,
-                                                                textAlign: 'left',
-                                                                fontWeight: 'normal',
-                                                                fontSize: '15px',
-                                                                backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                                color: 'black',
-                                                            }),
-                                                            singleValue: (provided) => ({
-                                                                ...provided,
-                                                                textAlign: 'left',
-                                                                fontWeight: 'normal',
-                                                                color: 'black',
-                                                            }),
-                                                            indicatorSeparator: () => ({
-                                                                display: 'none'
-                                                            }),
-                                                            indicatorsContainer: (provided) => ({
-                                                                ...provided,
-                                                                height: '40px',
-                                                                gap: '0px'
-                                                            }),
-                                                            clearIndicator: (provided) => ({
-                                                                ...provided,
-                                                                padding: '2px'
-                                                            }),
-                                                            dropdownIndicator: (provided) => ({
-                                                                ...provided,
-                                                                padding: '2px'
-                                                            })
-                                                        }}
-                                                    />
-                                                </th>
-                                                <th className="pt-2 pb-2 w-[100px]">
-                                                    <select
-                                                        value={selectType}
-                                                        onChange={(e) => setSelectType(e.target.value)}
-                                                        className="p-1 rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none text-xs"
-                                                        placeholder="Type..."
-                                                    >
-                                                        <option value=''>Select Type...</option>
-                                                        {weeklyTypes.filter(type => type.type !== "Staff Advance").map((type, index) => (
-                                                            <option key={index} value={type.type}>
-                                                                {type.type}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </th>
-                                                <th className="pt-2 pb-2 w-[110px]"></th>
-                                                <th className="pt-2 pb-2 w-[120px]">
-                                                    <button
-                                                        onClick={clearFilters}
-                                                        className="px-3 py-1.5 bg-[#BF9853] text-white rounded-lg hover:bg-[#A68B4A] transition-colors text-sm font-semibold"
-                                                        title="Clear all filters"
-                                                    >
-                                                        Clear
-                                                    </button>
-                                                </th>
-                                            </tr>
+                                            <EdbcTableFilterRow>
+                                                <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC21} />
+                                                <EdbcDateFilter placeholder={expensesDstCol2Label} value={selectDate} onChange={setSelectDate} />
+                                                <EdbcSelectFilter columnId={EDBC_IDS.EDBC4} placeholder={expensesAssociateLabel} options={contractorVendorFilterOptions} value={selectContractororVendorName} onChange={setSelectContractororVendorName} selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES} />
+                                                <th className="w-[30px] min-w-[30px] max-w-[30px] p-0 overflow-visible"></th>
+                                                <EdbcProjectNameFilter placeholder={expensesDstCol3Label} options={projectFilterOptions} value={selectProjectName} onChange={setSelectProjectName} isClearable selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES} />
+                                                <EdbcSelectFilter columnId={EDBC_IDS.EDBC12} placeholder={expensesDstCol12Label} options={weeklyTypes.map((type) => ({ value: type.type, label: type.type }))} value={selectType} onChange={setSelectType} selectStyles={DATABASE_TABLE_FILTER_SELECT_STYLES} />
+                                                <EdbcTotalAmountFilter columnId={EDBC_IDS.EDBC8} totalAmount={filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0)} placeholder={expensesDstCol8Label} />
+                                                <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
+                                                <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
+                                                <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
+                                            </EdbcTableFilterRow>
                                         )}
-                                        <tr className="bg-white border-b border-gray-200">
-                                            <td className="pt-2 pb-2 w-[60px] font-bold">{expenses.length + 1}.</td>
-                                            <td className="pt-2 pb-2 w-[135px]">
-                                                <input
-                                                    type="date"
-                                                    name="date"
-                                                    className="p-1 rounded-md bg-transparent w-[135px] border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                                                    value={newExpense.date}
-                                                    onChange={handleExpenseChange}
-                                                    onKeyDown={handleKeyDownExpense}
-                                                    disabled={isSubmitting}
-                                                />
+                                        <tr className="bg-white border-b-2 border-gray-200">
+                                            <td id={EDBC_IDS.EDBC21} className={getEdbcColumnConfig(EDBC_IDS.EDBC21)?.tdClass}>
+                                                {filteredExpenses.length + 1}.
                                             </td>
-                                            <td className="pt-2 pb-2 w-[200px]">
-                                                <div className="flex items-center gap-2 w-full">
+                                            <td id={EDBC_IDS.EDBC2} className={getEdbcColumnConfig(EDBC_IDS.EDBC2)?.tdClass}>
+                                                <div className={getEdbcColumnConfig(EDBC_IDS.EDBC2)?.filterWidthClass} onKeyDown={handleKeyDownExpense}>
+                                                    <CustomDateField
+                                                        value={newExpense.date}
+                                                        onChange={(dateStr) => handleExpenseChange({ target: { name: 'date', value: dateStr } })}
+                                                        placeholder={expensesDstCol2Label}
+                                                        alwaysOpenBelow
+                                                        controlHeightPx={EDBC_FILTER_CONTROL_HEIGHT_PX}
+                                                        className={` [&>div]:!w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] [&>div:hover]:!border-[rgba(191,152,83,0.4)] ${newExpense.date ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td id={EDBC_IDS.EDBC4} className={getEdbcColumnConfig(EDBC_IDS.EDBC4)?.tdClass}>
+                                                <div className={getEdbcColumnConfig(EDBC_IDS.EDBC4)?.filterWidthClass}>
                                                     <Select
                                                         name="party"
                                                         isDisabled={isSubmitting}
-                                                        value={isClientToggleActive
-                                                            ? (selectedClient || null)
-                                                            : (selectedContractor || selectedVendor || selectedEmployee || null)}
+                                                        value={isClientToggleActive ? (selectedClient || null) : (selectedContractor || selectedVendor || selectedEmployee || null)}
                                                         onChange={(selectedOption) => {
                                                             if (newExpense.type === "Staff Advance") {
                                                                 if (selectedOption && (selectedOption.type === "Contractor" || selectedOption.type === "Vendor")) {
@@ -3952,220 +4000,115 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                             }));
                                                         }}
                                                         options={isClientToggleActive ? clientOptions : combinedOptions}
-                                                        placeholder={isClientToggleActive ? "Client Name" : "Contractor/Ven..."}
+                                                        placeholder={expensesAssociateLabel}
                                                         isSearchable
                                                         isClearable
                                                         menuPortalTarget={document.body}
                                                         menuPosition="fixed"
+                                                        classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                         styles={{
-                                                            control: (provided, state) => ({
-                                                                ...provided,
-                                                                backgroundColor: 'transparent',
-                                                                width: '260px',
-                                                                maxWidth: '260px',
-                                                                minWidth: '260px',
-                                                                borderWidth: '3px',
-                                                                borderColor: state.isFocused
-                                                                    ? 'rgba(191, 152, 83, 0.2)'
-                                                                    : 'rgba(191, 152, 83, 0.2)',
-                                                                borderRadius: '6px',
-                                                                boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                                                                '&:hover': {
-                                                                    borderColor: 'rgba(191, 152, 83, 0.2)',
-                                                                },
-                                                            }),
-                                                            placeholder: (provided) => ({
-                                                                ...provided,
-                                                                color: '#999',
-                                                                textAlign: 'left',
-                                                            }),
-                                                            menu: (provided) => ({
-                                                                ...provided,
-                                                                zIndex: 10050,
-                                                            }),
-                                                            menuPortal: (provided) => ({
-                                                                ...provided,
-                                                                zIndex: 10050,
-                                                            }),
-                                                            option: (provided, state) => ({
-                                                                ...provided,
-                                                                textAlign: 'left',
-                                                                fontWeight: 'normal',
-                                                                fontSize: '15px',
-                                                                backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                                color: 'black',
-                                                            }),
-                                                            valueContainer: (provided) => ({
-                                                                ...provided,
-                                                                maxWidth: '210px',
-                                                                overflow: 'hidden',
-                                                            }),
-                                                            singleValue: (provided) => ({
-                                                                ...provided,
-                                                                textAlign: 'left',
-                                                                fontWeight: 'normal',
-                                                                color: 'black',
-                                                                maxWidth: '100%',
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                whiteSpace: 'nowrap',
-                                                            }),
-                                                            indicatorSeparator: () => ({
-                                                                display: 'none'
-                                                            }),
-                                                            indicatorsContainer: (provided) => ({
-                                                                ...provided,
-                                                                height: '40px',
-                                                                gap: '0px'
-                                                            }),
-                                                            clearIndicator: (provided) => ({
-                                                                ...provided,
-                                                                padding: '2px'
-                                                            }),
-                                                            dropdownIndicator: (provided) => ({
-                                                                ...provided,
-                                                                padding: '2px'
-                                                            })
+                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                            menu: (provided) => ({ ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided), zIndex: 10050 }),
+                                                            menuList: (provided) => ({ ...entryRowSelectMenuListStyle(provided), paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0, WebkitOverflowScrolling: 'touch' }),
+                                                            menuPortal: (provided) => ({ ...provided, zIndex: 10050 }),
                                                         }}
                                                     />
-                                                    <button type="button" onClick={handlePartySourceToggle} disabled={isSubmitting} >
-                                                        <img
-                                                            src={Change}
-                                                            className={`w-4 h-4 ${isClientToggleActive ? 'opacity-100' : 'opacity-60'} ${isSubmitting ? 'opacity-40' : ''}`}
-                                                            alt="Toggle party type"
-                                                        />
-                                                    </button>
                                                 </div>
                                             </td>
-                                            <td className="pt-2 pb-2 w-[240px]">
-                                                <Select
-                                                    name="project"
-                                                    isDisabled={isSubmitting}
-                                                    value={selectedProjectName}
-                                                    onChange={(selectedOption) => {
-                                                        setSelectedProjectName(selectedOption);
-                                                    }}
-                                                    options={(isClientToggleActive && clientProjectOptions.length > 0) ? clientProjectOptions : siteOptionsForNewEntry}
-                                                    placeholder={isClientToggleActive ? "Client Project..." : "Project Name..."}
-                                                    isClearable
-                                                    isSearchable
-                                                    menuPortalTarget={document.body}
-                                                    menuPosition="fixed"
-                                                    styles={{
-                                                        control: (provided, state) => ({
-                                                            ...provided,
-                                                            backgroundColor: 'transparent',
-                                                            borderWidth: '3px',
-                                                            borderColor: state.isFocused
-                                                                ? 'rgba(191, 152, 83, 0.2)'
-                                                                : 'rgba(191, 152, 83, 0.2)',
-                                                            borderRadius: '6px',
-                                                            boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                                                            '&:hover': {
-                                                                borderColor: 'rgba(191, 152, 83, 0.2)',
-                                                            },
-                                                        }),
-                                                        placeholder: (provided) => ({
-                                                            ...provided,
-                                                            color: '#999',
-                                                            textAlign: 'left',
-                                                        }),
-                                                        menu: (provided) => ({
-                                                            ...provided,
-                                                            zIndex: 10050,
-                                                        }),
-                                                        menuPortal: (provided) => ({
-                                                            ...provided,
-                                                            zIndex: 10050,
-                                                        }),
-                                                        option: (provided, state) => ({
-                                                            ...provided,
-                                                            textAlign: 'left',
-                                                            fontWeight: 'normal',
-                                                            fontSize: '15px',
-                                                            backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                            color: 'black',
-                                                        }),
-                                                        singleValue: (provided) => ({
-                                                            ...provided,
-                                                            textAlign: 'left',
-                                                            fontWeight: 'normal',
-                                                            color: 'black',
-                                                        }),
-                                                        indicatorSeparator: () => ({
-                                                            display: 'none'
-                                                        }),
-                                                        indicatorsContainer: (provided) => ({
-                                                            ...provided,
-                                                            height: '40px',
-                                                            gap: '0px'
-                                                        }),
-                                                        clearIndicator: (provided) => ({
-                                                            ...provided,
-                                                            padding: '2px'
-                                                        }),
-                                                        dropdownIndicator: (provided) => ({
-                                                            ...provided,
-                                                            padding: '2px'
-                                                        })
-                                                    }}
-                                                />
+                                            <td className="w-[30px] min-w-[30px] max-w-[30px] px-[6px] p-0 overflow-visible">
+                                                <button type="button" onClick={handlePartySourceToggle} disabled={isSubmitting}>
+                                                    <img src={Change} className={`w-4 h-4 ${isClientToggleActive ? 'opacity-100' : 'opacity-60'} ${isSubmitting ? 'opacity-40' : ''}`} alt="Toggle party type" />
+                                                </button>
                                             </td>
-                                            <td className="pt-2 pb-2 w-[100px]">
-                                                <select
-                                                    name="type"
-                                                    className="p-1 rounded-md bg-transparent w-[120px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                                                    value={newExpense.type}
-                                                    onChange={handleExpenseChange}
-                                                    onKeyDown={handleKeyDownExpense}
-                                                    disabled={isSubmitting}
-                                                >
-                                                    <option value="">Select Type...</option>
-                                                    {weeklyTypes.map((type, index) => (
-                                                        <option key={index} value={type.type}>
-                                                            {type.type}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                            <td id={EDBC_IDS.EDBC3} className={getEdbcColumnConfig(EDBC_IDS.EDBC3)?.tdClass}>
+                                                <div className={getEdbcColumnConfig(EDBC_IDS.EDBC3)?.filterWidthClass}>
+                                                    <Select
+                                                        name="project"
+                                                        isDisabled={isSubmitting}
+                                                        isClearable
+                                                        className="text-xs focus:outline-none w-full"
+                                                        value={selectedProjectName}
+                                                        onChange={(selectedOption) => setSelectedProjectName(selectedOption)}
+                                                        options={(isClientToggleActive && clientProjectOptions.length > 0) ? clientProjectOptions : siteOptionsForNewEntry}
+                                                        placeholder={expensesDstCol3Label}
+                                                        isSearchable
+                                                        menuPortalTarget={document.body}
+                                                        menuPosition="fixed"
+                                                        classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
+                                                        styles={{
+                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                            menu: (provided) => ({ ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided), zIndex: 10050 }),
+                                                            menuList: entryRowSelectMenuListStyle,
+                                                            menuPortal: (provided) => ({ ...provided, zIndex: 10050 }),
+                                                        }}
+                                                    />
+                                                </div>
                                             </td>
-                                            <td className="pt-2 pb-2 w-[110px]">
-                                                <input
-                                                    type="number"
-                                                    name="amount"
-                                                    className="p-1 rounded-md bg-transparent w-[80px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none no-spinner"
-                                                    value={newExpense.amount}
-                                                    onChange={handleExpenseChange}
-                                                    onKeyDown={handleKeyDownExpense}
-                                                    disabled={isSubmitting || !newExpense.date || !selectedProjectName}
-                                                    min="0"
-                                                    step="any"
-                                                />
+                                            <td id={EDBC_IDS.EDBC12} className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.tdClass}>
+                                                <div className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass} onKeyDown={handleKeyDownExpense}>
+                                                    <Select
+                                                        name="type"
+                                                        isDisabled={isSubmitting}
+                                                        className="text-xs focus:outline-none w-full"
+                                                        value={newExpense.type ? { value: newExpense.type, label: newExpense.type } : null}
+                                                        onChange={(selectedOption) => handleInputChange({ target: { name: 'type', value: selectedOption ? selectedOption.value : '' } })}
+                                                        options={weeklyTypes.map((type) => ({ value: type.type, label: type.type }))}
+                                                        placeholder={expensesDstCol12Label}
+                                                        isSearchable
+                                                        isClearable
+                                                        menuPortalTarget={document.body}
+                                                        menuPosition="fixed"
+                                                        classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
+                                                        styles={{
+                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                            menu: (provided) => ({ ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided), zIndex: 10050 }),
+                                                            menuList: entryRowSelectMenuListStyle,
+                                                            menuPortal: (provided) => ({ ...provided, zIndex: 10050 }),
+                                                        }}
+                                                    />
+                                                </div>
                                             </td>
-                                            <td className="pt-2 pb-2 w-[120px]"></td>
+                                            <td id={EDBC_IDS.EDBC8} className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.tdClass}>
+                                                <div className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.filterWidthClass}>
+                                                    <input
+                                                        type="number"
+                                                        name="amount"
+                                                        style={EDBC_FILTER_CONTROL_BOX_STYLE}
+                                                        className={`${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.inputClassName || ''} no-spinner`}
+                                                        placeholder={expensesDstCol8Label}
+                                                        value={newExpense.amount}
+                                                        onChange={handleExpenseChange}
+                                                        onKeyDown={handleKeyDownExpense}
+                                                        disabled={isSubmitting || !newExpense.date || !selectedProjectName}
+                                                        onFocus={() => window.addEventListener("wheel", (e) => e.preventDefault(), { passive: false })}
+                                                        onBlur={() => window.removeEventListener("wheel", (e) => e.preventDefault())}
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td id={EDBC_IDS.EDBC20} className={`${getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass || ''} !pr-0`} style={{ paddingRight: 0 }}></td>
+                                            <td id={EDBC_IDS.EDBC20} className={`${getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass || ''} !pr-0`} style={{ paddingRight: 0 }}></td>
+                                            <td id={EDBC_IDS.EDBC20} className={`${getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass || ''} !pr-0`} style={{ paddingRight: 0 }}></td>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {sortedExpenses.length > 0 ? (
                                             sortedExpenses.map((row, index) => (
-                                                <tr key={row.id} className="odd:bg-white even:bg-[#FAF6ED]">
-                                                    <td className="text-sm text-left p-2 w-[60px] font-semibold">{expenses.length - index}</td>
-                                                    <td className="text-sm text-left p-2 w-[140px] font-semibold">
-                                                        {editingRowId === row.id ? (
-                                                            <input
-                                                                type="date"
-                                                                name="date"
-                                                                className="p-1 rounded-md bg-transparent w-[120px] border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                                                                value={editFormData.date}
-                                                                onChange={handleEditChange}
-                                                            />
-                                                        ) : (
-                                                            formatDateOnly(row.date) || ""
-                                                        )}
+                                                <EdbcTableBodyRow key={row.id}>
+                                                    <td id={EDBC_IDS.EDBC21} className={getEdbcColumnConfig(EDBC_IDS.EDBC21)?.tdClass}>
+                                                        {expenses.length - index}
                                                     </td>
-                                                    <td className="text-sm text-left w-[200px] font-semibold">
-                                                        {editingRowId === row.id ? (
+                                                    {editingRowId === row.id ? (
+                                                        <td id={EDBC_IDS.EDBC2} className={getEdbcColumnConfig(EDBC_IDS.EDBC2)?.tdClass}>
+                                                            <input type="date" name="date" className="p-1 rounded-md bg-transparent w-full box-border border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none" value={editFormData.date} onChange={handleEditChange} />
+                                                        </td>
+                                                    ) : (
+                                                        <EdbcDateBodyCell expense={row} rowIndex={index} expandedCells={expandedCells} onToggleExpanded={toggleExpandedCell} formatValue={formatDateOnly} />
+                                                    )}
+                                                    {editingRowId === row.id ? (
+                                                        <td id={EDBC_IDS.EDBC4} className={getEdbcColumnConfig(EDBC_IDS.EDBC4)?.tdClass}>
                                                             <Select
                                                                 name="party"
+                                                                className={getEdbcColumnConfig(EDBC_IDS.EDBC4)?.filterWidthClass || ''}
                                                                 value={
                                                                     ((isClientToggleActive || (!row.contractor_id && !row.vendor_id && !row.employee_id)) && ["Loan", "Bank", "Claim"].includes(editFormData.type))
                                                                         ? getClientOption(editFormData.client_id, editFormData.client_name || getClientName(row))
@@ -4192,8 +4135,7 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                                     const forceClientMode = !row.contractor_id && !row.vendor_id && !row.employee_id;
                                                                     const allowedTypesForClient = ["Loan", "Bank", "Claim"];
                                                                     const isClientTypeAllowed = allowedTypesForClient.includes(editFormData.type);
-                                                                    const useClientNameFlow =
-                                                                        (isClientToggleActive || forceClientMode) && isClientTypeAllowed;
+                                                                    const useClientNameFlow = (isClientToggleActive || forceClientMode) && isClientTypeAllowed;
                                                                     if (useClientNameFlow) {
                                                                         handleEditChange({ target: { name: "client_name", value: selectedOption ? selectedOption.label : "" } });
                                                                         handleEditChange({ target: { name: "client_id", value: selectedOption ? (selectedOption.clientId || selectedOption.id) : "" } });
@@ -4223,217 +4165,59 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                                     handleEditChange({ target: { name: "client_id", value: "" } });
                                                                 }}
                                                                 options={(isClientToggleActive || (!row.contractor_id && !row.vendor_id && !row.employee_id)) && ["Loan", "Bank", "Claim"].includes(editFormData.type) ? clientOptions : combinedOptions}
-                                                                placeholder={(isClientToggleActive || (!row.contractor_id && !row.vendor_id && !row.employee_id)) && ["Loan", "Bank", "Claim"].includes(editFormData.type) ? "Client Name" : "Contractor/Ven..."}
+                                                                placeholder={(isClientToggleActive || (!row.contractor_id && !row.vendor_id && !row.employee_id)) && ["Loan", "Bank", "Claim"].includes(editFormData.type) ? expensesDstCol4ClientLabel : expensesDstCol4Label}
                                                                 isSearchable
                                                                 isClearable
                                                                 menuPortalTarget={document.body}
                                                                 menuPosition="fixed"
-                                                                styles={{
-                                                                    control: (provided, state) => ({
-                                                                        ...provided,
-                                                                        backgroundColor: 'transparent',
-                                                                        width: '200px',
-                                                                        maxWidth: '200px',
-                                                                        minWidth: '200px',
-                                                                        borderWidth: '3px',
-                                                                        borderColor: state.isFocused
-                                                                            ? 'rgba(191, 152, 83, 0.2)'
-                                                                            : 'rgba(191, 152, 83, 0.2)',
-                                                                        borderRadius: '6px',
-                                                                        boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                                                                        '&:hover': {
-                                                                            borderColor: 'rgba(191, 152, 83, 0.2)',
-                                                                        },
-                                                                    }),
-                                                                    placeholder: (provided) => ({
-                                                                        ...provided,
-                                                                        color: '#999',
-                                                                        textAlign: 'left',
-                                                                    }),
-                                                                    menu: (provided) => ({
-                                                                        ...provided,
-                                                                        zIndex: 10050,
-                                                                    }),
-                                                                    menuPortal: (provided) => ({
-                                                                        ...provided,
-                                                                        zIndex: 10050,
-                                                                    }),
-                                                                    option: (provided, state) => ({
-                                                                        ...provided,
-                                                                        textAlign: 'left',
-                                                                        fontWeight: 'normal',
-                                                                        fontSize: '15px',
-                                                                        backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                                        color: 'black',
-                                                                    }),
-                                                                    valueContainer: (provided) => ({
-                                                                        ...provided,
-                                                                        maxWidth: '160px',
-                                                                        overflow: 'hidden',
-                                                                    }),
-                                                                    singleValue: (provided) => ({
-                                                                        ...provided,
-                                                                        textAlign: 'left',
-                                                                        fontWeight: 'normal',
-                                                                        color: 'black',
-                                                                        maxWidth: '100%',
-                                                                        overflow: 'hidden',
-                                                                        textOverflow: 'ellipsis',
-                                                                        whiteSpace: 'nowrap',
-                                                                    }),
-                                                                    indicatorSeparator: () => ({
-                                                                        display: 'none'
-                                                                    }),
-                                                                    indicatorsContainer: (provided) => ({
-                                                                        ...provided,
-                                                                        height: '40px',
-                                                                        gap: '0px'
-                                                                    }),
-                                                                    clearIndicator: (provided) => ({
-                                                                        ...provided,
-                                                                        padding: '2px'
-                                                                    }),
-                                                                    dropdownIndicator: (provided) => ({
-                                                                        ...provided,
-                                                                        padding: '2px'
-                                                                    })
-                                                                }}
+                                                                styles={{ ...customStyles, menu: (provided) => ({ ...provided, zIndex: 10050, maxHeight: '300px', overflow: 'auto' }), menuList: (provided) => ({ ...provided, maxHeight: '300px', overflowY: 'auto', overflowX: 'hidden', padding: '4px', WebkitOverflowScrolling: 'touch' }), menuPortal: (provided) => ({ ...provided, zIndex: 10050 }) }}
                                                             />
-                                                        ) : (
-                                                            (() => {
-                                                                const hasContractorVendorEmployee = row.contractor_id || row.vendor_id || row.employee_id;
-                                                                const option = combinedOptions.find(
-                                                                    opt =>
-                                                                        (opt.type === "Contractor" && opt.id === Number(row.contractor_id)) ||
-                                                                        (opt.type === "Vendor" && opt.id === Number(row.vendor_id)) ||
-                                                                        (opt.type === "Employee" && opt.id === Number(row.employee_id))
-                                                                )?.label;
-                                                                const shouldShowClientName = !hasContractorVendorEmployee && row.type === "Loan";
-                                                                const clientName = shouldShowClientName ? getClientName(row) : "";
-                                                                return [clientName, option].filter(Boolean).join(" | ") || "";
-                                                            })()
-                                                        )}
-                                                    </td>
-                                                    <td className="text-sm text-left w-[240px] font-semibold">
-                                                        {editingRowId === row.id ? (
+                                                        </td>
+                                                    ) : (
+                                                        <EdbcExpandableBodyCell columnId={EDBC_IDS.EDBC4} expense={row} rowIndex={index} expandedCells={expandedCells} onToggleExpanded={toggleExpandedCell} getDisplayValue={getPartyDisplayName} />
+                                                    )}
+                                                    <td className="w-[30px] min-w-[30px] max-w-[30px] p-0 overflow-visible"></td>
+                                                    {editingRowId === row.id ? (
+                                                        <td id={EDBC_IDS.EDBC3} className={getEdbcColumnConfig(EDBC_IDS.EDBC3)?.tdClass}>
                                                             <Select
                                                                 name="project_id"
+                                                                className={getEdbcColumnConfig(EDBC_IDS.EDBC3)?.filterWidthClass || ''}
                                                                 value={siteOptions.find(opt => opt.id === Number(editFormData.project_id)) || null}
-                                                                onChange={(selectedOption) =>
-                                                                    handleEditChange({
-                                                                        target: { name: "project_id", value: selectedOption ? selectedOption.id : "" }
-                                                                    })
-                                                                }
+                                                                onChange={(selectedOption) => handleEditChange({ target: { name: "project_id", value: selectedOption ? selectedOption.id : "" } })}
                                                                 options={siteOptions}
-                                                                placeholder="Project Name..."
+                                                                placeholder={expensesDstCol3Label}
                                                                 isSearchable
                                                                 isClearable
                                                                 menuPortalTarget={document.body}
                                                                 menuPosition="fixed"
-                                                                styles={{
-                                                                    control: (provided, state) => ({
-                                                                        ...provided,
-                                                                        backgroundColor: 'transparent',
-                                                                        borderWidth: '3px',
-                                                                        borderColor: state.isFocused
-                                                                            ? 'rgba(191, 152, 83, 0.2)'
-                                                                            : 'rgba(191, 152, 83, 0.2)',
-                                                                        borderRadius: '6px',
-                                                                        boxShadow: state.isFocused ? '0 0 0 1px rgba(191, 152, 83, 0.5)' : 'none',
-                                                                        '&:hover': {
-                                                                            borderColor: 'rgba(191, 152, 83, 0.2)',
-                                                                        },
-                                                                    }),
-                                                                    placeholder: (provided) => ({
-                                                                        ...provided,
-                                                                        color: '#999',
-                                                                        textAlign: 'left',
-                                                                    }),
-                                                                    menu: (provided) => ({
-                                                                        ...provided,
-                                                                        zIndex: 10050,
-                                                                    }),
-                                                                    menuPortal: (provided) => ({
-                                                                        ...provided,
-                                                                        zIndex: 10050,
-                                                                    }),
-                                                                    option: (provided, state) => ({
-                                                                        ...provided,
-                                                                        textAlign: 'left',
-                                                                        fontWeight: 'normal',
-                                                                        fontSize: '15px',
-                                                                        backgroundColor: state.isFocused ? 'rgba(191, 152, 83, 0.1)' : 'white',
-                                                                        color: 'black',
-                                                                    }),
-                                                                    singleValue: (provided) => ({
-                                                                        ...provided,
-                                                                        textAlign: 'left',
-                                                                        fontWeight: 'normal',
-                                                                        color: 'black',
-                                                                    }),
-                                                                    indicatorSeparator: () => ({
-                                                                        display: 'none'
-                                                                    }),
-                                                                    indicatorsContainer: (provided) => ({
-                                                                        ...provided,
-                                                                        height: '40px',
-                                                                        gap: '0px'
-                                                                    }),
-                                                                    clearIndicator: (provided) => ({
-                                                                        ...provided,
-                                                                        padding: '2px'
-                                                                    }),
-                                                                    dropdownIndicator: (provided) => ({
-                                                                        ...provided,
-                                                                        padding: '2px'
-                                                                    })
-                                                                }}
+                                                                styles={{ ...customStyles, menu: (provided) => ({ ...provided, zIndex: 10050, maxHeight: '300px', overflow: 'auto' }), menuList: (provided) => ({ ...provided, maxHeight: '300px', overflowY: 'auto', overflowX: 'hidden', padding: '4px', WebkitOverflowScrolling: 'touch' }), menuPortal: (provided) => ({ ...provided, zIndex: 10050 }) }}
                                                             />
-                                                        ) : (
-                                                            siteOptions.find(opt => opt.id === Number(row.project_id))?.label || ""
-                                                        )}
-                                                    </td>
-                                                    <td className="text-sm text-left w-[100px] font-semibold">
+                                                        </td>
+                                                    ) : (
+                                                        <EdbcProjectNameBodyCell expense={row} rowIndex={index} expandedCells={expandedCells} onToggleExpanded={toggleExpandedCell} getDisplayValue={(entry) => siteOptions.find(opt => opt.id === Number(entry.project_id))?.label || ''} />
+                                                    )}
+                                                    <td id={EDBC_IDS.EDBC12} className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.tdClass}>
                                                         {editingRowId === row.id ? (
-                                                            <select name="type"
-                                                                className="p-1 rounded-md bg-transparent w-[90px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                                                                value={editFormData.type} onChange={handleEditChange}
-                                                            >
-                                                                <option value="">Select Type...</option>
-                                                                {weeklyTypes.map((type, index) => (
-                                                                    <option key={index} value={type.type}>
-                                                                        {type.type}
-                                                                    </option>
+                                                            <select name="type" className={`p-1 rounded-md bg-transparent box-border ${getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass || ''} h-[38px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none`} value={editFormData.type} onChange={handleEditChange}>
+                                                                <option value="">Select</option>
+                                                                {weeklyTypes.map((type, typeIndex) => (
+                                                                    <option key={typeIndex} value={type.type}>{type.type}</option>
                                                                 ))}
                                                             </select>
                                                         ) : (
                                                             <div className="flex flex-col gap-1">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span>{row.type}</span>
-                                                                </div>
+                                                                <div className="flex items-center gap-2"><span>{row.type}</span></div>
                                                                 {(() => {
-                                                                    const payments = getPaymentsByExpenseId(row.id);
-                                                                    const paymentModes = [...new Set(payments.map(p => p.bill_payment_mode).filter(mode => mode !== null && mode !== undefined))];
+                                                                    const rowPayments = getPaymentsByExpenseId(row.id);
+                                                                    const paymentModes = [...new Set(rowPayments.map(p => p.bill_payment_mode).filter(mode => mode !== null && mode !== undefined))];
                                                                     if (paymentModes.length === 0) return null;
-                                                                    const hoverContent = payments.map(payment =>
-                                                                        `${payment.bill_payment_mode}: ₹${payment.amount.toLocaleString('en-IN')}`
-                                                                    ).join('\n');
+                                                                    const hoverContent = rowPayments.map(payment => `${payment.bill_payment_mode}: ₹${payment.amount.toLocaleString('en-IN')}`).join('\n');
                                                                     return (
                                                                         <div className="flex flex-wrap gap-1 mt-1">
                                                                             {paymentModes.length === 1 ? (
-                                                                                <span
-                                                                                    className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-blue-200 transition-colors"
-                                                                                    title={hoverContent}
-                                                                                >
-                                                                                    {paymentModes[0]}
-                                                                                </span>
+                                                                                <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-blue-200 transition-colors" title={hoverContent}>{paymentModes[0]}</span>
                                                                             ) : (
-                                                                                <span
-                                                                                    className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-green-200 transition-colors"
-                                                                                    title={hoverContent}
-                                                                                >
-                                                                                    Online
-                                                                                </span>
+                                                                                <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-green-200 transition-colors" title={hoverContent}>Online</span>
                                                                             )}
                                                                         </div>
                                                                     );
@@ -4441,197 +4225,111 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="text-sm text-left pl-2 w-[110px] font-semibold">
-                                                        <div className="flex items-center justify-between">
-                                                            <div>
-                                                                {editingRowId === row.id ? (
-                                                                    <input
-                                                                        type="number"
-                                                                        name="amount"
-                                                                        className="p-1 rounded-md bg-transparent w-[80px] h-[42px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none no-spinner"
-                                                                        value={editFormData.amount}
-                                                                        onChange={handleEditChange}
-                                                                        min="0"
-                                                                        step="any"
-                                                                    />
-                                                                ) : (
-                                                                    Number(row.amount).toLocaleString('en-IN')
-                                                                )}
+                                                    {editingRowId === row.id ? (
+                                                        <td id={EDBC_IDS.EDBC8} className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.tdClass}>
+                                                            <div className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.filterWidthClass}>
+                                                                <input type="number" name="amount" style={EDBC_FILTER_CONTROL_BOX_STYLE} className={`${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.inputClassName || ''} no-spinner border-[3px] border-[#BF9853] border-opacity-[20%]`} value={editFormData.amount} onChange={handleEditChange} min="0" step="any" />
                                                             </div>
-                                                            <div className="mr-6 flex items-center gap-3">
-                                                                {row.type !== "Daily" && (
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setCurrentProjectAdvanceRow(row);
-                                                                            setPaymentPopupData({
-                                                                                date: new Date().toISOString().split('T')[0],
-                                                                                amount: "",
-                                                                                paymentMode: "",
-                                                                                chequeNo: "",
-                                                                                chequeDate: "",
-                                                                                transactionNumber: "",
-                                                                                accountNumber: ""
-                                                                            });
-                                                                            const previousPaymentsForExpense = getPaymentsByExpenseId(row.id);
-                                                                            setPreviousPayments(previousPaymentsForExpense);
-                                                                            setShowPaymentPopup(true);
-                                                                        }}
-                                                                        className="bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-green-600 transition-colors text-xs"
-                                                                        title="Add Payment"
-                                                                    >
-                                                                        +
-                                                                    </button>
-                                                                )}
-                                                                {row.type === "Project Advance" ? (
-                                                                    <button
-                                                                        onClick={async () => {
-                                                                            let description = "";
-                                                                            if (row.advance_portal_id) {
-                                                                                try {
-                                                                                    const res = await fetch(
-                                                                                        `https://backendaab.in/demoAabuildersDash/api/advance_portal/get/${row.advance_portal_id}`
-                                                                                    );
-                                                                                    if (!res.ok) throw new Error("Failed to fetch advance portal data");
-                                                                                    const data = await res.json();
-                                                                                    description = (data.description || "").trim();
-                                                                                    setPortalDescriptions((prev) => ({
-                                                                                        ...prev,
-                                                                                        [row.advance_portal_id]: description !== "" ? description : undefined,
-                                                                                    }));
-                                                                                } catch (error) {
-                                                                                    console.error("Error fetching advance portal data:", error);
-                                                                                }
-                                                                            }
-                                                                            setEditFormData((prev) => ({ ...prev, description, }));
-                                                                            setCurrentRow(row);
-                                                                            setShowPopups(true);
-                                                                        }}
-                                                                    >
-                                                                        <img src={portalDescriptions[row.advance_portal_id] ? NotesEnd : NotesStart}
-                                                                            alt="Notes" className="w-4 h-4 mr-3"
-                                                                        />
-                                                                    </button>
-                                                                ) : (
-                                                                    <button>
-                                                                        <img
-                                                                            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPC9zdmc+"
-                                                                            alt=""
-                                                                            className="w-4 h-4 mr-3 opacity-0"
-                                                                        />
-                                                                    </button>
-                                                                )}
-                                                                {row.bill_copy_url ? (
-                                                                    <div className="ml-3 flex items-center gap-2">
-                                                                        <a
-                                                                            href={cleanUrl(row.bill_copy_url)}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="cursor-pointer"
-                                                                            title="View File"
-                                                                        >
-                                                                            <img src={file} className="w-4 h-4" alt="Open File" />
-                                                                        </a>
-                                                                        {canRemoveBillCopyUrl && (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => handleRemoveBillCopyUrl(row)}
-                                                                                className="flex h-[22px] w-[22px] items-center justify-center rounded-full text-[#E4572E] text-[22px] font-bold leading-none hover:bg-[#fff1ee]"
-                                                                                title="Remove File"
-                                                                            >
-                                                                                ×
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="ml-3 flex items-center gap-2">
-                                                                        <button
-                                                                            onClick={() => handleFileUploadClick(row)}
-                                                                            className="cursor-pointer"
-                                                                            title="Upload File"
-                                                                        >
-                                                                            <img
-                                                                                src={fileUpload}
-                                                                                className="w-4 h-4 opacity-70 hover:opacity-100"
-                                                                                alt="Upload File"
-                                                                            />
-                                                                        </button>
-                                                                        {canRemoveBillCopyUrl && removedBillCopyRows[row.id] && (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => handleRestoreBillCopyUrl(row)}
-                                                                                className="rounded-md border border-[#007233] px-2 py-[1px] text-[10px] font-semibold text-[#007233] hover:bg-[#e9f8f0]"
-                                                                                title="Restore Removed File"
-                                                                            >
-                                                                                Restore
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                        </td>
+                                                    ) : (
+                                                        <EdbcExpandableBodyCell columnId={EDBC_IDS.EDBC8} expense={row} rowIndex={index} expandedCells={expandedCells} onToggleExpanded={toggleExpandedCell} textAlignClass="text-right" getDisplayValue={(entry) => formatWeeklyPaymentAmountDisplay(entry.amount)} />
+                                                    )}
+                                                    <td id={EDBC_IDS.EDBC20} className={`${getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass || ''} !pr-0`} style={{ paddingRight: 0 }}>
+                                                        <div className="flex items-center w-[70px] gap-[20px]">
+                                                            {row.type !== "Daily" ? (
+                                                                <button type="button" onClick={() => {
+                                                                    setCurrentProjectAdvanceRow(row);
+                                                                    setPaymentPopupData({ date: new Date().toISOString().split('T')[0], amount: "", paymentMode: "", chequeNo: "", chequeDate: "", transactionNumber: "", accountNumber: "" });
+                                                                    setPreviousPayments(getPaymentsByExpenseId(row.id));
+                                                                    setShowPaymentPopup(true);
+                                                                }} className="text-white flex items-center justify-center transition-colors text-xs" title="Add Payment">
+                                                                    <img src={AddExtra} className="w-[18px] h-[18px]" alt="Add Payment" />
+                                                                </button>
+                                                            ) : null}
+                                                            {row.type === "Project Advance" ? (
+                                                                <button type="button" onClick={async () => {
+                                                                    let description = "";
+                                                                    if (row.advance_portal_id) {
+                                                                        try {
+                                                                            const res = await fetch(`https://backendaab.in/demoAabuildersDash/api/advance_portal/get/${row.advance_portal_id}`);
+                                                                            if (!res.ok) throw new Error("Failed to fetch advance portal data");
+                                                                            const data = await res.json();
+                                                                            description = (data.description || "").trim();
+                                                                            setPortalDescriptions((prev) => ({ ...prev, [row.advance_portal_id]: description !== "" ? description : undefined }));
+                                                                        } catch (error) {
+                                                                            console.error("Error fetching advance portal data:", error);
+                                                                        }
+                                                                    }
+                                                                    setEditFormData((prev) => ({ ...prev, description }));
+                                                                    setCurrentRow(row);
+                                                                    setShowPopups(true);
+                                                                }}>
+                                                                    <img src={portalDescriptions[row.advance_portal_id] ? NotesEnd : NotesStart} alt="Notes" className="w-[18px] h-[18px]" />
+                                                                </button>
+                                                            ) : null}
                                                         </div>
                                                     </td>
-                                                    <td className="flex py-2 w-[120px]">
-                                                        {(
-                                                            (row.contractor_id === 117 && row.project_id === 8 && row.type === "Daily") ||
-                                                            (row.contractor_id === 258 && row.project_id === 9 && row.type === "Advance Refund")
-                                                        ) ? (
-                                                            <>
-                                                                <img
-                                                                    className="w-5 h-4 opacity-40 cursor-not-allowed"
-                                                                    src={Edit}
-                                                                    alt="Edit Disabled"
-                                                                />
-                                                                <img
-                                                                    className="w-5 h-4 opacity-40 cursor-not-allowed ml-3"
-                                                                    src={Delete}
-                                                                    alt="Delete Disabled"
-                                                                />
-                                                                <img
-                                                                    className="w-5 h-4 opacity-40 cursor-not-allowed ml-3"
-                                                                    src={history}
-                                                                    alt="History Disabled"
-                                                                />
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                {editingRowId === row.id ? (
-                                                                    <button onClick={() => saveEditedExpense(row)} className="text-green-600 font-bold text-lg mr-3">
-                                                                        ✓
-                                                                    </button>
+                                                    <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}>
+                                                        <div className="flex w-full items-center justify-center">
+                                                            <span className="inline-flex items-center gap-1">
+                                                                {row.bill_copy_url ? (
+                                                                    <>
+                                                                        <a href={cleanUrl(row.bill_copy_url)} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 h-4 w-4 items-center justify-center cursor-pointer" title="View File">
+                                                                            <img src={file} className="w-4 h-4" alt="Open File" />
+                                                                        </a>
+                                                                        {canRemoveBillCopyUrl ? (
+                                                                            <button type="button" onClick={() => handleRemoveBillCopyUrl(row)} className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full p-0 border-0 bg-transparent" title="Remove File">
+                                                                                <img src={FileRemover} className="w-2 h-2" alt="Remove File" />
+                                                                            </button>
+                                                                        ) : (
+                                                                            <span className="inline-flex h-[22px] w-[22px] shrink-0" aria-hidden="true" />
+                                                                        )}
+                                                                    </>
                                                                 ) : (
-                                                                    <button className="rounded-full transition duration-200 ml-2 mr-3">
-                                                                        <img
-                                                                            src={Edit}
-                                                                            onClick={() => handleEditClick(row)}
-                                                                            alt="Edit"
-                                                                            className="w-4 h-4 transform hover:scale-110 hover:brightness-110 transition duration-200"
-                                                                        />
-                                                                    </button>
+                                                                    <>
+                                                                        <button type="button" onClick={() => handleFileUploadClick(row)} className="inline-flex shrink-0 h-4 w-4 items-center justify-center cursor-pointer p-0 border-0 bg-transparent" title="Upload File">
+                                                                            <img src={fileUpload} className="w-4 h-4 opacity-70 hover:opacity-100" alt="Upload File" />
+                                                                        </button>
+                                                                        {canRemoveBillCopyUrl && removedBillCopyRows[row.id] ? (
+                                                                            <button type="button" onClick={() => handleRestoreBillCopyUrl(row)} className="inline-flex shrink-0 rounded-md border border-[#007233] px-2 py-[1px] text-[10px] font-semibold text-[#007233] hover:bg-[#e9f8f0]" title="Restore Removed File">Restore</button>
+                                                                        ) : null}
+                                                                    </>
                                                                 )}
-                                                                <button className="rounded-full transition duration-200 mr-3">
-                                                                    <img
-                                                                        src={Delete}
-                                                                        className="w-4 h-4 transform hover:scale-110 hover:brightness-110 transition duration-200"
-                                                                        onClick={() => handleWeeklyExpensesDelete(row.id)}
-                                                                        alt="Delete"
-                                                                    />
-                                                                </button>
-                                                                <button className="rounded-full transition duration-200 mr-3">
-                                                                    <img
-                                                                        src={history}
-                                                                        className="w-4 h-4 transform hover:scale-110 hover:brightness-110 transition duration-200"
-                                                                        onClick={() => fetchAuditDetailsForExpense(row.id)}
-                                                                        alt="History"
-                                                                    />
-                                                                </button>
-                                                            </>
-                                                        )}
+                                                            </span>
+                                                        </div>
                                                     </td>
-                                                </tr>
+                                                    <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}>
+                                                        <div className="flex gap-1">
+                                                            {((row.contractor_id === 117 && row.project_id === 8 && row.type === "Daily") || (row.contractor_id === 258 && row.project_id === 9 && row.type === "Advance Refund")) ? (
+                                                                <>
+                                                                    <img className="w-5 h-4 opacity-40 cursor-not-allowed" src={Edit} alt="Edit Disabled" />
+                                                                    <img className="w-5 h-4 opacity-40 cursor-not-allowed" src={Delete} alt="Delete Disabled" />
+                                                                    <img className="w-5 h-4 opacity-40 cursor-not-allowed" src={history} alt="History Disabled" />
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    {editingRowId === row.id ? (
+                                                                        <button type="button" onClick={() => saveEditedExpense(row)} className="text-green-600 font-bold text-lg p-0 leading-none">✓</button>
+                                                                    ) : (
+                                                                        <button type="button" className="rounded-full transition duration-200 p-0 leading-none" onClick={() => handleEditClick(row)}>
+                                                                            <img src={Edit} alt="Edit" className="w-5 h-4 block transform hover:scale-110 hover:brightness-110 transition duration-200" />
+                                                                        </button>
+                                                                    )}
+                                                                    <button type="button" className="rounded-full transition duration-200 p-0 leading-none" onClick={() => handleWeeklyExpensesDelete(row.id)}>
+                                                                        <img src={Delete} className="w-5 h-4 block transform hover:scale-110 hover:brightness-110 transition duration-200" alt="Delete" />
+                                                                    </button>
+                                                                    <button type="button" onClick={() => fetchAuditDetailsForExpense(row.id)} className="rounded-full transition duration-200 p-0 leading-none">
+                                                                        <img src={history} className="w-5 h-4 block transform hover:scale-110 hover:brightness-110 transition duration-200" alt="History" />
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </EdbcTableBodyRow>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td className="p-2 text-center text-sm text-gray-400" colSpan={7}>
+                                                <td className="p-2 text-center text-sm text-gray-400" colSpan={10}>
                                                     No data available
                                                 </td>
                                             </tr>
@@ -4641,173 +4339,326 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                             </div>
                         </div>
                     </div>
-                    <div className="flex-[1] min-w-0">
-                        <div className="flex justify-between flex-wrap mb-4">
-                            <h1 className="font-bold text-base">Payments Received</h1>
-                            <h1 className="font-bold text-base ">
-                                Total: <span style={{ color: "#E4572E" }}>{Number(totalPayments).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <div className="w-fit shrink-0 flex flex-col min-h-0">
+                        <div className="flex justify-between items-center mb-[8px]">
+                            <h1 className="font-bold text-base">Income</h1>
+                            <h1 className="font-bold text-base" style={{ color: "#E4572E" }}>
+                                ₹{payments.reduce((total, row) => total + Number(row.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </h1>
                         </div>
-                        <div className="w-full rounded-lg border-l-8 border-l-[#BF9853] overflow-x-auto" style={{ maxHeight: "400px" }}>
-                            <table className="w-full min-w-[320px] border-collapse">
-                                <thead className="bg-[#FAF6ED] h-12">
-                                    <tr>
-                                        <th className="px-2 py-2 w-[90px] text-left">Date</th>
-                                        <th className="px-2 py-2 w-[90px] text-left">Type</th>
-                                        <th className="px-2 py-2 w-[90px]">Amount</th>
-                                        <th className="px-2 py-2 w-[90px] text-left">Activity</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[...payments].map((row, index) => (
-                                        <tr key={row.id || index} className="even:bg-[#FAF6ED] odd:bg-[#FFFFFF] text-left">
-                                            <td className="px-2 py-2">
-                                                {editingPaymentId === (row.id || null) ? (
-                                                    <input
-                                                        type="date"
-                                                        name="date"
-                                                        className="border-2 border-[#BF9853] border-opacity-25 p-1 rounded-lg w-[90px] h-[40px] focus:outline-none"
-                                                        value={editPaymentData.date}
-                                                        onChange={handleEditPaymentChange}
+                        <div className="text-left flex flex-row items-center mb-[12px] gap-[6px] w-full">
+                            <div className="flex flex-row items-center sm:space-x-3 min-w-0 overflow-hidden">
+                                <EdbcFilterToggleButton onClick={() => setShowPaymentsFilters(!showPaymentsFilters)} />
+                                {(selectPaymentDate || selectPaymentAmount || selectPaymentType) && (
+                                    <div
+                                        ref={paymentsFilterChipsRef}
+                                        className="flex flex-row flex-wrap items-center gap-2 min-w-0 overflow-x-auto no-scrollbar cursor-grab"
+                                        onMouseDown={(e) => handleMouseDown(e, paymentsFilterChipsRef)}
+                                        onMouseMove={(e) => handleMouseMove(e, paymentsFilterChipsRef)}
+                                        onMouseUp={() => handleMouseUp(paymentsFilterChipsRef)}
+                                        onMouseLeave={() => handleMouseUp(paymentsFilterChipsRef)}
+                                    >
+                                        {selectPaymentDate && (
+                                            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Date: </span>
+                                                <span className="font-semibold text-[14px]">{formatDateOnly(selectPaymentDate)}</span>
+                                                <button onClick={() => setSelectPaymentDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                            </span>
+                                        )}
+                                        {selectPaymentAmount && (
+                                            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Amount: </span>
+                                                <span className="font-semibold text-[14px]">{selectPaymentAmount}</span>
+                                                <button onClick={() => setSelectPaymentAmount('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                            </span>
+                                        )}
+                                        {selectPaymentType && (
+                                            <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Type: </span>
+                                                <span className="font-semibold text-[14px]">{selectPaymentType}</span>
+                                                <button onClick={() => setSelectPaymentType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <EdbcTableToolbarRightActions
+                                onClearFilters={clearPaymentsFilters}
+                                overallSearch={paymentsOverallSearch}
+                                onOverallSearchChange={setPaymentsOverallSearch}
+                                wrapperClassName="flex items-end gap-[6px] min-w-0 flex-1 justify-end"
+                                searchWrapperClassName="h-[34px] min-w-0 w-1/2 border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1"
+                            />
+                        </div>
+                        <div className="shrink-0">
+                            <div
+                                ref={paymentsScrollRef}
+                                className="rounded-lg border-l-8 border-l-[#BF9853] min-h-[330px] w-fit max-w-full shrink-0 overflow-y-auto overflow-x-auto no-scrollbar"
+                                style={{
+                                    height: `${40 + (showPaymentsFilters ? 40 : 0) + 40 + 180}px`,
+                                    maxHeight: `${40 + (showPaymentsFilters ? 40 : 0) + 40 + 180}px`,
+                                    willChange: 'scroll-position',
+                                    WebkitOverflowScrolling: 'touch',
+                                    transform: 'translateZ(0)',
+                                    backfaceVisibility: 'hidden'
+                                }}
+                                onMouseDown={(e) => handleMouseDown(e, paymentsScrollRef)}
+                                onMouseMove={(e) => handleMouseMove(e, paymentsScrollRef)}
+                                onMouseUp={() => handleMouseUp(paymentsScrollRef)}
+                                onMouseLeave={() => handleMouseUp(paymentsScrollRef)}
+                                onWheel={(e) => e.stopPropagation()}
+                            >
+                                <table className={`border-collapse text-left w-max table-fixed ${EDBC_TABLE_EDGE_TABLE_CLASS} ${WEEKLY_PAYMENT_EDBC8_TABLE_CLASS}`}>
+                                    <thead className="sticky top-0 z-[99999] bg-white">
+                                        <EdbcTableHeaderRow>
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label={paymentsDstCol2Label} columnWidthClass={EDBC2_FIRST_COLUMN_WIDTH_CLASS} />
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC12} label={paymentsDstCol12Label} />
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={paymentsDstCol8Label} />
+                                            <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label={paymentsDstCol20Label} />
+                                        </EdbcTableHeaderRow>
+                                        {showPaymentsFilters && (
+                                            <EdbcTableFilterRow>
+                                                <EdbcDateFilter placeholder={paymentsDstCol2Label} value={selectPaymentDate} onChange={setSelectPaymentDate} />
+                                                <EdbcSelectFilter
+                                                    columnId={EDBC_IDS.EDBC12}
+                                                    placeholder={paymentsDstCol12Label}
+                                                    options={weeklyReceivedTypes.map((type) => ({ value: type.received_type, label: type.received_type }))}
+                                                    value={selectPaymentType}
+                                                    onChange={setSelectPaymentType}
+                                                />
+                                                <EdbcTotalAmountFilter
+                                                    columnId={EDBC_IDS.EDBC8}
+                                                    totalAmount={payments.reduce((total, row) => total + Number(row.amount || 0), 0)}
+                                                    value={selectPaymentAmount}
+                                                    onChange={(e) => setSelectPaymentAmount(e.target.value)}
+                                                    placeholder={paymentsDstCol8Label}
+                                                />
+                                                <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
+                                            </EdbcTableFilterRow>
+                                        )}
+                                        <EdbcTableBodyRow className="!bg-white border-b-2 border-gray-200">
+                                            <td id={EDBC_IDS.EDBC2} className={`pl-[12px] ${EDBC2_FIRST_COLUMN_WIDTH_CLASS} pr-[1px] text-left overflow-visible`}>
+                                                <div
+                                                    className={`${getEdbcColumnConfig(EDBC_IDS.EDBC2)?.filterWidthClass || ''} overflow-visible relative z-[99999]`}
+                                                    onKeyDown={handleKeyDownPayment}
+                                                >
+                                                    <CustomDateField
+                                                        value={newPayment.date}
+                                                        onChange={(dateStr) => handlePaymentChange({ target: { name: 'date', value: dateStr } })}
+                                                        placeholder={paymentsDstCol2Label}
+                                                        alwaysOpenBelow
+                                                        calendarPortal
+                                                        controlHeightPx={EDBC_FILTER_CONTROL_HEIGHT_PX}
+                                                        disabled={isSubmitting}
+                                                        className={` !z-[99999] !overflow-visible [&_.absolute]:!z-[99999] [&>div]:!w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] [&>div:hover]:!border-[rgba(191,152,83,0.4)] ${newPayment.date ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
                                                     />
-                                                ) : (
-                                                    formatDateOnly(row.date) || ""
-                                                )}
+                                                </div>
                                             </td>
-                                            <td className="px-2 py-2 flex items-center justify-between">
+                                            <td id={EDBC_IDS.EDBC12} className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.tdClass}>
+                                                <div
+                                                    className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass}
+                                                    onKeyDown={handleKeyDownPayment}
+                                                >
+                                                    <Select
+                                                        name="type"
+                                                        className="text-xs focus:outline-none w-full"
+                                                        value={newPayment.type ? { value: newPayment.type, label: newPayment.type } : null}
+                                                        onChange={(selectedOption) => handlePaymentChange({ target: { name: 'type', value: selectedOption ? selectedOption.value : '' } })}
+                                                        options={weeklyReceivedTypes.map((type) => ({ value: type.received_type, label: type.received_type }))}
+                                                        placeholder={paymentsDstCol12Label}
+                                                        isSearchable
+                                                        isClearable
+                                                        isDisabled={isSubmitting}
+                                                        menuPortalTarget={document.body}
+                                                        menuPosition="fixed"
+                                                        classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
+                                                        styles={{
+                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                            menu: (provided) => ({
+                                                                ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
+                                                                zIndex: 10050,
+                                                            }),
+                                                            menuList: entryRowSelectMenuListStyle,
+                                                            menuPortal: (provided) => ({
+                                                                ...provided,
+                                                                zIndex: 10050,
+                                                            }),
+                                                        }}
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td id={EDBC_IDS.EDBC8} className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.tdClass}>
+                                                <div className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.filterWidthClass}>
+                                                    <input
+                                                        type="number"
+                                                        name="amount"
+                                                        style={EDBC_FILTER_CONTROL_BOX_STYLE}
+                                                        className={`${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.inputClassName || ''} no-spinner`}
+                                                        placeholder={paymentsDstCol8Label}
+                                                        value={newPayment.amount}
+                                                        onChange={handlePaymentChange}
+                                                        onKeyDown={handleKeyDownPayment}
+                                                        disabled={isSubmitting}
+                                                        onWheel={(e) => e.preventDefault()}
+                                                        onFocus={() => window.addEventListener("wheel", (e) => e.preventDefault(), { passive: false })}
+                                                        onBlur={() => window.removeEventListener("wheel", (e) => e.preventDefault())}
+                                                    />
+                                                </div>
+                                            </td>
+                                            <td id={EDBC_IDS.EDBC20} className={`${getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass || ''} !pr-0`} style={{ paddingRight: 0 }}></td>
+                                        </EdbcTableBodyRow>
+                                    </thead>
+                                    <tbody>
+                                        {payments.map((row, index) => ({ row, index })).filter(({ row }) => {
+                                            if (paymentsOverallSearch.trim()) {
+                                                const q = paymentsOverallSearch.toLowerCase().trim();
+                                                if (
+                                                    !String(row.type || '').toLowerCase().includes(q) &&
+                                                    !String(row.amount || '').includes(q) &&
+                                                    !String(formatDateOnly(row.date) || '').toLowerCase().includes(q)
+                                                ) {
+                                                    return false;
+                                                }
+                                            }
+                                            if (selectPaymentDate) {
+                                                const [year, month, day] = selectPaymentDate.split("-");
+                                                const formattedSelectDate = `${parseInt(day)}-${parseInt(month)}-${year}`;
+                                                const entryDateObj = new Date(row.date);
+                                                const formattedEntryDate = `${entryDateObj.getDate()}-${entryDateObj.getMonth() + 1}-${entryDateObj.getFullYear()}`;
+                                                if (formattedEntryDate !== formattedSelectDate) return false;
+                                            }
+                                            if (selectPaymentAmount && !matchesEdbcAmountFilter(row.amount, selectPaymentAmount)) return false;
+                                            if (selectPaymentType && String(row.type || '').toLowerCase() !== selectPaymentType.toLowerCase()) return false;
+                                            return true;
+                                        }).map(({ row, index }) => (
+                                            <EdbcTableBodyRow key={row.id || index}>
                                                 {editingPaymentId === (row.id || null) ? (
-                                                    <>
+                                                    <td id={EDBC_IDS.EDBC2} className={`${EDBC2_FIRST_COLUMN_WIDTH_CLASS} pr-[1px] text-left`}>
+                                                        <input
+                                                            type="date"
+                                                            name="date"
+                                                            value={editPaymentData.date}
+                                                            onChange={handleEditPaymentChange}
+                                                            className={`p-1 rounded-md bg-transparent box-border ${getEdbcColumnConfig(EDBC_IDS.EDBC2)?.filterWidthClass || ''} border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none`}
+                                                        />
+                                                    </td>
+                                                ) : (
+                                                    <EdbcDateBodyCell
+                                                        expense={row}
+                                                        rowIndex={index}
+                                                        expandedCells={expandedCells}
+                                                        onToggleExpanded={toggleExpandedCell}
+                                                        formatValue={formatDateOnly}
+                                                        columnWidthClass={EDBC2_FIRST_COLUMN_WIDTH_CLASS}
+                                                    />
+                                                )}
+                                                {editingPaymentId === (row.id || null) ? (
+                                                    <td id={EDBC_IDS.EDBC12} className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.tdClass}>
                                                         <select
                                                             name="type"
-                                                            className="border-2 border-[#BF9853] border-opacity-25 w-[90px] h-[40px] rounded-lg focus:outline-none"
-                                                            value={editPaymentData.type} onChange={handleEditPaymentChange}
+                                                            value={editPaymentData.type}
+                                                            onChange={handleEditPaymentChange}
+                                                            className={`p-1 rounded-md bg-transparent box-border ${getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass || ''} h-[38px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none`}
                                                         >
                                                             <option value="">Select</option>
-                                                            {weeklyReceivedTypes.map((type, index) => (
-                                                                <option key={index} value={type.received_type}>
+                                                            {weeklyReceivedTypes.map((type, idx) => (
+                                                                <option key={idx} value={type.received_type}>
                                                                     {type.received_type}
                                                                 </option>
                                                             ))}
                                                         </select>
-                                                    </>
+                                                    </td>
                                                 ) : (
-                                                    <>
-                                                        {row.type}
-                                                    </>
-                                                )}
-                                            </td>
-                                            <td className="px-2 py-2">
-                                                {editingPaymentId === (row.id || null) ? (
-                                                    <input
-                                                        type="number"
-                                                        name="amount"
-                                                        className="border-2 border-[#BF9853] border-opacity-25 rounded-lg w-[90px] h-[40px] focus:outline-none"
-                                                        value={editPaymentData.amount}
-                                                        onChange={handleEditPaymentChange}
-                                                        min="0"
-                                                        step="any"
-                                                        onWheel={(e) => e.preventDefault()}
+                                                    <EdbcExpandableBodyCell
+                                                        columnId={EDBC_IDS.EDBC12}
+                                                        expense={row}
+                                                        rowIndex={index}
+                                                        expandedCells={expandedCells}
+                                                        onToggleExpanded={toggleExpandedCell}
+                                                        getDisplayValue={(entry) => entry.type}
                                                     />
-                                                ) : (
-                                                    Number(row.amount).toLocaleString('en-IN')
                                                 )}
-                                            </td>
-                                            <td className="px-2 py-2">
-                                                <div className="flex">
-                                                    {editingPaymentId === row.id ? (
-                                                        <button
-                                                            onClick={() => saveEditedPaymentReceived(row)}
-                                                            className="text-green-600 font-bold text-lg"
-                                                            disabled={!weeklyReceivedTypes.some(type => type.received_type === row.type)}
-                                                        >
-                                                            ✓
-                                                        </button>
-                                                    ) : (
-                                                        weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
-                                                            <button onClick={() => handleEditPaymentClick(row)}>
-                                                                <img className="w-5 h-4" src={Edit} alt="Edit" />
+                                                {editingPaymentId === (row.id || null) ? (
+                                                    <td id={EDBC_IDS.EDBC8} className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.tdClass}>
+                                                        <div className={getEdbcColumnConfig(EDBC_IDS.EDBC8)?.filterWidthClass}>
+                                                            <input
+                                                                type="number"
+                                                                name="amount"
+                                                                value={editPaymentData.amount}
+                                                                onChange={handleEditPaymentChange}
+                                                                style={EDBC_FILTER_CONTROL_BOX_STYLE}
+                                                                className={`${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.inputClassName || ''} no-spinner border-[3px] border-[#BF9853] border-opacity-[20%]`}
+                                                                onWheel={(e) => e.preventDefault()}
+                                                                onFocus={() => window.addEventListener("wheel", (e) => e.preventDefault(), { passive: false })}
+                                                                onBlur={() => window.removeEventListener("wheel", (e) => e.preventDefault())}
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                ) : (
+                                                    <EdbcExpandableBodyCell
+                                                        columnId={EDBC_IDS.EDBC8}
+                                                        expense={row}
+                                                        rowIndex={index}
+                                                        expandedCells={expandedCells}
+                                                        onToggleExpanded={toggleExpandedCell}
+                                                        textAlignClass="text-right"
+                                                        getDisplayValue={(entry) => formatWeeklyPaymentAmountDisplay(entry.amount)}
+                                                    />
+                                                )}
+                                                <td id={EDBC_IDS.EDBC20} className={getEdbcColumnConfig(EDBC_IDS.EDBC20)?.tdClass}>
+                                                    <div className="flex gap-1">
+                                                        {editingPaymentId === row.id ? (
+                                                            <button
+                                                                className="text-green-600 font-bold text-lg"
+                                                                onClick={() => saveEditedPaymentReceived(row)}
+                                                                disabled={!weeklyReceivedTypes.some(type => type.received_type === row.type)}
+                                                            >
+                                                                ✓
                                                             </button>
                                                         ) : (
-                                                            <img
-                                                                className="w-5 h-4 opacity-40 cursor-not-allowed"
-                                                                src={Edit}
-                                                                alt="Edit Disabled"
-                                                            />
-                                                        )
-                                                    )}
-                                                    {weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
-                                                        <button className="pl-3">
-                                                            <img src={Delete} className="w-5 h-4" alt="Delete" onClick={() => handleWeeklyReceivedDelete(row.id)} />
-                                                        </button>
-                                                    ) : (
-                                                        <span className="pl-3">
+                                                            weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
+                                                                <button onClick={() => handleEditPaymentClick(row)}>
+                                                                    <img className="w-5 h-4" src={Edit} alt="Edit" />
+                                                                </button>
+                                                            ) : (
+                                                                <img
+                                                                    className="w-5 h-4 opacity-40 cursor-not-allowed"
+                                                                    src={Edit}
+                                                                    alt="Edit Disabled"
+                                                                />
+                                                            )
+                                                        )}
+                                                        {weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
+                                                            <button className="" onClick={() => handleWeeklyReceivedDelete(row.id)}>
+                                                                <img src={Delete} className="w-5 h-4" alt="Delete" />
+                                                            </button>
+                                                        ) : (
                                                             <img
                                                                 className="w-5 h-4 opacity-40 cursor-not-allowed"
                                                                 src={Delete}
                                                                 alt="Delete Disabled"
                                                             />
-                                                        </span>
-                                                    )}
-                                                    {weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
-                                                        <button className="" onClick={() => fetchAuditDetailsForPaymentReceived(row.id)}>
-                                                            <img src={history} className="w-5 h-4" alt="History" />
-                                                        </button>
-                                                    ) : (
-                                                        <img
-                                                            className="w-5 h-4 opacity-40 cursor-not-allowed"
-                                                            src={history}
-                                                            alt="History Disabled"
-                                                        />
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    <tr>
-                                        <td className="px-2 py-2">
-                                            <input
-                                                type="date"
-                                                name="date"
-                                                className="border-2 border-[#BF9853] border-opacity-25 p-1 rounded-lg w-[90px] h-[40px] focus:outline-none"
-                                                value={newPayment.date}
-                                                onChange={handlePaymentChange}
-                                                onKeyDown={handleKeyDownPayment}
-                                                disabled={isSubmitting}
-                                            />
-                                        </td>
-                                        <td className="px-2 py-2">
-                                            <select
-                                                name="type"
-                                                className="border-2 border-[#BF9853] border-opacity-25 w-[90px] h-[40px] rounded-lg focus:outline-none"
-                                                value={newPayment.type} onChange={handlePaymentChange} onKeyDown={handleKeyDownPayment}
-                                                disabled={isSubmitting}>
-                                                <option value="">Select</option>
-                                                {weeklyReceivedTypes.map((type, index) => (
-                                                    <option key={index} value={type.received_type}>
-                                                        {type.received_type}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </td>
-                                        <td className="px-2 py-2">
-                                            <input
-                                                type="number"
-                                                name="amount"
-                                                className="border-2 border-[#BF9853] border-opacity-25 rounded-lg w-[90px] h-[40px] focus:outline-none"
-                                                value={newPayment.amount}
-                                                onChange={handlePaymentChange}
-                                                onKeyDown={handleKeyDownPayment}
-                                                min="0"
-                                                step="any"
-                                                onWheel={(e) => e.preventDefault()}
-                                                disabled={isSubmitting}
-                                            />
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                                        )}
+                                                        {weeklyReceivedTypes.some(type => type.received_type === row.type) ? (
+                                                            <button className="" onClick={() => fetchAuditDetailsForPaymentReceived(row.id)}>
+                                                                <img src={history} className="w-5 h-4" alt="History" />
+                                                            </button>
+                                                        ) : (
+                                                            <img
+                                                                className="w-5 h-4 opacity-40 cursor-not-allowed"
+                                                                src={history}
+                                                                alt="History Disabled"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </EdbcTableBodyRow>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div className="mt-4">
+                        <div className="mt-[12px] shrink-0">
                             <button
                                 className="w-full max-w-[320px] h-[36px] bg-[#BF9853] text-white font-bold rounded disabled:opacity-60 disabled:cursor-not-allowed"
                                 onClick={openAccountClosure}
@@ -4827,41 +4678,40 @@ const WeeklyPayment = ({ username, userRoles = [] }) => {
                                 />
                             )}
                         </div>
-                        <div className="mt-4 pt-2">
-                            <h2 className="font-bold text-lg mb-2">Summary</h2>
-                            <div className="overflow-hidden rounded-md border-l-8 border-[#BF9853]">
-                                <table className="w-full max-w-[320px] border-collapse">
-                                    <tbody>
-                                        {mergedExpenses.map((expense, index, arr) => (
-                                            <tr
-                                                key={index}
-                                                className={`even:bg-[#FAF6ED] odd:bg-[#FFFFFF] ${index === 0 ? "rounded-t-md" : ""
-                                                    } ${index === arr.length - 1 ? "rounded-b-md" : ""}`}
-                                            >
-                                                <td className="font-bold py-1.5 pl-2 text-left">{expense.type}</td>
-                                                <td className="font-bold py-1.5 px-4 text-right">
-                                                    {expense.amount.toLocaleString("en-IN", {
-                                                        minimumFractionDigits: 2,
-                                                        maximumFractionDigits: 2,
-                                                    })}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        <tr className="bg-[#E5E5E5] font-bold">
-                                            <td className="py-1.5 pl-2 text-left">Total</td>
-                                            <td className="py-1.5 px-4 text-right text-[#E4572E]">
-                                                {mergedExpenses
-                                                    .reduce((sum, exp) => sum + exp.amount, 0)
-                                                    .toLocaleString("en-IN", {
-                                                        minimumFractionDigits: 2,
-                                                        maximumFractionDigits: 2,
-                                                    })}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                        <div className="mt-[12px] flex-1 min-h-0 rounded-xl bg-white px-[18px] py-[12px] border border-[#E6DAC6] text-left overflow-hidden">
+                            <div className="flex flex-col h-full min-h-0">
+                                <div className="flex items-center justify-between rounded-lg mb-[4px]">
+                                    <p className="text-[16px] font-semibold text-black">Summary Details</p>
+                                </div>
+                                <div className="overflow-y-auto no-scrollbar flex-1 min-h-0">
+                                    {Object.entries(
+                                        filteredExpenses
+                                            .filter(expense => Number(expense.amount) > 0)
+                                            .reduce((acc, expense) => {
+                                                const type = expense.type;
+                                                const amount = Number(expense.amount);
+                                                acc[type] = (acc[type] || 0) + amount;
+                                                return acc;
+                                            }, {})
+                                    ).map(([type, total]) => (
+                                        <div key={type} className="flex items-center justify-between py-[4px]">
+                                            <p className="text-[14px] font-semibold text-[#666666]">{type}</p>
+                                            <p className="text-[14px] font-semibold text-black">
+                                                ₹{Number(total).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex items-center justify-between py-[6px] border-b border-t border-dashed mt-[4px] border-[#454545]">
+                                    <p className="text-[14px] font-semibold text-black">Total Amount</p>
+                                    <p className="text-[14px] font-semibold text-black">
+                                        ₹{filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                </div>
                     </div>
                 </div>
             </div>

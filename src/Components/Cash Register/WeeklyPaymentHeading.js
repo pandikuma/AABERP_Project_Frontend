@@ -16,12 +16,16 @@ const WHeading = ({ username, userRoles = [] }) => {
     const [visitedTabs, setVisitedTabs] = useState(() => new Set([activeTab]));
     const [showExportDropdown, setShowExportDropdown] = useState(false);
     const weeklyHistoryExportActionsRef = useRef(null);
+    const weeklyPaymentExportActionsRef = useRef(null);
     const dailyHistoryExportActionsRef = useRef(null);
     const exportDropdownRef = useRef(null);
     const exportMenuRef = useRef(null);
     const [exportMenuPosition, setExportMenuPosition] = useState(null);
     const handleExportActionsReady = useCallback((actions) => {
         weeklyHistoryExportActionsRef.current = actions;
+    }, []);
+    const handleWeeklyPaymentExportActionsReady = useCallback((actions) => {
+        weeklyPaymentExportActionsRef.current = actions;
     }, []);
     const handleDailyHistoryExportActionsReady = useCallback((actions) => {
         dailyHistoryExportActionsRef.current = actions;
@@ -73,7 +77,7 @@ const WHeading = ({ username, userRoles = [] }) => {
     }, [showExportDropdown]);
 
     useEffect(() => {
-        if (activeTab !== 'weeklyhistory' && activeTab !== 'dailyhistory') {
+        if (activeTab !== 'weeklyhistory' && activeTab !== 'dailyhistory' && activeTab !== 'weeklypayment') {
             setShowExportDropdown(false);
         }
     }, [activeTab]);
@@ -98,10 +102,10 @@ const WHeading = ({ username, userRoles = [] }) => {
                         Handover
                     </h2>
                     <h2 className={`link whitespace-nowrap ${activeTab === 'weeklypaymentaddinput' ? 'active' : ''}`} onClick={() => setActiveTab('weeklypaymentaddinput')} >
-                        Add Input
+                        Input Data
                     </h2>
                 </div>
-                {(activeTab === 'weeklyhistory' || activeTab === 'dailyhistory') && (
+                {(activeTab === 'weeklyhistory' || activeTab === 'dailyhistory' || activeTab === 'weeklypayment') && (
                     <div className="relative shrink-0 ml-3 mb-2 z-[500]" ref={exportDropdownRef}>
                         <button
                             type="button"
@@ -126,6 +130,8 @@ const WHeading = ({ username, userRoles = [] }) => {
                                         setShowExportDropdown(false);
                                         if (activeTab === 'dailyhistory') {
                                             dailyHistoryExportActionsRef.current?.generatePDF?.();
+                                        } else if (activeTab === 'weeklypayment') {
+                                            weeklyPaymentExportActionsRef.current?.generatePDF?.();
                                         } else {
                                             weeklyHistoryExportActionsRef.current?.generatePDF?.();
                                         }
@@ -156,7 +162,7 @@ const WHeading = ({ username, userRoles = [] }) => {
             <div className="content">
                 {visitedTabs.has('weeklypayment') && (
                     <div className={activeTab === 'weeklypayment' ? '' : 'hidden'}>
-                        <WeeklyPayment username={username} userRoles={userRoles} />
+                        <WeeklyPayment username={username} userRoles={userRoles} onExportActionsReady={handleWeeklyPaymentExportActionsReady} />
                     </div>
                 )}
                 {visitedTabs.has('dailypayment') && (
