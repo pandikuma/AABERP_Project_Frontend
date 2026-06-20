@@ -53,7 +53,11 @@ import {
     EdbcTotalAmountFilter,
     getEdbcColumnConfig,
     matchesEdbcAmountFilter,
+    matchesWeeklyPaymentExpenseOverallSearch,
+    sortWeeklyPaymentExpenseRows,
+    sortWeeklyPaymentPaymentRows,
     useEdbcExpandedCells,
+    useEdbcTableSort,
 } from '../ExpensesEntry/databaseExpensesSharedColumns';
 import { useLiveDataSync } from '../../utils/useLiveDataSync';
 
@@ -90,7 +94,7 @@ function cleanUrl(url) {
     }
     return cleanedUrl;
 }
-const History = ({ username, userRoles = [], viewMode = 'default', onExportActionsReady }) => {
+const History = ({ username, userRoles = [], viewMode = 'default', onExportActionsReady, isTabActive = true }) => {
     const resolveEnteredBy = () => {
         const propUsername = typeof username === 'string' ? username.trim() : '';
         if (propUsername) return propUsername;
@@ -124,18 +128,18 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
         }
         return url.toString();
     };
-    const withBranchParams = () => (
+    const withBranchParams = useCallback(() => (
         activeBranchId !== null && activeBranchId !== undefined && activeBranchId !== ""
             ? { params: { branchId: activeBranchId } }
             : {}
-    );
+    ), [activeBranchId]);
     /** Only rows for the selected branch — used so “last week” and lists never mix branches if the API returns extra rows. */
-    const isRowForActiveBranch = (row) => {
+    const isRowForActiveBranch = useCallback((row) => {
         if (activeBranchId === null || activeBranchId === undefined || activeBranchId === "") return true;
         const bid = row?.branch_id ?? row?.branchId;
         if (bid === null || bid === undefined || bid === "") return false;
         return Number(bid) === Number(activeBranchId);
-    };
+    }, [activeBranchId]);
     useEffect(() => {
         const syncBranch = () => {
             const nextBranchId = resolveActiveBranchId();
@@ -168,6 +172,8 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
     const [lastEditableWeek, setLastEditableWeek] = useState(null); // { weekNumber, year }
     /** Tracks branch+year for the last fetchWeeks run — used to reset the week dropdown when branch/year changes. */
     const prevWeeksContextKeyRef = useRef(null);
+    const weekFetchTokenRef = useRef(0);
+    const lastPortalDescriptionKeyRef = useRef("");
     const [vendorOptions, setVendorOptions] = useState([]);
     const [contractorOptions, setContractorOptions] = useState([]);
     const [siteOptions, setSiteOptions] = useState([]);
@@ -353,8 +359,9 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
     const velocity = useRef({ x: 0, y: 0 });
     const animationFrame = useRef(null);
     const lastMove = useRef({ time: 0, x: 0, y: 0 });
+    const dragHorizontalOnly = useRef(false);
 
-    const handleMouseDown = (e, ref) => {
+    const handleMouseDown = (e, ref, horizontalOnly = false) => {
         if (!ref.current) return;
         const interactiveSelector = 'input, select, textarea, button, a, [contenteditable="true"], [role="button"]';
         if (e.target instanceof Element && e.target.closest(interactiveSelector)) {
@@ -363,6 +370,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
         e.preventDefault(); // Prevent default behavior
         e.stopPropagation(); // Prevent event from bubbling to other scroll containers
         isDragging.current = true;
+        dragHorizontalOnly.current = horizontalOnly;
         activeScrollRef.current = ref.current; // Store the active scroll container
         start.current = { x: e.clientX, y: e.clientY };
         lastPosition.current = { x: e.clientX, y: e.clientY };
@@ -377,7 +385,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
         cancelMomentum();
     };
 
-    const handleMouseMove = (e, ref) => {
+    const handleMouseMove = (e, ref, horizontalOnly = false) => {
         if (!isDragging.current || !ref.current || activeScrollRef.current !== ref.current) return;
         e.stopPropagation(); // Prevent event from bubbling to other scroll containers        
         const now = Date.now();
@@ -385,17 +393,18 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
         // Calculate delta movement (incremental change)
         const deltaX = e.clientX - lastPosition.current.x;
         const deltaY = e.clientY - lastPosition.current.y;
+        const isHorizontalOnly = horizontalOnly || dragHorizontalOnly.current;
         // Update velocity for momentum (based on last move, not start position)
         velocity.current = {
             x: (e.clientX - lastMove.current.x) / dt,
-            y: (e.clientY - lastMove.current.y) / dt,
+            y: isHorizontalOnly ? 0 : (e.clientY - lastMove.current.y) / dt,
         };
         // Use scrollBy for smooth, continuous scrolling based on incremental movement
         // This feels more natural like normal scrolling
-        if (ref.current && (deltaX !== 0 || deltaY !== 0)) {
+        if (ref.current && (deltaX !== 0 || (!isHorizontalOnly && deltaY !== 0))) {
             ref.current.scrollBy({
                 left: -deltaX,
-                top: -deltaY,
+                top: isHorizontalOnly ? 0 : -deltaY,
                 behavior: 'auto' // Instant but smooth
             });
         }
@@ -435,9 +444,11 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                 cancelMomentum();
                 return;
             }
-            if (Math.abs(x) > minVelocity || Math.abs(y) > minVelocity) {
+            if (Math.abs(x) > minVelocity || (!dragHorizontalOnly.current && Math.abs(y) > minVelocity)) {
                 activeRef.scrollLeft -= x * 20;
-                activeRef.scrollTop -= y * 20;
+                if (!dragHorizontalOnly.current) {
+                    activeRef.scrollTop -= y * 20;
+                }
                 velocity.current.x *= friction;
                 velocity.current.y *= friction;
                 animationFrame.current = requestAnimationFrame(step);
@@ -460,6 +471,8 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
     const [selectContractororVendorName, setSelectContractororVendorName] = useState('');
     const [selectProjectName, setSelectProjectName] = useState('');
     const [selectType, setSelectType] = useState('');
+    const { sortField: expensesSortField, sortDirection: expensesSortDirection, sortProps: expensesSortProps } = useEdbcTableSort();
+    const { sortField: paymentsSortField, sortDirection: paymentsSortDirection, sortProps: paymentsSortProps } = useEdbcTableSort();
     function getStartAndEndDateOfWeek(weekNumber, year) {
         const simple = new Date(year, 0, 1 + (weekNumber - 1) * 7);
         const dayOfWeek = simple.getDay();
@@ -1522,23 +1535,31 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
         };
         computeEditableWeek();
     }, [activeBranchId]); // Run again when branch changes
+    useEffect(() => {
+        weekFetchTokenRef.current += 1;
+        lastPortalDescriptionKeyRef.current = "";
+    }, [selectedWeek, year]);
     const refreshWeekTableData = useCallback(async () => {
         if (!selectedWeek) return [];
+        const fetchToken = weekFetchTokenRef.current;
+        const requestWeek = String(selectedWeek);
+        const requestYear = parseInt(year, 10);
         try {
             const [expensesRes, paymentsRes] = await Promise.all([
-                axios.get(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/week/${selectedWeek}`, withBranchParams()),
-                axios.get(`https://backendaab.in/demoAabuildersDash/api/payments-received/week/${selectedWeek}`, withBranchParams()),
+                axios.get(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/week/${requestWeek}`, withBranchParams()),
+                axios.get(`https://backendaab.in/demoAabuildersDash/api/payments-received/week/${requestWeek}`, withBranchParams()),
             ]);
 
-            const selectedYear = parseInt(year, 10);
-            const selectedWeekNum = Number(selectedWeek);
+            if (fetchToken !== weekFetchTokenRef.current) return [];
+
+            const selectedWeekNum = Number(requestWeek);
 
             const filteredExpenses = expensesRes.data.filter((expense) => {
                 if (!isRowForActiveBranch(expense)) return false;
                 if (expense.status !== true) return false;
                 const wn = Number(expense.weekly_number);
                 if (!Number.isFinite(wn) || wn !== selectedWeekNum) return false;
-                return getIsoYearFromRowDate(expense) === selectedYear;
+                return getIsoYearFromRowDate(expense) === requestYear;
             });
 
             const filteredPaymentsByYear = paymentsRes.data.filter((payment) => {
@@ -1546,30 +1567,45 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                 if (payment.status !== true) return false;
                 const wn = Number(payment.weekly_number);
                 if (!Number.isFinite(wn) || wn !== selectedWeekNum) return false;
-                return getIsoYearFromRowDate(payment) === selectedYear;
+                return getIsoYearFromRowDate(payment) === requestYear;
             });
 
             const filteredPayments = filteredPaymentsByYear.filter(
                 (payment) => payment.type !== "Handover"
             );
 
+            if (fetchToken !== weekFetchTokenRef.current) return [];
+
             setExpenses(filteredExpenses);
             setPayments(filteredPayments);
             await fetchWeeklyPaymentBills();
+
+            if (fetchToken !== weekFetchTokenRef.current) return [];
+
             return filteredExpenses;
         } catch (error) {
             console.error("Error fetching weekly data:", error);
             return [];
         }
-    }, [selectedWeek, year, withBranchParams, isRowForActiveBranch]);
+    }, [selectedWeek, year, activeBranchId, withBranchParams, isRowForActiveBranch]);
     useEffect(() => {
+        if (!selectedWeek) return;
+        const fetchToken = weekFetchTokenRef.current;
         const loadWeekData = async () => {
             const filteredExpenses = await refreshWeekTableData();
+            if (fetchToken !== weekFetchTokenRef.current) return;
             const projectAdvanceRows = (filteredExpenses || []).filter(
                 (row) => row.type === "Project Advance" && row.advance_portal_id
             );
-            const newDescriptions = { ...portalDescriptions };
+            const portalKey = projectAdvanceRows
+                .map((row) => row.advance_portal_id)
+                .sort((a, b) => String(a).localeCompare(String(b)))
+                .join(",");
+            if (portalKey && portalKey === lastPortalDescriptionKeyRef.current) return;
+            lastPortalDescriptionKeyRef.current = portalKey;
+            const newDescriptions = {};
             for (const row of projectAdvanceRows) {
+                if (fetchToken !== weekFetchTokenRef.current) return;
                 try {
                     const res = await fetch(
                         `https://backendaab.in/demoAabuildersDash/api/advance_portal/get/${row.advance_portal_id}`
@@ -1583,10 +1619,11 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                     console.error("Error fetching advance portal data:", error);
                 }
             }
+            if (fetchToken !== weekFetchTokenRef.current) return;
             setPortalDescriptions(newDescriptions);
         };
         void loadWeekData();
-    }, [refreshWeekTableData, expenseEntryRefreshNonce]);
+    }, [selectedWeek, year, activeBranchId, expenseEntryRefreshNonce, refreshWeekTableData]);
     useLiveDataSync(
         refreshWeekTableData,
         Boolean(
@@ -1596,7 +1633,8 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
             showPurposePopup ||
             showPopups ||
             fileUploadPopup ||
-            showPaymentPopup
+            showPaymentPopup ||
+            !isTabActive
         )
     );
     useEffect(() => {
@@ -1704,6 +1742,16 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
         if (selectType) {
             if (snapshot.type?.toLowerCase() !== selectType.toLowerCase()) return false;
         }
+        if (!matchesWeeklyPaymentExpenseOverallSearch(snapshot, overallSearch, {
+            formatDateOnly,
+            getPartyName: (entry) => {
+                if (isClientToggleActive) return getClientName(entry) || '';
+                return getPartyDisplayName(entry) || '';
+            },
+            getProjectName: (entry) => getSiteName(entry.project_id) || '',
+        })) {
+            return false;
+        }
         return true;
     });
     const contractorVendorFilterOptions = React.useMemo(() => {
@@ -1732,6 +1780,45 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
         payments.reduce((total, row) => total + Number(row.amount || 0), 0) -
         filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0)
     ).toFixed(2);
+    const getPartyNameForSort = useCallback((entry) => {
+        if (isClientToggleActive) return getClientName(entry) || '';
+        return getPartyDisplayName(entry) || '';
+    }, [isClientToggleActive]);
+    const getProjectNameForSort = useCallback((entry) => getSiteName(entry.project_id) || '', []);
+    const sortedExpenses = React.useMemo(() => {
+        const reversed = [...filteredExpenses].reverse();
+        if (!expensesSortField) return reversed;
+        return sortWeeklyPaymentExpenseRows(reversed, expensesSortField, expensesSortDirection, {
+            getPartyName: getPartyNameForSort,
+            getProjectName: getProjectNameForSort,
+        });
+    }, [filteredExpenses, expensesSortField, expensesSortDirection, getPartyNameForSort, getProjectNameForSort]);
+    const filteredPayments = React.useMemo(() => payments.filter((row) => {
+        if (paymentsOverallSearch.trim()) {
+            const q = paymentsOverallSearch.toLowerCase().trim();
+            if (
+                !String(row.type || '').toLowerCase().includes(q) &&
+                !String(row.amount || '').includes(q) &&
+                !String(formatDateOnly(row.date) || '').toLowerCase().includes(q)
+            ) {
+                return false;
+            }
+        }
+        if (selectPaymentDate) {
+            const [year, month, day] = selectPaymentDate.split('-');
+            const formattedSelectDate = `${parseInt(day)}-${parseInt(month)}-${year}`;
+            const entryDateObj = new Date(row.date);
+            const formattedEntryDate = `${entryDateObj.getDate()}-${entryDateObj.getMonth() + 1}-${entryDateObj.getFullYear()}`;
+            if (formattedEntryDate !== formattedSelectDate) return false;
+        }
+        if (selectPaymentAmount && !matchesEdbcAmountFilter(row.amount, selectPaymentAmount)) return false;
+        if (selectPaymentType && String(row.type || '').toLowerCase() !== selectPaymentType.toLowerCase()) return false;
+        return true;
+    }), [payments, paymentsOverallSearch, selectPaymentDate, selectPaymentAmount, selectPaymentType]);
+    const sortedPayments = React.useMemo(() => {
+        if (!paymentsSortField) return filteredPayments;
+        return sortWeeklyPaymentPaymentRows(filteredPayments, paymentsSortField, paymentsSortDirection);
+    }, [filteredPayments, paymentsSortField, paymentsSortDirection]);
     const handleExpenseChange = (e) => {
         const { name, value } = e.target;
         if (name === "date") {
@@ -3509,7 +3596,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
     };
     useEffect(() => {
         if (weeks.length === 0) {
-            setSelectedWeek("");
+            if (selectedWeek !== "") setSelectedWeek("");
             return;
         }
         const n = Number(selectedWeek);
@@ -3520,7 +3607,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                 ? lastWeekWithData
                 : weeks[0].number;
         setSelectedWeek(String(preferred));
-    }, [weeks, year, lastWeekWithData]);
+    }, [weeks, year, lastWeekWithData, selectedWeek]);
     const fetchAuditDetailsForExpense = async (expensesId) => {
         try {
             const response = await fetch(`https://backendaab.in/demoAabuildersDash/api/weekly_payment_audit/expenses/${expensesId}`);
@@ -3847,60 +3934,61 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                             </div>
                         )}
                         <div className="flex flex-col xl:flex-row gap-[18px] flex-1 min-h-0 overflow-hidden">
-                            <div className={`flex flex-col min-h-0 overflow-hidden ${isExpensesEntryUploadOnly ? 'w-full min-w-0 flex-1' : 'min-w-[1240] max-w-[1240] shrink-0'}`}>
-                                <div className="flex justify-between items-center mb-[8px]">
+                            <div className={`flex flex-col min-h-0 overflow-hidden h-full ${isExpensesEntryUploadOnly ? 'w-full min-w-0 flex-1' : 'min-w-[1240] max-w-[1240] shrink-0'}`}>
+                                <div className="flex justify-between items-center mb-[8px] shrink-0">
                                     <h1 className="font-bold text-base">Expenses (PS {selectedWeek ?? "-"})</h1>
                                     <h1 className="font-bold text-base" style={{ color: "#E4572E" }}>
                                         ₹{filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </h1>
                                 </div>
-                                <div className={`text-left flex ${(selectDate || selectContractororVendorName || selectProjectName || selectType) ? 'flex-col sm:flex-row sm:justify-between' : 'flex-row justify-between items-center'} mb-[12px] gap-[6px]`}>
-                                    <div className="flex flex-row items-center sm:space-x-3 min-w-0 flex-1 overflow-hidden">
+                                <div className="flex flex-col flex-1 min-h-0 w-fit max-w-full overflow-hidden">
+                                <div className="mb-[12px] w-full min-w-0 min-h-[34px] shrink-0 flex flex-row flex-nowrap items-center gap-[6px] overflow-hidden">
+                                    <div className="shrink-0 flex items-center z-[2] bg-white">
                                         <EdbcFilterToggleButton onClick={() => setShowFilters(!showFilters)} />
-                                        {(selectDate || selectContractororVendorName || selectProjectName || selectType) && (
-                                            <div
-                                                ref={expensesFilterChipsRef}
-                                                className="flex flex-row flex-wrap items-center gap-2 min-w-0 overflow-x-auto no-scrollbar cursor-grab"
-                                                onMouseDown={(e) => handleMouseDown(e, expensesFilterChipsRef)}
-                                                onMouseMove={(e) => handleMouseMove(e, expensesFilterChipsRef)}
-                                                onMouseUp={() => handleMouseUp(expensesFilterChipsRef)}
-                                                onMouseLeave={() => handleMouseUp(expensesFilterChipsRef)}
-                                            >
-                                                {selectDate && (
-                                                    <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                                                        <span className="font-medium text-[#BF9853]">Date: </span>
-                                                        <span className="font-semibold text-[14px]">{formatDateOnly(selectDate)}</span>
-                                                        <button onClick={() => setSelectDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
-                                                    </span>
-                                                )}
-                                                {selectContractororVendorName && (
-                                                    <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                        <span className="font-medium text-[#BF9853]">Associate: </span>
-                                                        <span className="font-semibold text-[14px]">{selectContractororVendorName}</span>
-                                                        <button onClick={() => setSelectContractororVendorName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
-                                                    </span>
-                                                )}
-                                                {selectProjectName && (
-                                                    <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                        <span className="font-medium text-[#BF9853]">Project Name: </span>
-                                                        <span className="font-semibold text-[14px]">{selectProjectName}</span>
-                                                        <button onClick={() => setSelectProjectName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
-                                                    </span>
-                                                )}
-                                                {selectType && (
-                                                    <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
-                                                        <span className="font-medium text-[#BF9853]">Type: </span>
-                                                        <span className="font-semibold text-[14px]">{selectType}</span>
-                                                        <button onClick={() => setSelectType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
                                     </div>
+                                    <div
+                                        ref={expensesFilterChipsRef}
+                                        className="w-0 flex-1 min-w-0 flex flex-row flex-nowrap items-center gap-[6px] overflow-x-auto overflow-y-hidden no-scrollbar cursor-grab"
+                                            onMouseDown={(e) => handleMouseDown(e, expensesFilterChipsRef, true)}
+                                            onMouseMove={(e) => handleMouseMove(e, expensesFilterChipsRef, true)}
+                                            onMouseUp={() => handleMouseUp(expensesFilterChipsRef)}
+                                            onMouseLeave={() => handleMouseUp(expensesFilterChipsRef)}
+                                        >
+                                        {selectDate && (
+                                            <span className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Date: </span>
+                                                <span className="font-semibold text-[14px]">{formatDateOnly(selectDate)}</span>
+                                                <button onClick={() => setSelectDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                            </span>
+                                        )}
+                                        {selectContractororVendorName && (
+                                            <span className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Associate: </span>
+                                                <span className="font-semibold text-[14px]">{selectContractororVendorName}</span>
+                                                <button onClick={() => setSelectContractororVendorName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectProjectName && (
+                                            <span className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Project Name: </span>
+                                                <span className="font-semibold text-[14px]">{selectProjectName}</span>
+                                                <button onClick={() => setSelectProjectName('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        {selectType && (
+                                            <span className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 py-1 text-sm font-medium w-fit">
+                                                <span className="font-medium text-[#BF9853]">Type: </span>
+                                                <span className="font-semibold text-[14px]">{selectType}</span>
+                                                <button onClick={() => setSelectType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                            </span>
+                                        )}
+                                        </div>
                                     <EdbcTableToolbarRightActions
                                         onClearFilters={clearFilters}
                                         overallSearch={overallSearch}
                                         onOverallSearchChange={setOverallSearch}
+                                        wrapperClassName="flex items-center gap-[6px] shrink-0 z-[2] bg-white pl-[4px]"
+                                        searchWrapperClassName="h-[34px] w-[286px] shrink-0 min-w-0 border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1"
                                     />
                                 </div>
                                 <div className="flex flex-col flex-1 min-h-0 w-fit max-w-full rounded-lg border-l-8 border-l-[#BF9853] overflow-hidden">
@@ -3919,11 +4007,11 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                 <thead className="sticky top-0 z-10 bg-white">
                                                     <EdbcTableHeaderRow>
                                                         <EdbcColumnHeader columnId={EDBC_IDS.EDBC21} label={expensesDstCol21Label} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label={expensesDstCol2Label} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC4} label={expensesDstCol4Label} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC3} label={expensesDstCol3Label} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC12} label={expensesDstCol12Label} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={expensesDstCol8Label} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label={expensesDstCol2Label} {...expensesSortProps} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC4} label={expensesDstCol4Label} {...expensesSortProps} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC3} label={expensesDstCol3Label} {...expensesSortProps} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC12} label={expensesDstCol12Label} {...expensesSortProps} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={expensesDstCol8Label} {...expensesSortProps} />
                                                         <th
                                                             id={EDBC_IDS.EDBC20}
                                                             className={`${getEdbcColumnConfig(EDBC_IDS.EDBC20)?.headerClass || ''}`.replace(/\bcursor-pointer\b/g, '').replace(/\bhover:bg-gray-200\b/g, '').replace(/\bselect-none\b/g, '').replace(/\s+/g, ' ').trim() + ' !pr-0'}
@@ -3968,7 +4056,6 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             <EdbcTotalAmountFilter
                                                                 columnId={EDBC_IDS.EDBC8}
                                                                 totalAmount={filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0)}
-                                                                placeholder={expensesDstCol8Label}
                                                             />
                                                             <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
                                                             <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
@@ -3977,7 +4064,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     )}
                                                 </thead>
                                                 <tbody>
-                                                    {[...filteredExpenses].reverse().map((row, index) => (
+                                                    {sortedExpenses.map((row, index) => (
                                                         <EdbcTableBodyRow key={row.id}>
                                                             <td id={EDBC_IDS.EDBC21} className={getEdbcColumnConfig(EDBC_IDS.EDBC21)?.tdClass}>
                                                                 {filteredExpenses.length - index}
@@ -4084,15 +4171,16 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                 <thead className="sticky top-0 z-10 bg-white">
                                                     <EdbcTableHeaderRow>
                                                         <EdbcColumnHeader columnId={EDBC_IDS.EDBC21} label={expensesDstCol21Label} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label={expensesDstCol2Label} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label={expensesDstCol2Label} {...expensesSortProps} />
                                                         <EdbcColumnHeader
                                                             columnId={EDBC_IDS.EDBC4}
                                                             label={expensesAssociateLabel}
+                                                            {...expensesSortProps}
                                                         />
                                                         <th className="w-[30px] min-w-[30px] max-w-[30px] p-0 overflow-visible" aria-hidden="true"></th>
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC3} label={expensesDstCol3Label} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC12} label={expensesDstCol12Label} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={expensesDstCol8Label} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC3} label={expensesDstCol3Label} {...expensesSortProps} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC12} label={expensesDstCol12Label} {...expensesSortProps} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={expensesDstCol8Label} {...expensesSortProps} />
                                                         <th
                                                             id={EDBC_IDS.EDBC20}
                                                             className={`${getEdbcColumnConfig(EDBC_IDS.EDBC20)?.headerClass || ''}`.replace(/\bcursor-pointer\b/g, '').replace(/\bhover:bg-gray-200\b/g, '').replace(/\bselect-none\b/g, '').replace(/\s+/g, ' ').trim() + ' !pr-0'}
@@ -4138,7 +4226,6 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             <EdbcTotalAmountFilter
                                                                 columnId={EDBC_IDS.EDBC8}
                                                                 totalAmount={filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0)}
-                                                                placeholder={expensesDstCol8Label}
                                                             />
                                                             <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
                                                             <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
@@ -4441,7 +4528,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     ) : null}
                                                 </thead>
                                                 <tbody>
-                                                    {[...filteredExpenses].reverse().map((row, index) => (
+                                                    {sortedExpenses.map((row, index) => (
                                                         <EdbcTableBodyRow key={row.id}>
                                                             <td id={EDBC_IDS.EDBC21} className={getEdbcColumnConfig(EDBC_IDS.EDBC21)?.tdClass}>
                                                                 {filteredExpenses.length - index}
@@ -4862,57 +4949,57 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                         )}
                                     </div>
                                 </div>
+                                </div>
                             </div>
                             {!isExpensesEntryUploadOnly && (
-                                <div className="w-fit shrink-0 flex flex-col min-h-0">
+                                <div className="w-fit shrink-0 flex flex-col min-h-0 h-full">
                                     <div className="flex justify-between items-center mb-[8px]">
                                         <h1 className="font-bold text-base">Income</h1>
                                         <h1 className="font-bold text-base" style={{ color: "#E4572E" }}>
                                             ₹{payments.reduce((total, row) => total + Number(row.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </h1>
                                     </div>
-                                    <div className="text-left flex flex-row items-center mb-[12px] gap-[6px] w-full">
-                                        <div className="flex flex-row items-center sm:space-x-3 min-w-0 overflow-hidden">
+                                    <div className="flex flex-col w-fit max-w-full min-h-0 overflow-hidden">
+                                    <div className="mb-[12px] w-full min-w-0 min-h-[34px] shrink-0 flex flex-row flex-nowrap items-center gap-[6px] overflow-hidden">
+                                        <div className="shrink-0 flex items-center z-[2] bg-white">
                                             <EdbcFilterToggleButton onClick={() => setShowPaymentsFilters(!showPaymentsFilters)} />
-                                            {(selectPaymentDate || selectPaymentAmount || selectPaymentType) && (
-                                                <div
-                                                    ref={paymentsFilterChipsRef}
-                                                    className="flex flex-row flex-wrap items-center gap-2 min-w-0 overflow-x-auto no-scrollbar cursor-grab"
-                                                    onMouseDown={(e) => handleMouseDown(e, paymentsFilterChipsRef)}
-                                                    onMouseMove={(e) => handleMouseMove(e, paymentsFilterChipsRef)}
-                                                    onMouseUp={() => handleMouseUp(paymentsFilterChipsRef)}
-                                                    onMouseLeave={() => handleMouseUp(paymentsFilterChipsRef)}
-                                                >
-                                                    {selectPaymentDate && (
-                                                        <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                                                            <span className="font-medium text-[#BF9853]">Date: </span>
-                                                            <span className="font-semibold text-[14px]">{formatDateOnly(selectPaymentDate)}</span>
-                                                            <button onClick={() => setSelectPaymentDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
-                                                        </span>
-                                                    )}
-                                                    {selectPaymentAmount && (
-                                                        <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                                                            <span className="font-medium text-[#BF9853]">Amount: </span>
-                                                            <span className="font-semibold text-[14px]">{selectPaymentAmount}</span>
-                                                            <button onClick={() => setSelectPaymentAmount('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
-                                                        </span>
-                                                    )}
-                                                    {selectPaymentType && (
-                                                        <span className="inline-flex shrink-0 items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
-                                                            <span className="font-medium text-[#BF9853]">Type: </span>
-                                                            <span className="font-semibold text-[14px]">{selectPaymentType}</span>
-                                                            <button onClick={() => setSelectPaymentType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
+                                        <div
+                                            ref={paymentsFilterChipsRef}
+                                            className="w-0 flex-1 min-w-0 flex flex-row flex-nowrap items-center gap-[6px] overflow-x-auto overflow-y-hidden no-scrollbar cursor-grab"
+                                                onMouseDown={(e) => handleMouseDown(e, paymentsFilterChipsRef, true)}
+                                                onMouseMove={(e) => handleMouseMove(e, paymentsFilterChipsRef, true)}
+                                                onMouseUp={() => handleMouseUp(paymentsFilterChipsRef)}
+                                                onMouseLeave={() => handleMouseUp(paymentsFilterChipsRef)}
+                                            >
+                                            {selectPaymentDate && (
+                                                <span className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                    <span className="font-medium text-[#BF9853]">Date: </span>
+                                                    <span className="font-semibold text-[14px]">{formatDateOnly(selectPaymentDate)}</span>
+                                                    <button onClick={() => setSelectPaymentDate('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                                </span>
+                                            )}
+                                            {selectPaymentAmount && (
+                                                <span className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                    <span className="font-medium text-[#BF9853]">Amount: </span>
+                                                    <span className="font-semibold text-[14px]">{selectPaymentAmount}</span>
+                                                    <button onClick={() => setSelectPaymentAmount('')} className="text-[#E4572E] ml-1 text-2xl">×</button>
+                                                </span>
+                                            )}
+                                            {selectPaymentType && (
+                                                <span className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 border text-[#000000] border-[#a1a1a1] h-[34px] rounded px-2 text-sm font-medium w-fit">
+                                                    <span className="font-medium text-[#BF9853]">Type: </span>
+                                                    <span className="font-semibold text-[14px]">{selectPaymentType}</span>
+                                                    <button onClick={() => setSelectPaymentType('')} className="text-[#E4572E] text-2xl ml-1">×</button>
+                                                </span>
+                                            )}
+                                            </div>
                                         <EdbcTableToolbarRightActions
                                             onClearFilters={clearPaymentsFilters}
                                             overallSearch={paymentsOverallSearch}
                                             onOverallSearchChange={setPaymentsOverallSearch}
-                                            wrapperClassName="flex items-end gap-[6px] min-w-0 flex-1 justify-end"
-                                            searchWrapperClassName="h-[34px] min-w-0 w-1/2 border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1"
+                                            wrapperClassName="flex items-center gap-[6px] shrink-0 z-[2] bg-white pl-[4px]"
+                                            searchWrapperClassName="h-[34px] w-[286px] shrink-0 min-w-0 border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1"
                                         />
                                     </div>
                                     <div className="shrink-0">
@@ -4935,9 +5022,9 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
 
                                                 <thead className="sticky top-0 z-[99999] bg-white">
                                                     <EdbcTableHeaderRow>
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label={paymentsDstCol2Label} columnWidthClass={EDBC2_FIRST_COLUMN_WIDTH_CLASS} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC12} label={paymentsDstCol12Label} />
-                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={paymentsDstCol8Label} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC2} label={paymentsDstCol2Label} columnWidthClass={EDBC2_FIRST_COLUMN_WIDTH_CLASS} {...paymentsSortProps} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC12} label={paymentsDstCol12Label} {...paymentsSortProps} />
+                                                        <EdbcColumnHeader columnId={EDBC_IDS.EDBC8} label={paymentsDstCol8Label} {...paymentsSortProps} />
                                                         <EdbcColumnHeader columnId={EDBC_IDS.EDBC20} label={paymentsDstCol20Label} />
                                                     </EdbcTableHeaderRow>
                                                     {showPaymentsFilters && (
@@ -4962,7 +5049,6 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                 totalAmount={payments.reduce((total, row) => total + Number(row.amount || 0), 0)}
                                                                 value={selectPaymentAmount}
                                                                 onChange={(e) => setSelectPaymentAmount(e.target.value)}
-                                                                placeholder={paymentsDstCol8Label}
                                                             />
                                                             <EdbcEmptyFilterCell columnId={EDBC_IDS.EDBC20} />
                                                         </EdbcTableFilterRow>
@@ -5039,28 +5125,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     ) : null}
                                                 </thead>
                                                 <tbody>
-                                                    {payments.map((row, index) => ({ row, index })).filter(({ row }) => {
-                                                        if (paymentsOverallSearch.trim()) {
-                                                            const q = paymentsOverallSearch.toLowerCase().trim();
-                                                            if (
-                                                                !String(row.type || '').toLowerCase().includes(q) &&
-                                                                !String(row.amount || '').includes(q) &&
-                                                                !String(formatDateOnly(row.date) || '').toLowerCase().includes(q)
-                                                            ) {
-                                                                return false;
-                                                            }
-                                                        }
-                                                        if (selectPaymentDate) {
-                                                            const [year, month, day] = selectPaymentDate.split("-");
-                                                            const formattedSelectDate = `${parseInt(day)}-${parseInt(month)}-${year}`;
-                                                            const entryDateObj = new Date(row.date);
-                                                            const formattedEntryDate = `${entryDateObj.getDate()}-${entryDateObj.getMonth() + 1}-${entryDateObj.getFullYear()}`;
-                                                            if (formattedEntryDate !== formattedSelectDate) return false;
-                                                        }
-                                                        if (selectPaymentAmount && !matchesEdbcAmountFilter(row.amount, selectPaymentAmount)) return false;
-                                                        if (selectPaymentType && String(row.type || '').toLowerCase() !== selectPaymentType.toLowerCase()) return false;
-                                                        return true;
-                                                    }).map(({ row, index }) => (
+                                                    {sortedPayments.map((row, index) => (
                                                         <EdbcTableBodyRow key={row.id || index}>
                                                             {editingPaymentId === (row.id || null) ? (
                                                                 <td id={EDBC_IDS.EDBC2} className={`${EDBC2_FIRST_COLUMN_WIDTH_CLASS} pr-[1px] text-left`}>
@@ -5205,6 +5270,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                             </table>
                                         </div>
                                     </div>
+                                    </div>
                                     <div className="mt-[12px] flex-1 min-h-0 rounded-xl bg-white px-[18px] py-[12px] border border-[#E6DAC6] text-left overflow-hidden">
                                         <div className="flex flex-col h-full min-h-0">
                                             <div className="flex items-center justify-between rounded-lg mb-[4px]">
@@ -5323,8 +5389,8 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     placeholder="Date"
                                                     alwaysOpenBelow
                                                     calendarPortal
-                                                    controlHeightPx={EDBC_FILTER_CONTROL_HEIGHT_PX}
-                                                    className={` [&>div]:!w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] ${paymentPopupData.date ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
+                                                    controlHeightPx={40}
+                                                    className={` [&>div]:!w-full [&>div]:!h-[40px] [&>div]:!min-h-[40px] [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] ${paymentPopupData.date ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
                                                 />
                                             </div>
                                             <div>
@@ -5334,7 +5400,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     value={paymentPopupData.amount}
                                                     onChange={(e) => setPaymentPopupData(prev => ({ ...prev, amount: e.target.value }))}
                                                     placeholder="Amount"
-                                                    className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none no-spinner"
+                                                    className="border-2 border-[#BF9853] border-opacity-25 h-[40px] box-border px-2 rounded-lg w-full focus:outline-none no-spinner"
                                                 />
                                             </div>
                                             <div>
@@ -5357,6 +5423,12 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                     styles={{
                                                         ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                        control: (provided, state) => ({
+                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES.control(provided, state),
+                                                            minHeight: '40px',
+                                                            height: '40px',
+                                                            maxHeight: '40px',
+                                                        }),
                                                         menu: (provided) => ({
                                                             ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
                                                             zIndex: 10050,
@@ -5382,7 +5454,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             value={paymentPopupData.chequeNo}
                                                             onChange={(e) => setPaymentPopupData(prev => ({ ...prev, chequeNo: e.target.value }))}
                                                             placeholder="Cheque No"
-                                                            className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none"
+                                                            className="border-2 border-[#BF9853] border-opacity-25 h-[40px] box-border px-2 rounded-lg w-full focus:outline-none"
                                                         />
                                                     </div>
                                                     <div>
@@ -5393,8 +5465,8 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             placeholder="Cheque Date"
                                                             alwaysOpenBelow
                                                             calendarPortal
-                                                            controlHeightPx={EDBC_FILTER_CONTROL_HEIGHT_PX}
-                                                            className={` [&>div]:!w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] [&>div:hover]:!border-[rgba(191,152,83,0.4)] ${paymentPopupData.chequeDate ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
+                                                            controlHeightPx={40}
+                                                            className={` [&>div]:!w-full [&>div]:!h-[40px] [&>div]:!min-h-[40px] [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] [&>div:hover]:!border-[rgba(191,152,83,0.4)] ${paymentPopupData.chequeDate ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
                                                         />
                                                     </div>
                                                 </div>
@@ -5407,7 +5479,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                         value={paymentPopupData.transactionNumber}
                                                         onChange={(e) => setPaymentPopupData(prev => ({ ...prev, transactionNumber: e.target.value }))}
                                                         placeholder="Transaction Number"
-                                                        className="border-2 border-[#BF9853] border-opacity-25 p-2 rounded-lg w-full focus:outline-none"
+                                                        className="border-2 border-[#BF9853] border-opacity-25 h-[40px] box-border px-2 rounded-lg w-full focus:outline-none"
                                                     />
                                                 </div>
                                                 <div>
@@ -5428,6 +5500,12 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                         classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                         styles={{
                                                             ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                            control: (provided, state) => ({
+                                                                ...DATABASE_TABLE_FILTER_SELECT_STYLES.control(provided, state),
+                                                                minHeight: '40px',
+                                                                height: '40px',
+                                                                maxHeight: '40px',
+                                                            }),
                                                             menu: (provided) => ({
                                                                 ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
                                                                 zIndex: 10050,
@@ -5443,7 +5521,6 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                             </div>
                                         </div>
                                     </div>
-                                </div>
                                 {previousPayments.length > 0 && (
                                     <div>
                                         <h4 className="text-md font-semibold text-black  ml-20">Previous Payments: {previousPayments.length} </h4>
@@ -5765,6 +5842,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                 )}
                             </div>
                         </div>
+                    </div>
                     )}
                     {showPopups && (currentRow?.type === "Project Advance" || currentRow?.type === "Bill Payment") && (
                         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">

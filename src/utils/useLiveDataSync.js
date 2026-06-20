@@ -16,9 +16,7 @@ export const useLiveDataSync = (syncFn, isPaused = false) => {
     useEffect(() => {
         const intervalId = setInterval(() => {
             if (pauseRef.current) return;
-            Promise.resolve(syncRef.current()).catch((error) => {
-                console.error('Live data sync failed:', error);
-            });
+            void syncRef.current();
         }, LIVE_DATA_SYNC_MS);
 
         return () => clearInterval(intervalId);

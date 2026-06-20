@@ -293,46 +293,46 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
 
       <div className="mb-[8px] flex items-center justify-between border-b border-gray-200 pt-[4px] pb-[8px]">
 
-  {/* LEFT SIDE */}
-  <div className="flex items-center gap-[8px]">
-    <button
-      type="button"
-      className="text-[12px] font-semibold text-black leading-normal p-0 border-0 bg-transparent"
-    >
-      #{currentWeek.label}
-    </button>
-  </div>
+        {/* LEFT SIDE */}
+        <div className="flex items-center gap-[8px]">
+          <button
+            type="button"
+            className="text-[12px] font-semibold text-black leading-normal p-0 border-0 bg-transparent"
+          >
+            #{currentWeek.label}
+          </button>
+        </div>
 
-  {/* RIGHT SIDE */}
-  <div className="flex items-center gap-[8px]">
-    <button
-      type="button"
-      onClick={() => setShowTypeModal(true)}
-      className="text-[12px] font-semibold text-black leading-normal p-0 border-0 bg-transparent"
-    >
-      {typeFilter || 'Type'}
-    </button>
+        {/* RIGHT SIDE */}
+        <div className="flex items-center gap-[8px]">
+          <button
+            type="button"
+            onClick={() => setShowTypeModal(true)}
+            className="text-[12px] font-semibold text-black leading-normal p-0 border-0 bg-transparent"
+          >
+            {typeFilter || 'Type'}
+          </button>
 
-    {typeFilter && (
-      <button
-        type="button"
-        onClick={() => setTypeFilter('')}
-        className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full"
-      >
-        <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
-      </button>
-    )}
+          {typeFilter && (
+            <button
+              type="button"
+              onClick={() => setTypeFilter('')}
+              className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full"
+            >
+              <img src={CloseIcon} alt="Close" className="w-[12px] h-[12px]" />
+            </button>
+          )}
 
-    <button
-      type="button"
-      onClick={handleDownload}
-      className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full"
-    >
-      <img src={Download} alt="Download" className="w-4 h-4" />
-    </button>
-  </div>
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="w-4 h-4 flex items-center justify-center hover:bg-gray-100 rounded-full"
+          >
+            <img src={Download} alt="Download" className="w-4 h-4" />
+          </button>
+        </div>
 
-</div>
+      </div>
 
       <div className="flex-shrink-0">
         <div className="flex items-center justify-between gap-[20px]">
@@ -347,7 +347,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
                 <span className="text-[13px] font-semibold flex-shrink-0 text-[#9E9E9E]">Filter</span>
               ) : null}
             </button>
-
             <div
               className="flex items-center gap-[4px] overflow-x-auto no-scrollbar scrollbar-none min-w-0 scrollbar-hide"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -366,7 +365,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
                   </button>
                 </div>
               ) : null}
-
               {entryNoFilter ? (
                 <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Entry. No</span>
@@ -381,7 +379,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
                   </button>
                 </div>
               ) : null}
-
               {purposeFilter ? (
                 <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Purpose</span>
@@ -396,7 +393,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
                   </button>
                 </div>
               ) : null}
-
               {paymentModeFilter ? (
                 <div className="flex items-center border px-[6px] py-[2px] rounded-full flex-shrink-0">
                   <span className="text-[11px] font-medium text-black">Mode</span>
@@ -413,7 +409,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
               ) : null}
             </div>
           </div>
-
           {personFilter || entryNoFilter || purposeFilter || paymentModeFilter ? (
             <button
               type="button"
@@ -430,7 +425,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
           ) : null}
         </div>
       </div>
-
       <div className="overflow-y-auto no-scrollbar scrollbar-none scrollbar-hide mt-1 max-h-[calc(100vh-160px-80px)] pb-[105px]">
         {filteredRecords.length ? (
           <div className="space-y-[8px]">
@@ -456,7 +450,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
           </div>
         )}
       </div>
-
       {showFilterModal ? (
         <div
           className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/40"
@@ -478,7 +471,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
                 </svg>
               </button>
             </div>
-
             <div className="grid grid-cols-[2fr_1fr] gap-[16px] mb-3">
               <div>
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Employee</p>
@@ -510,7 +502,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
                   </div>
                 </div>
               </div>
-
               <div>
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Entry. No</p>
                 <div className="relative">
@@ -541,7 +532,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
                   </div>
                 </div>
               </div>
-
               <div>
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Purpose</p>
                 <div className="relative">
@@ -572,7 +562,6 @@ const History = ({ records, peopleOptions, purposeOptions, paymentModeOptions = 
                   </div>
                 </div>
               </div>
-
               <div>
                 <p className="text-[12px] font-semibold text-black leading-normal mb-0.5">Mode</p>
                 <div className="relative">

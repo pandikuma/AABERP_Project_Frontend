@@ -38,7 +38,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from 'xlsx';
 import { useLiveDataSync } from '../../utils/useLiveDataSync';
 
-const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
+const DailyHistory = ({ username, userRoles = [], onExportActionsReady, isTabActive = true }) => {
     const resolveActiveBranchId = () => {
         try {
             const selectedBranchId = localStorage.getItem("selectedBranchId");
@@ -84,10 +84,16 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
         return () => window.removeEventListener("branchSelectionChanged", syncBranch);
     }, []);
     const [selectedWeek, setSelectedWeek] = useState("");
+    useEffect(() => {
+        selectedWeekRef.current = selectedWeek;
+    }, [selectedWeek]);
     const [weeks, setWeeks] = useState([]);
     const [lastWeekWithData, setLastWeekWithData] = useState(null);
     /** Tracks branch+year for the last fetchWeeks run — used to reset the week dropdown when branch/year changes. */
     const prevWeeksContextKeyRef = useRef(null);
+    const skipWeekChangeLoadRef = useRef(false);
+    const weekTableLoadTokenRef = useRef(0);
+    const selectedWeekRef = useRef("");
     const [selectedDate, setSelectedDate] = useState(null);
     const [dailyExpenses, setDailyExpenses] = useState([]);
     const [refundPayments, setRefundPayments] = useState([]);
@@ -400,22 +406,89 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
         }, null);
     };
 
+    const computeLastEditableWeek = (branchPayments) => {
+        const now = new Date();
+        const currentWeekNumber = getISOWeekNumber(now);
+        const currentWeekYear = getWeekYear(now);
+        const hasCurrentWeekTrue = branchPayments.some((payment) => {
+            if (payment?.status !== true) return false;
+            const wn = Number(payment.weekly_number);
+            if (!Number.isFinite(wn) || wn !== currentWeekNumber) return false;
+            return getIsoYearFromRowDate(payment) === currentWeekYear;
+        });
+        if (hasCurrentWeekTrue) {
+            return { weekNumber: currentWeekNumber, year: currentWeekYear };
+        }
+        const latest = getLatestStatusTrueWeekFromPayments(branchPayments);
+        if (latest) return latest;
+        const { startDate } = getStartAndEndDateOfISOWeek(currentWeekNumber, currentWeekYear);
+        const prevDate = new Date(startDate);
+        prevDate.setDate(prevDate.getDate() - 1);
+        return {
+            weekNumber: getISOWeekNumber(prevDate),
+            year: getWeekYear(prevDate),
+        };
+    };
+
+    const loadWeekAndFirstDayData = useCallback(async (weekInfo, selectedYear, loadToken) => {
+        if (!weekInfo) return;
+        const selectedWeekNum = Number(weekInfo.number);
+        const defaultDate = weekInfo.start;
+        const requestWeek = String(selectedWeekNum);
+        try {
+            const [expensesRes, paymentsRes, dailyRes, refundRes] = await Promise.all([
+                axios.get(`https://backendaab.in/demoAabuildersDash/api/weekly-expenses/week/${requestWeek}`, withBranchParams()),
+                axios.get(`https://backendaab.in/demoAabuildersDash/api/payments-received/week/${requestWeek}`, withBranchParams()),
+                axios.get(`https://backendaab.in/demoAabuildersDash/api/daily-payments/date/${defaultDate}`, withBranchParams()),
+                axios.get(`https://backendaab.in/demoAabuildersDash/api/refund_received/date/${defaultDate}`, withBranchParams()),
+            ]);
+            if (loadToken !== weekTableLoadTokenRef.current) return;
+
+            const filteredExpenses = expensesRes.data.filter((expense) => {
+                if (!isRowForActiveBranch(expense)) return false;
+                if (expense.status !== true) return false;
+                const wn = Number(expense.weekly_number);
+                if (!Number.isFinite(wn) || wn !== selectedWeekNum) return false;
+                return getIsoYearFromRowDate(expense) === selectedYear;
+            });
+
+            const filteredPayments = paymentsRes.data.filter((payment) => {
+                if (!isRowForActiveBranch(payment)) return false;
+                if (payment.status !== true) return false;
+                const wn = Number(payment.weekly_number);
+                if (!Number.isFinite(wn) || wn !== selectedWeekNum) return false;
+                if (getIsoYearFromRowDate(payment) !== selectedYear) return false;
+                return payment.type !== "Handover";
+            });
+
+            setExpenses(filteredExpenses);
+            setPayments(filteredPayments);
+            setSelectedDate(defaultDate);
+            setNewRefundReceived((prev) => ({ ...prev, date: defaultDate }));
+            setDailyExpenses(dailyRes.data);
+            setRefundPayments(refundRes.data);
+        } catch (error) {
+            console.error("Error loading week and daily data:", error);
+        }
+    }, [withBranchParams, isRowForActiveBranch]);
+
     useEffect(() => {
         const fetchWeeks = async () => {
             const selectedYear = parseInt(year, 10);
             const requestBranchId = activeBranchId;
             const requestYearNum = selectedYear;
             const requestKey = `${requestBranchId ?? "none"}-${requestYearNum}`;
+            const loadToken = ++weekTableLoadTokenRef.current;
             try {
                 const currentWeekNumber = getCurrentISOWeekNumber();
                 const currentWeekYear = getCurrentWeekYear();
 
-                // Fetch all payments to determine which weeks have data (branch-scoped rows only)
+                let branchPayments = [];
                 let weeksWithData = new Set();
                 try {
                     const paymentsResponse = await axios.get('https://backendaab.in/demoAabuildersDash/api/payments-received/getAll', withBranchParams());
-                    (Array.isArray(paymentsResponse.data) ? paymentsResponse.data : []).forEach((payment) => {
-                        if (!isRowForActiveBranch(payment)) return;
+                    branchPayments = (Array.isArray(paymentsResponse.data) ? paymentsResponse.data : []).filter(isRowForActiveBranch);
+                    branchPayments.forEach((payment) => {
                         if (payment?.status !== true) return;
                         const wn = Number(payment.weekly_number);
                         if (!Number.isFinite(wn)) return;
@@ -428,12 +501,10 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
                     console.error('Error fetching payments for week filtering:', error);
                 }
 
-                // Ignore stale responses if branch/year changed while the request was in flight
                 if (requestBranchId !== activeBranchId || requestYearNum !== parseInt(year, 10)) {
                     return;
                 }
 
-                // Get all possible weeks for the year (1-53)
                 const allWeeks = [];
                 for (let weekNum = 1; weekNum <= 53; weekNum++) {
                     const weekInfo = getStartAndEndDateOfWeek(weekNum, selectedYear);
@@ -441,7 +512,6 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
                     const weekYear = getWeekYear(weekStartDate);
                     const hasData = weeksWithData.has(weekNum);
                     const isCurrentWeek = (selectedYear === currentWeekYear && weekNum === currentWeekNumber);
-                    // Only include weeks up to current week (no future weeks). Keep weeks that already have data.
                     if (hasData || (weekYear === selectedYear && isCurrentWeek)) {
                         allWeeks.push(weekInfo);
                     }
@@ -461,69 +531,50 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
 
                 setLastWeekWithData(lastWeekWithDataValue);
                 setWeeks(allWeeks);
+                setLastEditableWeek(computeLastEditableWeek(branchPayments));
 
-                setSelectedWeek((prev) => {
-                    if (allWeeks.length === 0 || defaultWeekNum == null) return "";
+                let weekToSelect = "";
+                if (allWeeks.length > 0 && defaultWeekNum != null) {
+                    weekToSelect = String(defaultWeekNum);
+                }
+
+                let resolvedWeekStr = weekToSelect;
+                if (weekToSelect) {
+                    const prev = selectedWeekRef.current;
                     const prevNum = prev !== "" && prev != null ? Number(prev) : NaN;
                     const prevInList = !Number.isNaN(prevNum) && allWeeks.some((w) => w.number === prevNum);
-                    if (contextChanged) return String(defaultWeekNum);
-                    if (!prev || prev === "" || !prevInList) return String(defaultWeekNum);
-                    return prev;
-                });
+                    if (!contextChanged && prev && prev !== "" && prevInList) {
+                        resolvedWeekStr = prev;
+                    }
+                } else {
+                    resolvedWeekStr = "";
+                }
+                setSelectedWeek(resolvedWeekStr);
+
+                const weekInfo = allWeeks.find((w) => w.number === Number(resolvedWeekStr));
+                if (weekInfo) {
+                    skipWeekChangeLoadRef.current = true;
+                    await loadWeekAndFirstDayData(weekInfo, selectedYear, loadToken);
+                }
             } catch (error) {
                 console.error('Error fetching active weeks:', error);
             }
         };
         fetchWeeks();
-    }, [year, activeBranchId, withBranchParams, isRowForActiveBranch]);
-    // Find the most recent week (across all years) that has data with status === true
+    }, [year, activeBranchId, withBranchParams, isRowForActiveBranch, loadWeekAndFirstDayData]);
+
     useEffect(() => {
-        const computeEditableWeek = async () => {
-            try {
-                const now = new Date();
-                const currentWeekNumber = getISOWeekNumber(now);
-                const currentWeekYear = getWeekYear(now);
-                const paymentsResponse = await axios.get('https://backendaab.in/demoAabuildersDash/api/payments-received/getAll', withBranchParams());
-                const data = (Array.isArray(paymentsResponse.data) ? paymentsResponse.data : []).filter(isRowForActiveBranch);
-                const hasCurrentWeekTrue = data.some((payment) => {
-                    if (payment?.status !== true) return false;
-                    const wn = Number(payment.weekly_number);
-                    if (!Number.isFinite(wn) || wn !== currentWeekNumber) return false;
-                    return getIsoYearFromRowDate(payment) === currentWeekYear;
-                });
-                if (hasCurrentWeekTrue) {
-                    setLastEditableWeek({ weekNumber: currentWeekNumber, year: currentWeekYear });
-                } else {
-                    const latest = getLatestStatusTrueWeekFromPayments(data);
-                    if (latest) {
-                        setLastEditableWeek(latest);
-                    } else {
-                        const { startDate } = getStartAndEndDateOfISOWeek(currentWeekNumber, currentWeekYear);
-                        const prevDate = new Date(startDate);
-                        prevDate.setDate(prevDate.getDate() - 1);
-                        setLastEditableWeek({
-                            weekNumber: getISOWeekNumber(prevDate),
-                            year: getWeekYear(prevDate),
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error('Error computing editable week:', error);
-                // Fallback to previous ISO week if request fails
-                const now = new Date();
-                const currentWeekNumber = getISOWeekNumber(now);
-                const currentWeekYear = getWeekYear(now);
-                const { startDate } = getStartAndEndDateOfISOWeek(currentWeekNumber, currentWeekYear);
-                const prevDate = new Date(startDate);
-                prevDate.setDate(prevDate.getDate() - 1);
-                setLastEditableWeek({
-                    weekNumber: getISOWeekNumber(prevDate),
-                    year: getWeekYear(prevDate),
-                });
-            }
-        };
-        computeEditableWeek();
-    }, [activeBranchId, withBranchParams, isRowForActiveBranch]); // Recompute when branch changes
+        if (!selectedWeek) return;
+        if (skipWeekChangeLoadRef.current) {
+            skipWeekChangeLoadRef.current = false;
+            return;
+        }
+        const weekInfo = weeks.find((w) => w.number === Number(selectedWeek));
+        if (!weekInfo) return;
+        const loadToken = ++weekTableLoadTokenRef.current;
+        void loadWeekAndFirstDayData(weekInfo, parseInt(year, 10), loadToken);
+    }, [selectedWeek, year, weeks, loadWeekAndFirstDayData]);
+
     const refreshWeekTableData = useCallback(async () => {
         if (!selectedWeek) return;
         try {
@@ -561,9 +612,6 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
             console.error("Error fetching weekly data:", error);
         }
     }, [selectedWeek, year, withBranchParams, isRowForActiveBranch]);
-    useEffect(() => {
-        void refreshWeekTableData();
-    }, [refreshWeekTableData]);
     useEffect(() => {
         fetchLaboursList();
         fetchSites();
@@ -803,31 +851,6 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
         return days;
     };
     const weekDays = getWeekDays();
-    useEffect(() => {
-        if (weekDays.length > 0) {
-            // Always set the first day of the selected week as default
-            const defaultDate = weekDays[0].toISOString().split("T")[0];
-            setSelectedDate(defaultDate);
-            setNewRefundReceived((prev) => ({ ...prev, date: defaultDate }));
-            // Fetch data for the first day of the week
-            const fetchDataForDate = async (dateStr) => {
-                try {
-                    const [dailyRes, refundRes] = await Promise.all([
-                        axios.get(`https://backendaab.in/demoAabuildersDash/api/daily-payments/date/${dateStr}`, withBranchParams()),
-                        axios.get(`https://backendaab.in/demoAabuildersDash/api/refund_received/date/${dateStr}`, withBranchParams())
-                    ]);
-                    setDailyExpenses(dailyRes.data);
-                    setRefundPayments(refundRes.data);
-                } catch (error) {
-                    console.error("Error fetching data:", error);
-                    setDailyExpenses([]);
-                    setRefundPayments([]);
-                }
-            };
-
-            fetchDataForDate(defaultDate);
-        }
-    }, [currentWeek, withBranchParams]);
     const formatDate = (date) =>
         date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
     const handleDateClick = async (dateStr) => {
@@ -847,10 +870,6 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
             setRefundPayments([]);
         }
     };
-    useEffect(() => {
-        if (!selectedDate) return;
-        handleDateClick(selectedDate);
-    }, [activeBranchId]);
     const customStyles = {
         control: (provided, state) => ({
             ...provided,
@@ -964,7 +983,8 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
             showPurposePopup ||
             sendingToExpensesEntry ||
             fileUploadPopup ||
-            showPopups
+            showPopups ||
+            !isTabActive
         )
     );
     const getLastEntryNumber = async () => {
@@ -3445,7 +3465,6 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
                                                         <EdbcTotalAmountFilter
                                                             columnId={EDBC_IDS.EDBC8}
                                                             totalAmount={filteredExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0)}
-                                                            placeholder={expensesDstCol8Label}
                                                         />
                                                         <th className="w-4 min-w-4 max-w-4 p-0 overflow-visible"></th>
                                                         <th className="pl-[6px] w-[66px]"></th>
@@ -3702,7 +3721,7 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
                                                             </td>
                                                             <td className="w-4 min-w-4 max-w-4 p-0 overflow-visible"></td>
                                                             <td id={EDBC_IDS.EDBC3} className={getEdbcColumnConfig(EDBC_IDS.EDBC3)?.tdClass}>
-                                                                <div className="w-[220px] h-[40px] flex items-center">
+                                                                <div className={`${getEdbcColumnConfig(EDBC_IDS.EDBC3)?.filterWidthClass || ''} h-[40px] flex items-center min-w-0`}>
                                                                     {editingDailyExpenseRowId === row.id && canEditSelectedWeek ? (
                                                                         <Select
                                                                             name="project"
@@ -3715,14 +3734,19 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
                                                                             }}
                                                                             options={siteOptions}
                                                                             menuPortalTarget={document.body}
-                                                                            className="w-[220px]"
+                                                                            className={getEdbcColumnConfig(EDBC_IDS.EDBC3)?.filterWidthClass || 'w-full'}
                                                                             placeholder={expensesDstCol3Label}
                                                                             isSearchable
                                                                             isClearable
                                                                             styles={customStyles}
                                                                         />
                                                                     ) : (
-                                                                        siteOptions.find(opt => opt.id === Number(row.project_id))?.label || ""
+                                                                        <span
+                                                                            className="block w-full truncate whitespace-nowrap overflow-hidden"
+                                                                            title={siteOptions.find(opt => opt.id === Number(row.project_id))?.label || ""}
+                                                                        >
+                                                                            {siteOptions.find(opt => opt.id === Number(row.project_id))?.label || ""}
+                                                                        </span>
                                                                     )}
                                                                 </div>
                                                             </td>
@@ -3952,7 +3976,6 @@ const DailyHistory = ({ username, userRoles = [], onExportActionsReady }) => {
                                                         <EdbcTotalAmountFilter
                                                             columnId={EDBC_IDS.EDBC8}
                                                             totalAmount={filteredRefundPayments.reduce((total, row) => total + Number(row.amount || 0), 0)}
-                                                            placeholder={refundDstCol8Label}
                                                             value={selectRefundAmount}
                                                             onChange={(e) => setSelectRefundAmount(e.target.value)}
                                                         />
