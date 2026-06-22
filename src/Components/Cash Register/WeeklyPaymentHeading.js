@@ -7,7 +7,7 @@ import HandoverPaymentsPage from './WeeklyPaymentHandover';
 import DailyPayment from './DailyPayment';
 import WeeklyPaymentAddInput from './WeeklyPaymentAddInput';
 import DailyHistory from './DailyHistory';
-import download from '../Images/file_download.png';
+import PdfIcon from '../Images/pdf.png';
 import XL from '../Images/sheets.png';
 const WHeading = ({ username, userRoles = [] }) => {
     const [activeTab, setActiveTab] = useState(
@@ -69,6 +69,7 @@ const WHeading = ({ username, userRoles = [] }) => {
             setExportMenuPosition({
                 top: rect.bottom + 4,
                 right: window.innerWidth - rect.right,
+                width: rect.width,
             });
         };
         updatePosition();
@@ -124,8 +125,8 @@ const WHeading = ({ username, userRoles = [] }) => {
                         {showExportDropdown && exportMenuPosition && createPortal(
                             <div
                                 ref={exportMenuRef}
-                                className="fixed z-[9999] bg-white border border-[#D6D6D6] rounded-md shadow-lg py-1 min-w-[120px]"
-                                style={{ top: exportMenuPosition.top, right: exportMenuPosition.right }}
+                                className="fixed z-[9999] bg-white border border-[#D6D6D6] rounded-md shadow-lg py-1"
+                                style={{ top: exportMenuPosition.top, right: exportMenuPosition.right, width: exportMenuPosition.width }}
                             >
                                 <button
                                     type="button"
@@ -144,7 +145,7 @@ const WHeading = ({ username, userRoles = [] }) => {
                                     }}
                                 >
                                     PDF
-                                    <img className="w-6 h-5" src={download} alt="Download" />
+                                    <img className="w-4 h-4" src={PdfIcon} alt="Pdf" />
                                 </button>
                                 <button
                                     type="button"

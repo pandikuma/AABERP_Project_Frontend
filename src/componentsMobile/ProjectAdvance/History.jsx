@@ -191,32 +191,44 @@ const History = ({ onVendorClick, user } = {}) => {
     editDeleteExpandedIdRef.current = editDeleteExpandedId;
   }, [editDeleteExpandedId]);
 
-  const formatDateTime = (dateTimeString) => {
-    if (!dateTimeString) return '';
+  const formatRelativeDateLabel = (input) => {
+    if (!input) return '';
     try {
-      const date = new Date(dateTimeString);
+      const d = new Date(input);
+      if (Number.isNaN(d.getTime())) return '';
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
-      const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      let hours = date.getHours();
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12 || 12;
-      const timeStr = `${hours}:${minutes} ${ampm}`;
-      if (dateOnly.getTime() === today.getTime()) {
-        return `Today • ${timeStr}`;
-      } else if (dateOnly.getTime() === yesterday.getTime()) {
-        return `Yesterday • ${timeStr}`;
-      } else {
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year} • ${timeStr}`;
-      }
+      const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      if (dateOnly.getTime() === today.getTime()) return 'Today';
+      if (dateOnly.getTime() === yesterday.getTime()) return 'Yesterday';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
     } catch {
       return '';
+    }
+  };
+
+  const formatDateTimeParts = (timestamp) => {
+    if (!timestamp) return { date: '', time: '', dateTime: '' };
+    try {
+      const d = new Date(timestamp);
+      if (Number.isNaN(d.getTime())) return { date: '', time: '', dateTime: '' };
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const formattedDate = `${day}/${month}/${year}`;
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      const formattedTime = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+      return { date: formattedDate, time: formattedTime, dateTime: `${formattedDate} • ${formattedTime}` };
+    } catch {
+      return { date: '', time: '', dateTime: '' };
     }
   };
 
@@ -338,9 +350,20 @@ const History = ({ onVendorClick, user } = {}) => {
           amount = parseFloat(entry.amount) || 0;
         }
 
-        const dateStr = entry.timestamp || entry.createdAt || entry.created_at || '';
+        const recordDate = entry.date || '';
+        const recordTimestamp =
+          entry.created_date_time ||
+          entry.createdAt ||
+          entry.created_at ||
+          entry.timestamp ||
+          entry.date ||
+          '';
         const entryNo = entry.entry_no || 0;
-        const year = dateStr ? new Date(dateStr).getFullYear() : new Date().getFullYear();
+        const year = recordDate
+          ? new Date(recordDate).getFullYear()
+          : recordTimestamp
+            ? new Date(recordTimestamp).getFullYear()
+            : new Date().getFullYear();
         let prefix = 'AD';
         if (t === 'Bill Settlement') {
           prefix = 'BS';
@@ -362,7 +385,9 @@ const History = ({ onVendorClick, user } = {}) => {
           entityName,
           projectName,
           transferSiteName,
-          timestamp: dateStr,
+          recordDate,
+          recordTimestamp,
+          timestamp: recordTimestamp,
           type: t || 'Advance',
           paymentMode: entry.payment_mode || '',
           amount,
@@ -1393,10 +1418,18 @@ const History = ({ onVendorClick, user } = {}) => {
                           </p>
                         )}
                       </div>
-                      {/* Row 4: timestamp and bill_amount (or transfer site) */}
+                      {/* Row 4: date + timestamp and bill_amount (or transfer site) */}
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-medium text-[#777777] leading-snug">
-                          {formatDateTime(item.timestamp)}
+                        <span className="text-[11px] leading-normal min-w-0 flex-1 flex items-center flex-wrap gap-x-[4px]">
+                          <span className="font-bold text-black">
+                            {formatRelativeDateLabel(item.recordDate || item.recordTimestamp)}
+                          </span>
+                          {(() => {
+                            const { dateTime } = formatDateTimeParts(item.recordTimestamp);
+                            return dateTime ? (
+                              <span className="font-semibold text-[#9E9E9E]"> • {dateTime}</span>
+                            ) : null;
+                          })()}
                         </span>
                         {item.type === 'Transfer' && item.transferSiteName ? (
                           <p className={`text-[10px] font-semibold leading-snug ${item.amount < 0 ? 'text-[#BF9853]' : 'text-[#007233]'}`}>

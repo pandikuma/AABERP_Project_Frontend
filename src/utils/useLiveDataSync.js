@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-export const LIVE_DATA_SYNC_MS = 10000;
+export const LIVE_DATA_SYNC_MS = 20000;
 
 /**
  * Silently refetches table data on an interval without reloading the page.

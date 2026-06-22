@@ -71,6 +71,19 @@ const entryRowSelectMenuListStyle = (provided) => ({
     overflowX: 'hidden',
 });
 
+const CASH_REGISTER_SELECT_STYLES = {
+    ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+    clearIndicator: (provided) => ({
+        ...DATABASE_TABLE_FILTER_SELECT_STYLES.clearIndicator(provided),
+        color: '#000000',
+    }),
+    dropdownIndicator: (provided, state) => ({
+        ...DATABASE_TABLE_FILTER_SELECT_STYLES.dropdownIndicator(provided),
+        color: '#000000',
+        display: state.hasValue && state.selectProps.isClearable ? 'none' : 'flex',
+    }),
+};
+
 const WEEKLY_SUMMARY_FILE_API = 'https://backendaab.in/demoAabuildersDash/api/weekly_summary';
 
 const WEEKLY_PAYMENT_EDBC8_TABLE_CLASS =
@@ -3801,7 +3814,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                     }),
                                     dropdownIndicator: (provided, state) => ({
                                         ...provided,
-                                        display: state.hasValue ? 'none' : 'flex',
+                                        display: state.hasValue && state.selectProps.isClearable ? 'none' : 'flex',
                                         color: '#000000',
                                         flexShrink: 0,
                                     }),
@@ -3863,7 +3876,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                 );
                             })()}
                             {!isExpensesEntryUploadOnly && (
-                                <div className="flex items-center space-x-3 flex-wrap justify-end pr-[18px]">
+                                <div className="flex items-center space-x-3 flex-wrap justify-end pl-[18px] pr-[18px]">
                                     {!selectedWeek && (
                                         <span className="text-xs text-gray-500">Select a week</span>
                                     )}
@@ -4401,9 +4414,9 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                         menuPosition="fixed"
                                                                         classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                                         styles={{
-                                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                                            ...CASH_REGISTER_SELECT_STYLES,
                                                                             menu: (provided) => ({
-                                                                                ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
+                                                                                ...CASH_REGISTER_SELECT_STYLES.menu(provided),
                                                                                 zIndex: 10050,
                                                                             }),
                                                                             menuList: (provided) => ({
@@ -4459,9 +4472,9 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                         menuPosition="fixed"
                                                                         classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                                         styles={{
-                                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                                            ...CASH_REGISTER_SELECT_STYLES,
                                                                             menu: (provided) => ({
-                                                                                ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
+                                                                                ...CASH_REGISTER_SELECT_STYLES.menu(provided),
                                                                                 zIndex: 10050,
                                                                             }),
                                                                             menuList: entryRowSelectMenuListStyle,
@@ -4491,9 +4504,9 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                         menuPosition="fixed"
                                                                         classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                                         styles={{
-                                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                                            ...CASH_REGISTER_SELECT_STYLES,
                                                                             menu: (provided) => ({
-                                                                                ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
+                                                                                ...CASH_REGISTER_SELECT_STYLES.menu(provided),
                                                                                 zIndex: 10050,
                                                                             }),
                                                                             menuList: entryRowSelectMenuListStyle,
@@ -4535,14 +4548,16 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             </td>
                                                             {editingRowId === row.id ? (
                                                                 <td id={EDBC_IDS.EDBC2} className={getEdbcColumnConfig(EDBC_IDS.EDBC2)?.tdClass}>
-                                                                    <input
-                                                                        type="date"
-                                                                        name="date"
-                                                                        className="p-1 rounded-md bg-transparent w-full box-border border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none"
-                                                                        value={row.date}
-                                                                        onChange={(e) => handleEditExpense(row.id, 'date', e.target.value)}
-                                                                        disabled={editingRowId !== row.id}
-                                                                    />
+                                                                    <div className={getEdbcColumnConfig(EDBC_IDS.EDBC2)?.filterWidthClass}>
+                                                                        <CustomDateField
+                                                                            value={row.date}
+                                                                            onChange={(dateStr) => handleEditExpense(row.id, 'date', dateStr)}
+                                                                            placeholder={expensesDstCol2Label}
+                                                                            alwaysOpenBelow
+                                                                            controlHeightPx={EDBC_FILTER_CONTROL_HEIGHT_PX}
+                                                                            className={` [&>div]:!w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] [&>div:hover]:!border-[rgba(191,152,83,0.4)] ${row.date ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
+                                                                        />
+                                                                    </div>
                                                                 </td>
                                                             ) : (
                                                                 <EdbcDateBodyCell
@@ -4612,20 +4627,19 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                         isClearable
                                                                         menuPortalTarget={document.body}
                                                                         menuPosition="fixed"
+                                                                        classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                                         styles={{
-                                                                            ...customStyles,
+                                                                            ...CASH_REGISTER_SELECT_STYLES,
                                                                             menu: (provided) => ({
-                                                                                ...provided,
+                                                                                ...CASH_REGISTER_SELECT_STYLES.menu(provided),
                                                                                 zIndex: 10050,
-                                                                                maxHeight: '300px',
-                                                                                overflow: 'auto',
                                                                             }),
                                                                             menuList: (provided) => ({
-                                                                                ...provided,
-                                                                                maxHeight: '300px',
-                                                                                overflowY: 'auto',
-                                                                                overflowX: 'hidden',
-                                                                                padding: '4px',
+                                                                                ...entryRowSelectMenuListStyle(provided),
+                                                                                paddingTop: 0,
+                                                                                paddingBottom: 0,
+                                                                                paddingLeft: 0,
+                                                                                paddingRight: 0,
                                                                                 WebkitOverflowScrolling: 'touch',
                                                                             }),
                                                                             menuPortal: (provided) => ({
@@ -4648,45 +4662,39 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             <td className="w-[30px] min-w-[30px] max-w-[30px] p-0 overflow-visible"></td>
                                                             {editingRowId === row.id ? (
                                                                 <td id={EDBC_IDS.EDBC3} className={getEdbcColumnConfig(EDBC_IDS.EDBC3)?.tdClass}>
-                                                                    <Select
-                                                                        name="project"
-                                                                        className={getEdbcColumnConfig(EDBC_IDS.EDBC3)?.filterWidthClass || ''}
-                                                                        value={siteOptions.find(opt => opt.id === Number(row.project_id)) || null}
-                                                                        onChange={(selectedOption) =>
-                                                                            handleEditExpense(
-                                                                                row.id,
-                                                                                "project_id",
-                                                                                selectedOption ? selectedOption.id : ""
-                                                                            )
-                                                                        }
-                                                                        options={siteOptions}
-                                                                        placeholder={expensesDstCol3Label}
-                                                                        isSearchable
-                                                                        isClearable
-                                                                        menuPortalTarget={document.body}
-                                                                        menuPosition="fixed"
-                                                                        styles={{
-                                                                            ...customStyles,
-                                                                            menu: (provided) => ({
-                                                                                ...provided,
-                                                                                zIndex: 10050,
-                                                                                maxHeight: '300px',
-                                                                                overflow: 'auto',
-                                                                            }),
-                                                                            menuList: (provided) => ({
-                                                                                ...provided,
-                                                                                maxHeight: '300px',
-                                                                                overflowY: 'auto',
-                                                                                overflowX: 'hidden',
-                                                                                padding: '4px',
-                                                                                WebkitOverflowScrolling: 'touch',
-                                                                            }),
-                                                                            menuPortal: (provided) => ({
-                                                                                ...provided,
-                                                                                zIndex: 10050,
-                                                                            }),
-                                                                        }}
-                                                                    />
+                                                                    <div className={getEdbcColumnConfig(EDBC_IDS.EDBC3)?.filterWidthClass}>
+                                                                        <Select
+                                                                            name="project"
+                                                                            className="text-xs focus:outline-none w-full"
+                                                                            value={siteOptions.find(opt => opt.id === Number(row.project_id)) || null}
+                                                                            onChange={(selectedOption) =>
+                                                                                handleEditExpense(
+                                                                                    row.id,
+                                                                                    "project_id",
+                                                                                    selectedOption ? selectedOption.id : ""
+                                                                                )
+                                                                            }
+                                                                            options={siteOptions}
+                                                                            placeholder={expensesDstCol3Label}
+                                                                            isSearchable
+                                                                            isClearable
+                                                                            menuPortalTarget={document.body}
+                                                                            menuPosition="fixed"
+                                                                            classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
+                                                                            styles={{
+                                                                                ...CASH_REGISTER_SELECT_STYLES,
+                                                                                menu: (provided) => ({
+                                                                                    ...CASH_REGISTER_SELECT_STYLES.menu(provided),
+                                                                                    zIndex: 10050,
+                                                                                }),
+                                                                                menuList: entryRowSelectMenuListStyle,
+                                                                                menuPortal: (provided) => ({
+                                                                                    ...provided,
+                                                                                    zIndex: 10050,
+                                                                                }),
+                                                                            }}
+                                                                        />
+                                                                    </div>
                                                                 </td>
                                                             ) : (
                                                                 <EdbcProjectNameBodyCell
@@ -4699,19 +4707,33 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             )}
                                                             <td id={EDBC_IDS.EDBC12} className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.tdClass}>
                                                                 {editingRowId === row.id ? (
-                                                                    <select
-                                                                        name="type"
-                                                                        className={`p-1 rounded-md bg-transparent box-border ${getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass || ''} h-[38px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none`}
-                                                                        value={row.type}
-                                                                        onChange={(e) => handleEditExpense(row.id, 'type', e.target.value)}
-                                                                    >
-                                                                        <option value="">Select</option>
-                                                                        {weeklyTypes.map((type, index) => (
-                                                                            <option key={index} value={type.type}>
-                                                                                {type.type}
-                                                                            </option>
-                                                                        ))}
-                                                                    </select>
+                                                                    <div className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass}>
+                                                                        <Select
+                                                                            name="type"
+                                                                            className="text-xs focus:outline-none w-full"
+                                                                            value={row.type ? { value: row.type, label: row.type } : null}
+                                                                            onChange={(selectedOption) => handleEditExpense(row.id, 'type', selectedOption ? selectedOption.value : '')}
+                                                                            options={weeklyTypes.map((type) => ({ value: type.type, label: type.type }))}
+                                                                            placeholder={expensesDstCol12Label}
+                                                                            isSearchable
+                                                                            isClearable
+                                                                            menuPortalTarget={document.body}
+                                                                            menuPosition="fixed"
+                                                                            classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
+                                                                            styles={{
+                                                                                ...CASH_REGISTER_SELECT_STYLES,
+                                                                                menu: (provided) => ({
+                                                                                    ...CASH_REGISTER_SELECT_STYLES.menu(provided),
+                                                                                    zIndex: 10050,
+                                                                                }),
+                                                                                menuList: entryRowSelectMenuListStyle,
+                                                                                menuPortal: (provided) => ({
+                                                                                    ...provided,
+                                                                                    zIndex: 10050,
+                                                                                }),
+                                                                            }}
+                                                                        />
+                                                                    </div>
                                                                 ) : (
                                                                     <div className="flex flex-col gap-1">
                                                                         <div className="flex items-center gap-2">
@@ -4754,7 +4776,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                             type="number"
                                                                             name="amount"
                                                                             style={EDBC_FILTER_CONTROL_BOX_STYLE}
-                                                                            className={`${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.inputClassName || ''} no-spinner border-[3px] border-[#BF9853] border-opacity-[20%]`}
+                                                                            className={`${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.inputClassName || ''} no-spinner`}
                                                                             value={row.amount}
                                                                             onChange={(e) => handleEditExpense(row.id, 'amount', e.target.value)}
                                                                             disabled={editingRowId !== row.id}
@@ -5089,9 +5111,9 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                         menuPosition="fixed"
                                                                         classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                                         styles={{
-                                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                                            ...CASH_REGISTER_SELECT_STYLES,
                                                                             menu: (provided) => ({
-                                                                                ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
+                                                                                ...CASH_REGISTER_SELECT_STYLES.menu(provided),
                                                                                 zIndex: 10050,
                                                                             }),
                                                                             menuList: entryRowSelectMenuListStyle,
@@ -5128,15 +5150,20 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     {sortedPayments.map((row, index) => (
                                                         <EdbcTableBodyRow key={row.id || index}>
                                                             {editingPaymentId === (row.id || null) ? (
-                                                                <td id={EDBC_IDS.EDBC2} className={`${EDBC2_FIRST_COLUMN_WIDTH_CLASS} pr-[1px] text-left`}>
-                                                                    <input
-                                                                        type="date"
-                                                                        value={row.date || ""}
-                                                                        onChange={(e) =>
-                                                                            handleEditPayment(index, "date", e.target.value)
-                                                                        }
-                                                                        className={`p-1 rounded-md bg-transparent box-border ${getEdbcColumnConfig(EDBC_IDS.EDBC2)?.filterWidthClass || ''} border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none`}
-                                                                    />
+                                                                <td id={EDBC_IDS.EDBC2} className={`pl-[12px] ${EDBC2_FIRST_COLUMN_WIDTH_CLASS} pr-[1px] text-left overflow-visible`}>
+                                                                    <div
+                                                                        className={`${getEdbcColumnConfig(EDBC_IDS.EDBC2)?.filterWidthClass || ''} overflow-visible relative z-[99999]`}
+                                                                    >
+                                                                        <CustomDateField
+                                                                            value={row.date || ""}
+                                                                            onChange={(dateStr) => handleEditPayment(index, "date", dateStr)}
+                                                                            placeholder={paymentsDstCol2Label}
+                                                                            alwaysOpenBelow
+                                                                            calendarPortal
+                                                                            controlHeightPx={EDBC_FILTER_CONTROL_HEIGHT_PX}
+                                                                            className={` !z-[99999] !overflow-visible [&_.absolute]:!z-[99999] [&>div]:!w-full [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] [&>div:hover]:!border-[rgba(191,152,83,0.4)] ${row.date ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
+                                                                        />
+                                                                    </div>
                                                                 </td>
                                                             ) : (
                                                                 <EdbcDateBodyCell
@@ -5150,21 +5177,33 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                             )}
                                                             {editingPaymentId === (row.id || null) ? (
                                                                 <td id={EDBC_IDS.EDBC12} className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.tdClass}>
-                                                                    <select
-                                                                        value={row.type || ""}
-                                                                        onChange={(e) =>
-                                                                            handleEditPayment(index, "type", e.target.value)
-                                                                        }
-                                                                        className={`p-1 rounded-md bg-transparent box-border ${getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass || ''} h-[38px] font-normal border-[3px] border-[#BF9853] border-opacity-[20%] focus:outline-none`}
-                                                                        disabled={editingPaymentId !== row.id}
-                                                                    >
-                                                                        <option value="">Select</option>
-                                                                        {weeklyReceivedTypes.map((type, idx) => (
-                                                                            <option key={idx} value={type.received_type}>
-                                                                                {type.received_type}
-                                                                            </option>
-                                                                        ))}
-                                                                    </select>
+                                                                    <div className={getEdbcColumnConfig(EDBC_IDS.EDBC12)?.filterWidthClass}>
+                                                                        <Select
+                                                                            name="type"
+                                                                            className="text-xs focus:outline-none w-full"
+                                                                            value={row.type ? { value: row.type, label: row.type } : null}
+                                                                            onChange={(selectedOption) => handleEditPayment(index, "type", selectedOption ? selectedOption.value : "")}
+                                                                            options={weeklyReceivedTypes.map((type) => ({ value: type.received_type, label: type.received_type }))}
+                                                                            placeholder={paymentsDstCol12Label}
+                                                                            isSearchable
+                                                                            isClearable
+                                                                            menuPortalTarget={document.body}
+                                                                            menuPosition="fixed"
+                                                                            classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
+                                                                            styles={{
+                                                                                ...CASH_REGISTER_SELECT_STYLES,
+                                                                                menu: (provided) => ({
+                                                                                    ...CASH_REGISTER_SELECT_STYLES.menu(provided),
+                                                                                    zIndex: 10050,
+                                                                                }),
+                                                                                menuList: entryRowSelectMenuListStyle,
+                                                                                menuPortal: (provided) => ({
+                                                                                    ...provided,
+                                                                                    zIndex: 10050,
+                                                                                }),
+                                                                            }}
+                                                                        />
+                                                                    </div>
                                                                 </td>
                                                             ) : (
                                                                 <EdbcExpandableBodyCell
@@ -5186,7 +5225,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                                 handleEditPayment(index, "amount", e.target.value)
                                                                             }
                                                                             style={EDBC_FILTER_CONTROL_BOX_STYLE}
-                                                                            className={`${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.inputClassName || ''} no-spinner border-[3px] border-[#BF9853] border-opacity-[20%]`}
+                                                                            className={`${getEdbcColumnConfig(EDBC_IDS.EDBC8)?.inputClassName || ''} no-spinner`}
                                                                             onWheel={(e) => e.preventDefault()}
                                                                             onFocus={() =>
                                                                                 window.addEventListener("wheel", (e) => e.preventDefault(), { passive: false })
@@ -5303,7 +5342,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                 href={weeklySummaryBillCopyUrl}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="text-[16px] font-semibold text-[#E4572E] hover:underline"
+                                                                className="text-[14px] font-semibold text-[#E4572E] hover:underline"
                                                                 title="View Signature Copy"
                                                             >
                                                                 {weeklySummaryFileLabel}
@@ -5381,30 +5420,31 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                     <div className="border-2 border-[#BF9853] border-opacity-25 w-[600px] rounded-lg p-4">
                                         <div className="grid grid-cols-3 gap-4">
                                             <div>
-                                                <label className="block text-sm font-semibold text-black mb-2">Date</label>
+                                                <label className="block text-[16px] font-semibold text-black mb-2">Date</label>
                                                 <CustomDateField
                                                     value={paymentPopupData.date || ''}
                                                     onChange={() => {}}
                                                     disabled
                                                     placeholder="Date"
+                                                    placeholderButtonClassName="text-[14px] font-normal placeholder:text-[#A6A5A6] placeholder:text-[14px]"
                                                     alwaysOpenBelow
                                                     calendarPortal
                                                     controlHeightPx={40}
-                                                    className={` [&>div]:!w-full [&>div]:!h-[40px] [&>div]:!min-h-[40px] [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] ${paymentPopupData.date ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
+                                                    className={` [&>div]:!w-full [&>div]:!h-[40px] [&>div]:!min-h-[40px] [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] ${paymentPopupData.date ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#A6A5A6] [&>div]:!font-normal'}`}
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-semibold text-black mb-2">Amount</label>
+                                                <label className="block text-[16px] font-semibold text-black mb-2">Amount</label>
                                                 <input
                                                     type="number"
                                                     value={paymentPopupData.amount}
                                                     onChange={(e) => setPaymentPopupData(prev => ({ ...prev, amount: e.target.value }))}
                                                     placeholder="Amount"
-                                                    className="border-2 border-[#BF9853] border-opacity-25 h-[40px] box-border px-2 rounded-lg w-full focus:outline-none no-spinner"
+                                                    className="border-2 border-[#BF9853] border-opacity-25 h-[40px] box-border px-2 rounded-lg w-full focus:outline-none no-spinner text-[14px] placeholder:text-[#A6A5A6] placeholder:text-[14px] placeholder:font-normal"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-semibold text-black mb-2">Mode</label>
+                                                <label className="block text-[16px] font-semibold text-black mb-2">Mode</label>
                                                 <Select
                                                     value={paymentPopupData.paymentMode ? { value: paymentPopupData.paymentMode, label: paymentPopupData.paymentMode } : null}
                                                     onChange={(selectedOption) => setPaymentPopupData(prev => ({ ...prev, paymentMode: selectedOption ? selectedOption.value : '' }))}
@@ -5419,18 +5459,24 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                     isClearable
                                                     menuPortalTarget={document.body}
                                                     menuPosition="fixed"
-                                                    className="w-full text-xs focus:outline-none"
+                                                    className="w-full text-[14px] focus:outline-none"
                                                     classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                     styles={{
-                                                        ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                        ...CASH_REGISTER_SELECT_STYLES,
                                                         control: (provided, state) => ({
-                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES.control(provided, state),
+                                                            ...CASH_REGISTER_SELECT_STYLES.control(provided, state),
                                                             minHeight: '40px',
                                                             height: '40px',
                                                             maxHeight: '40px',
                                                         }),
+                                                        placeholder: (provided) => ({
+                                                            ...CASH_REGISTER_SELECT_STYLES.placeholder(provided),
+                                                            color: '#A6A5A6',
+                                                            fontSize: '14px',
+                                                            fontWeight: 'normal',
+                                                        }),
                                                         menu: (provided) => ({
-                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
+                                                            ...CASH_REGISTER_SELECT_STYLES.menu(provided),
                                                             zIndex: 10050,
                                                         }),
                                                         menuList: entryRowSelectMenuListStyle,
@@ -5448,42 +5494,43 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                             {paymentPopupData.paymentMode === "Cheque" && (
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div>
-                                                        <label className="block text-sm font-semibold text-black mb-2">Cheque No</label>
+                                                        <label className="block text-[16px] font-semibold text-black mb-2">Cheque No</label>
                                                         <input
                                                             type="text"
                                                             value={paymentPopupData.chequeNo}
                                                             onChange={(e) => setPaymentPopupData(prev => ({ ...prev, chequeNo: e.target.value }))}
                                                             placeholder="Cheque No"
-                                                            className="border-2 border-[#BF9853] border-opacity-25 h-[40px] box-border px-2 rounded-lg w-full focus:outline-none"
+                                                            className="border-2 border-[#BF9853] border-opacity-25 h-[40px] box-border px-2 rounded-lg w-full focus:outline-none text-[14px] placeholder:text-[#A6A5A6] placeholder:text-[14px] placeholder:font-normal"
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-sm font-semibold text-black mb-2">Cheque Date</label>
+                                                        <label className="block text-[16px] font-semibold text-black mb-2">Cheque Date</label>
                                                         <CustomDateField
                                                             value={paymentPopupData.chequeDate || ''}
                                                             onChange={(dateStr) => setPaymentPopupData(prev => ({ ...prev, chequeDate: dateStr }))}
                                                             placeholder="Cheque Date"
+                                                            placeholderButtonClassName="text-[14px] font-normal placeholder:text-[#A6A5A6] placeholder:text-[14px]"
                                                             alwaysOpenBelow
                                                             calendarPortal
                                                             controlHeightPx={40}
-                                                            className={` [&>div]:!w-full [&>div]:!h-[40px] [&>div]:!min-h-[40px] [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] [&>div:hover]:!border-[rgba(191,152,83,0.4)] ${paymentPopupData.chequeDate ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#d3d5db] [&>div]:!font-normal'}`}
+                                                            className={` [&>div]:!w-full [&>div]:!h-[40px] [&>div]:!min-h-[40px] [&>div]:!border-2 [&>div]:!border-[rgba(191,152,83,0.2)] [&>div]:!rounded-lg [&>div]:!shadow-none [&>div]:!text-[14px] [&>div:hover]:!border-[rgba(191,152,83,0.4)] ${paymentPopupData.chequeDate ? '[&>div]:!text-black [&>div]:!font-normal' : '[&>div]:!text-[#A6A5A6] [&>div]:!font-normal'}`}
                                                         />
                                                     </div>
                                                 </div>
                                             )}
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <label className="block text-sm font-semibold text-black mb-2">Transaction Number</label>
+                                                    <label className="block text-[16px] font-semibold text-black mb-2">Transaction Number</label>
                                                     <input
                                                         type="text"
                                                         value={paymentPopupData.transactionNumber}
                                                         onChange={(e) => setPaymentPopupData(prev => ({ ...prev, transactionNumber: e.target.value }))}
                                                         placeholder="Transaction Number"
-                                                        className="border-2 border-[#BF9853] border-opacity-25 h-[40px] box-border px-2 rounded-lg w-full focus:outline-none"
+                                                        className="border-2 border-[#BF9853] border-opacity-25 h-[40px] box-border px-2 rounded-lg w-full focus:outline-none text-[14px] placeholder:text-[#A6A5A6] placeholder:text-[14px] placeholder:font-normal"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-semibold text-black mb-2">Account Number</label>
+                                                    <label className="block text-[16px] font-semibold text-black mb-2">Account Number</label>
                                                     <Select
                                                         value={paymentPopupData.accountNumber ? { value: paymentPopupData.accountNumber, label: paymentPopupData.accountNumber } : null}
                                                         onChange={(selectedOption) => setPaymentPopupData(prev => ({ ...prev, accountNumber: selectedOption ? selectedOption.value : '' }))}
@@ -5496,18 +5543,24 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                         isClearable
                                                         menuPortalTarget={document.body}
                                                         menuPosition="fixed"
-                                                        className="w-full text-xs focus:outline-none"
+                                                        className="w-full text-[14px] focus:outline-none"
                                                         classNames={ENTRY_ROW_SELECT_CLASS_NAMES}
                                                         styles={{
-                                                            ...DATABASE_TABLE_FILTER_SELECT_STYLES,
+                                                            ...CASH_REGISTER_SELECT_STYLES,
                                                             control: (provided, state) => ({
-                                                                ...DATABASE_TABLE_FILTER_SELECT_STYLES.control(provided, state),
+                                                                ...CASH_REGISTER_SELECT_STYLES.control(provided, state),
                                                                 minHeight: '40px',
                                                                 height: '40px',
                                                                 maxHeight: '40px',
                                                             }),
+                                                            placeholder: (provided) => ({
+                                                                ...CASH_REGISTER_SELECT_STYLES.placeholder(provided),
+                                                                color: '#A6A5A6',
+                                                                fontSize: '14px',
+                                                                fontWeight: 'normal',
+                                                            }),
                                                             menu: (provided) => ({
-                                                                ...DATABASE_TABLE_FILTER_SELECT_STYLES.menu(provided),
+                                                                ...CASH_REGISTER_SELECT_STYLES.menu(provided),
                                                                 zIndex: 10050,
                                                             }),
                                                             menuList: entryRowSelectMenuListStyle,
@@ -5531,7 +5584,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                         <div className="border-2 border-[#BF9853] border-opacity-25 w-[600px] rounded-lg p-4 mb-4">
                                                             <div className="grid grid-cols-3 gap-4">
                                                                 <div>
-                                                                    <label className="block text-sm font-semibold text-black mb-2">Date</label>
+                                                                    <label className="block text-[16px] font-semibold text-black mb-2">Date</label>
                                                                     <input
                                                                         type="text"
                                                                         value={new Date(payment.date).toLocaleDateString('en-GB')}
@@ -5540,7 +5593,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <label className="block text-sm font-semibold text-black mb-2">Amount</label>
+                                                                    <label className="block text-[16px] font-semibold text-black mb-2">Amount</label>
                                                                     <input
                                                                         type="text"
                                                                         value={payment.amount.toLocaleString('en-IN')}
@@ -5549,7 +5602,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <label className="block text-sm font-semibold text-black mb-2">Mode</label>
+                                                                    <label className="block text-[16px] font-semibold text-black mb-2">Mode</label>
                                                                     <input
                                                                         type="text"
                                                                         value={payment.bill_payment_mode}
@@ -5564,7 +5617,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                 {payment.bill_payment_mode === "Cheque" && (
                                                                     <div className="grid grid-cols-2 gap-4">
                                                                         <div>
-                                                                            <label className="block text-sm font-semibold text-black mb-2">Cheque No</label>
+                                                                            <label className="block text-[16px] font-semibold text-black mb-2">Cheque No</label>
                                                                             <input
                                                                                 type="text"
                                                                                 value={payment.cheque_number || ""}
@@ -5573,7 +5626,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                             />
                                                                         </div>
                                                                         <div>
-                                                                            <label className="block text-sm font-semibold text-black mb-2">Cheque Date</label>
+                                                                            <label className="block text-[16px] font-semibold text-black mb-2">Cheque Date</label>
                                                                             <input
                                                                                 type="text"
                                                                                 value={payment.cheque_date ? new Date(payment.cheque_date).toLocaleDateString('en-GB') : ""}
@@ -5585,7 +5638,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                 )}
                                                                 <div className="grid grid-cols-2 gap-4">
                                                                     <div>
-                                                                        <label className="block text-sm font-semibold text-black mb-2">Transaction Number</label>
+                                                                        <label className="block text-[16px] font-semibold text-black mb-2">Transaction Number</label>
                                                                         <input
                                                                             type="text"
                                                                             value={payment.transaction_number || ""}
@@ -5594,7 +5647,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                                         />
                                                                     </div>
                                                                     <div>
-                                                                        <label className="block text-sm font-semibold text-black mb-2">Account Number</label>
+                                                                        <label className="block text-[16px] font-semibold text-black mb-2">Account Number</label>
                                                                         <input
                                                                             type="text"
                                                                             value={payment.account_number || ""}
@@ -5845,21 +5898,21 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                     </div>
                     )}
                     {showPopups && (currentRow?.type === "Project Advance" || currentRow?.type === "Bill Payment") && (
-                        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-                            <div className="bg-white rounded-xl shadow-lg p-6 w-[400px]">
-                                <label className="block mb-3 text-left">
-                                    <span className="font-semibold">Description</span>
-                                    <input
-                                        type="text"
+                        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[9999]">
+                            <div className="bg-white rounded-xl shadow-lg p-6 w-[650px]">
+                                <label className="block text-left">
+                                    <span className="font-semibold text-[18px] block mb-[8px]">Description</span>
+                                    <textarea
                                         name="description"
+                                        rows={4}
+                                        className="w-full lg:w-[616px] p-2 border-2 border-[#BF9853] border-opacity-25 rounded-lg focus:outline-none resize-none whitespace-normal break-words"
                                         value={editFormData.description}
-                                        className="w-full p-2 border border-gray-300 rounded-lg mt-1"
                                         onChange={handleEditChange}
                                         readOnly={Boolean(currentRow?.description)}
                                     />
                                 </label>
-                                <div className="flex justify-end gap-3 mt-4">
-                                    <button onClick={() => setShowPopups(false)} className="px-4 py-2 bg-gray-200 rounded-lg">
+                                <div className="flex justify-end gap-[18px] mt-[18px]">
+                                    <button onClick={() => setShowPopups(false)} className="px-4 py-2 border border-[#BF9853] text-[#BF9853] rounded-md">
                                         Close
                                     </button>
                                     {!portalDescriptions[currentRow?.advance_portal_id] && (
@@ -5868,7 +5921,8 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                                 await updateDescription(currentRow.advance_portal_id, editFormData.description);
                                                 setShowPopups(false);
                                             }}
-                                            className="px-4 py-2 bg-green-600 text-white rounded-lg"
+                                            disabled={!(editFormData.description || "").trim()}
+                                            className="px-4 py-2 bg-[#BF9853] text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             Save
                                         </button>
@@ -5878,10 +5932,10 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                         </div>
                     )}
                     {showBillExpenseEntryModal ? (
-                        <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-lg w-full max-w-[1824px] max-h-[92vh] overflow-y-auto shadow-lg relative">
-                                <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-                                    <p className="text-sm font-semibold text-[#202020]">Expense Entry</p>
+                        <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-[18px]">
+                            <div className="bg-white rounded-lg w-full max-w-[690px] max-h-[92vh] overflow-y-auto shadow-lg relative p-[18px]">
+                                <div className="flex items-center justify-between mb-[12px]">
+                                    <p className="text-[18px] font-semibold text-[#202020]">Expense Entry</p>
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -5889,13 +5943,12 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                             setShowBillExpenseEntryModal(false);
                                             localStorage.removeItem('expenseEntryPrefill');
                                         }}
-                                        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors duration-200 text-gray-500 text-xl"
+                                        className="w-3 h-3 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors duration-200 text-gray-500 text-xl"
                                     >
-                                        ×
+                                        <img src={FileRemover} className="w-4 h-4" alt="Close" />
                                     </button>
                                 </div>
-                                <div className="p-3">
-                                    <ExpenseEntryForm
+                                <ExpenseEntryForm
                                         username={username}
                                         userRoles={userRoles}
                                         embedded
@@ -5907,7 +5960,6 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                             setExpenseEntryRefreshNonce((n) => n + 1);
                                         }}
                                     />
-                                </div>
                             </div>
                         </div>
                     ) : null}
@@ -5967,7 +6019,7 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                     ) : null}
                     {fileUploadPopup && (
                         <div
-                            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+                            className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center"
                             onKeyDown={(e) => {
                                 if (e.key === 'Escape') {
                                     setFileUploadPopup(false);
@@ -5994,39 +6046,76 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                     </div>
                                 )}
                                 <div className="mb-4">
-                                    <label className="block mb-2 text-sm font-medium">
-                                        Select PDF File
+                                    <label
+                                        htmlFor="weekly-payment-history-file-upload-input"
+                                        className="flex flex-col items-center justify-center w-full h-[120px] border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                                    >
+                                        <svg width="40" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d="M17 8L12 3L7 8" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d="M12 3V15" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        <p className="text-[14px] font-medium text-[#E4572E] mt-[4px]">Click to Upload</p>
+                                        <p className="text-[10px] text-gray-400">Files will be compressed on upload</p>
                                     </label>
                                     <input
+                                        id="weekly-payment-history-file-upload-input"
                                         type="file"
                                         accept="application/pdf"
                                         onChange={handleFileSelectInPopup}
-                                        className="w-full p-2 border-2 border-[#BF9853] border-opacity-25 rounded-lg focus:outline-none"
+                                        className="hidden"
                                     />
                                     {selectedFileForPopup && (
-                                        <p className="text-sm text-green-600 mt-2">
-                                            ✓ {selectedFileForPopup.name} selected
-                                        </p>
+                                        <div className="mt-2">
+                                            <p className="text-[12px] font-medium text-black mb-[4px]">File Uploading</p>
+                                            <div className="bg-gray-50 rounded-lg p-[12px]">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-[12px] flex-1 min-w-0">
+                                                        <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#E4572E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-[12px] font-medium text-black truncate">{selectedFileForPopup.name}</p>
+                                                            <p className="text-[10px] text-gray-500">{(selectedFileForPopup.size / (1024 * 1024)).toFixed(2)} MB</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-[12px]">
+                                                        <button type="button" onClick={() => setSelectedFileForPopup(null)} className="text-red-500 hover:text-red-700">
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                                <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                                <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        </button>
+                                                        <span className="text-[12px] font-semibold text-black w-[40px] text-right">100%</span>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-2 w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div className="h-full w-full bg-[#BF9853] rounded-full" />
+                                                </div>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
-                                <div className="flex justify-end gap-3 mt-6">
+                                <div className="flex flex-col gap-3 mt-6 w-full">
+                                    <button onClick={handleSaveFileFromPopup} disabled={!selectedFileForPopup}
+                                        className={`w-full px-4 py-2 rounded-lg ${!selectedFileForPopup
+                                            ? 'bg-[#BF9853] opacity-50 cursor-not-allowed text-white'
+                                            : 'bg-[#BF9853] text-white'
+                                            }`}
+                                    >
+                                        Confirm
+                                    </button>
                                     <button
                                         onClick={() => {
                                             setFileUploadPopup(false);
                                             setCurrentFileRow(null);
                                             setSelectedFileForPopup(null);
                                         }}
-                                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors"
+                                        className="w-full px-4 py-2 border border-[#BF9853] text-[#BF9853] rounded-lg"
                                     >
                                         Cancel
-                                    </button>
-                                    <button onClick={handleSaveFileFromPopup} disabled={!selectedFileForPopup}
-                                        className={`px-4 py-2 rounded-lg ${!selectedFileForPopup
-                                            ? 'bg-gray-400 cursor-not-allowed'
-                                            : 'bg-green-600 hover:bg-green-700'
-                                            } text-white`}
-                                    >
-                                        {currentFileRow?.bill_copy_url ? 'Update File' : 'Upload File'}
                                     </button>
                                 </div>
                             </div>
@@ -6108,11 +6197,14 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                             }),
                                             clearIndicator: (provided) => ({
                                                 ...provided,
-                                                padding: '2px'
+                                                padding: '2px',
+                                                color: '#000000',
                                             }),
-                                            dropdownIndicator: (provided) => ({
+                                            dropdownIndicator: (provided, state) => ({
                                                 ...provided,
-                                                padding: '2px'
+                                                padding: '2px',
+                                                color: '#000000',
+                                                display: state.hasValue && state.selectProps.isClearable ? 'none' : 'flex',
                                             })
                                         }}
                                     />
@@ -6341,11 +6433,14 @@ const History = ({ username, userRoles = [], viewMode = 'default', onExportActio
                                             }),
                                             clearIndicator: (provided) => ({
                                                 ...provided,
-                                                padding: '2px'
+                                                padding: '2px',
+                                                color: '#000000',
                                             }),
-                                            dropdownIndicator: (provided) => ({
+                                            dropdownIndicator: (provided, state) => ({
                                                 ...provided,
-                                                padding: '2px'
+                                                padding: '2px',
+                                                color: '#000000',
+                                                display: state.hasValue && state.selectProps.isClearable ? 'none' : 'flex',
                                             }),
                                             menuPortal: (provided) => ({
                                                 ...provided,
@@ -6454,7 +6549,7 @@ const AuditModal = ({ show, onClose, audits, vendorOptions, contractorOptions, s
         return value ?? "-";
     };
     return (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center">
             <div className="bg-white rounded-md shadow-lg w-[95%] max-w-[1800px] mx-4 p-2">
                 <div className="flex justify-between items-center mt-4 ml-7 mr-7">
                     <h2 className="text-xl font-bold">History</h2>
@@ -6553,7 +6648,7 @@ const AuditModalWeeklyPaymentsReceived = ({ show, onClose, audits }) => {
         return value ?? "-";
     };
     return (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center">
             <div className="bg-white rounded-md shadow-lg w-[95%] max-w-[1800px] mx-4 p-2">
                 <div className="flex justify-between items-center mt-4 ml-7 mr-7">
                     <h2 className="text-xl font-bold">History</h2>
