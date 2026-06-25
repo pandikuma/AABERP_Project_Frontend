@@ -18,6 +18,7 @@ import {
     isExpenseEntryNonCashPaymentMode,
     buildExpenseEntryWeeklyBillSavePayload,
     saveExpenseEntryWeeklyPaymentBill,
+    syncWeeklyExpensesForExpensesEntryEdit,
 } from '../../utils/expensesEntryWeeklyPaymentBill';
 import CustomDateField from './CustomDateField';
 import CustomMonthField from './CustomMonthField';
@@ -1539,6 +1540,18 @@ const TableViewExpense = ({ username, userRoles = [], isActive = true }) => {
             } catch (weeklyErr) {
                 console.error('Weekly payment bills sync error:', weeklyErr);
                 throw weeklyErr;
+            }
+        }
+
+        if (expensesEntryId) {
+            try {
+                await syncWeeklyExpensesForExpensesEntryEdit(expensesEntryId, updatedFormData, {
+                    editedBy: username,
+                    existingWeeklyBills,
+                });
+            } catch (weeklyExpenseErr) {
+                console.error('Weekly expenses sync error:', weeklyExpenseErr);
+                throw weeklyExpenseErr;
             }
         }
     };

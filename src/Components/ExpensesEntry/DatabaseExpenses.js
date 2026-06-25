@@ -26,6 +26,7 @@ import {
     isExpenseEntryNonCashPaymentMode,
     buildExpenseEntryWeeklyBillSavePayload,
     saveExpenseEntryWeeklyPaymentBill,
+    syncWeeklyExpensesForExpensesEntryEdit,
 } from '../../utils/expensesEntryWeeklyPaymentBill';
 import {
     clearLinkedAdvancePortalForExpenseDelete,
@@ -1635,6 +1636,18 @@ const DatabaseExpenses = ({ username, userRoles = [], isActive = true }) => {
                 }
             } catch (weeklyErr) {
                 console.error('Weekly payment bills delete error:', weeklyErr);
+            }
+        }
+
+        if (expensesEntryId) {
+            try {
+                await syncWeeklyExpensesForExpensesEntryEdit(expensesEntryId, updatedFormData, {
+                    editedBy: username,
+                    existingWeeklyBills,
+                });
+            } catch (weeklyExpenseErr) {
+                console.error('Weekly expenses sync error:', weeklyExpenseErr);
+                throw weeklyExpenseErr;
             }
         }
     };

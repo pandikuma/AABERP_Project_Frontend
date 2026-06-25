@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
-import Reload from '../Images/Clear.svg';
-import Search from '../Images/Searchnew.svg';
+import {
+    EdbcTableToolbarRightActions,
+    EDBC_TABLE_EDGE_TABLE_CLASS,
+    EdbcTableHeaderRow,
+    EdbcTableBodyRow,
+    useEdbcExpandedCells,
+} from './databaseExpensesSharedColumns';
 
 const GET_FORM_URL = 'https://backendaab.in/demoAabuilderDash/expenses_form/get_form';
 /** Bulk audit log — single response (see ExpensesController GET /expenses_form/get/full_history). */
@@ -160,18 +165,14 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [logRows, setLogRows] = useState([]);
-    const [search, setSearch] = useState('');
+    const [overallSearch, setOverallSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
-    const [expandedCells, setExpandedCells] = useState({});
+    const { expandedCells, toggleExpandedCell } = useEdbcExpandedCells();
     const scrollRef = useRef(null);
     const isDragging = useRef(false);
     const start = useRef({ x: 0, y: 0 });
     const scroll = useRef({ left: 0, top: 0 });
-
-    const toggleExpandedCell = (key) => {
-        setExpandedCells((prev) => ({ ...prev, [key]: !prev[key] }));
-    };
 
     useEffect(() => {
         const syncBranch = () => setActiveBranchId(resolveActiveBranchId());
@@ -226,13 +227,19 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
         }
     }, [activeBranchId]);
 
+    const clearFilters = useCallback(() => {
+        setOverallSearch('');
+        setCurrentPage(1);
+        void loadHistory();
+    }, [loadHistory]);
+
     useEffect(() => {
         if (!isActive) return;
         void loadHistory();
     }, [isActive, activeBranchId, loadHistory]);
 
     const filteredRows = useMemo(() => {
-        const q = search.trim().toLowerCase();
+        const q = overallSearch.trim().toLowerCase();
         if (!q) return logRows;
         return logRows.filter((row) => {
             const blob = [
@@ -251,7 +258,7 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
                 .toLowerCase();
             return blob.includes(q);
         });
-    }, [logRows, search]);
+    }, [logRows, overallSearch]);
 
     const totalPages = Math.max(1, Math.ceil(filteredRows.length / itemsPerPage));
     const page = Math.min(currentPage, totalPages);
@@ -260,7 +267,7 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, itemsPerPage, logRows.length]);
+    }, [overallSearch, itemsPerPage, logRows.length]);
 
     const handleMouseDown = (e) => {
         if (!scrollRef.current) return;
@@ -293,31 +300,14 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
         <div className="flex flex-col h-[calc(100vh-104px)] overflow-hidden bg-[#FAF6ED]">
             <div className="px-[18px] pt-[18px] pb-[18px] flex flex-col flex-1 min-h-0 overflow-hidden bg-[#FAF6ED]">
                 <div className="w-full pt-[18px] px-[18px] bg-white rounded-[6px] flex flex-col flex-1 min-h-0 overflow-hidden">
-                    <div className="flex flex-row justify-between items-center mb-[12px] gap-[6px]">
-                        <h1 className="text-[18px] font-bold text-left text-[#202020]">Database history log</h1>
-                        <div className="flex items-end gap-[6px]">
-                            {loading && (
-                                <span className="text-sm text-gray-600 pb-1">Loading…</span>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => void loadHistory()}
-                                disabled={loading}
-                                className="flex h-[30px] w-[30px] shrink-0 items-center justify-center disabled:opacity-50"
-                            >
-                                <img className="w-full h-full" src={Reload} alt="Reload" />
-                            </button>
-                            <div className="w-[286px] min-w-[286px] translate-y-[2px] shrink-0 h-[34px] border border-[#D6D6D6] rounded-md bg-white flex items-center px-2 gap-1">
-                                <input
-                                    type="text"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Search Transactions..."
-                                    className="h-full w-full border-0 p-0 text-[14px] text-[#000000] bg-transparent outline-none"
-                                />
-                                <img src={Search} alt="Search" className="w-[16px] h-[16px] pointer-events-none" />
-                            </div>
-                        </div>
+                    <div className="text-left flex flex-row justify-between items-center mb-[12px] gap-[6px]">
+                        <div className="flex flex-row items-center sm:space-x-3 min-w-0 flex-1 overflow-hidden" />
+                        <EdbcTableToolbarRightActions
+                            onClearFilters={clearFilters}
+                            overallSearch={overallSearch}
+                            onOverallSearchChange={setOverallSearch}
+                            clearButtonType="button"
+                        />
                     </div>
 
                     {error && <div className="mb-3 text-sm text-red-600 text-left">{error}</div>}
@@ -331,9 +321,9 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
                             onMouseUp={handleMouseUp}
                             onMouseLeave={handleMouseUp}
                         >
-                            <table className="table-fixed w-full min-w-[1920px] border-collapse">
+                            <table className={`table-fixed w-full border-collapse ${EDBC_TABLE_EDGE_TABLE_CLASS} min-w-[1920px]`}>
                                 <thead className="sticky top-0 z-10 bg-white">
-                                    <tr className="bg-[#FAF6ED] h-[40px] text-[16px] font-bold text-center">
+                                    <EdbcTableHeaderRow>
                                         <th className="pl-[12px] w-[50px] font-bold text-left">#</th>
                                         <th className="pl-[1px] pr-[1px] w-[168px] font-bold text-left">Edited (log time)</th>
                                         <th className="pl-[1px] pr-[1px] w-[120px] font-bold text-left">Edited by</th>
@@ -345,7 +335,7 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
                                         <th className="pl-[4px] pr-[1px] w-[170px] font-bold text-left">Entry date (old → new)</th>
                                         <th className="pl-[1px] pr-[1px] w-[158px] font-bold text-left">Category (old → new)</th>
                                         <th className="pl-[9px] pr-[12px] w-[248px] font-bold text-left">Comments (trimmed)</th>
-                                    </tr>
+                                    </EdbcTableHeaderRow>
                                 </thead>
                                 <tbody>
                                     {loading && logRows.length === 0 ? (
@@ -375,7 +365,7 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
                                                 </span>
                                             );
                                             return (
-                                                <tr key={row.key} className="odd:bg-white even:bg-[#FAF6ED] text-[14px] font-semibold min-h-[40px]">
+                                                <EdbcTableBodyRow key={row.key}>
                                                     <td className="pl-[12px] w-[50px] text-left">{startIdx + i + 1}</td>
                                                     <td className="pl-[1px] pr-[1px] w-[168px] text-left">
                                                         {cell('editedDate', formatLogTimestamp(row.editedDate))}
@@ -407,7 +397,7 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
                                                     <td className="pl-[9px] pr-[12px] w-[248px] text-left text-gray-700">
                                                         {cell('commentsSnippet', row.commentsSnippet)}
                                                     </td>
-                                                </tr>
+                                                </EdbcTableBodyRow>
                                             );
                                         })
                                     )}
@@ -426,11 +416,18 @@ const DatabaseExpenseHistoryLog = ({ username: _username, userRoles: _userRoles 
                                     }}
                                     className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#BF9853]"
                                 >
-                                    {[25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map((n) => (
-                                        <option key={n} value={n}>
-                                            {n}
-                                        </option>
-                                    ))}
+                                    <option value={25}>25</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                    <option value={200}>200</option>
+                                    <option value={300}>300</option>
+                                    <option value={400}>400</option>
+                                    <option value={500}>500</option>
+                                    <option value={600}>600</option>
+                                    <option value={700}>700</option>
+                                    <option value={800}>800</option>
+                                    <option value={900}>900</option>
+                                    <option value={1000}>1000</option>
                                 </select>
                             </div>
                             <div className="flex items-center space-x-2">

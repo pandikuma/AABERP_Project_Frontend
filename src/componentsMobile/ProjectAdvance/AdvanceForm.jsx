@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import SelectVendorModal from '../PurchaseOrder/SelectVendorModal';
 import DatePickerModal from '../PurchaseOrder/DatePickerModal';
 import Attach from '../Images/Attachfile.svg';
 import CloseIcon from '../Images/Close F.svg'
 import { fetchUserModulePermissions } from '../utils/fetchUserModulePermissions';
 import {
-  fetchAdvancePortalListForMobile,
+  fetchAdvancePortalGetAll,
   fetchMaxEntryNoFromBranch,
-  computeAdvanceTotalsFromGetAll,
+  filterAdvanceRowsForSelection,
+  computeAdvanceTotalsFromRows,
 } from './advancePortalApi';
 import {
   postBankRegisterLogSave,
@@ -122,6 +123,7 @@ const AdvanceForm = ({
   const [transferSiteId, setTransferSiteId] = useState('');
   const [entryNo, setEntryNo] = useState(1);
   const [advanceData, setAdvanceData] = useState([]);
+  const [isAdvanceFullLoading, setIsAdvanceFullLoading] = useState(false);
   const [overallAdvance, setOverallAdvance] = useState(0);
   const [selectedAdvanceFile, setSelectedAdvanceFile] = useState(null);
   const fileInputRef = useRef(null);
@@ -529,31 +531,35 @@ const AdvanceForm = ({
     return () => clearTimeout(t);
   }, [selectedType, eno]);
 
-  // Fetch advance data — paged / getLast150 only (not getAll)
-  const fetchAdvanceData = async () => {
+  const fetchAdvancePortalData = useCallback(async () => {
+    setIsAdvanceFullLoading(true);
     try {
-      const rows = await fetchAdvancePortalListForMobile(withBranchUrl);
-      setAdvanceData(rows);
-      const maxEntryNo = await fetchMaxEntryNoFromBranch(withBranchUrl);
+      const [fullRows, maxEntryNo] = await Promise.all([
+        fetchAdvancePortalGetAll(withBranchUrl),
+        fetchMaxEntryNoFromBranch(withBranchUrl),
+      ]);
+      setAdvanceData(fullRows);
       setEntryNo(maxEntryNo + 1);
     } catch (error) {
       console.error('Error fetching advance portal data:', error);
+    } finally {
+      setIsAdvanceFullLoading(false);
     }
-  };
+  }, [withBranchUrl]);
 
-  // Advance tab: only load paged advance rows (small JSON). Vendor/project/category lists load on first picker open.
+  // Advance tab: one getAll for list + totals (matches desktop). Vendor/project lists load on first picker open.
   useEffect(() => {
     if (!isAdvanceTabActive) return;
     advanceStaggerBranchKeyRef.current = String(activeBranchId ?? 'null');
     let cancelled = false;
     const t = setTimeout(() => {
-      if (!cancelled) fetchAdvanceData();
+      if (!cancelled) void fetchAdvancePortalData();
     }, 120);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [isAdvanceTabActive, activeBranchId]);
+  }, [isAdvanceTabActive, activeBranchId, fetchAdvancePortalData]);
 
   // Apply initialFromHistory when user navigated from History
   useEffect(() => {
@@ -567,42 +573,38 @@ const AdvanceForm = ({
     onConsumedInitialFromHistory();
   }, [initialFromHistory, onConsumedInitialFromHistory, applyEditContext]);
 
-  // Vendor overall + project advance: match desktop AdvancePortal.js (full getAll), not paged advanceData.
-  const refreshTotalsFromServer = useCallback(async () => {
+  const filteredAdvanceEntries = useMemo(() => {
+    if (!selectedOption || !selectedSite) return [];
+    return filterAdvanceRowsForSelection(advanceData, selectedOption, selectedSite).sort(
+      (a, b) => (Number(b.entry_no) || 0) - (Number(a.entry_no) || 0)
+    );
+  }, [advanceData, selectedOption, selectedSite]);
+
+  // Totals from cached getAll — no extra network call when vendor/project changes.
+  useEffect(() => {
     if (!selectedOption) {
       setOverallAdvance(0);
       setProjectAdvance('');
       return;
     }
-    try {
-      const { overall, projectAmount } = await computeAdvanceTotalsFromGetAll(
-        withBranchUrl,
-        selectedOption,
-        selectedSite || null
-      );
-      setOverallAdvance(overall);
-      if (projectAmount !== null) {
-        setProjectAdvance(projectAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 }));
-      } else {
-        setProjectAdvance('');
-      }
-    } catch (error) {
-      console.error('Error fetching advance totals:', error);
-      setOverallAdvance(0);
+    const { overall, projectAmount } = computeAdvanceTotalsFromRows(
+      advanceData,
+      selectedOption,
+      selectedSite || null
+    );
+    setOverallAdvance(overall);
+    if (projectAmount !== null) {
+      setProjectAdvance(projectAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 }));
+    } else {
       setProjectAdvance('');
     }
-  }, [withBranchUrl, selectedOption, selectedSite]);
-
-  useEffect(() => {
-    void refreshTotalsFromServer();
-  }, [refreshTotalsFromServer]);
+  }, [advanceData, selectedOption, selectedSite]);
 
   // Combine vendor and contractor options
   useEffect(() => {
     setCombinedOptions([...vendorOptions, ...contractorOptions]);
   }, [vendorOptions, contractorOptions]);
 
-  // Handle contractor/vendor change — totals refresh via refreshTotalsFromServer (getAll parity with desktop).
   const handleChange = async (selected) => {
     setSelectedOption(selected);
     if (selected) {
@@ -1050,8 +1052,7 @@ const AdvanceForm = ({
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      void fetchAdvanceData();
-      void refreshTotalsFromServer();
+      void fetchAdvancePortalData();
     } catch (error) {
       console.error('Error submitting data:', error);
       alert('Failed to save data!');
@@ -1264,8 +1265,7 @@ const AdvanceForm = ({
         if (idToLock) {
           void setAllowToEdit(idToLock, false);
         }
-        void fetchAdvanceData();
-        void refreshTotalsFromServer();
+        void fetchAdvancePortalData();
       };
 
       if (selectedType === 'Transfer') {
@@ -1599,8 +1599,7 @@ const AdvanceForm = ({
       setSelectedCategory(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       setEntryNo(nextEntryNo);
-      void fetchAdvanceData();
-      void refreshTotalsFromServer();
+      void fetchAdvancePortalData();
     } catch (error) {
       console.error('Error submitting payment details:', error);
       alert(error?.message || 'Failed to save data!');
@@ -2100,46 +2099,28 @@ const AdvanceForm = ({
 
       {/* Advance Records - only this section scrolls */}
       <div className="mt-3 w-full flex-1 min-h-0 flex flex-col">
-        {!selectedOption || !selectedSite ? (
+        {isAdvanceFullLoading ? (
+          <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
+            <p className="text-[12px] font-medium text-[#9E9E9E]">Loading advance records...</p>
+          </div>
+        ) : !selectedOption || !selectedSite ? (
           <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
             <p className="text-[12px] font-medium text-[#9E9E9E]">
               Please select a contractor/vendor and project to view advance records.
             </p>
           </div>
-        ) : (() => {
-          const vid = selectedOption?.id != null ? Number(selectedOption.id) : null;
-          const pid = selectedSite?.id != null ? Number(selectedSite.id) : null;
-          const filteredEntries = advanceData
-            .filter(entry => {
-              const isMatchingVendor =
-                selectedOption?.type === 'Vendor'
-                  ? Number(entry.vendor_id) === vid
-                  : selectedOption?.type === 'Contractor'
-                    ? Number(entry.contractor_id) === vid
-                    : false;
-              const isForCurrentProject = Number(entry.project_id) === pid;
-              return isMatchingVendor && isForCurrentProject;
-            })
-            .sort((a, b) => {
-              const entryNoA = a.entry_no || 0;
-              const entryNoB = b.entry_no || 0;
-              return entryNoB - entryNoA;
-            });
-          if (filteredEntries.length === 0) {
-            return (
-              <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
-                <p className="text-[12px] font-medium text-[#9E9E9E]">
-                  No records found for the selected contractor/vendor and project.
-                </p>
-              </div>
-            );
-          }
-          return (
-            <div
-              className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y [&::-webkit-scrollbar]:hidden"
-              style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
-            >
-              {filteredEntries.map((entry, index) => {
+        ) : filteredAdvanceEntries.length === 0 ? (
+          <div className="bg-white border border-[#E0E0E0] rounded-[8px] px-[16px] py-[24px] text-center">
+            <p className="text-[12px] font-medium text-[#9E9E9E]">
+              No records found for the selected contractor/vendor and project.
+            </p>
+          </div>
+        ) : (
+          <div
+            className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+          >
+            {filteredAdvanceEntries.map((entry, index) => {
                 const {
                   date,
                   amount,
@@ -2244,9 +2225,8 @@ const AdvanceForm = ({
                   </div>
                 );
               })}
-            </div>
-          );
-        })()}
+          </div>
+        )}
       </div>
 
       {/* Select Type Modal */}
